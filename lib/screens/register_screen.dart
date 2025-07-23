@@ -3,8 +3,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/screens/home_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lingua_chat/screens/verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -96,10 +97,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _register() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate() || _selectedGender == null) {
       if (_selectedGender == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen cinsiyetinizi seçin.'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Please select your gender.'), backgroundColor: Colors.red),
         );
       }
       return;
@@ -116,7 +117,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!isAvailable) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu kullanıcı adı zaten alınmış.'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('This username is already taken.'), backgroundColor: Colors.red),
         );
         setState(() { _isLoading = false; });
         return;
@@ -133,19 +134,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       if (userCredential != null) {
+        // Kayıt başarılı, kullanıcıyı doğrulama ekranına yönlendir.
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kayıt başarısız oldu. Lütfen bilgilerinizi kontrol edip tekrar deneyin.')),
+          MaterialPageRoute(
+            builder: (context) => VerificationScreen(email: _emailController.text.trim()),
+          ),
         );
       }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration Error: ${e.message ?? "An unknown error occurred"}')),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kayıt sırasında hata: ${e.toString()}')),
+        SnackBar(content: Text('An unexpected error occurred: ${e.toString()}')),
       );
     } finally {
       if (mounted) {
@@ -175,7 +180,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(hintText: 'Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(32.0)))),
-                  validator: (value) => (value == null || !value.contains('@')) ? 'Please enter a valid email' : null,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter an email address.';
+                    }
+                    final bool emailValid =
+                    RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
+                        .hasMatch(value);
+                    if (!emailValid) {
+                      return 'Please enter a valid email address.';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12.0),
                 TextFormField(

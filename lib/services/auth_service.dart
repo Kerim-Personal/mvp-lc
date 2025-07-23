@@ -24,6 +24,9 @@ class AuthService {
       // 1. Firebase Authentication ile kullanıcıyı oluştur.
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
 
+      // E-posta doğrulama linki gönder
+      await userCredential.user?.sendEmailVerification();
+
       // 2. Kullanıcının ek bilgilerini Firestore veritabanına kaydet.
       if (userCredential.user != null) {
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
@@ -38,22 +41,28 @@ class AuthService {
       }
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      // Hata yönetimi
-      print('Firebase Auth Hatası: ${e.message}');
-      return null;
-    } catch (e) {
-      print('Beklenmedik bir hata oluştu: ${e.toString()}');
-      return null;
+      // Hata yönetimi için hatayı yeniden fırlat
+      throw e;
     }
   }
 
   /// Mevcut kullanıcının giriş yapmasını sağlar.
-  Future<UserCredential?> signIn(String email, String password) async {
+  Future<UserCredential> signIn(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(email: email, password: password);
-    } catch (e) {
-      print(e.toString());
-      return null;
+      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+
+      // E-posta doğrulaması kontrolü
+      if (userCredential.user != null && !userCredential.user!.emailVerified) {
+        // Kullanıcı var ama e-postası doğrulanmamışsa özel bir hata fırlat
+        throw FirebaseAuthException(
+          code: 'email-not-verified',
+          message: 'Lütfen giriş yapmadan önce e-postanızı doğrulayın.',
+        );
+      }
+      return userCredential;
+    } on FirebaseAuthException {
+      // Hatanın kendisini yeniden fırlatarak UI katmanının yakalamasına izin ver
+      rethrow;
     }
   }
 

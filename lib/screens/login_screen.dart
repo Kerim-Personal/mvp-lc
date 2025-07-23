@@ -1,7 +1,11 @@
+// lib/screens/login_screen.dart
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/screens/home_screen.dart';
-import 'package:lingua_chat/screens/register_screen.dart'; // Yeni ekran
-import 'package:lingua_chat/services/auth_service.dart'; // Servisimiz
+import 'package:lingua_chat/screens/register_screen.dart';
+import 'package:lingua_chat/services/auth_service.dart';
+import 'package:lingua_chat/screens/verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,12 +38,41 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       }
-    } catch (e) {
-      // Hata mesajını kullanıcıya göster
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String errorMessage;
+
+      if (e.code == 'email-not-verified') {
+        // Kullanıcıyı doğrulama ekranına yönlendir
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerificationScreen(email: _emailController.text.trim()),
+          ),
+        );
+        // Hata mesajı göstermeden işlemi bitiriyoruz çünkü yeni bir ekrana yönlendirdik.
+        //setState'in finally içinde çağrılması yeterli.
+
+      } else if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        errorMessage = 'Invalid email or password.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      } else {
+        errorMessage = 'An unexpected error occurred. Please try again.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      }
+
+    } catch(e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Giriş başarısız: Kullanıcı adı veya şifre hatalı.')),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
-    } finally {
+    }
+    finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -97,16 +130,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
                   padding: const EdgeInsets.symmetric(vertical: 16.0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(32.0),
                   ),
                 ),
                 onPressed: _login,
-                child: const Text('Log In'),
+                child: const Text('Log In', style: TextStyle(color: Colors.white)),
               ),
               TextButton(
-                child: const Text('Don\'t have an account? Register'),
+                child: const Text('Don\'t have an account? Register', style: TextStyle(color: Colors.teal)),
                 onPressed: () {
                   // Kayıt olma ekranına yönlendir
                   Navigator.push(
