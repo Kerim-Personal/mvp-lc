@@ -1,8 +1,13 @@
+// lib/screens/home_screen.dart
+
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
+// ==================== HATA 1 DÜZELTİLDİ ====================
+// 'package.lingua_chat' -> 'package:lingua_chat' olarak düzeltildi.
 import 'package:lingua_chat/screens/goals_screen.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
@@ -21,9 +26,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   StreamSubscription? _matchListener;
   Future<String?>? _userNameFuture;
 
-  AnimationController? _pulseAnimationController;
-  Animation<double>? _scaleAnimation;
-  AnimationController? _searchAnimationController;
+  late AnimationController _entryAnimationController;
+  late AnimationController _pulseAnimationController;
+  late AnimationController _searchAnimationController;
+
+  late Animation<double> _headerFade, _statsFade, _buttonFade, _cardFade;
+  late Animation<Offset> _headerSlide, _statsSlide, _buttonSlide, _cardSlide;
 
   @override
   void initState() {
@@ -31,40 +39,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (_currentUser != null) {
       _userNameFuture = _getUserName(_currentUser!.uid);
     }
+    _setupAnimations();
+    _entryAnimationController.forward();
+  }
+
+  void _setupAnimations() {
+    _entryAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
 
     _pulseAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 1),
+      duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-
-    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _pulseAnimationController!,
-        curve: Curves.easeInOut,
-      ),
-    );
 
     _searchAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+
+    _headerFade = _createFadeAnimation(begin: 0.0, end: 0.6);
+    _headerSlide = _createSlideAnimation(begin: 0.0, end: 0.6);
+
+    _statsFade = _createFadeAnimation(begin: 0.2, end: 0.8);
+    _statsSlide = _createSlideAnimation(begin: 0.2, end: 0.8);
+
+    _buttonFade = _createFadeAnimation(begin: 0.4, end: 1.0);
+    _buttonSlide = _createSlideAnimation(begin: 0.4, end: 1.0, yOffset: 0.5);
+
+    _cardFade = _createFadeAnimation(begin: 0.6, end: 1.0);
+    _cardSlide = _createSlideAnimation(begin: 0.6, end: 1.0);
+  }
+
+  Animation<double> _createFadeAnimation({required double begin, required double end}) {
+    return Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+      parent: _entryAnimationController,
+      curve: Interval(begin, end, curve: Curves.easeOut),
+    ));
+  }
+
+  Animation<Offset> _createSlideAnimation({required double begin, required double end, double yOffset = 0.2}) {
+    return Tween<Offset>(begin: Offset(0, yOffset), end: Offset.zero).animate(CurvedAnimation(
+      parent: _entryAnimationController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    ));
   }
 
   Future<String?> _getUserName(String uid) async {
     try {
-      final doc =
-      await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       return doc.data()?['displayName'] as String?;
     } catch (e) {
-      return null;
+      return "Gezgin";
     }
   }
 
   @override
   void dispose() {
     _matchListener?.cancel();
-    _pulseAnimationController?.dispose();
-    _searchAnimationController?.dispose();
+    _entryAnimationController.dispose();
+    _pulseAnimationController.dispose();
+    _searchAnimationController.dispose();
     super.dispose();
   }
 
@@ -76,35 +112,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final String myId = _currentUser!.uid;
-    final waitingPoolRef =
-    FirebaseFirestore.instance.collection('waiting_pool');
+    final waitingPoolRef = FirebaseFirestore.instance.collection('waiting_pool');
 
     try {
       await waitingPoolRef.doc(myId).delete();
     } catch (e) {
-      // Sorun değil, doküman zaten olmayabilir.
+      // Sorun değil, devam et.
     }
 
     try {
-      final query = waitingPoolRef
-          .where('userId', isNotEqualTo: myId)
-          .orderBy('waitingSince');
-
+      final query = waitingPoolRef.where('userId', isNotEqualTo: myId).orderBy('waitingSince');
       final potentialMatches = await query.get();
 
       if (potentialMatches.docs.isNotEmpty) {
         final otherUserDoc = potentialMatches.docs.first;
         final otherUserId = otherUserDoc.id;
 
-        final String? chatRoomId =
-        await FirebaseFirestore.instance.runTransaction((transaction) async {
-          final otherUserSnapshot =
-          await transaction.get(otherUserDoc.reference);
-
+        final String? chatRoomId = await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final otherUserSnapshot = await transaction.get(otherUserDoc.reference);
           if (otherUserSnapshot.exists) {
-            final newChatRoomRef =
-            FirebaseFirestore.instance.collection('chats').doc();
-
+            final newChatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
             transaction.set(newChatRoomRef, {
               'users': [myId, otherUserId],
               'createdAt': FieldValue.serverTimestamp(),
@@ -112,9 +139,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               '${myId}_lastActive': FieldValue.serverTimestamp(),
               '${otherUserId}_lastActive': FieldValue.serverTimestamp(),
             });
-
-            transaction.update(
-                otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
+            transaction.update(otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
             return newChatRoomRef.id;
           }
           return null;
@@ -137,22 +162,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _listenForMatch();
       }
     } catch (e) {
-      await _cancelSearch();
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(SnackBar(
+          content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ));
+        await _cancelSearch();
+      }
     }
   }
 
   void _listenForMatch() {
     if (_currentUser == null) return;
     _matchListener?.cancel();
-
-    _matchListener = FirebaseFirestore.instance
-        .collection('waiting_pool')
-        .doc(_currentUser!.uid)
-        .snapshots()
-        .listen((snapshot) async {
+    _matchListener = FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).snapshots().listen((snapshot) async {
       if (!mounted) return;
-      if (snapshot.exists &&
-          snapshot.data()!.containsKey('matchedChatRoomId')) {
+      if (snapshot.exists && snapshot.data()!.containsKey('matchedChatRoomId')) {
         final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
         await snapshot.reference.delete();
         _navigateToChat(chatRoomId);
@@ -163,11 +188,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _cancelSearch() async {
     _matchListener?.cancel();
     if (_currentUser != null) {
-      FirebaseFirestore.instance
-          .collection('waiting_pool')
-          .doc(_currentUser!.uid)
-          .delete()
-          .catchError((_) {});
+      FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).delete().catchError((_) {});
     }
     if (mounted) {
       setState(() {
@@ -183,260 +204,326 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _isSearching = false;
     });
     Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-          builder: (context) => ChatScreen(chatRoomId: chatRoomId)),
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => ChatScreen(chatRoomId: chatRoomId),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        )
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        automaticallyImplyLeading: !_isSearching,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('LinguaChat',
-            style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 24)),
+        title: AnimatedOpacity(
+          duration: const Duration(milliseconds: 300),
+          opacity: _isSearching ? 0 : 1,
+          child: const Text('LinguaChat', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 24)),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.black54),
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              await _cancelSearch();
-              await _authService.signOut();
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (route) => false,
-              );
-            },
-          )
-        ],
-      ),
-      body: _isSearching ? _buildSearchingBody() : _buildHomeBody(),
-    );
-  }
-
-  Widget _buildHomeBody() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            FutureBuilder<String?>(
-              future: _userNameFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const CircularProgressIndicator();
-                }
-                final userName = snapshot.data ?? 'Gezgin';
-                return Column(
-                  children: [
-                    Text(
-                      'Tekrar Hoş Geldin,',
-                      style: TextStyle(
-                          fontSize: 26,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w300),
-                    ),
-                    Text(
-                      userName,
-                      style: const TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black),
-                    ),
-                  ],
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: _isSearching ? 0 : 1,
+            child: IconButton(
+              icon: const Icon(Icons.logout, color: Colors.black54),
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                await _cancelSearch();
+                await _authService.signOut();
+                navigator.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      (route) => false,
                 );
               },
             ),
-            ScaleTransition(
-              scale: _scaleAnimation!,
-              child: _buildFindPartnerButton(),
+          )
+        ],
+      ),
+      body: Stack(
+        alignment: Alignment.center,
+        children: [
+          _buildHomeUI(),
+          _buildSearchingUI(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeUI() {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 400),
+      opacity: _isSearching ? 0 : 1,
+      child: IgnorePointer(
+        ignoring: _isSearching,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                _buildHeader(),
+                const SizedBox(height: 32),
+                _buildStatsRow(),
+                const SizedBox(height: 32),
+                Center(child: _buildFindPartnerButton()),
+                const SizedBox(height: 32),
+                _buildChallengeCard(),
+                const SizedBox(height: 20),
+              ],
             ),
-            _buildMotivationCard(),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildFindPartnerButton() {
-    return GestureDetector(
-      onTap: _findPracticePartner,
-      child: Container(
-        width: 240,
-        height: 240,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [Colors.teal, Colors.cyan],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.teal.withAlpha(102),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 10),
-            )
-          ],
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.people_alt, color: Colors.white, size: 70),
-            SizedBox(height: 10),
-            Text(
-              'Partner Bul',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
+    return FadeTransition(
+      opacity: _buttonFade,
+      child: SlideTransition(
+        position: _buttonSlide,
+        child: GestureDetector(
+          onTap: _findPracticePartner,
+          child: Hero(
+            tag: 'find-partner-hero',
+            child: ScaleTransition(
+              scale: CurvedAnimation(parent: _pulseAnimationController, curve: Curves.easeInOut),
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Colors.teal, Colors.cyan],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      // ==================== UYARI DÜZELTİLDİ ====================
+                      color: Colors.teal.withAlpha(102), // .withOpacity(0.4) -> .withAlpha(102)
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                      offset: const Offset(0, 15),
+                    )
+                  ],
+                ),
+                child: const Material(
+                  color: Colors.transparent,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.language_sharp, color: Colors.white, size: 90),
+                      SizedBox(height: 10),
+                      Text(
+                        'Partner Bul',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMotivationCard() {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const GoalsScreen()),
-        );
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(13),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            )
-          ],
-        ),
-        child: const Row(
+  Widget _buildSearchingUI() {
+    const tips = [
+      "Yeni bir kelime öğrendiğinde, onu 3 farklı cümlede kullanmaya çalış.",
+      "Hata yapmaktan korkma! Hatalar öğrenme sürecinin bir parçasıdır.",
+      "Anlamadığın bir şey olduğunda tekrar sormaktan çekinme."
+    ];
+    final randomTip = (List.of(tips)..shuffle()).first;
+
+    return IgnorePointer(
+      ignoring: !_isSearching,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 500),
+        opacity: _isSearching ? 1 : 0,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.flag_circle, color: Colors.amber, size: 40),
-            SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Hero(
+              tag: 'find-partner-hero',
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  Text(
-                    "Bugünkü Hedefin",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  RotationTransition(
+                    turns: _searchAnimationController,
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: SweepGradient(
+                          center: Alignment.center,
+                          colors: [Colors.transparent, Colors.cyan],
+                          stops: [0.7, 1.0],
+                        ),
+                      ),
+                    ),
                   ),
-                  Text(
-                    "15 dakika pratik yapmak!",
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  const Material(
+                    color: Colors.transparent,
+                    child: Icon(Icons.person_search_rounded, color: Colors.teal, size: 60),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16)
+            const SizedBox(height: 40),
+            const Text('Partner Aranıyor...', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.teal)),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              // ==================== UYARI DÜZELTİLDİ ====================
+              decoration: BoxDecoration(color: Colors.teal.withAlpha(26), borderRadius: BorderRadius.circular(12)), // .withOpacity(0.1) -> .withAlpha(26)
+              child: Text('İpucu: $randomTip', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.black54)),
+            ),
+            const SizedBox(height: 50),
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
+              onPressed: _cancelSearch,
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('Aramayı İptal Et', style: TextStyle(fontSize: 16)),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSearchingBody() {
-    const tips = [
-      "Yeni bir kelime öğrendiğinde, onu 3 farklı cümlede kullanmaya çalış.",
-      "Hata yapmaktan korkma! Hatalar öğrenme sürecinin bir parçasıdır.",
-      "Kendine küçük ve ulaşılabilir hedefler koy.",
-    ];
-    final randomTip = (List.of(tips)..shuffle()).first;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              alignment: Alignment.center,
+  Widget _buildHeader() {
+    return FadeTransition(
+      opacity: _headerFade,
+      child: SlideTransition(
+        position: _headerSlide,
+        child: FutureBuilder<String?>(
+          future: _userNameFuture,
+          builder: (context, snapshot) {
+            final userName = snapshot.data ?? 'Gezgin';
+            return Row(
               children: [
-                Container(
-                  width: 180,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.teal.withAlpha(13),
+                CircleAvatar(
+                  radius: 30,
+                  // ==================== UYARI DÜZELTİLDİ ====================
+                  backgroundColor: Colors.teal.withAlpha(26), // .withOpacity(0.1) -> .withAlpha(26)
+                  child: Text(
+                    userName.isNotEmpty ? userName[0].toUpperCase() : "G",
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal),
                   ),
                 ),
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.teal.withAlpha(26),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Hoş Geldin,", style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w400)),
+                    Text(userName, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black)),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsRow() {
+    return FadeTransition(
+      opacity: _statsFade,
+      child: SlideTransition(
+        position: _statsSlide,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem(Icons.local_fire_department_rounded, "3 Gün", "Seri", Colors.orange),
+            _buildStatItem(Icons.timer_rounded, "45 dk", "Toplam Süre", Colors.teal),
+            _buildStatItem(Icons.people_alt_rounded, "7", "Partner", Colors.blue),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String value, String label, Color color) {
+    return Column(
+      children: [
+        CircleAvatar(
+            radius: 28,
+            // ==================== UYARI DÜZELTİLDİ ====================
+            backgroundColor: color.withAlpha(38), // .withOpacity(0.15) -> .withAlpha(38)
+            child: Icon(icon, color: color, size: 28)
+        ),
+        const SizedBox(height: 8),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildChallengeCard() {
+    const challenges = [
+      "Bugün tanıştığın partnere en sevdiğin filmi anlat.",
+      "Sohbetinde 5 yeni kelime kullanmayı dene.",
+      "Partnerine 'Nasılsın?' demenin 3 farklı yolunu sor.",
+      "Dün ne yaptığını 1 dakika boyunca anlatmaya çalış.",
+      "Gelecek tatil planların hakkında konuş."
+    ];
+    final randomChallenge = (List.of(challenges)..shuffle()).first;
+
+    return FadeTransition(
+      opacity: _cardFade,
+      child: SlideTransition(
+        position: _cardSlide,
+        child: InkWell(
+          onTap: () {
+            // ==================== HATA 2 DÜZELTİLDİ ====================
+            // GoalsScreen sınıfı artık doğru import edildiği için burada hata vermeyecektir.
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const GoalsScreen()));
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                // ==================== UYARI DÜZELTİLDİ ====================
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 10, offset: const Offset(0, 5))] // .withOpacity(0.05) -> .withAlpha(13)
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.flag_circle_outlined, color: Colors.amber, size: 40),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Günün Görevi", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 4),
+                      Text(randomChallenge, style: TextStyle(color: Colors.grey[700], fontSize: 14)),
+                    ],
                   ),
                 ),
-                RotationTransition(
-                  turns: _searchAnimationController!,
-                  child: Container(
-                    width: 180,
-                    height: 180,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: SweepGradient(
-                        center: Alignment.center,
-                        colors: [Colors.transparent, Colors.teal],
-                        stops: [0.7, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-                const Icon(Icons.person_search_rounded,
-                    color: Colors.teal, size: 60),
+                const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16)
               ],
             ),
-            const SizedBox(height: 40),
-            const Text('Partner Aranıyor...',
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.teal)),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.teal.withAlpha(26),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'İpucu: $randomTip',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, color: Colors.black54),
-              ),
-            ),
-            const SizedBox(height: 50),
-            TextButton.icon(
-              style: TextButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
-              onPressed: _cancelSearch,
-              icon: const Icon(Icons.cancel),
-              label:
-              const Text('Aramayı İptal Et', style: TextStyle(fontSize: 16)),
-            )
-          ],
+          ),
         ),
       ),
     );
