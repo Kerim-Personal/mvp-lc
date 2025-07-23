@@ -6,8 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
-// ==================== HATA 1 DÜZELTİLDİ ====================
-// 'package.lingua_chat' -> 'package:lingua_chat' olarak düzeltildi.
 import 'package:lingua_chat/screens/goals_screen.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
@@ -294,8 +292,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           onTap: _findPracticePartner,
           child: Hero(
             tag: 'find-partner-hero',
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: _pulseAnimationController, curve: Curves.easeInOut),
+            child: AnimatedBuilder(
+              animation: _pulseAnimationController,
+              builder: (context, child) {
+                // Nefes alma efekti için ölçeği ayarlıyoruz.
+                // Animasyon değeri 0.0 ile 1.0 arasında gidip geldikçe,
+                // ölçek 1.0 ile 0.95 arasında değişecek.
+                final scale = 1.0 - (_pulseAnimationController.value * 0.05);
+                return Transform.scale(
+                  scale: scale,
+                  child: child,
+                );
+              },
               child: Container(
                 width: 250,
                 height: 250,
@@ -308,8 +316,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      // ==================== UYARI DÜZELTİLDİ ====================
-                      color: Colors.teal.withAlpha(102), // .withOpacity(0.4) -> .withAlpha(102)
+                      color: Colors.teal.withAlpha(102),
                       blurRadius: 30,
                       spreadRadius: 5,
                       offset: const Offset(0, 15),
@@ -391,8 +398,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
-              // ==================== UYARI DÜZELTİLDİ ====================
-              decoration: BoxDecoration(color: Colors.teal.withAlpha(26), borderRadius: BorderRadius.circular(12)), // .withOpacity(0.1) -> .withAlpha(26)
+              decoration: BoxDecoration(color: Colors.teal.withAlpha(26), borderRadius: BorderRadius.circular(12)),
               child: Text('İpucu: $randomTip', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.black54)),
             ),
             const SizedBox(height: 50),
@@ -421,8 +427,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  // ==================== UYARI DÜZELTİLDİ ====================
-                  backgroundColor: Colors.teal.withAlpha(26), // .withOpacity(0.1) -> .withAlpha(26)
+                  backgroundColor: Colors.teal.withAlpha(26),
                   child: Text(
                     userName.isNotEmpty ? userName[0].toUpperCase() : "G",
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal),
@@ -466,8 +471,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         CircleAvatar(
             radius: 28,
-            // ==================== UYARI DÜZELTİLDİ ====================
-            backgroundColor: color.withAlpha(38), // .withOpacity(0.15) -> .withAlpha(38)
+            backgroundColor: color.withAlpha(38),
             child: Icon(icon, color: color, size: 28)
         ),
         const SizedBox(height: 8),
@@ -493,8 +497,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         position: _cardSlide,
         child: InkWell(
           onTap: () {
-            // ==================== HATA 2 DÜZELTİLDİ ====================
-            // GoalsScreen sınıfı artık doğru import edildiği için burada hata vermeyecektir.
             Navigator.push(context, MaterialPageRoute(builder: (context) => const GoalsScreen()));
           },
           borderRadius: BorderRadius.circular(20),
@@ -503,8 +505,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                // ==================== UYARI DÜZELTİLDİ ====================
-                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 10, offset: const Offset(0, 5))] // .withOpacity(0.05) -> .withAlpha(13)
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 10, offset: const Offset(0, 5))]
             ),
             child: Row(
               children: [
