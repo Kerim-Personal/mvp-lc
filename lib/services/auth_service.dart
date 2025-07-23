@@ -19,10 +19,12 @@ class AuthService {
   }
 
   /// Yeni kullanıcı kaydı oluşturur ve ek bilgileri Firestore'a kaydeder.
-  Future<UserCredential?> signUp(String email, String password, String username, DateTime birthDate, String gender) async {
+  Future<UserCredential?> signUp(String email, String password,
+      String username, DateTime birthDate, String gender) async {
     try {
       // 1. Firebase Authentication ile kullanıcıyı oluştur.
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       // E-posta doğrulama linki gönder
       await userCredential.user?.sendEmailVerification();
@@ -30,13 +32,17 @@ class AuthService {
       // 2. Kullanıcının ek bilgilerini Firestore veritabanına kaydet.
       if (userCredential.user != null) {
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
-          'displayName': username, // Kullanıcının girdiği orijinal, büyük/küçük harfli ad.
-          'username_lowercase': username.toLowerCase(), // Sistemin kullanacağı benzersiz, küçük harfli ad.
+          'displayName':
+          username, // Kullanıcının girdiği orijinal, büyük/küçük harfli ad.
+          'username_lowercase': username
+              .toLowerCase(), // Sistemin kullanacağı benzersiz, küçük harfli ad.
           'birthDate': Timestamp.fromDate(birthDate),
           'gender': gender,
           'email': email,
           'uid': userCredential.user!.uid,
           'createdAt': Timestamp.now(),
+          'emailVerified':
+          false, // Başlangıçta e-posta doğrulanmamış olarak ayarlanır.
         });
       }
       return userCredential;
@@ -49,7 +55,8 @@ class AuthService {
   /// Mevcut kullanıcının giriş yapmasını sağlar.
   Future<UserCredential> signIn(String email, String password) async {
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final userCredential = await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
 
       // E-posta doğrulaması kontrolü
       if (userCredential.user != null && !userCredential.user!.emailVerified) {
@@ -58,6 +65,13 @@ class AuthService {
           code: 'email-not-verified',
           message: 'Lütfen giriş yapmadan önce e-postanızı doğrulayın.',
         );
+      }
+      // Giriş başarılıysa, Firestore'daki `emailVerified` alanını da güncelleyelim.
+      if (userCredential.user != null) {
+        await _firestore
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .update({'emailVerified': true});
       }
       return userCredential;
     } on FirebaseAuthException {

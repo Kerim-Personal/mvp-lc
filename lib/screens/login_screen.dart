@@ -48,13 +48,16 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => VerificationScreen(email: _emailController.text.trim()),
+            builder: (context) =>
+                VerificationScreen(email: _emailController.text.trim()),
           ),
         );
         // Hata mesajı göstermeden işlemi bitiriyoruz çünkü yeni bir ekrana yönlendirdik.
         //setState'in finally içinde çağrılması yeterli.
-
-      } else if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        return; // Yönlendirme sonrası başka işlem yapmaması için
+      } else if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
         errorMessage = 'Invalid email or password.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
@@ -65,14 +68,12 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       }
-
-    } catch(e) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
-    }
-    finally {
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -86,7 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: SingleChildScrollView( // Klavye açıldığında taşmayı önler
+        child: SingleChildScrollView(
+          // Klavye açıldığında taşmayı önler
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -137,15 +139,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 onPressed: _login,
-                child: const Text('Log In', style: TextStyle(color: Colors.white)),
+                child: const Text('Log In',
+                    style: TextStyle(color: Colors.white)),
               ),
               TextButton(
-                child: const Text('Don\'t have an account? Register', style: TextStyle(color: Colors.teal)),
+                child: const Text('Don\'t have an account? Register',
+                    style: TextStyle(color: Colors.teal)),
                 onPressed: () {
                   // Kayıt olma ekranına yönlendir
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const RegisterScreen()),
                   );
                 },
               ),
