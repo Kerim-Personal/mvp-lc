@@ -1,5 +1,7 @@
 // lib/screens/register_screen.dart
 
+import 'dart:math';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +16,8 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends State<RegisterScreen>
+    with TickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
 
@@ -27,8 +30,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _selectedGender;
   bool _isLoading = false;
 
+  late AnimationController _entryAnimationController;
+  late AnimationController _backgroundAnimationController;
+
+  // Staggered Animations
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  // Parallax effect
+  Offset _mousePosition = Offset.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _entryAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..forward();
+
+    _backgroundAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 25),
+    )..repeat(reverse: true);
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+            parent: _entryAnimationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut)));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
+            CurvedAnimation(
+                parent: _entryAnimationController,
+                curve: const Interval(0.2, 1.0, curve: Curves.easeInOutCubic)));
+  }
+
   @override
   void dispose() {
+    _entryAnimationController.dispose();
+    _backgroundAnimationController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _usernameController.dispose();
@@ -61,10 +100,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel',
+                      child: const Text('İptal',
                           style: TextStyle(color: Colors.grey)),
                     ),
-                    const Text('Date of Birth',
+                    const Text('Doğum Tarihi',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     TextButton(
@@ -76,7 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         });
                         Navigator.pop(context);
                       },
-                      child: const Text('Done',
+                      child: const Text('Tamam',
                           style: TextStyle(
                               color: Colors.teal,
                               fontWeight: FontWeight.bold)),
@@ -108,7 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (_selectedGender == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Please select your gender.'),
+              content: Text('Lütfen cinsiyetinizi seçin.'),
               backgroundColor: Colors.red),
         );
       }
@@ -128,7 +167,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!isAvailable) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('This username is already taken.'),
+              content: Text('Bu kullanıcı adı zaten alınmış.'),
               backgroundColor: Colors.red),
         );
         setState(() {
@@ -146,7 +185,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (userCredential != null) {
-        // Kayıt başarılı, kullanıcıyı yeni doğrulama ekranına yönlendir.
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -162,12 +200,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                'Registration Error: ${e.message ?? "An unknown error occurred"}')),
+                'Kayıt Hatası: ${e.message ?? "Bilinmeyen bir hata oluştu"}')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An unexpected error occurred: ${e.toString()}')),
+        SnackBar(content: Text('Beklenmedik bir hata oluştu: ${e.toString()}')),
       );
     } finally {
       if (mounted) {
@@ -180,134 +218,128 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-          title: const Text('Register'),
-          backgroundColor: Colors.teal,
-          elevation: 0),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                const Text('Create Account',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 35.0,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.teal)),
-                const SizedBox(height: 40.0),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                      hintText: 'Email',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(32.0)))),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an email address.';
-                    }
-                    final bool emailValid = RegExp(
-                        r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
-                        .hasMatch(value);
-                    if (!emailValid) {
-                      return 'Please enter a valid email address.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12.0),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                      hintText: 'Password',
-                      prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(32.0)))),
-                  validator: (value) =>
-                  (value == null || value.length < 6)
-                      ? 'Password must be at least 6 characters'
-                      : null,
-                ),
-                const SizedBox(height: 12.0),
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(
-                      hintText: 'Username',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(32.0)))),
-                  validator: (value) =>
-                  (value == null || value.isEmpty)
-                      ? 'Please enter a username'
-                      : null,
-                ),
-                const SizedBox(height: 12.0),
-                TextFormField(
-                  controller: _birthDateController,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    hintText: 'Date of Birth',
-                    prefixIcon: Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(32.0))),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF26A69A), Color(0xFF004D40)],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: MouseRegion(
+          onHover: (event) => setState(() => _mousePosition = event.localPosition),
+          child: GestureDetector(
+            onPanUpdate: (details) =>
+                setState(() => _mousePosition = details.localPosition),
+            child: Stack(
+              children: [
+                _buildAnimatedParallaxBackground(),
+                Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              _buildHeader(),
+                              const SizedBox(height: 30.0),
+                              _buildTextField(
+                                controller: _emailController,
+                                hintText: 'E-posta',
+                                icon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Lütfen bir e-posta adresi girin.';
+                                  }
+                                  final bool emailValid = RegExp(
+                                      r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
+                                      .hasMatch(value);
+                                  if (!emailValid) {
+                                    return 'Lütfen geçerli bir e-posta adresi girin.';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12.0),
+                              _buildTextField(
+                                  controller: _passwordController,
+                                  hintText: 'Şifre',
+                                  icon: Icons.lock_outline,
+                                  obscureText: true,
+                                  validator: (value) =>
+                                  (value == null || value.length < 6)
+                                      ? 'Şifre en az 6 karakter olmalı'
+                                      : null),
+                              const SizedBox(height: 12.0),
+                              _buildTextField(
+                                controller: _usernameController,
+                                hintText: 'Kullanıcı Adı',
+                                icon: Icons.person_outline,
+                                validator: (value) => (value == null ||
+                                    value.isEmpty)
+                                    ? 'Lütfen bir kullanıcı adı girin'
+                                    : null,
+                              ),
+                              const SizedBox(height: 12.0),
+                              _buildTextField(
+                                controller: _birthDateController,
+                                readOnly: true,
+                                hintText: 'Doğum Tarihi',
+                                icon: Icons.calendar_today_outlined,
+                                onTap: _showDatePicker,
+                                validator: (value) =>
+                                (value == null || value.isEmpty)
+                                    ? 'Lütfen doğum tarihinizi seçin'
+                                    : null,
+                              ),
+                              const SizedBox(height: 20.0),
+                              const Text('Cinsiyetinizi Seçin',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      color: Colors.white70, fontSize: 16)),
+                              const SizedBox(height: 10.0),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  GenderSelectionBox(
+                                      icon: Icons.female,
+                                      label: 'Kadın',
+                                      isSelected: _selectedGender == 'Female',
+                                      onTap: () =>
+                                          setState(() => _selectedGender = 'Female')),
+                                  GenderSelectionBox(
+                                      icon: Icons.male,
+                                      label: 'Erkek',
+                                      isSelected: _selectedGender == 'Male',
+                                      onTap: () =>
+                                          setState(() => _selectedGender = 'Male')),
+                                ],
+                              ),
+                              const SizedBox(height: 24.0),
+                              _buildRegisterButton(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  onTap: _showDatePicker,
-                  validator: (value) =>
-                  (value == null || value.isEmpty)
-                      ? 'Please select your date of birth'
-                      : null,
-                ),
-                const SizedBox(height: 20.0),
-                const Text('Select Gender',
-                    style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10.0),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    GenderSelectionBox(
-                        icon: Icons.female,
-                        label: 'Female',
-                        isSelected: _selectedGender == 'Female',
-                        onTap: () => setState(() => _selectedGender = 'Female')),
-                    GenderSelectionBox(
-                        icon: Icons.male,
-                        label: 'Male',
-                        isSelected: _selectedGender == 'Male',
-                        onTap: () => setState(() => _selectedGender = 'Male')),
-                  ],
-                ),
-                const SizedBox(height: 24.0),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      padding:
-                      const EdgeInsets.symmetric(vertical: 16.0),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(32.0))),
-                  onPressed: _register,
-                  child: const Text('Register',
-                      style: TextStyle(color: Colors.white)),
-                ),
-                TextButton(
-                  child: const Text('Already have an account? Log In',
-                      style: TextStyle(color: Colors.teal)),
-                  onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
@@ -315,6 +347,153 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildHeader() {
+    return const Column(
+      children: [
+        Text(
+          'Hesap Oluştur',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 38.0,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                blurRadius: 15.0,
+                color: Colors.black38,
+                offset: Offset(2.0, 4.0),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          'Maceraya katılmak için sadece birkaç adım kaldı!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.white70,
+            fontWeight: FontWeight.w300,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnimatedParallaxBackground() {
+    return AnimatedBuilder(
+      animation: _backgroundAnimationController,
+      builder: (context, child) {
+        final animationValue = _backgroundAnimationController.value;
+        final size = MediaQuery.of(context).size;
+        final parallaxX = (_mousePosition.dx / size.width - 0.5) * 40;
+        final parallaxY = (_mousePosition.dy / size.height - 0.5) * 40;
+
+        return Stack(
+          children: [
+            Transform.translate(
+              offset: Offset(parallaxX * 0.5, parallaxY * 0.5),
+              child: Opacity(opacity: 0.5, child: child!),
+            ),
+          ],
+        );
+      },
+      child: const ParticleWidget(),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    bool obscureText = false,
+    bool readOnly = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    VoidCallback? onTap,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      readOnly: readOnly,
+      keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+        prefixIcon: Icon(icon, color: Colors.white, size: 20),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.1),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16.0),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16.0),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16.0),
+          borderSide: const BorderSide(color: Colors.white, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16.0),
+          borderSide: BorderSide(color: Colors.red.shade300, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16.0),
+          borderSide: BorderSide(color: Colors.red.shade300, width: 1.5),
+        ),
+      ),
+      validator: validator,
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildRegisterButton() {
+    return LayoutBuilder(builder: (context, constraints) {
+      final buttonWidth = _isLoading ? 56.0 : constraints.maxWidth;
+      return AnimatedContainer(
+        width: buttonWidth,
+        height: 56,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOutCubic,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.teal.shade700,
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_isLoading ? 28.0 : 16.0),
+            ),
+            elevation: 8,
+            shadowColor: Colors.black.withOpacity(0.5),
+          ),
+          onPressed: _isLoading ? null : _register,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) {
+              return ScaleTransition(scale: animation, child: child);
+            },
+            child: _isLoading
+                ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.teal,
+              ),
+            )
+                : const Text(
+              'Kaydol',
+              key: ValueKey('registerText'),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 
@@ -324,39 +503,152 @@ class GenderSelectionBox extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const GenderSelectionBox(
-      {super.key,
-        required this.icon,
-        required this.label,
-        required this.isSelected,
-        required this.onTap});
+  const GenderSelectionBox({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 120,
-        height: 120,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        width: 130,
+        height: 110,
         decoration: BoxDecoration(
-            color: isSelected ? Colors.teal.withOpacity(0.1) : Colors.grey[200],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: isSelected ? Colors.teal : Colors.grey[300]!,
-                width: 2.5)),
+          color: isSelected
+              ? Colors.white.withOpacity(0.25)
+              : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withOpacity(0.3),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+            BoxShadow(
+              color: Colors.white.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 2,
+            )
+          ]
+              : [],
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 50, color: isSelected ? Colors.teal : Colors.grey[600]),
+            Icon(icon, size: 40, color: Colors.white),
             const SizedBox(height: 8),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 16,
-                    color: isSelected ? Colors.teal : Colors.grey[800],
-                    fontWeight: FontWeight.bold)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+                fontWeight:
+                isSelected ? FontWeight.bold : FontWeight.w300,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+// Parçacık Efekti için Yardımcı Widget'lar
+class ParticleWidget extends StatefulWidget {
+  const ParticleWidget({super.key});
+
+  @override
+  State<ParticleWidget> createState() => _ParticleWidgetState();
+}
+
+class _ParticleWidgetState extends State<ParticleWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final List<Particle> particles = [];
+  final Random random = Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+    AnimationController(vsync: this, duration: const Duration(seconds: 10))
+      ..addListener(() {
+        setState(() {});
+      })
+      ..repeat();
+
+    for (int i = 0; i < 50; i++) {
+      particles.add(Particle(random));
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: ParticlePainter(particles, random),
+      child: Container(),
+    );
+  }
+}
+
+class Particle {
+  late double x, y, radius, speed, angle;
+  late Color color;
+
+  Particle(Random random) {
+    x = random.nextDouble();
+    y = random.nextDouble();
+    radius = random.nextDouble() * 2 + 1;
+    speed = random.nextDouble() * 0.001;
+    angle = random.nextDouble() * 2 * pi;
+    color = Colors.white.withOpacity(random.nextDouble() * 0.5);
+  }
+
+  update() {
+    x += cos(angle) * speed;
+    y += sin(angle) * speed;
+    if (x < 0) x = 1.0;
+    if (x > 1) x = 0.0;
+    if (y < 0) y = 1.0;
+    if (y > 1) y = 0.0;
+  }
+}
+
+class ParticlePainter extends CustomPainter {
+  final List<Particle> particles;
+  final Random random;
+
+  ParticlePainter(this.particles, this.random);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (var particle in particles) {
+      particle.update();
+      paint.color = particle.color;
+      canvas.drawCircle(
+          Offset(particle.x * size.width, particle.y * size.height),
+          particle.radius,
+          paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
