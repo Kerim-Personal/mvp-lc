@@ -1,6 +1,6 @@
 // lib/screens/root_screen.dart
 
-import 'dart:ui';
+// DEĞİŞTİ: 'dart:ui' import'u artık gerekli olmadığı için kaldırıldı.
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/home_screen.dart';
@@ -15,7 +15,6 @@ class RootScreen extends StatefulWidget {
 }
 
 class _RootScreenState extends State<RootScreen> {
-  // Uygulamanın Ana Sayfa (ortadaki sekme) ile başlaması için başlangıç indeksi 1 yapıldı.
   int _selectedIndex = 1;
   late final List<Widget> _pages;
   final currentUser = FirebaseAuth.instance.currentUser;
@@ -23,7 +22,6 @@ class _RootScreenState extends State<RootScreen> {
   @override
   void initState() {
     super.initState();
-    // Sayfa listesi yeni düzene göre güncellendi: Mağaza, Ana Sayfa, Profil
     _pages = [
       const StoreScreen(),
       const HomeScreen(),
@@ -44,90 +42,38 @@ class _RootScreenState extends State<RootScreen> {
     }
 
     return Scaffold(
-      // bottomNavigationBar'ı kaldırıp Stack yapısı kullanıyoruz
-      // böylece özel navigasyon barımızı sayfa içeriğinin üzerine koyabiliriz.
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _selectedIndex,
-            children: _pages,
+      // DEĞİŞTİ: extendBody parametresi kaldırıldı, böylece body
+      // navigasyon çubuğunun arkasına taşmaz.
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
+      // DEĞİŞTİ: Özel navigasyon çubuğu, standart BottomNavigationBar ile değiştirildi.
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.store_mall_directory_outlined),
+            label: 'Mağaza',
           ),
-          // Özel ve animasyonlu navigasyon barımız
-          _buildCustomBottomNavBar(),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Ana Sayfa',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'Profil',
+          ),
         ],
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        // Ana temayla uyumlu olması için seçili ikon rengi ayarlandı.
+        selectedItemColor: Theme.of(context).primaryColor,
+        // Tüm etiketlerin görünmesi için tip ayarlandı.
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }
 
-  // YENİ: Mükemmel görünümlü navigasyon barını oluşturan metot
-  Widget _buildCustomBottomNavBar() {
-    return Positioned(
-      bottom: 25, // Ekranın altından boşluk
-      left: 20,
-      right: 20,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(50.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-          child: Container(
-            height: 70,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(50.0),
-              border: Border.all(width: 1.5, color: Colors.white.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(Icons.store_mall_directory_outlined, 'Mağaza', 0),
-                _buildNavItem(Icons.home_rounded, 'Ana Sayfa', 1),
-                _buildNavItem(Icons.person_rounded, 'Profil', 2),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // YENİ: Navigasyon barındaki her bir butonu oluşturan metot
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    bool isSelected = _selectedIndex == index;
-
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.teal.withOpacity(0.9) : Colors.transparent,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : Colors.grey.shade800,
-              size: 26,
-            ),
-            // Sadece seçili olduğunda metni göstererek daha temiz bir görünüm elde ediyoruz
-            if (isSelected)
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0),
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+// DEĞİŞTİ: _buildCustomBottomNavBar ve _buildNavItem metotları
+// artık kullanılmadığı için kaldırıldı.
 }
