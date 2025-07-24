@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
+import 'package:lingua_chat/screens/store_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
+import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
@@ -23,6 +25,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isSearching = false;
   StreamSubscription? _matchListener;
   Future<String?>? _userNameFuture;
+
+  // Filtreler için state değişkenleri
+  String? _selectedGenderFilter;
+  String? _selectedLevelGroupFilter; // DEĞİŞTİ: Seviye grubu filtresi
+  bool _isProUser = false; // TODO: Gerçek premium kontrolü ile değiştirilecek
 
   late AnimationController _entryAnimationController;
   late AnimationController _pulseAnimationController;
@@ -44,9 +51,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.initState();
     if (_currentUser != null) {
       _userNameFuture = _getUserName(_currentUser!.uid);
+      _checkIfProUser();
     }
     _setupAnimations();
     _entryAnimationController.forward();
+  }
+
+  void _checkIfProUser() async {
+    setState(() {
+      _isProUser = true;
+    });
   }
 
   void _setupAnimations() {
@@ -115,9 +129,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     FirebaseFirestore.instance.collection('waiting_pool');
     try {
       await waitingPoolRef.doc(myId).delete();
-      final query = waitingPoolRef
-          .where('userId', isNotEqualTo: myId)
-          .orderBy('waitingSince');
+      Query query = waitingPoolRef.where('userId', isNotEqualTo: myId);
+
+      // Cinsiyet filtresi
+      if (_selectedGenderFilter != null) {
+        query = query.where('gender', isEqualTo: _selectedGenderFilter);
+      }
+
+      // YENİ: Seviye grubu filtresi
+      if (_selectedLevelGroupFilter != null) {
+        List<String> levelsToSearch = [];
+        if (_selectedLevelGroupFilter == 'Başlangıç') {
+          levelsToSearch = ['A1', 'A2'];
+        } else if (_selectedLevelGroupFilter == 'Orta') {
+          levelsToSearch = ['B1', 'B2'];
+        } else if (_selectedLevelGroupFilter == 'İleri') {
+          levelsToSearch = ['C1', 'C2'];
+        }
+        if(levelsToSearch.isNotEmpty) {
+          query = query.where('level', whereIn: levelsToSearch);
+        }
+      }
+
+      query = query.orderBy('waitingSince');
+
       final potentialMatches = await query.get();
       if (potentialMatches.docs.isNotEmpty) {
         final otherUserDoc = potentialMatches.docs.first;
@@ -152,8 +187,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _findPracticePartner();
         }
       } else {
-        await waitingPoolRef.doc(myId).set(
-            {'userId': myId, 'waitingSince': FieldValue.serverTimestamp()});
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(myId).get();
+        final userData = userDoc.data();
+        await waitingPoolRef.doc(myId).set({
+          'userId': myId,
+          'waitingSince': FieldValue.serverTimestamp(),
+          'gender': userData?['gender'],
+          'level': userData?['level'],
+        });
         _listenForMatch();
       }
     } catch (e) {
@@ -210,6 +251,71 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 FadeTransition(opacity: animation, child: child)));
   }
 
+  // Cinsiyet filtresi paneli
+  void _showGenderFilter() {
+    if (!_isProUser) {
+      showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Premium Özellik'),
+            content: const Text('Cinsiyete göre partner arama özelliği Lingua Pro üyelerine özeldir.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Kapat')
+              ),
+              ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const StoreScreen()));
+                  },
+                  child: const Text('Pro\'ya Geç')
+              ),
+            ],
+          )
+      );
+      return;
+    }
+
+    showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FilterBottomSheet(
+        title: 'Cinsiyete Göre Filtrele',
+        options: const ['Male', 'Female'],
+        selectedOption: _selectedGenderFilter,
+        displayLabels: const {'Male': 'Erkek', 'Female': 'Kadın'},
+      ),
+    ).then((selectedValue) {
+      if (mounted) {
+        setState(() {
+          _selectedGenderFilter = selectedValue;
+        });
+      }
+    });
+  }
+
+  // YENİ: Seviye grubu filtresi paneli
+  void _showLevelGroupFilter() {
+    showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FilterBottomSheet(
+        title: 'Seviyeye Göre Filtrele',
+        options: const ['Başlangıç', 'Orta', 'İleri'],
+        selectedOption: _selectedLevelGroupFilter,
+      ),
+    ).then((selectedValue) {
+      if (mounted) {
+        setState(() {
+          _selectedLevelGroupFilter = selectedValue;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -235,7 +341,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       opacity: _isSearching ? 0 : 1,
       child: IgnorePointer(
         ignoring: _isSearching,
-        // DÜZELTME: Column'u SingleChildScrollView ile sararak taşma hatası %100 çözüldü
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: ConstrainedBox(
@@ -345,13 +450,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 _buildFilterButton(
                   icon: Icons.wc,
                   label: 'Cinsiyet',
-                  onTap: () {},
+                  onTap: _showGenderFilter,
+                  value: _selectedGenderFilter == 'Male' ? 'Erkek' : _selectedGenderFilter == 'Female' ? 'Kadın' : null,
                 ),
                 const SizedBox(width: 20),
                 _buildFilterButton(
                   icon: Icons.bar_chart_rounded,
                   label: 'Seviye',
-                  onTap: () {},
+                  onTap: _showLevelGroupFilter, // DEĞİŞTİ
+                  value: _selectedLevelGroupFilter,
                 ),
               ],
             )
@@ -361,15 +468,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildFilterButton({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildFilterButton({required IconData icon, required String label, required VoidCallback onTap, String? value}) {
+    final bool isActive = value != null;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(25),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isActive ? Colors.teal.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: isActive ? Colors.teal : Colors.grey.shade300),
           boxShadow: [
             BoxShadow(
               color: const Color.fromARGB(20, 0, 0, 0),
@@ -383,10 +492,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Icon(icon, color: Colors.teal, size: 20),
             const SizedBox(width: 8),
             Text(
-              label,
-              style: const TextStyle(
+              isActive ? '$label: $value' : label,
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Colors.black54,
+                color: isActive ? Colors.teal.shade800 : Colors.black54,
               ),
             ),
           ],

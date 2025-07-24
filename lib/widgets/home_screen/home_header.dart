@@ -19,72 +19,78 @@ class HomeHeader extends StatelessWidget {
       future: userNameFuture,
       builder: (context, snapshot) {
         final userName = snapshot.data ?? 'Gezgin';
-        return Card(
-          elevation: 4.0, // Gölgeyi biraz azalttık
-          shadowColor: Colors.grey.withOpacity(0.2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0), // Daha yumuşak kenarlar
-          ),
-          child: Container(
-            padding:
-            // DÜZELTME: İç boşluklar azaltıldı
-            const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.0),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white,
-                  Colors.teal.shade50.withOpacity(0.3),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+        return Container(
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28.0),
+            gradient: LinearGradient(
+              colors: [Colors.teal.shade600, Colors.teal.shade800],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10), // Boşluk azaltıldı
-                  decoration: BoxDecoration(
-                    color: Colors.teal.withAlpha(50),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.waving_hand_rounded,
-                    color: Colors.teal,
-                    // DÜZELTME: İkon boyutu küçültüldü
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.teal.withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         "Merhaba,",
                         style: TextStyle(
-                          // DÜZELTME: Font boyutu küçültüldü
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade600,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white70,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         userName,
-                        style: TextStyle(
-                          // DÜZELTME: Font boyutu küçültüldü
-                          fontSize: 24,
+                        style: const TextStyle(
+                          fontSize: 30,
                           fontWeight: FontWeight.bold,
-                          color: Colors.teal.shade800,
+                          color: Colors.white,
                           height: 1.2,
                         ),
                       ),
                     ],
                   ),
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white.withOpacity(0.25),
+                    child: Text(
+                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        fontSize: 30,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(
+                "Bugün yeni bir dil macerasına hazır mısın?",
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 16,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
