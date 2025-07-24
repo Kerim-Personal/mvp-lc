@@ -1,15 +1,22 @@
+// lib/main.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:intl/date_symbol_data_local.dart'; // <-- YENİ EKLENDİ
 import 'package:lingua_chat/screens/home_screen.dart';
-import 'firebase_options.dart'; // flutterfire configure ile oluşturulan dosya
-import 'package:lingua_chat/screens/login_screen.dart'; // Dosya yolunu kendine göre düzelt
+import 'firebase_options.dart';
+import 'package:lingua_chat/screens/login_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Firebase başlatmadan önce gerekli
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, // otomatik yapılandırma
+    options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Tarih formatlama için Türkçe yerel ayarlarını başlatıyoruz.
+  await initializeDateFormatting('tr_TR', null); // <-- YENİ EKLENDİ
+
   runApp(const MyApp());
 }
 
