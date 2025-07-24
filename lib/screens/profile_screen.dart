@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/edit_profile_screen.dart';
+import 'package:lingua_chat/screens/login_screen.dart';
+import 'package:lingua_chat/services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -14,8 +16,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Kullanıcı verilerindeki anlık değişiklikleri dinlemek için bir Stream kullanıyoruz.
   late Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream;
+  final AuthService _authService = AuthService(); // AuthService eklendi
 
   @override
   void initState() {
@@ -31,20 +33,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profilim'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_note_rounded),
+            tooltip: 'Profili Düzenle',
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => EditProfileScreen(userId: widget.userId),
+                  builder: (context) =>
+                      EditProfileScreen(userId: widget.userId),
                 ),
               );
             },
           ),
+          IconButton( // <-- YENİ EKLENDİ
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            tooltip: 'Çıkış Yap',
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              await _authService.signOut();
+              navigator.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      (route) => false);
+            },
+          )
         ],
       ),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -54,7 +70,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return const Center(child: Text('Veriler yüklenirken bir hata oluştu.'));
+            return const Center(
+                child: Text('Veriler yüklenirken bir hata oluştu.'));
           }
           if (!snapshot.hasData || !snapshot.data!.exists) {
             return const Center(child: Text('Kullanıcı bulunamadı.'));
@@ -71,7 +88,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              // Verileri manuel olarak yenilemek için
               setState(() {
                 _userStream = FirebaseFirestore.instance
                     .collection('users')
@@ -90,18 +106,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         radius: 50,
                         backgroundColor: Colors.teal.shade100,
                         child: Text(
-                          displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                          style: const TextStyle(fontSize: 40, color: Colors.teal, fontWeight: FontWeight.bold),
+                          displayName.isNotEmpty
+                              ? displayName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                              fontSize: 40,
+                              color: Colors.teal,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         displayName,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
                         email,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(color: Colors.grey.shade600),
                       ),
                     ],
                   ),

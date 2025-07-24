@@ -1,10 +1,13 @@
+// lib/screens/home_screen.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
-import 'package:lingua_chat/screens/login_screen.dart';
-import 'package:lingua_chat/services/auth_service.dart';
+// LoginScreen ve AuthService importları artık burada gerekmeyebilir.
+// import 'package:lingua_chat/screens/login_screen.dart';
+// import 'package:lingua_chat/services/auth_service.dart';
 import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
@@ -19,7 +22,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  final AuthService _authService = AuthService();
+  // final AuthService _authService = AuthService(); // <-- KALDIRILDI
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSearching = false;
   StreamSubscription? _matchListener;
@@ -29,14 +32,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _pulseAnimationController;
   late AnimationController _searchAnimationController;
 
-  late Animation<double> _headerFade, _statsFade, _buttonFade, _cardFade, _levelCardFade;
-  late Animation<Offset> _headerSlide, _statsSlide, _buttonSlide, _cardSlide, _levelCardSlide;
+  late Animation<double> _headerFade,
+      _statsFade,
+      _buttonFade,
+      _cardFade,
+      _levelCardFade;
+  late Animation<Offset> _headerSlide,
+      _statsSlide,
+      _buttonSlide,
+      _cardSlide,
+      _levelCardSlide;
 
   @override
   void initState() {
     super.initState();
     if (_currentUser != null) {
-      _userNameFuture = _getUserName(_currentUser.uid);
+      _userNameFuture = _getUserName(_currentUser!.uid);
     }
     _setupAnimations();
     _entryAnimationController.forward();
@@ -61,15 +72,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _cardFade = _createFadeAnimation(begin: 0.6, end: 1.0);
     _cardSlide = _createSlideAnimation(begin: 0.6, end: 1.0);
     _levelCardFade = _createFadeAnimation(begin: 0.7, end: 1.0);
-    _levelCardSlide = _createSlideAnimation(begin: 0.7, end: 1.0, yOffset: 0.6);
+    _levelCardSlide =
+        _createSlideAnimation(begin: 0.7, end: 1.0, yOffset: 0.6);
   }
 
-  Animation<double> _createFadeAnimation({required double begin, required double end}) =>
+  Animation<double> _createFadeAnimation(
+      {required double begin, required double end}) =>
       Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
           parent: _entryAnimationController,
           curve: Interval(begin, end, curve: Curves.easeOut)));
 
-  Animation<Offset> _createSlideAnimation({required double begin, required double end, double yOffset = 0.2}) =>
+  Animation<Offset> _createSlideAnimation(
+      {required double begin,
+        required double end,
+        double yOffset = 0.2}) =>
       Tween<Offset>(begin: Offset(0, yOffset), end: Offset.zero).animate(
           CurvedAnimation(
               parent: _entryAnimationController,
@@ -77,7 +93,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<String?> _getUserName(String uid) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final doc =
+      await FirebaseFirestore.instance.collection('users').doc(uid).get();
       return doc.data()?['displayName'] as String?;
     } catch (e) {
       return "Gezgin";
@@ -98,20 +115,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     setState(() => _isSearching = true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final myId = _currentUser!.uid;
-    final waitingPoolRef = FirebaseFirestore.instance.collection('waiting_pool');
+    final waitingPoolRef =
+    FirebaseFirestore.instance.collection('waiting_pool');
     try {
       await waitingPoolRef.doc(myId).delete();
-      final query = waitingPoolRef.where('userId', isNotEqualTo: myId).orderBy('waitingSince');
+      final query = waitingPoolRef
+          .where('userId', isNotEqualTo: myId)
+          .orderBy('waitingSince');
       final potentialMatches = await query.get();
       if (potentialMatches.docs.isNotEmpty) {
         final otherUserDoc = potentialMatches.docs.first;
         final otherUserId = otherUserDoc.id;
-        final chatRoomId = await FirebaseFirestore.instance.runTransaction((transaction) async {
-          final otherUserSnapshot = await transaction.get(otherUserDoc.reference);
+        final chatRoomId =
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final otherUserSnapshot =
+          await transaction.get(otherUserDoc.reference);
           if (otherUserSnapshot.exists) {
-            final newChatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
-            transaction.set(newChatRoomRef, {'users': [myId, otherUserId], 'createdAt': FieldValue.serverTimestamp(), 'status': 'active', '${myId}_lastActive': FieldValue.serverTimestamp(), '${otherUserId}_lastActive': FieldValue.serverTimestamp()});
-            transaction.update(otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
+            final newChatRoomRef =
+            FirebaseFirestore.instance.collection('chats').doc();
+            transaction.set(newChatRoomRef, {
+              'users': [myId, otherUserId],
+              'createdAt': FieldValue.serverTimestamp(),
+              'status': 'active',
+              '${myId}_lastActive': FieldValue.serverTimestamp(),
+              '${otherUserId}_lastActive': FieldValue.serverTimestamp()
+            });
+            transaction.update(
+                otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
             return newChatRoomRef.id;
           }
           return null;
@@ -119,16 +149,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (chatRoomId != null) {
           _navigateToChat(chatRoomId);
         } else {
-          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Partner başkasıyla eşleşti, yeniden aranıyor...'), duration: Duration(seconds: 2)));
+          scaffoldMessenger.showSnackBar(const SnackBar(
+              content:
+              Text('Partner başkasıyla eşleşti, yeniden aranıyor...'),
+              duration: Duration(seconds: 2)));
           _findPracticePartner();
         }
       } else {
-        await waitingPoolRef.doc(myId).set({'userId': myId, 'waitingSince': FieldValue.serverTimestamp()});
+        await waitingPoolRef.doc(myId).set(
+            {'userId': myId, 'waitingSince': FieldValue.serverTimestamp()});
         _listenForMatch();
       }
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'), backgroundColor: Colors.red));
+        scaffoldMessenger.showSnackBar(SnackBar(
+            content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'),
+            backgroundColor: Colors.red));
         await _cancelSearch();
       }
     }
@@ -137,9 +173,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _listenForMatch() {
     if (_currentUser == null) return;
     _matchListener?.cancel();
-    _matchListener = FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).snapshots().listen((snapshot) async {
+    _matchListener = FirebaseFirestore.instance
+        .collection('waiting_pool')
+        .doc(_currentUser!.uid)
+        .snapshots()
+        .listen((snapshot) async {
       if (!mounted) return;
-      if (snapshot.exists && snapshot.data()!.containsKey('matchedChatRoomId')) {
+      if (snapshot.exists &&
+          snapshot.data()!.containsKey('matchedChatRoomId')) {
         final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
         await snapshot.reference.delete();
         _navigateToChat(chatRoomId);
@@ -150,7 +191,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _cancelSearch() async {
     _matchListener?.cancel();
     if (_currentUser != null) {
-      FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).delete().catchError((_) {});
+      FirebaseFirestore.instance
+          .collection('waiting_pool')
+          .doc(_currentUser!.uid)
+          .delete()
+          .catchError((_) {});
     }
     if (mounted) setState(() => _isSearching = false);
   }
@@ -159,47 +204,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (!mounted) return;
     _matchListener?.cancel();
     setState(() => _isSearching = false);
-    Navigator.pushReplacement(context, PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => ChatScreen(chatRoomId: chatRoomId),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child)));
+    Navigator.push( // pushReplacement yerine push kullanıldı
+        context,
+        PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                ChatScreen(chatRoomId: chatRoomId),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) =>
+                FadeTransition(opacity: animation, child: child)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        automaticallyImplyLeading: !_isSearching,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            opacity: _isSearching ? 0 : 1,
-            child: const Text('LinguaChat', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 24))),
-        actions: [
-          AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _isSearching ? 0 : 1,
-              child: IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.black54),
-                  onPressed: () async {
-                    final navigator = Navigator.of(context);
-                    await _cancelSearch();
-                    await _authService.signOut();
-                    navigator.pushAndRemoveUntil(MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false);
-                  }))
-        ],
-      ),
-      body: Stack(
-        alignment: Alignment.center,
-        children: [
-          _buildHomeUI(),
-          SearchingUI(
-            isSearching: _isSearching,
-            searchAnimationController: _searchAnimationController,
-            onCancelSearch: _cancelSearch,
-          ),
-        ],
+      // AppBar buradan kaldırıldı.
+      body: SafeArea( // Sayfa içeriğinin güvenli alanda kalmasını sağlar
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            _buildHomeUI(),
+            SearchingUI(
+              isSearching: _isSearching,
+              searchAnimationController: _searchAnimationController,
+              onCancelSearch: _cancelSearch,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -210,35 +240,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       opacity: _isSearching ? 0 : 1,
       child: IgnorePointer(
         ignoring: _isSearching,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 10),
-                FadeTransition(
-                    opacity: _headerFade,
-                    child: SlideTransition(
-                        position: _headerSlide,
-                        child: HomeHeader(userNameFuture: _userNameFuture ?? Future.value('Gezgin'), currentUser: _currentUser))),
-                const SizedBox(height: 32),
-                FadeTransition(
-                    opacity: _statsFade,
-                    child: SlideTransition(position: _statsSlide, child: const StatsRow())),
-                const SizedBox(height: 32),
-                Center(child: _buildFindPartnerButton()),
-                const SizedBox(height: 32),
-                FadeTransition(
-                    opacity: _cardFade,
-                    child: SlideTransition(position: _cardSlide, child: const ChallengeCard())),
-                const SizedBox(height: 20),
-                FadeTransition(
-                    opacity: _levelCardFade,
-                    child: SlideTransition(position: _levelCardSlide, child: const LevelAssessmentCard())),
-                const SizedBox(height: 20),
-              ],
-            ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20), // AppBar olmadığı için boşluk eklendi
+              FadeTransition(
+                  opacity: _headerFade,
+                  child: SlideTransition(
+                      position: _headerSlide,
+                      child: HomeHeader(
+                          userNameFuture:
+                          _userNameFuture ?? Future.value('Gezgin'),
+                          currentUser: _currentUser))),
+              const SizedBox(height: 24),
+              FadeTransition(
+                  opacity: _statsFade,
+                  child: SlideTransition(
+                      position: _statsSlide, child: const StatsRow())),
+              const Spacer(),
+              Center(child: _buildFindPartnerButton()),
+              const Spacer(),
+              FadeTransition(
+                  opacity: _cardFade,
+                  child: SlideTransition(
+                      position: _cardSlide, child: const ChallengeCard())),
+              const SizedBox(height: 20),
+              FadeTransition(
+                  opacity: _levelCardFade,
+                  child: SlideTransition(
+                      position: _levelCardSlide,
+                      child: const LevelAssessmentCard())),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),
@@ -261,20 +296,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 return Transform.scale(scale: scale, child: child);
               },
               child: Container(
-                width: 250,
-                height: 250,
+                width: 180,
+                height: 180,
                 decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(colors: [Colors.teal, Colors.cyan], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    boxShadow: [BoxShadow(color: Colors.teal.withAlpha(102), blurRadius: 30, spreadRadius: 5, offset: const Offset(0, 15))]),
+                    gradient: const LinearGradient(
+                        colors: [Colors.teal, Colors.cyan],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.teal.withAlpha(102),
+                          blurRadius: 30,
+                          spreadRadius: 5,
+                          offset: const Offset(0, 15))
+                    ]),
                 child: const Material(
                   color: Colors.transparent,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.language_sharp, color: Colors.white, size: 90),
-                      SizedBox(height: 10),
-                      Text('Partner Bul', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                      Icon(Icons.language_sharp, color: Colors.white, size: 70),
+                      SizedBox(height: 8),
+                      Text('Partner Bul',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2)),
                     ],
                   ),
                 ),

@@ -3,8 +3,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:intl/date_symbol_data_local.dart'; // <-- YENİ EKLENDİ
-import 'package:lingua_chat/screens/home_screen.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:lingua_chat/screens/root_screen.dart'; // <-- DEĞİŞTİ
 import 'firebase_options.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
 
@@ -13,10 +13,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // Tarih formatlama için Türkçe yerel ayarlarını başlatıyoruz.
-  await initializeDateFormatting('tr_TR', null); // <-- YENİ EKLENDİ
-
+  await initializeDateFormatting('tr_TR', null);
   runApp(const MyApp());
 }
 
@@ -30,6 +27,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.teal,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA), // Genele yayılmış arkaplan rengi
       ),
       home: const AuthWrapper(),
     );
@@ -52,7 +50,8 @@ class AuthWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          return const HomeScreen();
+          // Giriş yapıldıysa RootScreen'e yönlendir.
+          return const RootScreen(); // <-- DEĞİŞTİ
         }
         return const LoginScreen();
       },

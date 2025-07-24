@@ -1,7 +1,6 @@
 // lib/widgets/home_screen/home_header.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/profile_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeHeader extends StatelessWidget {
@@ -20,52 +19,67 @@ class HomeHeader extends StatelessWidget {
       future: userNameFuture,
       builder: (context, snapshot) {
         final userName = snapshot.data ?? 'Gezgin';
-        return InkWell(
-          onTap: () {
-            if (currentUser != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProfileScreen(userId: currentUser!.uid),
-                ),
-              );
-            }
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        return Card(
+          elevation: 8.0,
+          shadowColor: Colors.grey.withOpacity(0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          child: Container( // InkWell kaldırıldı
+            padding:
+            const EdgeInsets.symmetric(vertical: 20.0, horizontal: 24.0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20.0),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white,
+                  Colors.teal.shade50.withOpacity(0.5),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.teal.withAlpha(26),
-                  child: Text(
-                    userName.isNotEmpty ? userName[0].toUpperCase() : "G",
-                    style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.teal),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withAlpha(50),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.waving_hand_rounded,
+                    color: Colors.teal,
+                    size: 32,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Hoş Geldin,",
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Merhaba,",
                         style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w400)),
-                    Text(userName,
-                        style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black)),
-                  ],
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        userName,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal.shade800,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
-                const Icon(Icons.arrow_forward_ios,
-                    color: Colors.grey, size: 18),
+                // Yönlendirme oku kaldırıldı
               ],
             ),
           ),
