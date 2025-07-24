@@ -1,6 +1,7 @@
 // lib/screens/home_screen.dart
 
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,23 +29,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // Filtreler için state değişkenleri
   String? _selectedGenderFilter;
-  String? _selectedLevelGroupFilter; // DEĞİŞTİ: Seviye grubu filtresi
-  bool _isProUser = false; // TODO: Gerçek premium kontrolü ile değiştirilecek
+  String? _selectedLevelGroupFilter;
+  bool _isProUser = false;
 
   late AnimationController _entryAnimationController;
   late AnimationController _pulseAnimationController;
   late AnimationController _searchAnimationController;
-
-  late Animation<double> _headerFade,
-      _statsFade,
-      _buttonFade,
-      _cardFade,
-      _levelCardFade;
-  late Animation<Offset> _headerSlide,
-      _statsSlide,
-      _buttonSlide,
-      _cardSlide,
-      _levelCardSlide;
+  late PageController _pageController;
+  double _pageOffset = 0;
 
   @override
   void initState() {
@@ -53,53 +45,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _userNameFuture = _getUserName(_currentUser!.uid);
       _checkIfProUser();
     }
+
+    _pageController = PageController(viewportFraction: 0.85)
+      ..addListener(() {
+        if(mounted) {
+          setState(() {
+            _pageOffset = _pageController.page!;
+          });
+        }
+      });
+
     _setupAnimations();
     _entryAnimationController.forward();
   }
 
   void _checkIfProUser() async {
-    setState(() {
-      _isProUser = true;
-    });
+    // TODO: Bu değeri kullanıcının gerçek Pro üyelik durumuna göre güncelleyin
+    if(mounted) {
+      setState(() => _isProUser = true);
+    }
   }
 
   void _setupAnimations() {
     _entryAnimationController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200));
+        vsync: this, duration: const Duration(milliseconds: 1000));
     _pulseAnimationController =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat(reverse: true);
     _searchAnimationController =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat();
-
-    _headerFade = _createFadeAnimation(begin: 0.0, end: 0.6);
-    _headerSlide = _createSlideAnimation(begin: 0.0, end: 0.6);
-    _statsFade = _createFadeAnimation(begin: 0.2, end: 0.8);
-    _statsSlide = _createSlideAnimation(begin: 0.2, end: 0.8);
-    _buttonFade = _createFadeAnimation(begin: 0.4, end: 1.0);
-    _buttonSlide = _createSlideAnimation(begin: 0.4, end: 1.0, yOffset: 0.5);
-    _cardFade = _createFadeAnimation(begin: 0.6, end: 1.0);
-    _cardSlide = _createSlideAnimation(begin: 0.6, end: 1.0);
-    _levelCardFade = _createFadeAnimation(begin: 0.7, end: 1.0);
-    _levelCardSlide =
-        _createSlideAnimation(begin: 0.7, end: 1.0, yOffset: 0.6);
   }
-
-  Animation<double> _createFadeAnimation(
-      {required double begin, required double end}) =>
-      Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-          parent: _entryAnimationController,
-          curve: Interval(begin, end, curve: Curves.easeOut)));
-
-  Animation<Offset> _createSlideAnimation(
-      {required double begin,
-        required double end,
-        double yOffset = 0.2}) =>
-      Tween<Offset>(begin: Offset(0, yOffset), end: Offset.zero).animate(
-          CurvedAnimation(
-              parent: _entryAnimationController,
-              curve: Interval(begin, end, curve: Curves.easeOutCubic)));
 
   Future<String?> _getUserName(String uid) async {
     try {
@@ -117,26 +93,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _entryAnimationController.dispose();
     _pulseAnimationController.dispose();
     _searchAnimationController.dispose();
+    _pageController.removeListener(() {});
+    _pageController.dispose();
     super.dispose();
   }
 
   Future<void> _findPracticePartner() async {
-    if (_currentUser == null) return;
+    if (_currentUser == null || !mounted) return;
     setState(() => _isSearching = true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final myId = _currentUser!.uid;
-    final waitingPoolRef =
-    FirebaseFirestore.instance.collection('waiting_pool');
+    final waitingPoolRef = FirebaseFirestore.instance.collection('waiting_pool');
     try {
       await waitingPoolRef.doc(myId).delete();
       Query query = waitingPoolRef.where('userId', isNotEqualTo: myId);
 
-      // Cinsiyet filtresi
       if (_selectedGenderFilter != null) {
         query = query.where('gender', isEqualTo: _selectedGenderFilter);
       }
-
-      // YENİ: Seviye grubu filtresi
       if (_selectedLevelGroupFilter != null) {
         List<String> levelsToSearch = [];
         if (_selectedLevelGroupFilter == 'Başlangıç') {
@@ -146,24 +120,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         } else if (_selectedLevelGroupFilter == 'İleri') {
           levelsToSearch = ['C1', 'C2'];
         }
-        if(levelsToSearch.isNotEmpty) {
+        if (levelsToSearch.isNotEmpty) {
           query = query.where('level', whereIn: levelsToSearch);
         }
       }
-
       query = query.orderBy('waitingSince');
 
       final potentialMatches = await query.get();
       if (potentialMatches.docs.isNotEmpty) {
         final otherUserDoc = potentialMatches.docs.first;
         final otherUserId = otherUserDoc.id;
-        final chatRoomId =
-        await FirebaseFirestore.instance.runTransaction((transaction) async {
-          final otherUserSnapshot =
-          await transaction.get(otherUserDoc.reference);
+        final chatRoomId = await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final otherUserSnapshot = await transaction.get(otherUserDoc.reference);
           if (otherUserSnapshot.exists) {
-            final newChatRoomRef =
-            FirebaseFirestore.instance.collection('chats').doc();
+            final newChatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
             transaction.set(newChatRoomRef, {
               'users': [myId, otherUserId],
               'createdAt': FieldValue.serverTimestamp(),
@@ -171,8 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               '${myId}_lastActive': FieldValue.serverTimestamp(),
               '${otherUserId}_lastActive': FieldValue.serverTimestamp()
             });
-            transaction.update(
-                otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
+            transaction.update(otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
             return newChatRoomRef.id;
           }
           return null;
@@ -180,10 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (chatRoomId != null) {
           _navigateToChat(chatRoomId);
         } else {
-          scaffoldMessenger.showSnackBar(const SnackBar(
-              content:
-              Text('Partner başkasıyla eşleşti, yeniden aranıyor...'),
-              duration: Duration(seconds: 2)));
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Partner başkasıyla eşleşti, yeniden aranıyor...'), duration: Duration(seconds: 2)));
           _findPracticePartner();
         }
       } else {
@@ -199,9 +165,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(SnackBar(
-            content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'),
-            backgroundColor: Colors.red));
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'), backgroundColor: Colors.red));
         await _cancelSearch();
       }
     }
@@ -210,14 +174,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _listenForMatch() {
     if (_currentUser == null) return;
     _matchListener?.cancel();
-    _matchListener = FirebaseFirestore.instance
-        .collection('waiting_pool')
-        .doc(_currentUser!.uid)
-        .snapshots()
-        .listen((snapshot) async {
+    _matchListener = FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).snapshots().listen((snapshot) async {
       if (!mounted) return;
-      if (snapshot.exists &&
-          snapshot.data()!.containsKey('matchedChatRoomId')) {
+      if (snapshot.exists && snapshot.data()!.containsKey('matchedChatRoomId')) {
         final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
         await snapshot.reference.delete();
         _navigateToChat(chatRoomId);
@@ -228,11 +187,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _cancelSearch() async {
     _matchListener?.cancel();
     if (_currentUser != null) {
-      FirebaseFirestore.instance
-          .collection('waiting_pool')
-          .doc(_currentUser!.uid)
-          .delete()
-          .catchError((_) {});
+      FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).delete().catchError((_) {});
     }
     if (mounted) setState(() => _isSearching = false);
   }
@@ -244,36 +199,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     Navigator.push(
         context,
         PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                ChatScreen(chatRoomId: chatRoomId),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) =>
-                FadeTransition(opacity: animation, child: child)));
+            pageBuilder: (context, animation, secondaryAnimation) => ChatScreen(chatRoomId: chatRoomId),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child)));
   }
 
-  // Cinsiyet filtresi paneli
   void _showGenderFilter() {
     if (!_isProUser) {
       showDialog(
           context: context,
           builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Text('Premium Özellik'),
             content: const Text('Cinsiyete göre partner arama özelliği Lingua Pro üyelerine özeldir.'),
             actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Kapat')
-              ),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat')),
               ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                  ),
                   onPressed: () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const StoreScreen()));
                   },
-                  child: const Text('Pro\'ya Geç')
-              ),
+                  child: const Text('Pro\'ya Geç')),
             ],
-          )
-      );
+          ));
       return;
     }
 
@@ -296,7 +248,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
-  // YENİ: Seviye grubu filtresi paneli
   void _showLevelGroupFilter() {
     showModalBottomSheet<String?>(
       context: context,
@@ -319,19 +270,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            _buildHomeUI(),
-            SearchingUI(
-              isSearching: _isSearching,
-              searchAnimationController: _searchAnimationController,
-              onCancelSearch: _cancelSearch,
+      body: Stack(
+        children: [
+          _buildAnimatedBackground(),
+          SafeArea(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _buildHomeUI(),
+                SearchingUI(
+                  isSearching: _isSearching,
+                  searchAnimationController: _searchAnimationController,
+                  onCancelSearch: _cancelSearch,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildAnimatedBackground() {
+    return Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.teal.shade50,
+                Colors.cyan.shade100,
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: -100,
+          right: -150,
+          child: CircleAvatar(radius: 220, backgroundColor: Colors.purple.withOpacity(0.1)),
+        ),
+        Positioned(
+          bottom: -180,
+          left: -150,
+          child: CircleAvatar(radius: 250, backgroundColor: Colors.teal.withOpacity(0.15)),
+        ),
+        BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+          child: Container(color: Colors.transparent),
+        ),
+      ],
     );
   }
 
@@ -343,128 +332,188 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ignoring: _isSearching,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
-                  FadeTransition(
-                      opacity: _headerFade,
-                      child: SlideTransition(
-                          position: _headerSlide,
-                          child: HomeHeader(
-                              userNameFuture:
-                              _userNameFuture ?? Future.value('Gezgin'),
-                              currentUser: _currentUser))),
-                  const SizedBox(height: 24),
-                  FadeTransition(
-                      opacity: _statsFade,
-                      child: SlideTransition(
-                          position: _statsSlide, child: const StatsRow())),
-                  const SizedBox(height: 24),
-                  _buildPartnerFinderSection(),
-                  const SizedBox(height: 24),
-                  FadeTransition(
-                      opacity: _cardFade,
-                      child: SlideTransition(
-                          position: _cardSlide, child: const ChallengeCard())),
-                  const SizedBox(height: 20),
-                  FadeTransition(
-                      opacity: _levelCardFade,
-                      child: SlideTransition(
-                          position: _levelCardSlide,
-                          child: const LevelAssessmentCard())),
-                  const SizedBox(height: 20),
-                ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: _buildAnimatedUI(
+                  interval: const Interval(0.2, 0.8),
+                  child: HomeHeader(
+                      userNameFuture: _userNameFuture ?? Future.value('Gezgin'),
+                      currentUser: _currentUser),
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: _buildAnimatedUI(
+                    interval: const Interval(0.4, 1.0),
+                    child: const StatsRow()),
+              ),
+              const SizedBox(height: 24),
+              _buildAnimatedUI(
+                interval: const Interval(0.6, 1.0),
+                child: _buildPartnerFinderSection(),
+              ),
+              const SizedBox(height: 24),
+              _buildHorizontallyScrollableCards(),
+              const SizedBox(height: 16),
+              _buildPageIndicator(),
+              const SizedBox(height: 24),
+            ],
           ),
         ),
       ),
     );
   }
 
+  Widget _buildPageIndicator() {
+    const int pageCount = 2;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(pageCount, (index) {
+        bool isActive = (_pageOffset.round() == index);
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.symmetric(horizontal: 4.0),
+          height: isActive ? 10.0 : 8.0,
+          width: isActive ? 10.0 : 8.0,
+          decoration: BoxDecoration(
+            color: isActive ? Colors.teal : Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(5.0),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildAnimatedUI({required Widget child, required Interval interval}) {
+    return AnimatedBuilder(
+      animation: _entryAnimationController,
+      builder: (context, snapshot) {
+        final animationValue = interval.transform(_entryAnimationController.value);
+        return Opacity(
+          opacity: animationValue,
+          child: Transform.translate(
+            offset: Offset(0, 50 * (1 - animationValue)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  Widget _buildHorizontallyScrollableCards() {
+    return SizedBox(
+      height: 150,
+      child: PageView(
+        controller: _pageController,
+        children: [
+          _buildCardPageItem(
+            index: 0,
+            child: const ChallengeCard(),
+          ),
+          _buildCardPageItem(
+            index: 1,
+            child: const LevelAssessmentCard(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardPageItem({required int index, required Widget child}) {
+    Matrix4 matrix = Matrix4.identity();
+    double scale;
+    double gauss = 1 - (_pageOffset - index).abs();
+
+    scale = lerpDouble(0.8, 1.0, gauss)!;
+    matrix.setEntry(3, 2, 0.001);
+    matrix.rotateY((_pageOffset - index) * -0.5);
+
+    return Transform(
+      transform: matrix,
+      alignment: Alignment.center,
+      child: Transform.scale(
+        scale: scale,
+        child: child,
+      ),
+    );
+  }
+
   Widget _buildPartnerFinderSection() {
-    return FadeTransition(
-      opacity: _buttonFade,
-      child: SlideTransition(
-        position: _buttonSlide,
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _findPracticePartner,
-              child: Hero(
-                tag: 'find-partner-hero',
-                child: AnimatedBuilder(
-                  animation: _pulseAnimationController,
-                  builder: (context, child) {
-                    final scale = 1.0 - (_pulseAnimationController.value * 0.05);
-                    return Transform.scale(scale: scale, child: child);
-                  },
-                  child: Container(
-                    width: 180,
-                    height: 180,
-                    decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                            colors: [Colors.teal, Colors.cyan],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight),
-                        boxShadow: [
-                          BoxShadow(
-                              color: const Color.fromARGB(102, 0, 150, 136),
-                              blurRadius: 30,
-                              spreadRadius: 5,
-                              offset: const Offset(0, 15))
-                        ]),
-                    child: const Material(
-                      color: Colors.transparent,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.language_sharp, color: Colors.white, size: 70),
-                          SizedBox(height: 8),
-                          Text('Partner Bul',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2)),
-                        ],
-                      ),
-                    ),
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: _findPracticePartner,
+          child: Hero(
+            tag: 'find-partner-hero',
+            child: AnimatedBuilder(
+              animation: _pulseAnimationController,
+              builder: (context, child) {
+                final scale = 1.0 - (_pulseAnimationController.value * 0.05);
+                return Transform.scale(scale: scale, child: child);
+              },
+              child: Container(
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                        colors: [Colors.teal, Colors.cyan],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight),
+                    boxShadow: [
+                      BoxShadow(
+                          color: const Color.fromARGB(102, 0, 150, 136),
+                          blurRadius: 30,
+                          spreadRadius: 5,
+                          offset: const Offset(0, 15))
+                    ]),
+                child: const Material(
+                  color: Colors.transparent,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.language_sharp, color: Colors.white, size: 70),
+                      SizedBox(height: 8),
+                      Text('Partner Bul',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2)),
+                    ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildFilterButton(
-                  icon: Icons.wc,
-                  label: 'Cinsiyet',
-                  onTap: _showGenderFilter,
-                  value: _selectedGenderFilter == 'Male' ? 'Erkek' : _selectedGenderFilter == 'Female' ? 'Kadın' : null,
-                ),
-                const SizedBox(width: 20),
-                _buildFilterButton(
-                  icon: Icons.bar_chart_rounded,
-                  label: 'Seviye',
-                  onTap: _showLevelGroupFilter, // DEĞİŞTİ
-                  value: _selectedLevelGroupFilter,
-                ),
-              ],
-            )
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildFilterButton(
+              icon: Icons.wc,
+              label: 'Cinsiyet',
+              onTap: _showGenderFilter,
+              value: _selectedGenderFilter == 'Male' ? 'Erkek' : _selectedGenderFilter == 'Female' ? 'Kadın' : null,
+            ),
+            const SizedBox(width: 20),
+            _buildFilterButton(
+              icon: Icons.bar_chart_rounded,
+              label: 'Seviye',
+              onTap: _showLevelGroupFilter,
+              value: _selectedLevelGroupFilter,
+            ),
+          ],
+        )
+      ],
     );
   }
 

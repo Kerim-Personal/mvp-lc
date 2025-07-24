@@ -20,7 +20,7 @@ class HomeHeader extends StatelessWidget {
       builder: (context, snapshot) {
         final userName = snapshot.data ?? 'Gezgin';
         return Container(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28.0),
             gradient: LinearGradient(
@@ -30,66 +30,35 @@ class HomeHeader extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.teal.withOpacity(0.4),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                color: Colors.teal.withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Merhaba,",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        userName,
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.white.withOpacity(0.25),
-                    child: Text(
-                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                        fontSize: 30,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
-                ],
-              ),
-              const SizedBox(height: 24),
               Text(
-                "Bugün yeni bir dil macerasına hazır mısın?",
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 16,
-                  height: 1.4,
-                  fontWeight: FontWeight.w500,
+                'Merhaba, $userName',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.white.withOpacity(0.25),
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
             ],
           ),
         );
