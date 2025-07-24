@@ -22,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  // ... (initState ve diğer metotlar aynı kalıyor)
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSearching = false;
   StreamSubscription? _matchListener;
@@ -267,64 +268,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // DEĞİŞTİ: Arka plan rengi şeffaf yapıldı.
+      backgroundColor: Colors.transparent,
       body: Stack(
+        alignment: Alignment.center,
         children: [
-          _buildAnimatedBackground(),
-          SafeArea(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _buildHomeUI(),
-                SearchingUI(
-                  isSearching: _isSearching,
-                  searchAnimationController: _searchAnimationController,
-                  onCancelSearch: _cancelSearch,
-                ),
-              ],
-            ),
+          // DEĞİŞTİ: Bu ekrana özel arka plan kaldırıldı.
+          _buildHomeUI(),
+          SearchingUI(
+            isSearching: _isSearching,
+            searchAnimationController: _searchAnimationController,
+            onCancelSearch: _cancelSearch,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAnimatedBackground() {
-    return Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.teal.shade50,
-                Colors.cyan.shade100,
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          top: -100,
-          right: -150,
-          child: CircleAvatar(radius: 220, backgroundColor: Colors.purple.withOpacity(0.1)),
-        ),
-        Positioned(
-          bottom: -180,
-          left: -150,
-          child: CircleAvatar(radius: 250, backgroundColor: Colors.teal.withOpacity(0.15)),
-        ),
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-          child: Container(color: Colors.transparent),
-        ),
-      ],
-    );
-  }
+  // DEĞİŞTİ: _buildAnimatedBackground metodu kaldırıldı.
 
   Widget _buildHomeUI() {
+    //... (Bu metotun içeriği aynı kalıyor)
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
       opacity: _isSearching ? 0 : 1,
@@ -359,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 24),
               _buildHorizontallyScrollableCards(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
               _buildPageIndicator(),
               const SizedBox(height: 24),
             ],

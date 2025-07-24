@@ -10,20 +10,24 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # YENİ: Modern ve şık navigasyon çubuğu için eklendi.
+  google_nav_bar: ^5.0.6
+
   cupertino_icons: ^1.0.8
 
   # Firebase için gerekli paketler
   firebase_core: ^2.27.0
-  firebase_auth: ^4.17.8      # <-- YENİ EKLENDİ (Kullanıcı kimlik doğrulama)
-  cloud_firestore: ^4.15.8   # <-- YENİ EKLENDİ (Veritabanı ve sohbet)
-  intl: ^0.19.0 #
+  firebase_auth: ^4.17.8
+  cloud_firestore: ^4.15.8
+
+  # Tarih formatlama için
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^5.0.0
-
 
 flutter:
   uses-material-design: true

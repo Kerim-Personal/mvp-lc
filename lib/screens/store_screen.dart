@@ -2,7 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart'; // Glassmorphism widget'ını import ediyoruz
+import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -12,7 +12,7 @@ class StoreScreen extends StatefulWidget {
 }
 
 class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin {
-  bool _isYearlySelected = true; // Yıllık seçeneği varsayılan yapalım
+  bool _isYearlySelected = true;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -43,42 +43,20 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    // DEĞİŞTİ: Arka plan artık RootScreen'den geldiği için
+    // Scaffold'un arka planı şeffaf yapıldı ve Stack kaldırıldı.
     return Scaffold(
-      backgroundColor: Colors.teal.shade50,
-      body: Stack(
-        children: [
-          _buildAnimatedBackground(),
-          _buildStoreContent(),
-        ],
-      ),
+      backgroundColor: Colors.transparent,
+      body: _buildStoreContent(),
     );
   }
 
-  Widget _buildAnimatedBackground() {
-    return Stack(
-      children: [
-        Positioned(
-          top: -100,
-          right: -150,
-          child: CircleAvatar(radius: 220, backgroundColor: const Color.fromARGB(77, 156, 39, 176)),
-        ),
-        Positioned(
-          bottom: -180,
-          left: -150,
-          child: CircleAvatar(radius: 250, backgroundColor: const Color.fromARGB(77, 0, 188, 212)),
-        ),
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
-          child: Container(color: Colors.transparent),
-        ),
-      ],
-    );
-  }
+  // DEĞİŞTİ: _buildAnimatedBackground metodu artık RootScreen'de olduğu için buradan kaldırıldı.
 
   Widget _buildStoreContent() {
     return SafeArea(
       child: Center(
-        child: SingleChildScrollView( // İçeriğin küçük ekranlarda taşmasını engeller
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -120,10 +98,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _buildPlanCard() {
-    // Kartın yüksekliğini içeriğe göre dinamik hale getirdik
     return GlassmorphicContainer(
       width: double.infinity,
-      height: 540, // Yüksekliği yeni özellik için biraz daha artırdık
+      height: 540,
       borderRadius: 30,
       blur: 15,
       border: Border.all(color: Colors.white, width: 1.5),
@@ -169,7 +146,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     return GestureDetector(
       onTap: () {
         setState(() {
-          // 'Yıllık' butonuna mı tıklandı, ona göre durumu ayarla
           _isYearlySelected = text == 'Yıllık';
         });
       },
@@ -210,7 +186,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _buildFeatureList() {
-    // GÜNCELLEME: "Cinsiyete Göre Arama" özelliği eklendi
     final features = [
       'Sınırsız Çeviri Desteği',
       'Sınırsız Sohbet Uzatma Jetonu',

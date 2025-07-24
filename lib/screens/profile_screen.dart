@@ -16,6 +16,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateMixin {
+  // ... (initState ve diğer metotlar aynı kalıyor)
   late Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream;
   final AuthService _authService = AuthService();
   bool _notificationsEnabled = true;
@@ -49,10 +50,12 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      // DEĞİŞTİ: Arka plan rengi şeffaf yapıldı.
+      backgroundColor: Colors.transparent,
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: _userStream,
         builder: (context, snapshot) {
@@ -79,7 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
       ),
     );
   }
-
+  // ... (Bu dosyadaki diğer tüm metotlar aynı kalıyor)
   SliverAppBar _buildSliverAppBar(String displayName, String email) {
     return SliverAppBar(
       expandedHeight: 250.0,
@@ -171,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                 _buildAppSettingsCard(),
                 const SizedBox(height: 24),
                 _buildSectionTitle('Destek'),
-                _buildSupportCard(), // GÜNCELLENDİ
+                _buildSupportCard(),
                 const SizedBox(height: 24),
                 _buildSectionTitle('Hesap Yönetimi'),
                 _buildAccountManagementCard(memberSince),
@@ -301,7 +304,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     );
   }
 
-  // GÜNCELLEME: "Kullanıcı Sözleşmesi" eklendi
   Widget _buildSupportCard() {
     return Card(
       elevation: 2,
