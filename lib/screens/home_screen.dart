@@ -5,9 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
-// LoginScreen ve AuthService importları artık burada gerekmeyebilir.
-// import 'package:lingua_chat/screens/login_screen.dart';
-// import 'package:lingua_chat/services/auth_service.dart';
 import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
@@ -22,7 +19,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  // final AuthService _authService = AuthService(); // <-- KALDIRILDI
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSearching = false;
   StreamSubscription? _matchListener;
@@ -204,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (!mounted) return;
     _matchListener?.cancel();
     setState(() => _isSearching = false);
-    Navigator.push( // pushReplacement yerine push kullanıldı
+    Navigator.push(
         context,
         PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
@@ -217,8 +213,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar buradan kaldırıldı.
-      body: SafeArea( // Sayfa içeriğinin güvenli alanda kalmasını sağlar
+      body: SafeArea(
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -240,96 +235,161 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       opacity: _isSearching ? 0 : 1,
       child: IgnorePointer(
         ignoring: _isSearching,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20), // AppBar olmadığı için boşluk eklendi
-              FadeTransition(
-                  opacity: _headerFade,
-                  child: SlideTransition(
-                      position: _headerSlide,
-                      child: HomeHeader(
-                          userNameFuture:
-                          _userNameFuture ?? Future.value('Gezgin'),
-                          currentUser: _currentUser))),
-              const SizedBox(height: 24),
-              FadeTransition(
-                  opacity: _statsFade,
-                  child: SlideTransition(
-                      position: _statsSlide, child: const StatsRow())),
-              const Spacer(),
-              Center(child: _buildFindPartnerButton()),
-              const Spacer(),
-              FadeTransition(
-                  opacity: _cardFade,
-                  child: SlideTransition(
-                      position: _cardSlide, child: const ChallengeCard())),
-              const SizedBox(height: 20),
-              FadeTransition(
-                  opacity: _levelCardFade,
-                  child: SlideTransition(
-                      position: _levelCardSlide,
-                      child: const LevelAssessmentCard())),
-              const SizedBox(height: 20),
-            ],
+        // DÜZELTME: Column'u SingleChildScrollView ile sararak taşma hatası %100 çözüldü
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 20),
+                  FadeTransition(
+                      opacity: _headerFade,
+                      child: SlideTransition(
+                          position: _headerSlide,
+                          child: HomeHeader(
+                              userNameFuture:
+                              _userNameFuture ?? Future.value('Gezgin'),
+                              currentUser: _currentUser))),
+                  const SizedBox(height: 24),
+                  FadeTransition(
+                      opacity: _statsFade,
+                      child: SlideTransition(
+                          position: _statsSlide, child: const StatsRow())),
+                  const SizedBox(height: 24),
+                  _buildPartnerFinderSection(),
+                  const SizedBox(height: 24),
+                  FadeTransition(
+                      opacity: _cardFade,
+                      child: SlideTransition(
+                          position: _cardSlide, child: const ChallengeCard())),
+                  const SizedBox(height: 20),
+                  FadeTransition(
+                      opacity: _levelCardFade,
+                      child: SlideTransition(
+                          position: _levelCardSlide,
+                          child: const LevelAssessmentCard())),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFindPartnerButton() {
+  Widget _buildPartnerFinderSection() {
     return FadeTransition(
       opacity: _buttonFade,
       child: SlideTransition(
         position: _buttonSlide,
-        child: GestureDetector(
-          onTap: _findPracticePartner,
-          child: Hero(
-            tag: 'find-partner-hero',
-            child: AnimatedBuilder(
-              animation: _pulseAnimationController,
-              builder: (context, child) {
-                final scale = 1.0 - (_pulseAnimationController.value * 0.05);
-                return Transform.scale(scale: scale, child: child);
-              },
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                        colors: [Colors.teal, Colors.cyan],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.teal.withAlpha(102),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                          offset: const Offset(0, 15))
-                    ]),
-                child: const Material(
-                  color: Colors.transparent,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.language_sharp, color: Colors.white, size: 70),
-                      SizedBox(height: 8),
-                      Text('Partner Bul',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2)),
-                    ],
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: _findPracticePartner,
+              child: Hero(
+                tag: 'find-partner-hero',
+                child: AnimatedBuilder(
+                  animation: _pulseAnimationController,
+                  builder: (context, child) {
+                    final scale = 1.0 - (_pulseAnimationController.value * 0.05);
+                    return Transform.scale(scale: scale, child: child);
+                  },
+                  child: Container(
+                    width: 180,
+                    height: 180,
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                            colors: [Colors.teal, Colors.cyan],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight),
+                        boxShadow: [
+                          BoxShadow(
+                              color: const Color.fromARGB(102, 0, 150, 136),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                              offset: const Offset(0, 15))
+                        ]),
+                    child: const Material(
+                      color: Colors.transparent,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.language_sharp, color: Colors.white, size: 70),
+                          SizedBox(height: 8),
+                          Text('Partner Bul',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildFilterButton(
+                  icon: Icons.wc,
+                  label: 'Cinsiyet',
+                  onTap: () {},
+                ),
+                const SizedBox(width: 20),
+                _buildFilterButton(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Seviye',
+                  onTap: () {},
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(25),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: const Color.fromARGB(20, 0, 0, 0),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.teal, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+          ],
         ),
       ),
     );
