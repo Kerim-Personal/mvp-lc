@@ -188,9 +188,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               readOnly: true,
               onTap: _showDatePicker,
             ),
-            const SizedBox(height: 16),
-            _buildGenderDropdown(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            _buildGenderSelection(), // <-- DEĞİŞİKLİK BURADA
+            const SizedBox(height: 24),
             _buildTextField(
               controller: _nativeLanguageController,
               label: 'Anadil',
@@ -256,27 +256,97 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildGenderDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedGender,
-      decoration: InputDecoration(
-        labelText: 'Cinsiyet',
-        prefixIcon: const Icon(Icons.wc_outlined),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        filled: true,
-        fillColor: Colors.grey.shade50,
+  // YENİ: Cinsiyet seçimi için daha modern bir arayüz
+  Widget _buildGenderSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Cinsiyet',
+          style: TextStyle(
+            color: Colors.grey.shade700,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: GenderSelectionBox(
+                icon: Icons.female,
+                label: 'Kadın',
+                isSelected: _selectedGender == 'Female',
+                onTap: () => setState(() => _selectedGender = 'Female'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: GenderSelectionBox(
+                icon: Icons.male,
+                label: 'Erkek',
+                isSelected: _selectedGender == 'Male',
+                onTap: () => setState(() => _selectedGender = 'Male'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// YENİ: Cinsiyet seçim kutucuğu widget'ı
+class GenderSelectionBox extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const GenderSelectionBox({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.teal.withOpacity(0.1) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.teal : Colors.grey.shade300,
+            width: isSelected ? 2 : 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 32,
+              color: isSelected ? Colors.teal : Colors.grey.shade600,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                color: isSelected ? Colors.teal.shade800 : Colors.grey.shade700,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
-      items: ['Male', 'Female']
-          .map((label) => DropdownMenuItem(
-        value: label,
-        child: Text(label == 'Male' ? 'Erkek' : 'Kadın'),
-      ))
-          .toList(),
-      onChanged: (value) {
-        setState(() {
-          _selectedGender = value;
-        });
-      },
     );
   }
 }

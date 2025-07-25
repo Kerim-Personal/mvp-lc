@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/edit_profile_screen.dart';
-import 'package:lingua_chat/screens/login_screen.dart';
+// DEĞİŞİKLİK: LoginScreen import'u artık gerekli değil.
+// import 'package:lingua_chat/screens/login_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -16,7 +17,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateMixin {
-  // ... (initState ve diğer metotlar aynı kalıyor)
   late Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream;
   final AuthService _authService = AuthService();
   bool _notificationsEnabled = true;
@@ -54,7 +54,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // DEĞİŞTİ: Arka plan rengi şeffaf yapıldı.
       backgroundColor: Colors.transparent,
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: _userStream,
@@ -82,7 +81,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
       ),
     );
   }
-  // ... (Bu dosyadaki diğer tüm metotlar aynı kalıyor)
+
   SliverAppBar _buildSliverAppBar(String displayName, String email) {
     return SliverAppBar(
       expandedHeight: 250.0,
@@ -378,12 +377,9 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             leading: const Icon(Icons.logout, color: Colors.teal),
             title: const Text('Çıkış Yap'),
             onTap: () async {
-              final navigator = Navigator.of(context);
+              // KALICI DÜZELTME: Manuel yönlendirme kaldırıldı.
+              // Sadece oturumu kapatıyoruz, gerisini AuthWrapper halledecek.
               await _authService.signOut();
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (route) => false,
-              );
             },
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),

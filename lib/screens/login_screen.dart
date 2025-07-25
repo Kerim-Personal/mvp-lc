@@ -3,10 +3,11 @@
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/home_screen.dart';
 import 'package:lingua_chat/screens/register_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
+// home_screen import'u artık gerekli değil.
+// import 'package:lingua_chat/screens/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -94,23 +95,21 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _login() async {
-    // Giriş fonksiyonu...
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final userCredential = await _authService.signIn(
+      // DÜZELTME: AuthService'den dönen değeri kontrol ediyoruz.
+      // Başarılı girişten sonra manuel yönlendirme yapmıyoruz,
+      // AuthWrapper bu işi halledecek.
+      await _authService.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
-      if (userCredential != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      }
+      // Yönlendirme kısmı kaldırıldı. AuthStateChanges stream'i yönlendirmeyi yapacak.
+
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -124,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen>
                 VerificationScreen(email: _emailController.text.trim()),
           ),
         );
-        return;
+        // Hata mesajı göstermeye gerek yok, kullanıcı doğrulama ekranına yönlendirildi.
       } else if (e.code == 'user-not-found' ||
           e.code == 'wrong-password' ||
           e.code == 'invalid-credential') {
@@ -133,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen>
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       } else {
-        errorMessage = 'Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.';
+        errorMessage = 'Beklenmedik bir hata oluştu: ${e.message}';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
@@ -141,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(content: Text('Bir hata oluştu: ${e.toString()}'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -151,6 +150,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -226,14 +226,12 @@ class _LoginScreenState extends State<LoginScreen>
     return AnimatedBuilder(
       animation: _backgroundAnimationController,
       builder: (context, child) {
-        final animationValue = _backgroundAnimationController.value;
         final size = MediaQuery.of(context).size;
         final parallaxX = (_mousePosition.dx / size.width - 0.5) * 40;
         final parallaxY = (_mousePosition.dy / size.height - 0.5) * 40;
 
         return Stack(
           children: [
-            // Arka plan gradyanı artık en dıştaki Container'da olduğu için buradan kaldırıldı.
             Transform.translate(
               offset: Offset(parallaxX * 0.5, parallaxY * 0.5),
               child: Opacity(
