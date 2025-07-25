@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
+// DÜZELTME: Hatalı import yolları düzeltildi.
 import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
 import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
@@ -22,13 +23,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  // ... (initState ve diğer metotlar aynı kalıyor)
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSearching = false;
   StreamSubscription? _matchListener;
   Future<String?>? _userNameFuture;
 
-  // Filtreler için state değişkenleri
   String? _selectedGenderFilter;
   String? _selectedLevelGroupFilter;
   bool _isProUser = false;
@@ -48,10 +47,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
 
     _pageController = PageController(viewportFraction: 0.85)
+    // DÜZELTME: '!' uyarısı için null kontrolü eklendi.
       ..addListener(() {
-        if(mounted) {
+        final page = _pageController.page;
+        if (mounted && page != null) {
           setState(() {
-            _pageOffset = _pageController.page!;
+            _pageOffset = page;
           });
         }
       });
@@ -61,8 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _checkIfProUser() async {
-    // TODO: Bu değeri kullanıcının gerçek Pro üyelik durumuna göre güncelleyin
-    if(mounted) {
+    if (mounted) {
       setState(() => _isProUser = true);
     }
   }
@@ -105,9 +105,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final myId = _currentUser!.uid;
     final waitingPoolRef = FirebaseFirestore.instance.collection('waiting_pool');
+
     try {
-      await waitingPoolRef.doc(myId).delete();
-      Query query = waitingPoolRef.where('userId', isNotEqualTo: myId);
+      Query query = waitingPoolRef;
 
       if (_selectedGenderFilter != null) {
         query = query.where('gender', isEqualTo: _selectedGenderFilter);
@@ -128,13 +128,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       query = query.orderBy('waitingSince');
 
       final potentialMatches = await query.get();
-      if (potentialMatches.docs.isNotEmpty) {
-        final otherUserDoc = potentialMatches.docs.first;
+      final otherUserDocs =
+      potentialMatches.docs.where((doc) => doc.id != myId).toList();
+
+      if (otherUserDocs.isNotEmpty) {
+        final otherUserDoc = otherUserDocs.first;
         final otherUserId = otherUserDoc.id;
-        final chatRoomId = await FirebaseFirestore.instance.runTransaction((transaction) async {
-          final otherUserSnapshot = await transaction.get(otherUserDoc.reference);
+        final chatRoomId =
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final otherUserSnapshot =
+          await transaction.get(otherUserDoc.reference);
           if (otherUserSnapshot.exists) {
-            final newChatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
+            final newChatRoomRef =
+            FirebaseFirestore.instance.collection('chats').doc();
             transaction.set(newChatRoomRef, {
               'users': [myId, otherUserId],
               'createdAt': FieldValue.serverTimestamp(),
@@ -142,7 +148,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               '${myId}_lastActive': FieldValue.serverTimestamp(),
               '${otherUserId}_lastActive': FieldValue.serverTimestamp()
             });
-            transaction.update(otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
+            transaction.update(
+                otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
             return newChatRoomRef.id;
           }
           return null;
@@ -150,11 +157,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (chatRoomId != null) {
           _navigateToChat(chatRoomId);
         } else {
-          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Partner başkasıyla eşleşti, yeniden aranıyor...'), duration: Duration(seconds: 2)));
+          scaffoldMessenger.showSnackBar(const SnackBar(
+              content: Text('Partner başkasıyla eşleşti, yeniden aranıyor...'),
+              duration: Duration(seconds: 2)));
           _findPracticePartner();
         }
       } else {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(myId).get();
+        final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(myId).get();
         final userData = userDoc.data();
         await waitingPoolRef.doc(myId).set({
           'userId': myId,
@@ -166,7 +176,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       if (mounted) {
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'), backgroundColor: Colors.red));
+        scaffoldMessenger.showSnackBar(SnackBar(
+            content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'),
+            backgroundColor: Colors.red));
         await _cancelSearch();
       }
     }
@@ -175,9 +187,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _listenForMatch() {
     if (_currentUser == null) return;
     _matchListener?.cancel();
-    _matchListener = FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).snapshots().listen((snapshot) async {
+    _matchListener = FirebaseFirestore.instance
+        .collection('waiting_pool')
+        .doc(_currentUser!.uid)
+        .snapshots()
+        .listen((snapshot) async {
       if (!mounted) return;
-      if (snapshot.exists && snapshot.data()!.containsKey('matchedChatRoomId')) {
+      if (snapshot.exists &&
+          snapshot.data()!.containsKey('matchedChatRoomId')) {
         final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
         await snapshot.reference.delete();
         _navigateToChat(chatRoomId);
@@ -188,7 +205,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _cancelSearch() async {
     _matchListener?.cancel();
     if (_currentUser != null) {
-      FirebaseFirestore.instance.collection('waiting_pool').doc(_currentUser!.uid).delete().catchError((_) {});
+      FirebaseFirestore.instance
+          .collection('waiting_pool')
+          .doc(_currentUser!.uid)
+          .delete()
+          .catchError((_) {});
     }
     if (mounted) setState(() => _isSearching = false);
   }
@@ -200,8 +221,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     Navigator.push(
         context,
         PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => ChatScreen(chatRoomId: chatRoomId),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child)));
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                ChatScreen(chatRoomId: chatRoomId),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) =>
+                FadeTransition(opacity: animation, child: child)));
   }
 
   void _showGenderFilter() {
@@ -209,20 +233,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
             title: const Text('Premium Özellik'),
-            content: const Text('Cinsiyete göre partner arama özelliği Lingua Pro üyelerine özeldir.'),
+            content: const Text(
+                'Cinsiyete göre partner arama özelliği Lingua Pro üyelerine özeldir.'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Kapat')),
               ElevatedButton(
                   style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
-                  ),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8))),
                   onPressed: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const StoreScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const StoreScreen()));
                   },
                   child: const Text('Pro\'ya Geç')),
             ],
@@ -268,16 +299,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // DEĞİŞTİ: Arka plan rengi şeffaf yapıldı.
       backgroundColor: Colors.transparent,
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // DEĞİŞTİ: Bu ekrana özel arka plan kaldırıldı.
           _buildHomeUI(),
           SearchingUI(
             isSearching: _isSearching,
@@ -289,10 +317,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // DEĞİŞTİ: _buildAnimatedBackground metodu kaldırıldı.
-
   Widget _buildHomeUI() {
-    //... (Bu metotun içeriği aynı kalıyor)
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
       opacity: _isSearching ? 0 : 1,
@@ -309,7 +334,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: _buildAnimatedUI(
                   interval: const Interval(0.2, 0.8),
                   child: HomeHeader(
-                      userNameFuture: _userNameFuture ?? Future.value('Gezgin'),
+                      userNameFuture:
+                      _userNameFuture ?? Future.value('Gezgin'),
                       currentUser: _currentUser),
                 ),
               ),
@@ -358,11 +384,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildAnimatedUI({required Widget child, required Interval interval}) {
+  Widget _buildAnimatedUI(
+      {required Widget child, required Interval interval}) {
     return AnimatedBuilder(
       animation: _entryAnimationController,
       builder: (context, snapshot) {
-        final animationValue = interval.transform(_entryAnimationController.value);
+        final animationValue =
+        interval.transform(_entryAnimationController.value);
         return Opacity(
           opacity: animationValue,
           child: Transform.translate(
@@ -399,7 +427,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     double scale;
     double gauss = 1 - (_pageOffset - index).abs();
 
-    scale = lerpDouble(0.8, 1.0, gauss)!;
+    // DÜZELTME: '!' uyarısı için null coalescing operatörü (??) kullanıldı.
+    scale = lerpDouble(0.8, 1.0, gauss) ?? 0.8;
     matrix.setEntry(3, 2, 0.001);
     matrix.rotateY((_pageOffset - index) * -0.5);
 
@@ -424,7 +453,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               animation: _pulseAnimationController,
               builder: (context, child) {
                 final scale = 1.0 - (_pulseAnimationController.value * 0.05);
-                return Transform.scale(scale: scale, child: child);
+                // DÜZELTME: '!' uyarısı için null kontrolü eklendi.
+                return Transform.scale(scale: scale, child: child ?? const SizedBox());
               },
               child: Container(
                 width: 180,
@@ -447,7 +477,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.language_sharp, color: Colors.white, size: 70),
+                      Icon(Icons.language_sharp,
+                          color: Colors.white, size: 70),
                       SizedBox(height: 8),
                       Text('Partner Bul',
                           style: TextStyle(
@@ -470,7 +501,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.wc,
               label: 'Cinsiyet',
               onTap: _showGenderFilter,
-              value: _selectedGenderFilter == 'Male' ? 'Erkek' : _selectedGenderFilter == 'Female' ? 'Kadın' : null,
+              value: _selectedGenderFilter == 'Male'
+                  ? 'Erkek'
+                  : _selectedGenderFilter == 'Female'
+                  ? 'Kadın'
+                  : null,
             ),
             const SizedBox(width: 20),
             _buildFilterButton(
@@ -485,7 +520,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildFilterButton({required IconData icon, required String label, required VoidCallback onTap, String? value}) {
+  Widget _buildFilterButton(
+      {required IconData icon,
+        required String label,
+        required VoidCallback onTap,
+        String? value}) {
     final bool isActive = value != null;
     return InkWell(
       onTap: onTap,
@@ -493,9 +532,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? Colors.teal.withOpacity(0.1) : Colors.white,
+          // DÜZELTME: Deprecated 'withOpacity' yerine 'withAlpha' kullanıldı.
+          color: isActive ? Colors.teal.withAlpha(26) : Colors.white,
           borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: isActive ? Colors.teal : Colors.grey.shade300),
+          border: Border.all(
+              color: isActive ? Colors.teal : Colors.grey.shade300),
           boxShadow: [
             BoxShadow(
               color: const Color.fromARGB(20, 0, 0, 0),
@@ -512,7 +553,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               isActive ? '$label: $value' : label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: isActive ? Colors.teal.shade800 : Colors.black54,
+                color:
+                isActive ? Colors.teal.shade800 : Colors.black54,
               ),
             ),
           ],

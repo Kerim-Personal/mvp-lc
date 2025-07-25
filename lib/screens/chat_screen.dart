@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/screens/home_screen.dart';
+import 'package:lingua_chat/screens/root_screen.dart'; // YÖNLENDİRME DEĞİŞTİ
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -123,7 +123,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: const Text('Ana Sayfa'),
             onPressed: () {
               navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
+                MaterialPageRoute(builder: (context) => const RootScreen()), // YÖNLENDİRME DEĞİŞTİ
                     (route) => false,
               );
             },
@@ -146,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'leftBy': _currentUser!.uid,
       });
       navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const RootScreen()), // YÖNLENDİRME DEĞİŞTİ
             (route) => false,
       );
     } catch (e) {

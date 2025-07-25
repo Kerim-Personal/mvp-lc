@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/home_screen.dart';
+import 'package:lingua_chat/screens/root_screen.dart'; // YÖNLENDİRME DEĞİŞTİ
 
 // Sorular için basit bir veri modeli
 class Question {
@@ -84,7 +84,7 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> {
         });
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (context) => const RootScreen()), // YÖNLENDİRME DEĞİŞTİ
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
