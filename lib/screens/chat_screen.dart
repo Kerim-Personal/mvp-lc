@@ -1,9 +1,11 @@
+// lib/screens/chat_screen.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/screens/root_screen.dart'; // YÖNLENDİRME DEĞİŞTİ
+import 'package:lingua_chat/screens/root_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -123,7 +125,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: const Text('Ana Sayfa'),
             onPressed: () {
               navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const RootScreen()), // YÖNLENDİRME DEĞİŞTİ
+                MaterialPageRoute(builder: (context) => const RootScreen()),
                     (route) => false,
               );
             },
@@ -137,6 +139,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_currentUser == null) return;
     final navigator = Navigator.of(context);
     _heartbeatTimer?.cancel();
+    _chatSubscription?.cancel();
     try {
       await FirebaseFirestore.instance
           .collection('chats')
@@ -146,7 +149,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'leftBy': _currentUser!.uid,
       });
       navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const RootScreen()), // YÖNLENDİRME DEĞİŞTİ
+        MaterialPageRoute(builder: (context) => const RootScreen()),
             (route) => false,
       );
     } catch (e) {
@@ -178,99 +181,115 @@ class _ChatScreenState extends State<ChatScreen> {
         .update({'${_currentUser!.uid}_lastActive': FieldValue.serverTimestamp()});
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).cardColor,
-        elevation: 1,
-        title: FutureBuilder<DocumentSnapshot>(
-          future: _partnerFuture,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Text('Yükleniyor...');
-            }
-            final partnerData = snapshot.data!.data() as Map<String, dynamic>;
-            return Row(
-              children: [
-                const CircleAvatar(
-                  backgroundColor: Colors.teal,
-                  child: Icon(Icons.person, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  partnerData['displayName'] ?? 'Bilinmeyen Kullanıcı',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
-                ),
-              ],
-            );
-          },
-        ),
+  // YENİ: Hem geri tuşu hem de buton için ortak dialog metodu
+  void _handleLeaveAttempt() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sohbetten Ayrıl'),
+        content: const Text(
+            'Bu sohbeti sonlandırmak istediğinizden emin misiniz?'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+          TextButton(
+            child: const Text('İptal'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          TextButton(
+            child: const Text('Ayrıl', style: TextStyle(color: Colors.red)),
             onPressed: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Sohbetten Ayrıl'),
-                  content: const Text(
-                      'Bu sohbeti sonlandırmak istediğinizden emin misiniz?'),
-                  actions: [
-                    TextButton(child: const Text('İptal'), onPressed: () => Navigator.of(ctx).pop()),
-                    TextButton(
-                      child: const Text('Ayrıl', style: TextStyle(color: Colors.red)),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _leaveChat();
-                      },
-                    ),
-                  ],
-                ),
-              );
+              Navigator.of(ctx).pop();
+              _leaveChat();
             },
-          )
+          ),
         ],
       ),
-      body: Column(
-        children: <Widget>[
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .doc(widget.chatRoomId)
-                  .collection('messages')
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                      child: Text('Konuşmayı başlatmak için selam ver!'));
-                }
-                final chatDocs = snapshot.data!.docs;
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
-                  itemCount: chatDocs.length,
-                  itemBuilder: (context, index) {
-                    final message = chatDocs[index].data() as Map<String, dynamic>;
-                    final isMe = message['userId'] == _currentUser?.uid;
-                    return MessageBubble(
-                      message: message['text'],
-                      timestamp: message['createdAt'],
-                      isMe: isMe,
-                    );
-                  },
-                );
-              },
-            ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // DEĞİŞİKLİK: Scaffold, WillPopScope ile sarmalandı
+    return WillPopScope(
+      onWillPop: () {
+        _handleLeaveAttempt();
+        // Varsayılan geri gitme eylemini engelle, çünkü biz kendimiz yöneteceğiz.
+        return Future.value(false);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Theme.of(context).cardColor,
+          elevation: 1,
+          title: FutureBuilder<DocumentSnapshot>(
+            future: _partnerFuture,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Text('Yükleniyor...');
+              }
+              final partnerData = snapshot.data!.data() as Map<String, dynamic>;
+              return Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: Colors.teal,
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    partnerData['displayName'] ?? 'Bilinmeyen Kullanıcı',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                  ),
+                ],
+              );
+            },
           ),
-          _buildMessageComposer(),
-        ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+              // DEĞİŞİKLİK: Ortak metot çağrıldı
+              onPressed: _handleLeaveAttempt,
+            )
+          ],
+        ),
+        body: Column(
+          children: <Widget>[
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('chats')
+                    .doc(widget.chatRoomId)
+                    .collection('messages')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                        child: Text('Konuşmayı başlatmak için selam ver!'));
+                  }
+                  final chatDocs = snapshot.data!.docs;
+                  return ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
+                    itemCount: chatDocs.length,
+                    itemBuilder: (context, index) {
+                      final message = chatDocs[index].data() as Map<String, dynamic>;
+                      final isMe = message['userId'] == _currentUser?.uid;
+                      return MessageBubble(
+                        message: message['text'],
+                        timestamp: message['createdAt'],
+                        isMe: isMe,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            _buildMessageComposer(),
+          ],
+        ),
       ),
     );
   }
