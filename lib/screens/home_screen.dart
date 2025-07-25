@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
-// DÜZELTME: Hatalı import yolları düzeltildi.
 import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
 import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
@@ -47,7 +46,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
 
     _pageController = PageController(viewportFraction: 0.85)
-    // DÜZELTME: '!' uyarısı için null kontrolü eklendi.
       ..addListener(() {
         final page = _pageController.page;
         if (mounted && page != null) {
@@ -99,20 +97,83 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future<void> _addUserToWaitingPool() async {
+    final myId = _currentUser!.uid;
+    final userDoc =
+    await FirebaseFirestore.instance.collection('users').doc(myId).get();
+    final userData = userDoc.data() as Map<String, dynamic>;
+    final userLevel = userData['level'] as String? ?? 'A1';
+    final userGender = userData['gender'] as String? ?? 'Male';
+
+    String levelGroup;
+    if (['A1', 'A2'].contains(userLevel)) {
+      levelGroup = 'Başlangıç';
+    } else if (['B1', 'B2'].contains(userLevel)) {
+      levelGroup = 'Orta';
+    } else {
+      levelGroup = 'İleri';
+    }
+
+    await FirebaseFirestore.instance.collection('waiting_pool').doc(myId).set({
+      'userId': myId,
+      'waitingSince': FieldValue.serverTimestamp(),
+      'gender': userGender,
+      'level': userLevel,
+      'gender_level_group': '${userGender}_$levelGroup',
+      'filter_gender': _selectedGenderFilter,
+      'filter_level_group': _selectedLevelGroupFilter,
+      'matchedChatRoomId': null,
+    });
+    _listenForMatch();
+  }
+
+  void _listenForMatch() {
+    if (_currentUser == null) return;
+    _matchListener?.cancel();
+    _matchListener = FirebaseFirestore.instance
+        .collection('waiting_pool')
+        .doc(_currentUser!.uid)
+        .snapshots()
+        .listen((snapshot) async {
+      if (mounted &&
+          snapshot.exists &&
+          snapshot.data()?['matchedChatRoomId'] != null) {
+        final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
+        _matchListener?.cancel();
+        _navigateToChat(chatRoomId);
+        await snapshot.reference.delete();
+      }
+    });
+  }
+
   Future<void> _findPracticePartner() async {
     if (_currentUser == null || !mounted) return;
     setState(() => _isSearching = true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final myId = _currentUser!.uid;
-    final waitingPoolRef = FirebaseFirestore.instance.collection('waiting_pool');
 
     try {
-      Query query = waitingPoolRef;
-
-      if (_selectedGenderFilter != null) {
-        query = query.where('gender', isEqualTo: _selectedGenderFilter);
+      final myUserDoc =
+      await FirebaseFirestore.instance.collection('users').doc(myId).get();
+      final myData = myUserDoc.data() as Map<String, dynamic>;
+      final myGender = myData['gender'];
+      final myLevel = myData['level'];
+      String myLevelGroup;
+      if (['A1', 'A2'].contains(myLevel)) {
+        myLevelGroup = 'Başlangıç';
+      } else if (['B1', 'B2'].contains(myLevel)) {
+        myLevelGroup = 'Orta';
+      } else {
+        myLevelGroup = 'İleri';
       }
-      if (_selectedLevelGroupFilter != null) {
+
+      Query query = FirebaseFirestore.instance.collection('waiting_pool');
+      if (_selectedGenderFilter != null && _selectedLevelGroupFilter != null) {
+        query = query.where('gender_level_group',
+            isEqualTo: "${_selectedGenderFilter}_$_selectedLevelGroupFilter");
+      } else if (_selectedGenderFilter != null) {
+        query = query.where('gender', isEqualTo: _selectedGenderFilter);
+      } else if (_selectedLevelGroupFilter != null) {
         List<String> levelsToSearch = [];
         if (_selectedLevelGroupFilter == 'Başlangıç') {
           levelsToSearch = ['A1', 'A2'];
@@ -131,49 +192,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final otherUserDocs =
       potentialMatches.docs.where((doc) => doc.id != myId).toList();
 
-      if (otherUserDocs.isNotEmpty) {
-        final otherUserDoc = otherUserDocs.first;
-        final otherUserId = otherUserDoc.id;
-        final chatRoomId =
-        await FirebaseFirestore.instance.runTransaction((transaction) async {
-          final otherUserSnapshot =
-          await transaction.get(otherUserDoc.reference);
-          if (otherUserSnapshot.exists) {
-            final newChatRoomRef =
-            FirebaseFirestore.instance.collection('chats').doc();
-            transaction.set(newChatRoomRef, {
-              'users': [myId, otherUserId],
+      for (final otherUserDoc in otherUserDocs) {
+        final otherUserData = otherUserDoc.data() as Map<String, dynamic>;
+        final otherUserFilterGender = otherUserData['filter_gender'];
+        final otherUserFilterLevelGroup = otherUserData['filter_level_group'];
+
+        final isMyGenderOk =
+            otherUserFilterGender == null || otherUserFilterGender == myGender;
+        final isMyLevelGroupOk = otherUserFilterLevelGroup == null ||
+            otherUserFilterLevelGroup == myLevelGroup;
+
+        if (isMyGenderOk && isMyLevelGroupOk) {
+          final chatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
+
+          await FirebaseFirestore.instance.runTransaction((transaction) async {
+            final freshOtherUserDoc =
+            await transaction.get(otherUserDoc.reference);
+            if (!freshOtherUserDoc.exists) return;
+
+            transaction.set(chatRoomRef, {
+              'users': [myId, otherUserDoc.id],
               'createdAt': FieldValue.serverTimestamp(),
               'status': 'active',
               '${myId}_lastActive': FieldValue.serverTimestamp(),
-              '${otherUserId}_lastActive': FieldValue.serverTimestamp()
+              '${otherUserDoc.id}_lastActive': FieldValue.serverTimestamp()
             });
             transaction.update(
-                otherUserDoc.reference, {'matchedChatRoomId': newChatRoomRef.id});
-            return newChatRoomRef.id;
-          }
-          return null;
-        });
-        if (chatRoomId != null) {
-          _navigateToChat(chatRoomId);
-        } else {
-          scaffoldMessenger.showSnackBar(const SnackBar(
-              content: Text('Partner başkasıyla eşleşti, yeniden aranıyor...'),
-              duration: Duration(seconds: 2)));
-          _findPracticePartner();
+                otherUserDoc.reference, {'matchedChatRoomId': chatRoomRef.id});
+          });
+
+          _navigateToChat(chatRoomRef.id);
+          return;
         }
-      } else {
-        final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(myId).get();
-        final userData = userDoc.data();
-        await waitingPoolRef.doc(myId).set({
-          'userId': myId,
-          'waitingSince': FieldValue.serverTimestamp(),
-          'gender': userData?['gender'],
-          'level': userData?['level'],
-        });
-        _listenForMatch();
       }
+
+      await _addUserToWaitingPool();
     } catch (e) {
       if (mounted) {
         scaffoldMessenger.showSnackBar(SnackBar(
@@ -182,24 +235,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         await _cancelSearch();
       }
     }
-  }
-
-  void _listenForMatch() {
-    if (_currentUser == null) return;
-    _matchListener?.cancel();
-    _matchListener = FirebaseFirestore.instance
-        .collection('waiting_pool')
-        .doc(_currentUser!.uid)
-        .snapshots()
-        .listen((snapshot) async {
-      if (!mounted) return;
-      if (snapshot.exists &&
-          snapshot.data()!.containsKey('matchedChatRoomId')) {
-        final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
-        await snapshot.reference.delete();
-        _navigateToChat(chatRoomId);
-      }
-    });
   }
 
   Future<void> _cancelSearch() async {
@@ -427,7 +462,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     double scale;
     double gauss = 1 - (_pageOffset - index).abs();
 
-    // DÜZELTME: '!' uyarısı için null coalescing operatörü (??) kullanıldı.
     scale = lerpDouble(0.8, 1.0, gauss) ?? 0.8;
     matrix.setEntry(3, 2, 0.001);
     matrix.rotateY((_pageOffset - index) * -0.5);
@@ -453,8 +487,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               animation: _pulseAnimationController,
               builder: (context, child) {
                 final scale = 1.0 - (_pulseAnimationController.value * 0.05);
-                // DÜZELTME: '!' uyarısı için null kontrolü eklendi.
-                return Transform.scale(scale: scale, child: child ?? const SizedBox());
+                return Transform.scale(
+                    scale: scale, child: child ?? const SizedBox());
               },
               child: Container(
                 width: 180,
@@ -532,11 +566,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          // DÜZELTME: Deprecated 'withOpacity' yerine 'withAlpha' kullanıldı.
           color: isActive ? Colors.teal.withAlpha(26) : Colors.white,
           borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-              color: isActive ? Colors.teal : Colors.grey.shade300),
+          border:
+          Border.all(color: isActive ? Colors.teal : Colors.grey.shade300),
           boxShadow: [
             BoxShadow(
               color: const Color.fromARGB(20, 0, 0, 0),
@@ -553,8 +586,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               isActive ? '$label: $value' : label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color:
-                isActive ? Colors.teal.shade800 : Colors.black54,
+                color: isActive ? Colors.teal.shade800 : Colors.black54,
               ),
             ),
           ],
