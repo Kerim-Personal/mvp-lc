@@ -5,19 +5,20 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:math';
 import 'package:lingua_chat/screens/group_chat_screen.dart';
 
-// --- Mock Data Models (Gerçek veriler için Firebase'den çekilecek) ---
-
-// Liderlik tablosu için örnek kullanıcı modeli
+// --- Mock Data Models ---
 class LeaderboardUser {
   final String name;
   final String avatarUrl;
   final int streak;
   final int rank;
 
-  LeaderboardUser({required this.name, required this.avatarUrl, required this.streak, required this.rank});
+  LeaderboardUser(
+      {required this.name,
+        required this.avatarUrl,
+        required this.streak,
+        required this.rank});
 }
 
-// Akış gönderileri için örnek model
 class FeedPost {
   final String userName;
   final String userAvatarUrl;
@@ -36,7 +37,6 @@ class FeedPost {
   });
 }
 
-// Sohbet odası modeli
 class GroupChatRoom {
   final String name;
   final String description;
@@ -45,12 +45,16 @@ class GroupChatRoom {
   final Color color1;
   final Color color2;
 
-  GroupChatRoom({required this.name, required this.description, required this.icon, required this.members, required this.color1, required this.color2});
+  GroupChatRoom(
+      {required this.name,
+        required this.description,
+        required this.icon,
+        required this.members,
+        required this.color1,
+        required this.color2});
 }
 
-
 // --- Main Screen Widget ---
-
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
 
@@ -58,16 +62,18 @@ class CommunityScreen extends StatefulWidget {
   State<CommunityScreen> createState() => _CommunityScreenState();
 }
 
-class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProviderStateMixin {
+class _CommunityScreenState extends State<CommunityScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Örnek Veriler (Bu kısımlar daha sonra Firebase'den gelecek)
+  // Örnek Veriler
   final List<LeaderboardUser> _users = List.generate(20, (index) {
     final random = Random();
     return LeaderboardUser(
       rank: index + 1,
       name: 'User_${random.nextInt(1000)}',
-      avatarUrl: 'https://api.dicebear.com/8.x/micah/svg?seed=${random.nextInt(1000)}',
+      avatarUrl:
+      'https://api.dicebear.com/8.x/micah/svg?seed=${random.nextInt(1000)}',
       streak: 150 - (index * random.nextInt(5)) - 10,
     );
   });
@@ -85,7 +91,6 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     GroupChatRoom(name: "Kitap Kurtları", description: "Okuduğunuz kitaplar hakkında konuşun.", icon: Icons.menu_book_outlined, members: 76, color1: Colors.brown.shade300, color2: Colors.brown.shade500),
   ];
 
-
   @override
   void initState() {
     super.initState();
@@ -101,12 +106,12 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Topluluk'),
+        // DÜZELTME: AppBar'ın kendi yüksekliğini kaldırıp sadece sekmeleri gösteriyoruz.
+        toolbarHeight: 0,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 1,
-        automaticallyImplyLeading: false,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.teal,
@@ -116,7 +121,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
           tabs: const [
             Tab(text: 'Liderlik', icon: Icon(Icons.leaderboard_outlined)),
             Tab(text: 'Akış', icon: Icon(Icons.dynamic_feed_outlined)),
-            Tab(text: 'Odalar', icon: Icon(Icons.chat_bubble_outline_rounded)),
+            Tab(
+                text: 'Odalar',
+                icon: Icon(Icons.chat_bubble_outline_rounded)),
           ],
         ),
       ),
@@ -131,7 +138,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     );
   }
 
-  // Liderlik Tablosu Listesi
+  // ... Diğer widget build metodları (değişiklik yok) ...
   Widget _buildLeaderboardList() {
     return ListView.builder(
       itemCount: _users.length,
@@ -142,7 +149,6 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     );
   }
 
-  // Sosyal Akış Listesi
   Widget _buildFeedList() {
     return ListView.builder(
       padding: const EdgeInsets.all(8.0),
@@ -154,7 +160,6 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     );
   }
 
-  // Grup Sohbet Odaları Listesi
   Widget _buildGroupChatList() {
     return ListView.builder(
       padding: const EdgeInsets.all(12.0),
@@ -167,10 +172,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   }
 }
 
-
 // --- Custom Widgets for Community Screen ---
-
-// Liderlik Tablosu için özel liste elemanı
 class LeaderboardListItem extends StatelessWidget {
   final LeaderboardUser user;
   const LeaderboardListItem({super.key, required this.user});
@@ -182,8 +184,7 @@ class LeaderboardListItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.grey.shade200)
-      ),
+          side: BorderSide(color: Colors.grey.shade200)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -203,7 +204,8 @@ class LeaderboardListItem extends StatelessWidget {
               child: ClipOval(
                 child: SvgPicture.network(
                   user.avatarUrl,
-                  placeholderBuilder: (context) => const CircularProgressIndicator(),
+                  placeholderBuilder: (context) =>
+                  const CircularProgressIndicator(),
                 ),
               ),
             ),
@@ -211,17 +213,20 @@ class LeaderboardListItem extends StatelessWidget {
             Expanded(
               child: Text(
                 user.name,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(width: 12),
             Row(
               children: [
-                Icon(Icons.local_fire_department_rounded, color: Colors.orange.shade600, size: 20),
+                Icon(Icons.local_fire_department_rounded,
+                    color: Colors.orange.shade600, size: 20),
                 const SizedBox(width: 4),
                 Text(
                   user.streak.toString(),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             )
@@ -232,7 +237,6 @@ class LeaderboardListItem extends StatelessWidget {
   }
 }
 
-// Akış gönderileri için özel kart
 class FeedPostCard extends StatelessWidget {
   final FeedPost post;
   const FeedPostCard({super.key, required this.post});
@@ -258,7 +262,8 @@ class FeedPostCard extends StatelessWidget {
                   child: ClipOval(
                     child: SvgPicture.network(
                       post.userAvatarUrl,
-                      placeholderBuilder: (context) => const CircularProgressIndicator(),
+                      placeholderBuilder: (context) =>
+                      const CircularProgressIndicator(),
                     ),
                   ),
                 ),
@@ -266,23 +271,33 @@ class FeedPostCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(post.userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(post.timeAgo, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    Text(post.userName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(post.timeAgo,
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 12)),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 16),
             // Post Text
-            Text(post.postText, style: const TextStyle(fontSize: 15, height: 1.4)),
+            Text(post.postText,
+                style: const TextStyle(fontSize: 15, height: 1.4)),
             const SizedBox(height: 16),
             // Actions
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildActionButton(icon: Icons.favorite_border_outlined, text: '${post.likeCount} Beğeni'),
-                _buildActionButton(icon: Icons.chat_bubble_outline_rounded, text: '${post.commentCount} Yorum'),
-                _buildActionButton(icon: Icons.share_outlined, text: 'Paylaş'),
+                _buildActionButton(
+                    icon: Icons.favorite_border_outlined,
+                    text: '${post.likeCount} Beğeni'),
+                _buildActionButton(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    text: '${post.commentCount} Yorum'),
+                _buildActionButton(
+                    icon: Icons.share_outlined, text: 'Paylaş'),
               ],
             )
           ],
@@ -296,13 +311,14 @@ class FeedPostCard extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: Colors.grey.shade700),
         const SizedBox(width: 6),
-        Text(text, style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w500)),
+        Text(text,
+            style: TextStyle(
+                color: Colors.grey.shade800, fontWeight: FontWeight.w500)),
       ],
     );
   }
 }
 
-// Grup Sohbet Odası Kartı
 class GroupChatCard extends StatelessWidget {
   final GroupChatRoom room;
   const GroupChatCard({super.key, required this.room});
@@ -319,7 +335,8 @@ class GroupChatCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => GroupChatScreen(roomName: room.name, roomIcon: room.icon),
+              builder: (context) =>
+                  GroupChatScreen(roomName: room.name, roomIcon: room.icon),
             ),
           );
         },
@@ -354,12 +371,14 @@ class GroupChatCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 room.description,
-                style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15),
+                style:
+                TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(Icons.person_outline, color: Colors.white.withOpacity(0.8), size: 18),
+                  Icon(Icons.person_outline,
+                      color: Colors.white.withOpacity(0.8), size: 18),
                   const SizedBox(width: 4),
                   Text(
                     '${room.members} üye',

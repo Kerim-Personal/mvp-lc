@@ -8,15 +8,18 @@ class Lesson {
   final String level;
   final IconData icon;
   final MaterialColor color;
-
-  const Lesson({required this.title, required this.level, required this.icon, required this.color});
+  const Lesson(
+      {required this.title,
+        required this.level,
+        required this.icon,
+        required this.color});
 }
 
-// --- Ana Widget ---
+// --- Gramer Sekmesi Ana Widget'ı ---
 class GrammarTab extends StatelessWidget {
-  const GrammarTab({super.key});
+  GrammarTab({super.key});
 
-  // --- EKSİKSİZ GRAMER KONULARI LİSTESİ ---
+  // --- EKSİKSİZ VE TAM GRAMER KONULARI LİSTESİ ---
   final List<Lesson> grammarLessons = const [
     // A1 Level
     Lesson(title: 'Verb "to be" (am/is/are)', level: 'A1', icon: Icons.person_outline, color: Colors.green),
@@ -33,18 +36,18 @@ class GrammarTab extends StatelessWidget {
     Lesson(title: 'Question Words', level: 'A1', icon: Icons.quiz_outlined, color: Colors.green),
 
     // A2 Level
-    Lesson(title: 'Present Continuous', level: 'A2', icon: Icons.directions_run_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Past Simple (Irregular Verbs)', level: 'A2', icon: Icons.cached_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Countable/Uncountable Nouns', level: 'A2', icon: Icons.format_list_numbered_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Quantifiers (some/any/much/many)', level: 'A2', icon: Icons.unfold_more_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Comparative Adjectives', level: 'A2', icon: Icons.compare_arrows_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Superlative Adjectives', level: 'A2', icon: Icons.military_tech_outlined, color: Colors.lightGreen),
-    Lesson(title: '"Be Going To" for Future', level: 'A2', icon: Icons.event_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Adverbs of Frequency', level: 'A2', icon: Icons.repeat_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Object Pronouns', level: 'A2', icon: Icons.group_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Verb + -ing/infinitive', level: 'A2', icon: Icons.settings_ethernet_outlined, color: Colors.lightGreen),
-    Lesson(title: 'Present Perfect', level: 'A2', icon: Icons.check_circle_outline, color: Colors.lightGreen),
-    Lesson(title: 'Past Continuous', level: 'A2', icon: Icons.history_toggle_off_outlined, color: Colors.lightGreen),
+    Lesson(title: 'Present Continuous', level: 'A2', icon: Icons.directions_run_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Past Simple (Irregular Verbs)', level: 'A2', icon: Icons.cached_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Countable/Uncountable Nouns', level: 'A2', icon: Icons.format_list_numbered_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Quantifiers (some/any/much/many)', level: 'A2', icon: Icons.unfold_more_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Comparative Adjectives', level: 'A2', icon: Icons.compare_arrows_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Superlative Adjectives', level: 'A2', icon: Icons.military_tech_outlined, color: Colors.lightBlue),
+    Lesson(title: '"Be Going To" for Future', level: 'A2', icon: Icons.event_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Adverbs of Frequency', level: 'A2', icon: Icons.repeat_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Object Pronouns', level: 'A2', icon: Icons.group_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Verb + -ing/infinitive', level: 'A2', icon: Icons.settings_ethernet_outlined, color: Colors.lightBlue),
+    Lesson(title: 'Present Perfect', level: 'A2', icon: Icons.check_circle_outline, color: Colors.lightBlue),
+    Lesson(title: 'Past Continuous', level: 'A2', icon: Icons.history_toggle_off_outlined, color: Colors.lightBlue),
 
     // B1 Level
     Lesson(title: 'Future Continuous', level: 'B1', icon: Icons.hourglass_bottom_outlined, color: Colors.orange),
@@ -105,96 +108,135 @@ class GrammarTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        const SectionTitle(title: 'Gramer Merkezi'),
-        const SizedBox(height: 12),
-        GrammarLessonsGrid(lessons: grammarLessons),
-      ],
-    );
-  }
-}
+    // Dersleri seviyelerine göre grupla
+    final Map<String, List<Lesson>> lessonsByLevel = {};
+    for (var lesson in grammarLessons) {
+      lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
+    }
+    final levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    final levelColors = [ Colors.green, Colors.lightBlue, Colors.orange, Colors.deepOrange, Colors.red, Colors.purple ];
 
-class SectionTitle extends StatelessWidget {
-  final String title;
-  const SectionTitle({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
-    );
-  }
-}
-
-class GrammarLessonsGrid extends StatelessWidget {
-  final List<Lesson> lessons;
-  const GrammarLessonsGrid({super.key, required this.lessons});
-
-  @override
-  Widget build(BuildContext context) {
     return GridView.builder(
+      padding: const EdgeInsets.all(20),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.2,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        childAspectRatio: 0.9,
       ),
-      itemCount: lessons.length,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      itemCount: levels.length,
       itemBuilder: (context, index) {
-        final lesson = lessons[index];
-        return Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          color: lesson.color.withAlpha(25),
-          elevation: 0,
-          child: InkWell(
-            onTap: () {},
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Icon(lesson.icon, color: lesson.color, size: 28),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: lesson.color.withAlpha(50),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          lesson.level,
-                          style: TextStyle(color: lesson.color.shade800, fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      lesson.title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: lesson.color.shade900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        final level = levels[index];
+        final lessonsInLevel = lessonsByLevel[level] ?? [];
+        return LevelCard(
+          level: level,
+          lessonCount: lessonsInLevel.length,
+          color: levelColors[index],
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => GrammarLevelScreen(
+                      level: level,
+                      lessons: lessonsInLevel,
+                      color: levelColors[index]))),
         );
       },
+    );
+  }
+}
+
+// Seviye Kartı Widget'ı
+class LevelCard extends StatelessWidget {
+  final String level;
+  final int lessonCount;
+  final MaterialColor color;
+  final VoidCallback onTap;
+
+  const LevelCard(
+      {super.key,
+        required this.level,
+        required this.lessonCount,
+        required this.color,
+        required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+              colors: [color.shade300, color.shade500],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 6))
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(level,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                    shadows: [Shadow(blurRadius: 10, color: Colors.black26)])),
+            const SizedBox(height: 8),
+            Text('$lessonCount Konu',
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.9), fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Gramer Detay Sayfası
+class GrammarLevelScreen extends StatelessWidget {
+  final String level;
+  final List<Lesson> lessons;
+  final MaterialColor color;
+
+  const GrammarLevelScreen(
+      {super.key,
+        required this.level,
+        required this.lessons,
+        required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('$level Gramer Konuları'),
+        backgroundColor: color.shade400,
+        foregroundColor: Colors.white,
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: lessons.length,
+        itemBuilder: (context, index) {
+          final lesson = lessons[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: Icon(lesson.icon, color: lesson.color),
+              title: Text(lesson.title),
+              trailing: const Icon(Icons.arrow_forward_ios,
+                  size: 16, color: Colors.grey),
+              onTap: () {},
+            ),
+          );
+        },
+      ),
     );
   }
 }
