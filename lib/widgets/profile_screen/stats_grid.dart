@@ -1,3 +1,5 @@
+// lib/widgets/profile_screen/stats_grid.dart
+
 import 'package:flutter/material.dart';
 
 class StatsGrid extends StatelessWidget {

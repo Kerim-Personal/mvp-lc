@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 
-// Yeni widget'larımızı import ediyoruz
+// Gerekli tüm widget'ları içe aktarıyoruz
 import 'package:lingua_chat/widgets/profile_screen/profile_sliver_app_bar.dart';
 import 'package:lingua_chat/widgets/profile_screen/section_title.dart';
 import 'package:lingua_chat/widgets/profile_screen/stats_grid.dart';
@@ -25,33 +25,44 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   late Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream;
   final AuthService _authService = AuthService();
 
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+  late AnimationController _staggeredAnimationController;
 
   @override
   void initState() {
     super.initState();
     _userStream = FirebaseFirestore.instance.collection('users').doc(widget.userId).snapshots();
 
-    _animationController = AnimationController(
+    _staggeredAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
-    );
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+      duration: const Duration(milliseconds: 1200),
     );
 
-    _animationController.forward();
+    _staggeredAnimationController.forward();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _staggeredAnimationController.dispose();
     super.dispose();
+  }
+
+  Widget _buildAnimatedSection({required Widget child, required int index}) {
+    final interval = Interval(
+      0.1 * index,
+      0.6 + 0.1 * index,
+      curve: Curves.easeOutCubic,
+    );
+
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.5),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: _staggeredAnimationController, curve: interval)),
+      child: FadeTransition(
+        opacity: CurvedAnimation(parent: _staggeredAnimationController, curve: interval),
+        child: child,
+      ),
+    );
   }
 
   @override
@@ -62,10 +73,10 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         stream: _userStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Colors.white));
           }
           if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Kullanıcı bilgileri yüklenemedi.'));
+            return const Center(child: Text('Kullanıcı bilgileri yüklenemedi.', style: TextStyle(color: Colors.white)));
           }
 
           final userData = snapshot.data!.data()!;
@@ -76,39 +87,82 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           final avatarUrl = userData['avatarUrl'] as String?;
 
           return CustomScrollView(
+            physics: const BouncingScrollPhysics(),
             slivers: [
               ProfileSliverAppBar(
                 displayName: displayName,
                 email: email,
                 avatarUrl: avatarUrl,
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SectionTitle('İstatistiklerim'),
-                          StatsGrid(level: level),
-                          const SectionTitle('Rozetler'),
-                          const AchievementsSection(),
-                          const SectionTitle('Uygulama Ayarları'),
-                          const AppSettingsCard(),
-                          const SectionTitle('Destek'),
-                          const SupportCard(),
-                          const SectionTitle('Hesap Yönetimi'),
-                          AccountManagementCard(
-                            memberSince: memberSince,
-                            userId: widget.userId,
-                            authService: _authService,
-                          ),
-                        ],
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(
+                    [
+                      _buildAnimatedSection(
+                        index: 0,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionTitle('İstatistiklerim'),
+                            // HEDEFE YÖNELİK DÜZELTME: Sadece bu bölümdeki boşluğu azaltmak için
+                            // StatsGrid'i dikey olarak yukarı kaydırıyoruz.
+                            Transform.translate(
+                              offset: const Offset(0, -4.0), // Kutuları 4 piksel yukarı taşır
+                              child: StatsGrid(level: level),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      _buildAnimatedSection(
+                        index: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionTitle('Kazanılan Rozetler'),
+                            const AchievementsSection(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAnimatedSection(
+                        index: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionTitle('Uygulama Ayarları'),
+                            const AppSettingsCard(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAnimatedSection(
+                        index: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionTitle('Destek'),
+                            const SupportCard(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAnimatedSection(
+                        index: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionTitle('Hesap Yönetimi'),
+                            AccountManagementCard(
+                              memberSince: memberSince,
+                              userId: widget.userId,
+                              authService: _authService,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
