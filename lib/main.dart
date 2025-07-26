@@ -2,9 +2,10 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // HATA DÜZELTİLDİ: 'package.' yerine 'package:' olmalı.
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:lingua_chat/screens/root_screen.dart'; // <-- DEĞİŞTİ
+import 'package:lingua_chat/screens/root_screen.dart';
 import 'firebase_options.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
 
@@ -12,6 +13,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
   );
   await initializeDateFormatting('tr_TR', null);
   runApp(const MyApp());
@@ -27,7 +34,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.teal,
         visualDensity: VisualDensity.adaptivePlatformDensity,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA), // Genele yayılmış arkaplan rengi
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
       ),
       home: const AuthWrapper(),
     );
@@ -50,8 +57,7 @@ class AuthWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          // Giriş yapıldıysa RootScreen'e yönlendir.
-          return const RootScreen(); // <-- DEĞİŞTİ
+          return const RootScreen();
         }
         return const LoginScreen();
       },
