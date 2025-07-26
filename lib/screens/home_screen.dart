@@ -14,6 +14,12 @@ import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 
+// Yeni kart widget'ları için importlar
+import 'package:lingua_chat/widgets/home_screen/topic_of_the_week_card.dart';
+import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
+import 'package:lingua_chat/widgets/home_screen/role_playing_card.dart';
+
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -399,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildPageIndicator() {
-    const int pageCount = 2;
+    const int pageCount = 5;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(pageCount, (index) {
@@ -451,6 +457,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _buildCardPageItem(
             index: 1,
             child: const LevelAssessmentCard(),
+          ),
+          _buildCardPageItem(
+            index: 2,
+            child: const TopicOfTheWeekCard(),
+          ),
+          _buildCardPageItem(
+            index: 3,
+            child: const VocabularyTreasureCard(),
+          ),
+          _buildCardPageItem(
+            index: 4,
+            child: const RolePlayingCard(),
           ),
         ],
       ),

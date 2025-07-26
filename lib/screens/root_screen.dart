@@ -1,12 +1,15 @@
 // lib/screens/root_screen.dart
 
-import 'dart:ui'; // YENİ: BackdropFilter için import edildi
+import 'dart:ui'; // HATA 1 & 2 DÜZELTİLDİ: 'dart.ui' yerine 'dart:ui'
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:lingua_chat/screens/home_screen.dart';
 import 'package:lingua_chat/screens/profile_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
+import 'package:lingua_chat/screens/discover_screen.dart';
+import 'package:lingua_chat/screens/community_screen.dart'; // HATA 3 İÇİN: Bu import satırının olması ve community_screen.dart dosyasının var olması gerekir.
+
 
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
@@ -16,19 +19,7 @@ class RootScreen extends StatefulWidget {
 }
 
 class _RootScreenState extends State<RootScreen> {
-  int _selectedIndex = 1;
-  late final List<Widget> _pages;
-  final currentUser = FirebaseAuth.instance.currentUser;
-
-  @override
-  void initState() {
-    super.initState();
-    _pages = [
-      const StoreScreen(),
-      const HomeScreen(),
-      if (currentUser != null) ProfileScreen(userId: currentUser!.uid),
-    ];
-  }
+  int _selectedIndex = 2; // Başlangıç ekranı: Ana Sayfa
 
   void _onItemTapped(int index) {
     setState(() {
@@ -36,7 +27,6 @@ class _RootScreenState extends State<RootScreen> {
     });
   }
 
-  // YENİ: StoreScreen'den taşınan Glassmorphism arka plan metodu
   Widget _buildAnimatedBackground() {
     return Stack(
       children: [
@@ -51,7 +41,7 @@ class _RootScreenState extends State<RootScreen> {
           child: CircleAvatar(radius: 250, backgroundColor: const Color.fromARGB(77, 0, 188, 212)),
         ),
         BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
+          filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120), // Hata 2'nin çözümü burada
           child: Container(color: Colors.transparent),
         ),
       ],
@@ -60,21 +50,58 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_selectedIndex >= _pages.length) {
-      _selectedIndex = 1;
+    final currentUser = FirebaseAuth.instance.currentUser;
+
+    // Sayfaları ve sekmeleri kullanıcının giriş durumuna göre dinamik olarak oluştur
+    final List<Widget> pages = [
+      const StoreScreen(),
+      const DiscoverScreen(),
+      const HomeScreen(),
+      const CommunityScreen(),
+    ];
+
+    final List<GButton> tabs = [
+      const GButton(
+        icon: Icons.store_mall_directory_outlined,
+        text: 'Mağaza',
+      ),
+      const GButton(
+        icon: Icons.explore_outlined,
+        text: 'Keşfet',
+      ),
+      const GButton(
+        icon: Icons.home_rounded,
+        text: 'Ana Sayfa',
+      ),
+      const GButton(
+        icon: Icons.groups_outlined,
+        text: 'Topluluk',
+      ),
+    ];
+
+    // Eğer kullanıcı giriş yapmışsa, Profil sayfasını ve sekmesini ekle
+    if (currentUser != null) {
+      pages.add(ProfileScreen(userId: currentUser.uid));
+      tabs.add(
+        const GButton(
+          icon: Icons.person_rounded,
+          text: 'Profil',
+        ),
+      );
     }
 
-    // DEĞİŞTİ: Yapı, Stack içine alınarak arka planın her zaman
-    // en altta olması sağlandı.
+    // Olası bir hatayı önlemek için, seçili index'in sayfa sayısından büyük olmadığından emin ol
+    if (_selectedIndex >= pages.length) {
+      _selectedIndex = 2; // Ana Sayfa'ya yönlendir
+    }
+
     return Scaffold(
       body: Stack(
         children: [
-          // En alttaki katman: Hareketli ve bulanık arka plan
           _buildAnimatedBackground(),
-          // Üstteki katman: Görüntülenecek olan asıl sayfa içeriği
           IndexedStack(
             index: _selectedIndex,
-            children: _pages,
+            children: pages,
           ),
         ],
       ),
@@ -84,7 +111,8 @@ class _RootScreenState extends State<RootScreen> {
           boxShadow: [
             BoxShadow(
               blurRadius: 20,
-              color: Colors.black.withOpacity(.1),
+              // HATA 4 DÜZELTİLDİ: Deprecated olan withOpacity yerine Colors.black12 kullanıldı
+              color: Colors.black12,
             )
           ],
         ),
@@ -97,24 +125,11 @@ class _RootScreenState extends State<RootScreen> {
               gap: 8,
               activeColor: Colors.white,
               iconSize: 24,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               duration: const Duration(milliseconds: 400),
               tabBackgroundColor: Colors.teal.shade400,
               color: Colors.black54,
-              tabs: const [
-                GButton(
-                  icon: Icons.store_mall_directory_outlined,
-                  text: 'Mağaza',
-                ),
-                GButton(
-                  icon: Icons.home_rounded,
-                  text: 'Ana Sayfa',
-                ),
-                GButton(
-                  icon: Icons.person_rounded,
-                  text: 'Profil',
-                ),
-              ],
+              tabs: tabs, // Dinamik olarak oluşturulan sekmeleri kullan
               selectedIndex: _selectedIndex,
               onTabChange: _onItemTapped,
             ),

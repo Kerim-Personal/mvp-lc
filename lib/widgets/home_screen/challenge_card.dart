@@ -1,6 +1,7 @@
 // lib/widgets/home_screen/challenge_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:lingua_chat/screens/challenge_screen.dart';
 
 class ChallengeCard extends StatelessWidget {
   const ChallengeCard({super.key});
@@ -14,38 +15,50 @@ class ChallengeCard extends StatelessWidget {
     ];
     final randomChallenge = (List.of(challenges)..shuffle()).first;
 
-    // InkWell widget'ı kaldırılarak kartın tıklanma özelliği iptal edildi.
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withAlpha(13),
-                blurRadius: 10,
-                offset: const Offset(0, 5))
-          ]),
-      child: Row(
-        children: [
-          const Icon(Icons.flag_circle_outlined,
-              color: Colors.amber, size: 40),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Günün Görevi",
-                    style:
-                    TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(randomChallenge,
-                    style: TextStyle(color: Colors.grey[700], fontSize: 14)),
-              ],
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) =>
+                    ChallengeScreen(challenge: randomChallenge)));
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withAlpha(13),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5))
+            ]),
+        child: Row(
+          children: [
+            const Icon(Icons.flag_circle_outlined,
+                color: Colors.amber, size: 40),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Günün Görevi",
+                      style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(randomChallenge,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey[700], fontSize: 14)),
+                ],
+              ),
             ),
-          ),
-          // Yönlendirme oku kaldırıldı.
-        ],
+            const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16)
+          ],
+        ),
       ),
     );
   }
