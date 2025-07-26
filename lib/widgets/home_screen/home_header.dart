@@ -1,7 +1,9 @@
 // lib/widgets/home_screen/home_header.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class HomeHeader extends StatelessWidget {
   const HomeHeader({
@@ -13,12 +15,26 @@ class HomeHeader extends StatelessWidget {
   final Future<String?> userNameFuture;
   final User? currentUser;
 
+  // YENİ: Avatar URL'sini almak için Future
+  Future<String?> _getAvatarUrl(String? uid) async {
+    if (uid == null) return null;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      return doc.data()?['avatarUrl'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: userNameFuture,
+    return FutureBuilder<List<String?>>(
+      // Aynı anda hem kullanıcı adını hem de avatar URL'sini bekliyoruz
+      future: Future.wait([userNameFuture, _getAvatarUrl(currentUser?.uid)]),
       builder: (context, snapshot) {
-        final userName = snapshot.data ?? 'Gezgin';
+        final userName = snapshot.data?[0] ?? 'Gezgin';
+        final avatarUrl = snapshot.data?[1];
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           decoration: BoxDecoration(
@@ -50,7 +66,18 @@ class HomeHeader extends StatelessWidget {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: Colors.white.withOpacity(0.25),
-                child: Text(
+                child: avatarUrl != null
+                    ? ClipOval(
+                  child: SvgPicture.network(
+                    avatarUrl,
+                    width: 48,
+                    height: 48,
+                    placeholderBuilder: (context) => const SizedBox(
+                        width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                    ),
+                  ),
+                )
+                    : Text(
                   userName.isNotEmpty ? userName[0].toUpperCase() : '?',
                   style: const TextStyle(
                     fontSize: 22,

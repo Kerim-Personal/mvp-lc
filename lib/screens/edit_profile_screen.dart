@@ -1,8 +1,10 @@
 // lib/screens/edit_profile_screen.dart
 
+import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 
@@ -24,6 +26,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   bool _isLoading = true;
   String _initialDisplayName = '';
+  String? _avatarUrl;
   DateTime? _selectedBirthDate;
   String? _selectedGender;
 
@@ -43,6 +46,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         final data = userDoc.data()!;
         _initialDisplayName = data['displayName'] ?? '';
         _displayNameController.text = _initialDisplayName;
+        _avatarUrl = data['avatarUrl'];
 
         if (data['birthDate'] != null) {
           _selectedBirthDate = (data['birthDate'] as Timestamp).toDate();
@@ -63,6 +67,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  void _generateNewAvatar() {
+    final random = Random().nextInt(10000).toString();
+    setState(() {
+      _avatarUrl = 'https://api.dicebear.com/8.x/micah/svg?seed=$random';
+    });
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -78,6 +89,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'birthDate': _selectedBirthDate != null ? Timestamp.fromDate(_selectedBirthDate!) : null,
         'gender': _selectedGender,
         'nativeLanguage': _nativeLanguageController.text.trim(),
+        'avatarUrl': _avatarUrl,
       };
 
       if (newDisplayName.toLowerCase() != _initialDisplayName.toLowerCase()) {
@@ -189,7 +201,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               onTap: _showDatePicker,
             ),
             const SizedBox(height: 24),
-            _buildGenderSelection(), // <-- DEĞİŞİKLİK BURADA
+            _buildGenderSelection(),
             const SizedBox(height: 24),
             _buildTextField(
               controller: _nativeLanguageController,
@@ -204,30 +216,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildAvatarSection() {
     return Center(
-      child: Stack(
+      child: Column(
         children: [
           CircleAvatar(
             radius: 50,
             backgroundColor: Colors.teal.shade100,
-            child: Text(
+            child: _avatarUrl != null
+                ? ClipOval(
+              child: SvgPicture.network(
+                _avatarUrl!,
+                placeholderBuilder: (context) => const CircularProgressIndicator(),
+                width: 90,
+                height: 90,
+              ),
+            )
+                : Text(
               _initialDisplayName.isNotEmpty ? _initialDisplayName[0].toUpperCase() : '?',
               style: const TextStyle(fontSize: 40, color: Colors.teal, fontWeight: FontWeight.bold),
             ),
           ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.white,
-              child: IconButton(
-                icon: const Icon(Icons.camera_alt, size: 20, color: Colors.teal),
-                onPressed: () {
-                  // TODO: Profil fotoğrafı yükleme fonksiyonu
-                },
-              ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _generateNewAvatar,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Rastgele Avatar Oluştur'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.teal,
             ),
-          ),
+          )
         ],
       ),
     );
@@ -256,7 +272,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  // YENİ: Cinsiyet seçimi için daha modern bir arayüz
   Widget _buildGenderSelection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +311,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
 
-// YENİ: Cinsiyet seçim kutucuğu widget'ı
 class GenderSelectionBox extends StatelessWidget {
   final IconData icon;
   final String label;

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/root_screen.dart';
 
@@ -181,7 +182,6 @@ class _ChatScreenState extends State<ChatScreen> {
         .update({'${_currentUser!.uid}_lastActive': FieldValue.serverTimestamp()});
   }
 
-  // YENİ: Hem geri tuşu hem de buton için ortak dialog metodu
   void _handleLeaveAttempt() {
     showDialog(
       context: context,
@@ -208,11 +208,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // DEĞİŞİKLİK: Scaffold, WillPopScope ile sarmalandı
     return WillPopScope(
       onWillPop: () {
         _handleLeaveAttempt();
-        // Varsayılan geri gitme eylemini engelle, çünkü biz kendimiz yöneteceğiz.
         return Future.value(false);
       },
       child: Scaffold(
@@ -227,11 +225,24 @@ class _ChatScreenState extends State<ChatScreen> {
                 return const Text('Yükleniyor...');
               }
               final partnerData = snapshot.data!.data() as Map<String, dynamic>;
+              final avatarUrl = partnerData['avatarUrl'] as String?;
               return Row(
                 children: [
-                  const CircleAvatar(
-                    backgroundColor: Colors.teal,
-                    child: Icon(Icons.person, color: Colors.white),
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.teal.shade100,
+                    child: avatarUrl != null
+                        ? ClipOval(
+                      child: SvgPicture.network(
+                        avatarUrl,
+                        placeholderBuilder: (context) => const SizedBox(
+                            width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2,)
+                        ),
+                        width: 36,
+                        height: 36,
+                      ),
+                    )
+                        : const Icon(Icons.person, color: Colors.teal),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -245,7 +256,6 @@ class _ChatScreenState extends State<ChatScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-              // DEĞİŞİKLİK: Ortak metot çağrıldı
               onPressed: _handleLeaveAttempt,
             )
           ],

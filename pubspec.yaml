@@ -10,6 +10,12 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # YENİ: SVG görselleri göstermek için eklendi.
+  flutter_svg: ^2.0.10+1
+
+  # YENİ: HTTP istekleri için eklendi.
+  http: ^1.2.1
+
   # YENİ: Modern ve şık navigasyon çubuğu için eklendi.
   google_nav_bar: ^5.0.6
 

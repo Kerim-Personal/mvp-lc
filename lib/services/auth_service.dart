@@ -7,6 +7,12 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // DiceBear avatar URL'i oluşturma fonksiyonu
+  String _generateAvatarUrl(String seed) {
+    // Farklı stiller için 'micah', 'bottts', 'jdenticon' gibi isimler deneyebilirsiniz.
+    return 'https://api.dicebear.com/8.x/micah/svg?seed=$seed';
+  }
+
   /// Kullanıcı adının veritabanında daha önce alınıp alınmadığını kontrol eder.
   /// Sorguyu küçük harfe çevirerek büyük/küçük harf duyarsız bir kontrol sağlar.
   Future<bool> isUsernameAvailable(String username) async {
@@ -29,6 +35,9 @@ class AuthService {
       // E-posta doğrulama linki gönder
       await userCredential.user?.sendEmailVerification();
 
+      // YENİ: Avatar URL'i oluşturuluyor
+      final avatarUrl = _generateAvatarUrl(username);
+
       // 2. Kullanıcının ek bilgilerini Firestore veritabanına kaydet.
       if (userCredential.user != null) {
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
@@ -43,6 +52,7 @@ class AuthService {
           'createdAt': Timestamp.now(),
           'emailVerified':
           false, // Başlangıçta e-posta doğrulanmamış olarak ayarlanır.
+          'avatarUrl': avatarUrl, // YENİ: Avatar URL'i eklendi
         });
       }
       return userCredential;

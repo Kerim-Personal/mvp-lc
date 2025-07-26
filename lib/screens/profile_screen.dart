@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+// HATA DÜZELTİLDİ: 'package.lingua_chat' yerine 'package:lingua_chat' olmalı.
 import 'package:lingua_chat/screens/edit_profile_screen.dart';
-// DEĞİŞİKLİK: LoginScreen import'u artık gerekli değil.
-// import 'package:lingua_chat/screens/login_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -70,10 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           final email = userData['email'] ?? 'E-posta yok';
           final level = userData['level'] ?? 'Belirlenmemiş';
           final memberSince = (userData['createdAt'] as Timestamp?)?.toDate();
+          final avatarUrl = userData['avatarUrl'] as String?;
 
           return CustomScrollView(
             slivers: [
-              _buildSliverAppBar(displayName, email),
+              _buildSliverAppBar(displayName, email, avatarUrl),
               _buildAnimatedProfileContent(level, memberSince),
             ],
           );
@@ -82,7 +83,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     );
   }
 
-  SliverAppBar _buildSliverAppBar(String displayName, String email) {
+  SliverAppBar _buildSliverAppBar(String displayName, String email, String? avatarUrl) {
     return SliverAppBar(
       expandedHeight: 250.0,
       floating: false,
@@ -117,7 +118,16 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: const Color.fromARGB(230, 255, 255, 255),
-                    child: Text(
+                    child: avatarUrl != null
+                        ? ClipOval(
+                      child: SvgPicture.network(
+                        avatarUrl,
+                        placeholderBuilder: (context) => const CircularProgressIndicator(),
+                        width: 90,
+                        height: 90,
+                      ),
+                    )
+                        : Text(
                       displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
                       style: const TextStyle(
                         fontSize: 48,
@@ -268,7 +278,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-          )
+          ),
         ],
       ),
     );
@@ -377,8 +387,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             leading: const Icon(Icons.logout, color: Colors.teal),
             title: const Text('Çıkış Yap'),
             onTap: () async {
-              // KALICI DÜZELTME: Manuel yönlendirme kaldırıldı.
-              // Sadece oturumu kapatıyoruz, gerisini AuthWrapper halledecek.
               await _authService.signOut();
             },
           ),
