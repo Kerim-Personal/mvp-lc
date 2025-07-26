@@ -34,6 +34,7 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^5.0.0
+  flutter_native_splash: ^2.4.0 # <-- BU SATIRI EKLEYİN
 
 flutter:
   uses-material-design: true
