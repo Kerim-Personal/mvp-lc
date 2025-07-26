@@ -1,12 +1,12 @@
 // lib/widgets/store_screen/glassmorphism.dart
 
 import 'dart:ui';
-// 'package:flutter' satırı kaldırıldı, doğrusu aşağıda zaten mevcut.
 import 'package:flutter/material.dart';
 
 class GlassmorphicContainer extends StatelessWidget {
   final double width;
-  final double height;
+  // ÇÖZÜM: 'height' parametresi artık zorunlu değil, opsiyonel (nullable) yapıldı.
+  final double? height;
   final double borderRadius;
   final double blur;
   final Border border;
@@ -16,7 +16,7 @@ class GlassmorphicContainer extends StatelessWidget {
   const GlassmorphicContainer({
     super.key,
     required this.width,
-    required this.height,
+    this.height, // 'required' kaldırıldı.
     required this.child,
     this.borderRadius = 20,
     this.blur = 10,
@@ -25,7 +25,6 @@ class GlassmorphicContainer extends StatelessWidget {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        // Önceki adımdaki uyarı düzeltmesi burada da geçerli
         Color.fromARGB(138, 255, 255, 255),
         Color.fromARGB(61, 255, 255, 255),
       ],
@@ -41,7 +40,7 @@ class GlassmorphicContainer extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: Container(
           width: width,
-          height: height,
+          height: height, // Artık null olabilir, bu durumda içeriğe göre boyutlanır.
           decoration: BoxDecoration(
             gradient: gradient,
             borderRadius: BorderRadius.circular(borderRadius),
