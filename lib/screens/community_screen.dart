@@ -1,11 +1,16 @@
 // lib/screens/community_screen.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:math';
-import 'package:lingua_chat/screens/group_chat_screen.dart';
 
-// --- Mock Data Models ---
+// Widget'ları kendi dosyalarından import ediyoruz
+import 'package:lingua_chat/widgets/community_screen/leaderboard_list_item.dart';
+import 'package:lingua_chat/widgets/community_screen/feed_post_card.dart';
+import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
+
+// --- DATA MODELLERİ ---
 class LeaderboardUser {
   final String name;
   final String avatarUrl;
@@ -20,21 +25,42 @@ class LeaderboardUser {
 }
 
 class FeedPost {
+  final String id;
   final String userName;
   final String userAvatarUrl;
+  final String userId;
   final String postText;
-  final String timeAgo;
-  final int likeCount;
+  final Timestamp timestamp;
+  final List<String> likes;
   final int commentCount;
 
   FeedPost({
+    required this.id,
     required this.userName,
     required this.userAvatarUrl,
+    required this.userId,
     required this.postText,
-    required this.timeAgo,
-    this.likeCount = 0,
+    required this.timestamp,
+    required this.likes,
     this.commentCount = 0,
   });
+
+  factory FeedPost.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final List<dynamic> likesData = data['likes'] ?? [];
+    final List<String> likes = likesData.map((item) => item.toString()).toList();
+
+    return FeedPost(
+      id: doc.id,
+      userName: data['userName'] ?? 'Bilinmiyor',
+      userAvatarUrl: data['userAvatarUrl'] ?? '',
+      userId: data['userId'] ?? '',
+      postText: data['postText'] ?? '',
+      timestamp: data['timestamp'] ?? Timestamp.now(),
+      likes: likes,
+      commentCount: data['commentCount'] ?? 0,
+    );
+  }
 }
 
 class GroupChatRoom {
@@ -54,7 +80,7 @@ class GroupChatRoom {
         required this.color2});
 }
 
-// --- Main Screen Widget ---
+// --- ANA EKRAN WIDGET'I ---
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
 
@@ -66,7 +92,6 @@ class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Örnek Veriler
   final List<LeaderboardUser> _users = List.generate(20, (index) {
     final random = Random();
     return LeaderboardUser(
@@ -77,12 +102,6 @@ class _CommunityScreenState extends State<CommunityScreen>
       streak: 150 - (index * random.nextInt(5)) - 10,
     );
   });
-
-  final List<FeedPost> _posts = [
-    FeedPost(userName: 'Gezgin_Ayşe', userAvatarUrl: 'https://api.dicebear.com/8.x/micah/svg?seed=ayse', postText: 'Bugün "serendipity" kelimesini öğrendim ve partnerimle sohbette kullandım! Anlamı "beklenmedik anda değerli bir şey bulma şansı" demekmiş. ✨ #newword', timeAgo: '15 dk önce', likeCount: 23, commentCount: 4),
-    FeedPost(userName: 'Bookworm_Ali', userAvatarUrl: 'https://api.dicebear.com/8.x/micah/svg?seed=ali', postText: 'İngilizce kitap okuma serüvenimde yeni bir kitaba başladım. Herkese tavsiye ederim! 📚', timeAgo: '1 saat önce', likeCount: 45, commentCount: 8),
-    FeedPost(userName: 'Traveler_Ece', userAvatarUrl: 'https://api.dicebear.com/8.x/micah/svg?seed=ece', postText: 'İspanyolca pratiği yaparken İspanya\'dan biriyle tanıştım ve bana yerel yemek tarifleri verdi! Bu uygulama harika. 🥘', timeAgo: '3 saat önce', likeCount: 78, commentCount: 12),
-  ];
 
   final List<GroupChatRoom> _chatRooms = [
     GroupChatRoom(name: "Film & Dizi Kulübü", description: "Haftanın popüler yapımlarını tartışın.", icon: Icons.movie_filter_outlined, members: 128, color1: Colors.purple.shade300, color2: Colors.indigo.shade400),
@@ -95,12 +114,97 @@ class _CommunityScreenState extends State<CommunityScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(() {});
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _showCreatePostModal(BuildContext context) {
+    final TextEditingController postController = TextEditingController();
+    final currentUser = FirebaseAuth.instance.currentUser;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              top: 20,
+              left: 20,
+              right: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Yeni Gönderi Oluştur',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: postController,
+                autofocus: true,
+                maxLines: 5,
+                maxLength: 280,
+                decoration: InputDecoration(
+                  hintText: 'Ne düşünüyorsun?',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  if (postController.text.trim().isEmpty ||
+                      currentUser == null) {
+                    return;
+                  }
+
+                  final userDoc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(currentUser.uid)
+                      .get();
+                  final userData = userDoc.data();
+
+                  await FirebaseFirestore.instance.collection('posts').add({
+                    'postText': postController.text.trim(),
+                    'userId': currentUser.uid,
+                    'userName':
+                    userData?['displayName'] ?? 'Bilinmeyen Kullanıcı',
+                    'userAvatarUrl': userData?['avatarUrl'] ?? '',
+                    'timestamp': FieldValue.serverTimestamp(),
+                    'likes': [],
+                    'commentCount': 0,
+                  });
+
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Paylaş'),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -108,7 +212,6 @@ class _CommunityScreenState extends State<CommunityScreen>
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        // DÜZELTME: AppBar'ın kendi yüksekliğini kaldırıp sadece sekmeleri gösteriyoruz.
         toolbarHeight: 0,
         backgroundColor: Colors.white,
         elevation: 1,
@@ -121,12 +224,19 @@ class _CommunityScreenState extends State<CommunityScreen>
           tabs: const [
             Tab(text: 'Liderlik', icon: Icon(Icons.leaderboard_outlined)),
             Tab(text: 'Akış', icon: Icon(Icons.dynamic_feed_outlined)),
-            Tab(
-                text: 'Odalar',
-                icon: Icon(Icons.chat_bubble_outline_rounded)),
+            Tab(text: 'Odalar', icon: Icon(Icons.chat_bubble_outline_rounded)),
           ],
         ),
       ),
+      floatingActionButton: _tabController.index == 1
+          ? FloatingActionButton(
+        onPressed: () => _showCreatePostModal(context),
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+        tooltip: 'Yeni Gönderi',
+      )
+          : null,
       body: TabBarView(
         controller: _tabController,
         children: [
@@ -138,7 +248,6 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  // ... Diğer widget build metodları (değişiklik yok) ...
   Widget _buildLeaderboardList() {
     return ListView.builder(
       itemCount: _users.length,
@@ -150,12 +259,36 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Widget _buildFeedList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(8.0),
-      itemCount: _posts.length,
-      itemBuilder: (context, index) {
-        final post = _posts[index];
-        return FeedPostCard(post: post);
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('posts')
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text(
+              'Henüz hiç gönderi yok.\nİlk gönderiyi sen paylaş!',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          );
+        }
+
+        final posts = snapshot.data!.docs;
+
+        return ListView.builder(
+          padding:
+          const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0), // FAB için boşluk
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            final post = FeedPost.fromFirestore(posts[index]);
+            return FeedPostCard(post: post);
+          },
+        );
       },
     );
   }
@@ -168,228 +301,6 @@ class _CommunityScreenState extends State<CommunityScreen>
         final room = _chatRooms[index];
         return GroupChatCard(room: room);
       },
-    );
-  }
-}
-
-// --- Custom Widgets for Community Screen ---
-class LeaderboardListItem extends StatelessWidget {
-  final LeaderboardUser user;
-  const LeaderboardListItem({super.key, required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          children: [
-            Text(
-              '#${user.rank}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: user.rank <= 3 ? Colors.amber.shade700 : Colors.grey,
-              ),
-            ),
-            const SizedBox(width: 12),
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: Colors.grey.shade200,
-              child: ClipOval(
-                child: SvgPicture.network(
-                  user.avatarUrl,
-                  placeholderBuilder: (context) =>
-                  const CircularProgressIndicator(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                user.name,
-                style:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Row(
-              children: [
-                Icon(Icons.local_fire_department_rounded,
-                    color: Colors.orange.shade600, size: 20),
-                const SizedBox(width: 4),
-                Text(
-                  user.streak.toString(),
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class FeedPostCard extends StatelessWidget {
-  final FeedPost post;
-  const FeedPostCard({super.key, required this.post});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.grey.withOpacity(0.2),
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.grey.shade200,
-                  child: ClipOval(
-                    child: SvgPicture.network(
-                      post.userAvatarUrl,
-                      placeholderBuilder: (context) =>
-                      const CircularProgressIndicator(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(post.userName,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(post.timeAgo,
-                        style: TextStyle(
-                            color: Colors.grey.shade600, fontSize: 12)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Post Text
-            Text(post.postText,
-                style: const TextStyle(fontSize: 15, height: 1.4)),
-            const SizedBox(height: 16),
-            // Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildActionButton(
-                    icon: Icons.favorite_border_outlined,
-                    text: '${post.likeCount} Beğeni'),
-                _buildActionButton(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    text: '${post.commentCount} Yorum'),
-                _buildActionButton(
-                    icon: Icons.share_outlined, text: 'Paylaş'),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({required IconData icon, required String text}) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Colors.grey.shade700),
-        const SizedBox(width: 6),
-        Text(text,
-            style: TextStyle(
-                color: Colors.grey.shade800, fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
-}
-
-class GroupChatCard extends StatelessWidget {
-  final GroupChatRoom room;
-  const GroupChatCard({super.key, required this.room});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shadowColor: room.color1.withOpacity(0.4),
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  GroupChatScreen(roomName: room.name, roomIcon: room.icon),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(20.0),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [room.color1, room.color2],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(room.icon, color: Colors.white, size: 28),
-                  const SizedBox(width: 12),
-                  Text(
-                    room.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                room.description,
-                style:
-                TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(Icons.person_outline,
-                      color: Colors.white.withOpacity(0.8), size: 18),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${room.members} üye',
-                    style: TextStyle(color: Colors.white.withOpacity(0.8)),
-                  ),
-                ],
-              )
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

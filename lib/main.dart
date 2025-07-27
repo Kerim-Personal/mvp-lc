@@ -2,10 +2,10 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // HATA DÜZELTİLDİ: 'package.' yerine 'package:' olmalı.
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:lingua_chat/screens/root_screen.dart';
+import 'package:lingua_chat/screens/root_screen.dart'; // HATA BURADA DÜZELTİLDİ
 import 'firebase_options.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
 
@@ -31,6 +31,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'LinguaChat',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.teal,
         visualDensity: VisualDensity.adaptivePlatformDensity,
