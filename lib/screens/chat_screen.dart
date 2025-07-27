@@ -26,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<DocumentSnapshot>? _partnerFuture;
 
   late DateTime _chatStartTime;
+  bool _isSaving = false; // Kaydetme işlemi sırasında tekrarı önlemek için
 
   @override
   void initState() {
@@ -80,29 +81,114 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('chats')
         .doc(widget.chatRoomId)
         .snapshots()
-        .listen((snapshot) {
+        .listen((snapshot) async { // Fonksiyonu async olarak işaretledik
       if (!mounted || !snapshot.exists || _partnerId == null || _partnerId!.isEmpty) return;
 
       final data = snapshot.data()!;
 
+      // Partnerin sohbetten ayrılıp ayrılmadığını kontrol et
       if (data['status'] == 'ended' && data['leftBy'] == _partnerId) {
-        _chatSubscription?.cancel();
-        _heartbeatTimer?.cancel();
-        _showPartnerLeftDialog("Partneriniz sohbetten ayrıldı.");
+        await _endChatAndSaveChanges("Partneriniz sohbetten ayrıldı.");
         return;
       }
 
+      // Partnerin bağlantısının kopup kopmadığını kontrol et
       final partnerLastActive = data['${_partnerId}_lastActive'] as Timestamp?;
       if (partnerLastActive != null) {
         final difference = Timestamp.now().seconds - partnerLastActive.seconds;
-        if (difference > 30) {
-          _chatSubscription?.cancel();
-          _heartbeatTimer?.cancel();
-          _showPartnerLeftDialog("Partnerinizin bağlantısı koptu.");
+        if (difference > 30) { // 30 saniyeden uzun süre aktif değilse
+          await _endChatAndSaveChanges("Partnerinizin bağlantısı koptu.");
         }
       }
     });
   }
+
+  // Pratik süresini kaydedip sohbeti bitiren merkezi fonksiyon
+  Future<void> _savePracticeTime() async {
+    if (_currentUser == null) return;
+
+    final chatDuration = DateTime.now().difference(_chatStartTime);
+    final durationInMinutes = chatDuration.inMinutes;
+
+    // Sadece 0'dan büyük süreleri kaydet
+    if (durationInMinutes > 0) {
+      final userRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        if (!userDoc.exists) return;
+
+        final userData = userDoc.data() as Map<String, dynamic>;
+
+        // Streak (seri) hesaplaması
+        int currentStreak = userData['streak'] ?? 0;
+        Timestamp lastActivityTimestamp = userData['lastActivityDate'] ?? Timestamp.now();
+        DateTime lastActivityDate = lastActivityTimestamp.toDate();
+        DateTime now = DateTime.now();
+        DateTime today = DateTime(now.year, now.month, now.day);
+        DateTime lastActivityDay = DateTime(lastActivityDate.year, lastActivityDate.month, lastActivityDate.day);
+        DateTime yesterday = today.subtract(const Duration(days: 1));
+
+        int newStreak = 1;
+        if (lastActivityDay.isAtSameMomentAs(today)) {
+          newStreak = currentStreak;
+        } else if (lastActivityDay.isAtSameMomentAs(yesterday)) {
+          newStreak = currentStreak + 1;
+        }
+
+        transaction.update(userRef, {
+          'totalPracticeTime': FieldValue.increment(durationInMinutes),
+          'streak': newStreak,
+          'lastActivityDate': Timestamp.now(),
+        });
+      });
+    }
+  }
+
+
+  // Partner ayrıldığında veya bağlantı koptuğunda çağrılacak fonksiyon
+  Future<void> _endChatAndSaveChanges(String message) async {
+    if (_isSaving) return; // Zaten işlem yapılıyorsa tekrar çalıştırma
+    _isSaving = true;
+
+    _chatSubscription?.cancel();
+    _heartbeatTimer?.cancel();
+    await _savePracticeTime();
+
+    if (mounted) {
+      _showPartnerLeftDialog(message);
+    }
+  }
+
+  // Mevcut kullanıcının ayrılma işlemi
+  Future<void> _leaveChat() async {
+    if (_currentUser == null || _isSaving) return;
+    _isSaving = true;
+
+    _heartbeatTimer?.cancel();
+    _chatSubscription?.cancel();
+    await _savePracticeTime();
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatRoomId)
+          .update({
+        'status': 'ended',
+        'leftBy': _currentUser!.uid,
+      });
+    } catch (e) {
+      // Hata yönetimi
+    } finally {
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const RootScreen()),
+              (route) => false,
+        );
+      }
+    }
+  }
+
 
   void _showPartnerLeftDialog(String message) {
     if (!mounted) return;
@@ -126,65 +212,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _leaveChat() async {
-    if (_currentUser == null) return;
-
-    final chatDuration = DateTime.now().difference(_chatStartTime);
-    final durationInMinutes = chatDuration.inMinutes;
-
-    final userRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
-
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      final userDoc = await transaction.get(userRef);
-      if (!userDoc.exists) return;
-
-      final userData = userDoc.data() as Map<String, dynamic>;
-
-      int currentStreak = userData['streak'] ?? 0;
-      Timestamp lastActivityTimestamp = userData['lastActivityDate'] ?? Timestamp.now();
-      DateTime lastActivityDate = lastActivityTimestamp.toDate();
-      DateTime now = DateTime.now();
-
-      DateTime lastActivityDay = DateTime(lastActivityDate.year, lastActivityDate.month, lastActivityDate.day);
-      DateTime today = DateTime(now.year, now.month, now.day);
-      DateTime yesterday = today.subtract(const Duration(days: 1));
-
-      int newStreak;
-      if (lastActivityDay.isAtSameMomentAs(today)) {
-        newStreak = currentStreak;
-      } else if (lastActivityDay.isAtSameMomentAs(yesterday)) {
-        newStreak = currentStreak + 1;
-      } else {
-        newStreak = 1;
-      }
-
-      transaction.update(userRef, {
-        'totalPracticeTime': FieldValue.increment(durationInMinutes),
-        'streak': newStreak,
-        'lastActivityDate': Timestamp.now(),
-      });
-    });
-
-    final navigator = Navigator.of(context);
-    _heartbeatTimer?.cancel();
-    _chatSubscription?.cancel();
-    try {
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(widget.chatRoomId)
-          .update({
-        'status': 'ended',
-        'leftBy': _currentUser!.uid,
-      });
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const RootScreen()),
-            (route) => false,
-      );
-    } catch (e) {
-      // Hata yönetimi
-    }
   }
 
   void _handleLeaveAttempt() {

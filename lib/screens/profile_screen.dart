@@ -85,6 +85,10 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           final level = userData['level'] ?? 'Belirlenmemiş';
           final memberSince = (userData['createdAt'] as Timestamp?)?.toDate();
           final avatarUrl = userData['avatarUrl'] as String?;
+          final streak = userData['streak'] ?? 0;
+          final totalPracticeTime = userData['totalPracticeTime'] ?? 0;
+          final partnerCount = userData['partnerCount'] ?? 0;
+
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -105,11 +109,14 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SectionTitle('İstatistiklerim'),
-                            // HEDEFE YÖNELİK DÜZELTME: Sadece bu bölümdeki boşluğu azaltmak için
-                            // StatsGrid'i dikey olarak yukarı kaydırıyoruz.
                             Transform.translate(
-                              offset: const Offset(0, -4.0), // Kutuları 4 piksel yukarı taşır
-                              child: StatsGrid(level: level),
+                              offset: const Offset(0, -4.0),
+                              child: StatsGrid(
+                                level: level,
+                                streak: streak,
+                                totalPracticeTime: totalPracticeTime,
+                                partnerCount: partnerCount,
+                              ),
                             ),
                           ],
                         ),
