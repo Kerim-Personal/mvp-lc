@@ -53,6 +53,11 @@ class AuthService {
           'emailVerified':
           false, // Başlangıçta e-posta doğrulanmamış olarak ayarlanır.
           'avatarUrl': avatarUrl, // YENİ: Avatar URL'i eklendi
+          'partnerCount': 0,
+          // İstatistik alanları başlatılıyor
+          'streak': 0,
+          'totalPracticeTime': 0, // Dakika cinsinden
+          'lastActivityDate': Timestamp.now(),
         });
       }
       return userCredential;

@@ -210,6 +210,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
         if (isMyGenderOk && isMyLevelGroupOk) {
           final chatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
+          final partnerRef = FirebaseFirestore.instance.collection('users').doc(otherUserDoc.id);
+          final myRef = FirebaseFirestore.instance.collection('users').doc(myId);
+
 
           await FirebaseFirestore.instance.runTransaction((transaction) async {
             final freshOtherUserDoc =
@@ -225,6 +228,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             });
             transaction.update(
                 otherUserDoc.reference, {'matchedChatRoomId': chatRoomRef.id});
+            transaction.update(myRef, {'partnerCount': FieldValue.increment(1)});
+            transaction.update(partnerRef, {'partnerCount': FieldValue.increment(1)});
           });
 
           _navigateToChat(chatRoomRef.id);
@@ -340,6 +345,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
+  Widget _buildStatsSection() {
+    if (_currentUser == null) {
+      return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
+    }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data?.data() == null) {
+          return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
+        }
+
+        var userData = snapshot.data!.data() as Map<String, dynamic>;
+
+        final int streak = userData['streak'] ?? 0;
+        final int totalTime = userData['totalPracticeTime'] ?? 0;
+        final int partnerCount = userData['partnerCount'] ?? 0;
+
+        return StatsRow(
+          streak: streak,
+          totalTime: totalTime,
+          partnerCount: partnerCount,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -385,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: _buildAnimatedUI(
                     interval: const Interval(0.4, 1.0),
-                    child: const StatsRow()),
+                    child: _buildStatsSection()),
               ),
               const SizedBox(height: 24),
               _buildAnimatedUI(

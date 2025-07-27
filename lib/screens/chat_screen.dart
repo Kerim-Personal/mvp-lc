@@ -17,7 +17,6 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final _messageController = TextEditingController();
   final _currentUser = FirebaseAuth.instance.currentUser;
   final ScrollController _scrollController = ScrollController();
 
@@ -25,25 +24,18 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _heartbeatTimer;
   String? _partnerId;
   Future<DocumentSnapshot>? _partnerFuture;
-  bool _isComposing = false;
+
+  late DateTime _chatStartTime;
 
   @override
   void initState() {
     super.initState();
+    _chatStartTime = DateTime.now();
     _setupPartnerInfoAndStartHeartbeat();
-    _messageController.addListener(() {
-      final isComposing = _messageController.text.isNotEmpty;
-      if (_isComposing != isComposing) {
-        setState(() {
-          _isComposing = isComposing;
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
-    _messageController.dispose();
     _scrollController.dispose();
     _chatSubscription?.cancel();
     _heartbeatTimer?.cancel();
@@ -138,6 +130,43 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _leaveChat() async {
     if (_currentUser == null) return;
+
+    final chatDuration = DateTime.now().difference(_chatStartTime);
+    final durationInMinutes = chatDuration.inMinutes;
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final userDoc = await transaction.get(userRef);
+      if (!userDoc.exists) return;
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+
+      int currentStreak = userData['streak'] ?? 0;
+      Timestamp lastActivityTimestamp = userData['lastActivityDate'] ?? Timestamp.now();
+      DateTime lastActivityDate = lastActivityTimestamp.toDate();
+      DateTime now = DateTime.now();
+
+      DateTime lastActivityDay = DateTime(lastActivityDate.year, lastActivityDate.month, lastActivityDate.day);
+      DateTime today = DateTime(now.year, now.month, now.day);
+      DateTime yesterday = today.subtract(const Duration(days: 1));
+
+      int newStreak;
+      if (lastActivityDay.isAtSameMomentAs(today)) {
+        newStreak = currentStreak;
+      } else if (lastActivityDay.isAtSameMomentAs(yesterday)) {
+        newStreak = currentStreak + 1;
+      } else {
+        newStreak = 1;
+      }
+
+      transaction.update(userRef, {
+        'totalPracticeTime': FieldValue.increment(durationInMinutes),
+        'streak': newStreak,
+        'lastActivityDate': Timestamp.now(),
+      });
+    });
+
     final navigator = Navigator.of(context);
     _heartbeatTimer?.cancel();
     _chatSubscription?.cancel();
@@ -156,30 +185,6 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       // Hata yönetimi
     }
-  }
-
-  void _sendMessage() {
-    final messageText = _messageController.text.trim();
-    if (messageText.isEmpty || _currentUser == null) {
-      return;
-    }
-
-    _messageController.clear();
-
-    FirebaseFirestore.instance
-        .collection('chats')
-        .doc(widget.chatRoomId)
-        .collection('messages')
-        .add({
-      'text': messageText,
-      'createdAt': Timestamp.now(),
-      'userId': _currentUser!.uid,
-    });
-
-    FirebaseFirestore.instance
-        .collection('chats')
-        .doc(widget.chatRoomId)
-        .update({'${_currentUser!.uid}_lastActive': FieldValue.serverTimestamp()});
   }
 
   void _handleLeaveAttempt() {
@@ -297,14 +302,76 @@ class _ChatScreenState extends State<ChatScreen> {
                 },
               ),
             ),
-            _buildMessageComposer(),
+            _MessageComposer(
+              chatRoomId: widget.chatRoomId,
+              currentUser: _currentUser,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildMessageComposer() {
+class _MessageComposer extends StatefulWidget {
+  final String chatRoomId;
+  final User? currentUser;
+
+  const _MessageComposer({required this.chatRoomId, required this.currentUser});
+
+  @override
+  State<_MessageComposer> createState() => _MessageComposerState();
+}
+
+class _MessageComposerState extends State<_MessageComposer> {
+  final _messageController = TextEditingController();
+  bool _isComposing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageController.addListener(() {
+      final isComposing = _messageController.text.isNotEmpty;
+      if (_isComposing != isComposing) {
+        setState(() {
+          _isComposing = isComposing;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  void _sendMessage() {
+    final messageText = _messageController.text.trim();
+    if (messageText.isEmpty || widget.currentUser == null) {
+      return;
+    }
+
+    _messageController.clear();
+
+    FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chatRoomId)
+        .collection('messages')
+        .add({
+      'text': messageText,
+      'createdAt': Timestamp.now(),
+      'userId': widget.currentUser!.uid,
+    });
+
+    FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chatRoomId)
+        .update({'${widget.currentUser!.uid}_lastActive': FieldValue.serverTimestamp()});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
       decoration: BoxDecoration(

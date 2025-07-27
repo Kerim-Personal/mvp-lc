@@ -3,18 +3,29 @@
 import 'package:flutter/material.dart';
 
 class StatsRow extends StatelessWidget {
-  const StatsRow({super.key});
+  // YENİ: Dışarıdan veri almak için parametreler eklendi
+  final int streak;
+  final int totalTime;
+  final int partnerCount;
+
+  const StatsRow({
+    super.key,
+    required this.streak,
+    required this.totalTime,
+    required this.partnerCount,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
+        // GÜNCELLEME: Değerler artık dinamik olarak geliyor
         _buildStatItem(
-            Icons.local_fire_department_rounded, "3 Gün", "Seri", Colors.orange),
+            Icons.local_fire_department_rounded, "$streak Gün", "Seri", Colors.orange),
         _buildStatItem(
-            Icons.timer_rounded, "45 dk", "Toplam Süre", Colors.teal),
-        _buildStatItem(Icons.people_alt_rounded, "7", "Partner", Colors.blue),
+            Icons.timer_rounded, "$totalTime dk", "Toplam Süre", Colors.teal),
+        _buildStatItem(Icons.people_alt_rounded, "$partnerCount", "Partner", Colors.blue),
       ],
     );
   }

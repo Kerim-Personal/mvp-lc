@@ -1,22 +1,45 @@
 // lib/screens/group_chat_screen.dart
 
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 
-// Örnek mesaj modeli
+// Mesaj veri modeli
 class GroupMessage {
+  final String senderId;
   final String senderName;
+  final String senderAvatarUrl;
   final String text;
-  final bool isMe;
+  final Timestamp timestamp;
 
-  GroupMessage({required this.senderName, required this.text, required this.isMe});
+  GroupMessage({
+    required this.senderId,
+    required this.senderName,
+    required this.senderAvatarUrl,
+    required this.text,
+    required this.timestamp,
+  });
+
+  factory GroupMessage.fromFirestore(DocumentSnapshot doc) {
+    Map data = doc.data() as Map<String, dynamic>;
+    return GroupMessage(
+      senderId: data['senderId'] ?? '',
+      senderName: data['senderName'] ?? 'Bilinmeyen',
+      senderAvatarUrl: data['senderAvatarUrl'] ?? '',
+      text: data['text'] ?? '',
+      timestamp: data['timestamp'] ?? Timestamp.now(),
+    );
+  }
 }
 
 class GroupChatScreen extends StatefulWidget {
   final String roomName;
   final IconData roomIcon;
 
-  const GroupChatScreen({super.key, required this.roomName, required this.roomIcon});
+  const GroupChatScreen(
+      {super.key, required this.roomName, required this.roomIcon});
 
   @override
   State<GroupChatScreen> createState() => _GroupChatScreenState();
@@ -24,28 +47,63 @@ class GroupChatScreen extends StatefulWidget {
 
 class _GroupChatScreenState extends State<GroupChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<GroupMessage> _messages = [
-    GroupMessage(senderName: 'Ali', text: 'Hey everyone! Has anyone seen the new sci-fi movie?', isMe: false),
-    GroupMessage(senderName: 'Ece', text: 'Yes! I saw it last weekend, it was amazing.', isMe: false),
-    GroupMessage(senderName: 'You', text: 'I haven\'t seen it yet. Is it worth watching?', isMe: true),
-    GroupMessage(senderName: 'Ali', text: 'Definitely! The special effects are incredible.', isMe: false),
-  ];
+  final ScrollController _scrollController = ScrollController();
+  final currentUser = FirebaseAuth.instance.currentUser;
+
+  String _userName = 'Kullanıcı';
+  String _avatarUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    if (currentUser == null) return;
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser!.uid)
+          .get();
+      if (userDoc.exists) {
+        setState(() {
+          _userName = userDoc.data()?['displayName'] ?? 'Kullanıcı';
+          _avatarUrl = userDoc.data()?['avatarUrl'] ?? '';
+        });
+      }
+    } catch (e) {
+      // Hata yönetimi
+    }
+  }
 
   void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-    setState(() {
-      _messages.add(
-          GroupMessage(senderName: 'You', text: _messageController.text.trim(), isMe: true)
-      );
-      _messageController.clear();
-      // Rastgele bir cevap ekleyelim (simülasyon için)
-      Future.delayed(const Duration(seconds: 2), (){
-        setState(() {
-          _messages.add(
-              GroupMessage(senderName: 'Zeynep', text: 'That\'s a great point!', isMe: false)
-          );
-        });
-      });
+    if (_messageController.text.trim().isEmpty || currentUser == null) return;
+
+    final messageText = _messageController.text.trim();
+    _messageController.clear();
+
+    FirebaseFirestore.instance
+        .collection('group_chats')
+        .doc(widget.roomName) // Her oda için benzersiz bir döküman
+        .collection('messages')
+        .add({
+      'text': messageText,
+      'timestamp': FieldValue.serverTimestamp(),
+      'senderId': currentUser!.uid,
+      'senderName': _userName,
+      'senderAvatarUrl': _avatarUrl,
+    });
+
+    // Mesaj gönderildiğinde en alta kaydır
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
@@ -66,12 +124,40 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageBubble(message);
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('group_chats')
+                  .doc(widget.roomName)
+                  .collection('messages')
+                  .orderBy('timestamp')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text("Sohbeti başlat!"));
+                }
+
+                final messages = snapshot.data!.docs;
+
+                // Yeni mesaj geldiğinde en alta kaydır
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients) {
+                    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                  }
+                });
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = GroupMessage.fromFirestore(messages[index]);
+                    final isMe = message.senderId == currentUser?.uid;
+                    return _buildMessageBubble(message, isMe);
+                  },
+                );
               },
             ),
           ),
@@ -81,49 +167,94 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  // Mesaj balonu widget'ı
-  Widget _buildMessageBubble(GroupMessage message) {
-    final alignment = message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final color = message.isMe ? Colors.teal.shade300 : Colors.grey.shade200;
-    final textColor = message.isMe ? Colors.white : Colors.black87;
+  Widget _buildMessageBubble(GroupMessage message, bool isMe) {
+    final alignment = isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final color = isMe ? Colors.teal.shade300 : Colors.grey.shade200;
+    final textColor = isMe ? Colors.white : Colors.black87;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Column(
-        crossAxisAlignment: alignment,
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!message.isMe)
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
-              child: Text(
-                message.senderName,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          if (!isMe)
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey.shade300,
+              child: ClipOval(
+                child: SvgPicture.network(
+                  message.senderAvatarUrl,
+                  placeholderBuilder: (context) => const Icon(Icons.person, size: 18),
+                ),
               ),
             ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              message.text,
-              style: TextStyle(color: textColor, fontSize: 16),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: alignment,
+              children: [
+                if (!isMe)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: Text(
+                      message.senderName,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(20),
+                      topRight: const Radius.circular(20),
+                      bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(4),
+                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
+                    ),
+                  ),
+                  child: Text(
+                    message.text,
+                    style: TextStyle(color: textColor, fontSize: 16),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text(
+                    DateFormat('HH:mm').format(message.timestamp.toDate()),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  ),
+                ),
+              ],
             ),
           ),
+          if (isMe) const SizedBox(width: 8),
+          if (isMe)
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey.shade300,
+              child: ClipOval(
+                child: SvgPicture.network(
+                  _avatarUrl,
+                  placeholderBuilder: (context) => const Icon(Icons.person, size: 18),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  // Mesaj yazma alanı widget'ı
   Widget _buildMessageComposer() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         boxShadow: [
-          BoxShadow(offset: const Offset(0, -2), blurRadius: 5, color: Colors.black.withAlpha(10))
+          BoxShadow(
+              offset: const Offset(0, -2),
+              blurRadius: 5,
+              color: Colors.black.withAlpha(10))
         ],
       ),
       child: SafeArea(
@@ -137,8 +268,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   hintText: 'Mesajını yaz...',
                   filled: true,
                   fillColor: Colors.grey.withAlpha(50),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(25.0), borderSide: BorderSide.none),
+                  contentPadding:
+                  const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(25.0),
+                      borderSide: BorderSide.none),
                 ),
               ),
             ),

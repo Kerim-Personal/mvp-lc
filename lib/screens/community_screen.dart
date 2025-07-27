@@ -3,10 +3,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
 
-// Widget'ları kendi dosyalarından import ediyoruz
-import 'package:lingua_chat/widgets/community_screen/leaderboard_list_item.dart';
+// GÜNCELLEME: LeaderboardTable widget'ını import ediyoruz.
+import 'package:lingua_chat/widgets/community_screen/leaderboard_table.dart';
 import 'package:lingua_chat/widgets/community_screen/feed_post_card.dart';
 import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
 
@@ -14,14 +13,15 @@ import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
 class LeaderboardUser {
   final String name;
   final String avatarUrl;
-  final int streak;
   final int rank;
+  final int partnerCount;
 
-  LeaderboardUser(
-      {required this.name,
-        required this.avatarUrl,
-        required this.streak,
-        required this.rank});
+  LeaderboardUser({
+    required this.name,
+    required this.avatarUrl,
+    required this.rank,
+    required this.partnerCount,
+  });
 }
 
 class FeedPost {
@@ -48,7 +48,8 @@ class FeedPost {
   factory FeedPost.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     final List<dynamic> likesData = data['likes'] ?? [];
-    final List<String> likes = likesData.map((item) => item.toString()).toList();
+    final List<String> likes =
+    likesData.map((item) => item.toString()).toList();
 
     return FeedPost(
       id: doc.id,
@@ -92,22 +93,39 @@ class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  final List<LeaderboardUser> _users = List.generate(20, (index) {
-    final random = Random();
-    return LeaderboardUser(
-      rank: index + 1,
-      name: 'User_${random.nextInt(1000)}',
-      avatarUrl:
-      'https://api.dicebear.com/8.x/micah/svg?seed=${random.nextInt(1000)}',
-      streak: 150 - (index * random.nextInt(5)) - 10,
-    );
-  });
+  // GÜNCELLEME: Veriyi tutmak için Future state'i
+  late Future<List<LeaderboardUser>> _leaderboardFuture;
+  String _leaderboardPeriod = 'partnerCount'; // 'dailyPartnerCount' vs. olabilir
 
   final List<GroupChatRoom> _chatRooms = [
-    GroupChatRoom(name: "Film & Dizi Kulübü", description: "Haftanın popüler yapımlarını tartışın.", icon: Icons.movie_filter_outlined, members: 128, color1: Colors.purple.shade300, color2: Colors.indigo.shade400),
-    GroupChatRoom(name: "Gezginler Durağı", description: "Seyahat anılarınızı ve ipuçlarınızı paylaşın.", icon: Icons.airplanemode_active_outlined, members: 89, color1: Colors.orange.shade300, color2: Colors.red.shade400),
-    GroupChatRoom(name: "Müzik Kutusu", description: "Farklı türlerden müzikler keşfedin.", icon: Icons.music_note_outlined, members: 215, color1: Colors.pink.shade300, color2: Colors.red.shade300),
-    GroupChatRoom(name: "Kitap Kurtları", description: "Okuduğunuz kitaplar hakkında konuşun.", icon: Icons.menu_book_outlined, members: 76, color1: Colors.brown.shade300, color2: Colors.brown.shade500),
+    GroupChatRoom(
+        name: "Film & Dizi Kulübü",
+        description: "Haftanın popüler yapımlarını tartışın.",
+        icon: Icons.movie_filter_outlined,
+        members: 128,
+        color1: Colors.purple.shade300,
+        color2: Colors.indigo.shade400),
+    GroupChatRoom(
+        name: "Gezginler Durağı",
+        description: "Seyahat anılarınızı ve ipuçlarınızı paylaşın.",
+        icon: Icons.airplanemode_active_outlined,
+        members: 89,
+        color1: Colors.orange.shade300,
+        color2: Colors.red.shade400),
+    GroupChatRoom(
+        name: "Müzik Kutusu",
+        description: "Farklı türlerden müzikler keşfedin.",
+        icon: Icons.music_note_outlined,
+        members: 215,
+        color1: Colors.pink.shade300,
+        color2: Colors.red.shade300),
+    GroupChatRoom(
+        name: "Kitap Kurtları",
+        description: "Okuduğunuz kitaplar hakkında konuşun.",
+        icon: Icons.menu_book_outlined,
+        members: 76,
+        color1: Colors.brown.shade300,
+        color2: Colors.brown.shade500),
   ];
 
   @override
@@ -117,6 +135,33 @@ class _CommunityScreenState extends State<CommunityScreen>
     _tabController.addListener(() {
       setState(() {});
     });
+    // GÜNCELLEME: Başlangıçta veriyi çek
+    _leaderboardFuture = _fetchLeaderboardData();
+  }
+
+  // GÜNCELLEME: Firestore'dan liderlik verisini çeken metot
+  Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .orderBy(_leaderboardPeriod, descending: true)
+        .limit(20)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      return [];
+    }
+
+    // Gelen dökümanları LeaderboardUser objelerine dönüştür
+    return snapshot.docs.asMap().entries.map((entry) {
+      int rank = entry.key + 1;
+      Map<String, dynamic> data = entry.value.data();
+      return LeaderboardUser(
+        rank: rank,
+        name: data['displayName'] ?? 'Bilinmeyen',
+        avatarUrl: data['avatarUrl'] ?? '',
+        partnerCount: data['partnerCount'] ?? 0,
+      );
+    }).toList();
   }
 
   @override
@@ -240,21 +285,27 @@ class _CommunityScreenState extends State<CommunityScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildLeaderboardList(),
+          // GÜNCELLEME: FutureBuilder ile veriyi bekleyip tabloya gönderiyoruz
+          FutureBuilder<List<LeaderboardUser>>(
+            future: _leaderboardFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Bir hata oluştu: ${snapshot.error}'));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('Henüz liderlik verisi yok.'));
+              }
+              // Veri başarıyla çekilince tabloyu göster
+              return LeaderboardTable(users: snapshot.data!);
+            },
+          ),
           _buildFeedList(),
           _buildGroupChatList(),
         ],
       ),
-    );
-  }
-
-  Widget _buildLeaderboardList() {
-    return ListView.builder(
-      itemCount: _users.length,
-      itemBuilder: (context, index) {
-        final user = _users[index];
-        return LeaderboardListItem(user: user);
-      },
     );
   }
 
@@ -281,8 +332,8 @@ class _CommunityScreenState extends State<CommunityScreen>
         final posts = snapshot.data!.docs;
 
         return ListView.builder(
-          padding:
-          const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0), // FAB için boşluk
+          padding: const EdgeInsets.fromLTRB(
+              8.0, 8.0, 8.0, 80.0), // FAB için boşluk
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = FeedPost.fromFirestore(posts[index]);
