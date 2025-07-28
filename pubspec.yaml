@@ -35,6 +35,7 @@ dev_dependencies:
 
   flutter_lints: ^5.0.0
   flutter_native_splash: ^2.4.0 # <-- BU SATIRI EKLEYİN
+  google_generative_ai: ^0.4.0 # Bu satırı ekleyin
 
 flutter:
   uses-material-design: true

@@ -15,16 +15,44 @@ class VocabularyPack {
 
 // Kelime Sekmesi Ana Widget'ı
 class VocabularyTab extends StatelessWidget {
-  const VocabularyTab({super.key});
+  VocabularyTab({super.key});
 
-  final List<VocabularyPack> vocabularyPacks = const [
-    VocabularyPack(title: 'İş İngilizcesi', icon: Icons.business_center, color1: Colors.blue, color2: Color(0xFF536DFE), wordCount: 50, progress: 0.75),
-    VocabularyPack(title: 'Seyahat', icon: Icons.flight_takeoff, color1: Colors.orange, color2: Color(0xFFFFAB40), wordCount: 75, progress: 0.3),
-    VocabularyPack(title: 'Teknoloji', icon: Icons.computer, color1: Color(0xFF616161), color2: Color(0xFF9E9E9E), wordCount: 60, progress: 0.0),
-    VocabularyPack(title: 'Yemek & Mutfak', icon: Icons.restaurant_menu, color1: Colors.red, color2: Color(0xFFEF5350), wordCount: 40, progress: 0.9),
-    VocabularyPack(title: 'Sağlık & Fitness', icon: Icons.fitness_center, color1: Colors.green, color2: Color(0xFF66BB6A), wordCount: 65, progress: 0.1),
-    VocabularyPack(title: 'Sanat & Kültür', icon: Icons.palette, color1: Colors.purple, color2: Color(0xFFAB47BC), wordCount: 55, progress: 0.0),
+  final List<VocabularyPack> vocabularyPacks = [
+    // --- TEMEL VE GÜNLÜK KONULAR ---
+    VocabularyPack(title: 'Günlük Hayat', icon: Icons.wb_sunny_outlined, color1: Colors.blue, color2: Colors.lightBlueAccent, wordCount: 100, progress: 0.6),
+    VocabularyPack(title: 'Yemek & Mutfak', icon: Icons.restaurant_menu, color1: Colors.red, color2: Colors.redAccent, wordCount: 80, progress: 0.9),
+    VocabularyPack(title: 'Seyahat & Turizm', icon: Icons.flight_takeoff, color1: Colors.orange, color2: Colors.deepOrangeAccent, wordCount: 120, progress: 0.3),
+    VocabularyPack(title: 'Aile & İlişkiler', icon: Icons.family_restroom, color1: Colors.pink, color2: Colors.pinkAccent, wordCount: 70, progress: 0.0),
+    VocabularyPack(title: 'Sağlık & Fitness', icon: Icons.fitness_center, color1: Colors.green, color2: Colors.lightGreen, wordCount: 90, progress: 0.1),
+    VocabularyPack(title: 'Ev & Mobilya', icon: Icons.weekend_outlined, color1: Colors.brown, color2: Colors.brown.shade300, wordCount: 60, progress: 0.0),
+
+    // --- İŞ VE KARİYER ---
+    VocabularyPack(title: 'İş İngilizcesi', icon: Icons.business_center, color1: Colors.indigo, color2: Colors.indigoAccent, wordCount: 150, progress: 0.75),
+    VocabularyPack(title: 'Finans & Ekonomi', icon: Icons.monetization_on_outlined, color1: Colors.teal, color2: Colors.tealAccent, wordCount: 100, progress: 0.0),
+    VocabularyPack(title: 'Pazarlama & Reklam', icon: Icons.campaign_outlined, color1: Colors.deepPurple, color2: Colors.deepPurpleAccent, wordCount: 80, progress: 0.0),
+    VocabularyPack(title: 'Teknoloji & Yazılım', icon: Icons.computer, color1: Colors.grey.shade600, color2: Colors.blueGrey, wordCount: 130, progress: 0.0),
+
+    // --- EĞİTİM VE AKADEMİK ---
+    VocabularyPack(title: 'Eğitim & Okul', icon: Icons.school_outlined, color1: Colors.blue.shade700, color2: Colors.blue.shade900, wordCount: 90, progress: 0.0),
+    VocabularyPack(title: 'Bilim & Araştırma', icon: Icons.science_outlined, color1: Colors.cyan, color2: Colors.cyanAccent, wordCount: 110, progress: 0.0),
+    VocabularyPack(title: 'Hukuk & Adalet', icon: Icons.gavel_outlined, color1: Colors.amber.shade800, color2: Colors.amber.shade900, wordCount: 70, progress: 0.0),
+    VocabularyPack(title: 'IELTS/TOEFL Hazırlık', icon: Icons.assignment_turned_in_outlined, color1: Colors.red.shade800, color2: Colors.red.shade900, wordCount: 200, progress: 0.0),
+
+    // --- HOBİLER VE İLGİ ALANLARI ---
+    VocabularyPack(title: 'Sanat & Kültür', icon: Icons.palette_outlined, color1: Colors.purple, color2: Colors.purpleAccent, wordCount: 80, progress: 0.0),
+    VocabularyPack(title: 'Müzik & Enstrümanlar', icon: Icons.music_note_outlined, color1: Colors.deepOrange, color2: Colors.deepOrangeAccent, wordCount: 70, progress: 0.0),
+    VocabularyPack(title: 'Spor & Aktiviteler', icon: Icons.sports_soccer_outlined, color1: Colors.lightGreen, color2: Colors.greenAccent, wordCount: 100, progress: 0.0),
+    VocabularyPack(title: 'Doğa & Çevre', icon: Icons.eco_outlined, color1: Colors.green.shade700, color2: Colors.green.shade900, wordCount: 90, progress: 0.0),
+    VocabularyPack(title: 'Tarih & Mitoloji', icon: Icons.museum_outlined, color1: Colors.orange.shade800, color2: Colors.orange.shade900, wordCount: 120, progress: 0.0),
+
+    // --- SOYUT KAVRAMLAR VE DİL BİLGİSİ ---
+    VocabularyPack(title: 'Duygular & Hisler', icon: Icons.sentiment_satisfied_alt_outlined, color1: Colors.yellow.shade700, color2: Colors.yellow.shade900, wordCount: 60, progress: 0.0),
+    VocabularyPack(title: 'Karakter & Kişilik', icon: Icons.psychology_outlined, color1: Colors.blueGrey.shade700, color2: Colors.blueGrey.shade900, wordCount: 80, progress: 0.0),
+    VocabularyPack(title: 'Deyimler (Idioms)', icon: Icons.format_quote_outlined, color1: Colors.indigo.shade300, color2: Colors.indigo.shade500, wordCount: 150, progress: 0.0),
+    VocabularyPack(title: 'Phrasal Verbs', icon: Icons.dynamic_feed_outlined, color1: Colors.cyan.shade300, color2: Colors.cyan.shade500, wordCount: 180, progress: 0.0),
+    VocabularyPack(title: 'Argo & Günlük Konuşma', icon: Icons.sms_outlined, color1: Colors.pink.shade300, color2: Colors.pink.shade500, wordCount: 100, progress: 0.0),
   ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -72,14 +100,18 @@ class VocabularyPackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${pack.title} kelime paketi yakında sizlerle!')),
+        );
+      },
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [pack.color1, pack.color2], begin: Alignment.topLeft, end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: pack.color2.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
+          boxShadow: [BoxShadow(color: pack.color2.withAlpha(102), blurRadius: 12, offset: const Offset(0, 6))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,10 +120,19 @@ class VocabularyPackCard extends StatelessWidget {
             Icon(pack.icon, color: Colors.white, size: 36),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              // HATA DÜZELTİLDİ: mainAxisSize.min ekleyerek Column'un gereksiz yer kaplaması engellendi.
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(pack.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(
+                  pack.title,
+                  // HATA DÜZELTİLDİ: maxLines ve overflow eklenerek metnin taşması engellendi.
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
                 const SizedBox(height: 4),
-                Text('${pack.wordCount} kelime', style: TextStyle(color: Colors.white.withOpacity(0.9))),
+                Text('${pack.wordCount} kelime', style: TextStyle(color: Colors.white.withAlpha(230))),
                 const SizedBox(height: 8),
                 if (pack.progress > 0)
                   ClipRRect(

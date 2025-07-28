@@ -1,6 +1,7 @@
 // lib/widgets/home_screen/searching_ui.dart
 
 import 'package:flutter/material.dart';
+import 'package:lingua_chat/screens/linguabot_chat_screen.dart'; // Yönlendirme için import edildi
 
 class SearchingUI extends StatefulWidget {
   final bool isSearching;
@@ -57,13 +58,10 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 500),
         opacity: widget.isSearching ? 1 : 0,
-        // DÜZENLEME: Sayfanın kaydırılmaması için SingleChildScrollView kaldırıldı.
-        // SizedBox ve Column ile sabit bir layout oluşturuldu.
         child: SizedBox(
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,
           child: Column(
-            // mainAxisAlignment.center, // Spacer ile daha iyi kontrol sağlıyoruz
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Spacer(flex: 3), // Üst boşluk
@@ -140,8 +138,10 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
       ),
       child: InkWell(
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('LinguaBot sohbet özelliği yakında geliyor!')),
+          // GÜNCELLENDİ: SnackBar yerine LinguaBot sohbet ekranına yönlendiriliyor.
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const LinguaBotChatScreen()),
           );
         },
         borderRadius: BorderRadius.circular(20),
@@ -168,11 +168,11 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
             borderRadius: BorderRadius.circular(20),
             child: Stack(
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.smart_toy_outlined,
+                    Icon(Icons.smart_toy_outlined,
                         color: Colors.white, size: 36),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Flexible(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,9 +181,9 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
                           Text(
                             "Beklemek istemiyor musun?",
                             style: TextStyle(
-                                fontSize: 13, color: Colors.white.withAlpha(204)),
+                                fontSize: 13, color: Colors.white70),
                           ),
-                          const Text(
+                          Text(
                             "LinguaBot'u dene!",
                             style: TextStyle(
                                 fontSize: 17,

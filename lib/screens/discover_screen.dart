@@ -43,9 +43,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     ),
                   );
                 },
+                // HATA DÜZELTİLDİ: 'VocabularyTab' artık 'const' olmadığı için 'const' kaldırıldı.
                 child: _selectedIndex == 0
                     ? GrammarTab(key: const ValueKey('grammar'))
-                    : const VocabularyTab(key: ValueKey('vocabulary')),
+                    : VocabularyTab(key: const ValueKey('vocabulary')),
               ),
             ),
           ],
@@ -60,7 +61,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.05),
+          // UYARI DÜZELTİLDİ: withOpacity yerine withAlpha kullanıldı. (0.05 * 255 ~= 13)
+          color: Colors.black.withAlpha(13),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -90,7 +92,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             boxShadow: isSelected
                 ? [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                // UYARI DÜZELTİLDİ: withOpacity yerine withAlpha kullanıldı. (0.1 * 255 ~= 26)
+                color: Colors.black.withAlpha(26),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               )

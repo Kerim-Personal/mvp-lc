@@ -44,9 +44,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Firebase konfigürasyon dosyası. Bu dosya hassas bilgiler içerir.
-# Firebase konfigürasyon dosyası. Bu dosya hassas bilgiler içerir.
+# Firebase ve diğer hassas konfigürasyon dosyaları.
 lib/services/firebase_options.dart
 /lib/firebase_options.dart
+/lib/services/linguabot_service.dart # <-- YENİ EKLENEN SATIR
 /firebase.json
 /functions/package-lock.json
