@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 
-// --- Veri Modeli ---
+// --- VERİ MODELLERİ ---
+
 class Lesson {
   final String title;
   final String level;
@@ -15,11 +16,12 @@ class Lesson {
         required this.color});
 }
 
-// --- Gramer Sekmesi Ana Widget'ı ---
+// --- GRAMER SEKMESİ ANA WIDGET'I (YENİDEN TASARLANDI) ---
 class GrammarTab extends StatelessWidget {
   GrammarTab({super.key});
 
-  // --- EKSİKSİZ VE TAM GRAMER KONULARI LİSTESİ ---
+  // Not: Bu ders listesini ve kullanıcı ilerlemesini normalde bir veritabanından (örn. Firestore) çekmeniz gerekir.
+  // Bu örnekte veriler statik olarak tanımlanmıştır.
   final List<Lesson> grammarLessons = const [
     // A1 Level
     Lesson(title: 'Verb "to be" (am/is/are)', level: 'A1', icon: Icons.person_outline, color: Colors.green),
@@ -106,99 +108,189 @@ class GrammarTab extends StatelessWidget {
     Lesson(title: 'Lexical Density', level: 'C2', icon: Icons.data_usage_outlined, color: Colors.purple),
   ];
 
+  // Örnek kullanıcı ilerlemesi. Bu veriyi Firestore'dan veya başka bir state management çözümüyle yönetmelisiniz.
+  final Map<String, double> userProgress = {
+    'A1': 1.0,   // %100 tamamlandı
+    'A2': 0.75,  // %75 tamamlandı
+    'B1': 0.33,  // %33 tamamlandı
+    'B2': 0.0,
+    'C1': 0.0,
+    'C2': 0.0,
+  };
+
   @override
   Widget build(BuildContext context) {
-    // Dersleri seviyelerine göre grupla
     final Map<String, List<Lesson>> lessonsByLevel = {};
     for (var lesson in grammarLessons) {
       lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
     }
     final levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-    final levelColors = [ Colors.green, Colors.lightBlue, Colors.orange, Colors.deepOrange, Colors.red, Colors.purple ];
+    final levelColors = [
+      Colors.green, Colors.lightBlue, Colors.orange,
+      Colors.deepOrange, Colors.red, Colors.purple
+    ];
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 20,
-        mainAxisSpacing: 20,
-        childAspectRatio: 0.9,
-      ),
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
       itemCount: levels.length,
       itemBuilder: (context, index) {
         final level = levels[index];
         final lessonsInLevel = lessonsByLevel[level] ?? [];
-        return LevelCard(
+        final progress = userProgress[level] ?? 0.0;
+        final isLocked = (index > 0) && ((userProgress[levels[index - 1]] ?? 0.0) < 1.0);
+
+        return LevelPathNode(
           level: level,
           lessonCount: lessonsInLevel.length,
           color: levelColors[index],
-          onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => GrammarLevelScreen(
-                      level: level,
-                      lessons: lessonsInLevel,
-                      color: levelColors[index]))),
+          progress: progress,
+          isLocked: isLocked,
+          isLeftAligned: index.isEven,
+          onTap: isLocked ? null : () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => GrammarLevelScreen(
+                  level: level,
+                  lessons: lessonsInLevel,
+                  color: levelColors[index]
+              ),
+            ),
+          ),
         );
       },
     );
   }
 }
 
-// Seviye Kartı Widget'ı
-class LevelCard extends StatelessWidget {
+// --- PATİKA DÜĞÜMÜ (HER SEVİYE İÇİN) ---
+class LevelPathNode extends StatelessWidget {
   final String level;
   final int lessonCount;
-  final MaterialColor color;
-  final VoidCallback onTap;
+  final Color color;
+  final double progress;
+  final bool isLocked;
+  final bool isLeftAligned;
+  final VoidCallback? onTap;
 
-  const LevelCard(
-      {super.key,
-        required this.level,
-        required this.lessonCount,
-        required this.color,
-        required this.onTap});
+  const LevelPathNode({
+    super.key,
+    required this.level,
+    required this.lessonCount,
+    required this.color,
+    required this.progress,
+    required this.isLocked,
+    required this.isLeftAligned,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-              colors: [color.shade300, color.shade500],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-                color: color.withOpacity(0.4),
-                blurRadius: 12,
-                offset: const Offset(0, 6))
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(level,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 48,
-                    fontWeight: FontWeight.w900,
-                    shadows: [Shadow(blurRadius: 10, color: Colors.black26)])),
-            const SizedBox(height: 8),
-            Text('$lessonCount Konu',
-                style: TextStyle(
-                    color: Colors.white.withOpacity(0.9), fontSize: 14)),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 25),
+      child: Row(
+        mainAxisAlignment: isLeftAligned ? MainAxisAlignment.start : MainAxisAlignment.end,
+        children: [
+          if (!isLeftAligned) const Spacer(),
+          Column(
+            crossAxisAlignment: isLeftAligned ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+            children: [
+              InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 180,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isLocked
+                          ? [Colors.grey.shade500, Colors.grey.shade600]
+                          : [(color as MaterialColor).shade300, (color as MaterialColor).shade500],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      if (!isLocked)
+                        BoxShadow(
+                          color: color.withOpacity(0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        )
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      if (isLocked)
+                        Icon(Icons.lock_outline, color: Colors.white.withOpacity(0.8), size: 48)
+                      else
+                        Text(
+                          level,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 48,
+                              fontWeight: FontWeight.w900,
+                              shadows: [Shadow(blurRadius: 10, color: Colors.black26)]
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$lessonCount Konu',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (!isLocked)
+                Container(
+                  width: 180,
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Row(
+                    children: [
+                      Icon(
+                        progress == 1.0 ? Icons.check_circle : Icons.hourglass_empty,
+                        color: progress == 1.0 ? Colors.green.shade700 : Colors.grey.shade600,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            backgroundColor: Colors.grey.shade300,
+                            valueColor: AlwaysStoppedAnimation<Color>(color),
+                            minHeight: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${(progress * 100).toInt()}%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700,
+                          fontSize: 12,
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          if (isLeftAligned) const Spacer(),
+        ],
       ),
     );
   }
 }
 
-// Gramer Detay Sayfası
+
+// --- GRAMER SEVİYE DETAY SAYFASI ---
 class GrammarLevelScreen extends StatelessWidget {
   final String level;
   final List<Lesson> lessons;
@@ -212,27 +304,53 @@ class GrammarLevelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Örnek tamamlanmış dersler (Bunu da Firestore'dan almalısınız)
+    final Set<String> completedLessons = {'Verb "to be" (am/is/are)', 'Present Simple', 'Present Continuous'};
+
     return Scaffold(
       appBar: AppBar(
         title: Text('$level Gramer Konuları'),
         backgroundColor: color.shade400,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(12),
         itemCount: lessons.length,
         itemBuilder: (context, index) {
           final lesson = lessons[index];
+          final isCompleted = completedLessons.contains(lesson.title);
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            elevation: 2,
+            shadowColor: Colors.black.withOpacity(0.1),
             shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
-              leading: Icon(lesson.icon, color: lesson.color),
-              title: Text(lesson.title),
+              leading: CircleAvatar(
+                backgroundColor: isCompleted ? color.withOpacity(0.9) : Colors.grey.shade200,
+                child: Icon(
+                  isCompleted ? Icons.check : lesson.icon,
+                  color: isCompleted ? Colors.white : lesson.color,
+                ),
+                foregroundColor: Colors.white,
+              ),
+              title: Text(
+                lesson.title,
+                style: TextStyle(
+                    decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                    color: isCompleted ? Colors.grey.shade600 : Colors.black87,
+                    fontWeight: isCompleted ? FontWeight.normal : FontWeight.w600
+                ),
+              ),
               trailing: const Icon(Icons.arrow_forward_ios,
                   size: 16, color: Colors.grey),
-              onTap: () {},
+              onTap: () {
+                // TODO: Her bir ders için özel içerik veya quiz sayfası burada açılabilir.
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${lesson.title} dersi yakında gelecek!')),
+                );
+              },
             ),
           );
         },

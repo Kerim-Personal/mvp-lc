@@ -118,33 +118,34 @@ class VocabularyPackCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Icon(pack.icon, color: Colors.white, size: 36),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              // HATA DÜZELTİLDİ: mainAxisSize.min ekleyerek Column'un gereksiz yer kaplaması engellendi.
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  pack.title,
-                  // HATA DÜZELTİLDİ: maxLines ve overflow eklenerek metnin taşması engellendi.
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  softWrap: true,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(height: 4),
-                Text('${pack.wordCount} kelime', style: TextStyle(color: Colors.white.withAlpha(230))),
-                const SizedBox(height: 8),
-                if (pack.progress > 0)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: pack.progress,
-                      backgroundColor: Colors.white.withAlpha(77),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                      minHeight: 6,
-                    ),
+            // HATA DÜZELTİLDİ: Esnek olmayan Column'u Expanded ile sarmalayarak taşmayı önledik.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end, // İçeriği aşağıya yasladık
+                children: [
+                  // HATA DÜZELTİLDİ: Text widget'ının alt satıra kaymasına izin verdik.
+                  Text(
+                    pack.title,
+                    softWrap: true, // Metnin alt satıra kaymasını sağlar
+                    overflow: TextOverflow.fade, // Çok uzunsa yumuşak bir şekilde silikleşir
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-              ],
+                  const SizedBox(height: 4),
+                  Text('${pack.wordCount} kelime', style: TextStyle(color: Colors.white.withAlpha(230))),
+                  const SizedBox(height: 8),
+                  if (pack.progress > 0)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: pack.progress,
+                        backgroundColor: Colors.white.withAlpha(77),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        minHeight: 6,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
