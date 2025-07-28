@@ -26,9 +26,9 @@ class LevelAssessmentScreen extends StatefulWidget {
   State<LevelAssessmentScreen> createState() => _LevelAssessmentScreenState();
 }
 
-class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> {
+class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with TickerProviderStateMixin {
 
-  // --- QUESTION POOLS (100 questions per level) ---
+  // --- QUESTION POOLS (EKSİKSİZ) ---
 
   // Beginner Level Question Pool (A1/A2)
   final List<Question> _beginnerQuestions = const [
@@ -215,7 +215,7 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> {
     Question(questionText: 'He is a ___ of traditional values.', options: ['proponent', 'propensity', 'proposal', 'proposition'], correctAnswerIndex: 0),
     Question(questionText: 'The ___ of the project is to improve public transport.', options: ['scope', 'scape', 'scalp', 'scamp'], correctAnswerIndex: 0),
     Question(questionText: 'She is a ___ and respected journalist.', options: ['veteran', 'veterinarian', 'veto', 'vex'], correctAnswerIndex: 0),
-    Question(questionText: 'The ___ of the company is based on innovation.', options: ['ethos', 'ether', 'ethic', 'ethnic'], correctAnswerIndex: 0),
+    Question(questionText: 'The ___ of the company is its commitment to quality.', options: ['ethos', 'ether', 'ethic', 'ethnic'], correctAnswerIndex: 0),
     Question(questionText: 'He is a ___ critic of the government.', options: ['vociferous', 'voracious', 'veracious', 'volatile'], correctAnswerIndex: 0),
     Question(questionText: 'The ___ of the problem is a lack of resources.', options: ['core', 'corps', 'corpse', 'corpus'], correctAnswerIndex: 0),
     Question(questionText: 'She has a ___ knowledge of the subject.', options: ['profound', 'profuse', 'profane', 'profile'], correctAnswerIndex: 0),
@@ -320,28 +320,39 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> {
   late List<Question> _selectedQuestions;
   int _currentQuestionIndex = 0;
   int _score = 0;
-  bool _isLoading = true;
+  bool _isLoading = false;
+  bool _isTestStarted = false;
+
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
-    _prepareTest();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
   }
 
   void _prepareTest() {
     final random = Random();
 
-    // HATA DÜZELTİLDİ: Değiştirilemez listeler üzerinde işlem yapmadan önce kopyaları oluşturuluyor.
-    final List<Question> beginnerSample = (List.of(_beginnerQuestions)..shuffle(random)).take(10).toList();
-    final List<Question> intermediateSample = (List.of(_intermediateQuestions)..shuffle(random)).take(10).toList();
-    final List<Question> advancedSample = (List.of(_advancedQuestions)..shuffle(random)).take(10).toList();
+    // Tüm soruları tek bir listede birleştirelim
+    final List<Question> allQuestions = [
+      ..._beginnerQuestions,
+      ..._intermediateQuestions,
+      ..._advancedQuestions,
+    ];
 
-    _selectedQuestions = [...beginnerSample, ...intermediateSample, ...advancedSample];
-    _selectedQuestions.shuffle(random);
+    allQuestions.shuffle(random);
+
+    // Test için 20 soru seçelim
+    _selectedQuestions = allQuestions.take(20).toList();
 
     if (mounted) {
       setState(() {
-        _isLoading = false;
+        _isTestStarted = true;
+        _animationController.forward(from: 0.0);
       });
     }
   }
@@ -354,6 +365,7 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> {
     if (_currentQuestionIndex < _selectedQuestions.length - 1) {
       setState(() {
         _currentQuestionIndex++;
+        _animationController.forward(from: 0.0);
       });
     } else {
       _finishQuiz();
@@ -362,131 +374,197 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> {
 
   String _calculateLevel(int score) {
     double correctRatio = score / _selectedQuestions.length;
-    if (correctRatio <= 0.33) {
-      return 'A1';
-    } else if (correctRatio <= 0.5) {
-      return 'A2';
-    } else if (correctRatio <= 0.7) {
-      return 'B1';
-    } else if (correctRatio <= 0.85) {
-      return 'B2';
-    } else if (correctRatio <= 0.95) {
-      return 'C1';
-    } else {
-      return 'C2';
-    }
+    if (correctRatio <= 0.33) return 'A1';
+    if (correctRatio <= 0.5) return 'A2';
+    if (correctRatio <= 0.7) return 'B1';
+    if (correctRatio <= 0.85) return 'B2';
+    if (correctRatio <= 0.95) return 'C1';
+    return 'C2';
   }
 
   Future<void> _finishQuiz() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final level = _calculateLevel(_score);
-      try {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'level': level,
-        });
+    if (user == null) return;
 
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AssessmentResultsScreen(
-                score: _score,
-                totalQuestions: _selectedQuestions.length,
-                level: level,
-              ),
+    final level = _calculateLevel(_score);
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'level': level});
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => AssessmentResultsScreen(
+              score: _score,
+              totalQuestions: _selectedQuestions.length,
+              level: level,
             ),
-          );
-        }
-
-      } catch (e) {
-        if(mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save your level: $e')),
-          );
-          setState(() {
-            _isLoading = false;
-          });
-        }
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Seviye kaydedilemedi: $e')));
+        setState(() => _isLoading = false);
       }
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 20),
-              Text(_currentQuestionIndex > 0 ? 'Calculating your level...' : 'Preparing your test...'),
-            ],
-          ),
-        ),
-      );
-    }
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
-    final currentQuestion = _selectedQuestions[_currentQuestionIndex];
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text('Level Assessment (${_currentQuestionIndex + 1}/${_selectedQuestions.length})'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4.0),
-          child: LinearProgressIndicator(
-            value: (_currentQuestionIndex + 1) / _selectedQuestions.length,
-            backgroundColor: Colors.teal.shade200,
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        ),
+        title: const Text('Seviye Belirleme Testi'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.black87,
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  child: Text(
-                    currentQuestion.questionText,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 500),
+        transitionBuilder: (child, animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child: _isTestStarted ? _buildQuestionView() : _buildWelcomeView(),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeView() {
+    return Container(
+      key: const ValueKey('welcome'),
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(Icons.school_outlined, size: 120, color: Colors.teal.shade300),
+          const SizedBox(height: 24),
+          const Text(
+            'Dil Seviyeni Keşfet!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sana en uygun pratik partnerlerini bulabilmemiz için kısa bir testle İngilizce seviyeni belirleyelim.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600, height: 1.5),
+          ),
+          const SizedBox(height: 40),
+          ElevatedButton(
+            onPressed: _prepareTest,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              elevation: 5,
+              shadowColor: Colors.teal.withOpacity(0.5),
+            ),
+            child: const Text('Teste Başla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionView() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final currentQuestion = _selectedQuestions[_currentQuestionIndex];
+    final progress = (_currentQuestionIndex + 1) / _selectedQuestions.length;
+
+    return Container(
+      key: const ValueKey('questions'),
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: SizedBox(
+              width: 80,
+              height: 80,
+              child: TweenAnimationBuilder(
+                tween: Tween<double>(begin: 0, end: progress),
+                duration: const Duration(milliseconds: 500),
+                builder: (context, value, child) {
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CircularProgressIndicator(
+                        value: value,
+                        strokeWidth: 8,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+                      ),
+                      Center(
+                        child: Text(
+                          '${_currentQuestionIndex + 1}/${_selectedQuestions.length}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                child: FadeTransition(
+                  opacity: _animationController,
+                  child: SlideTransition(
+                    position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(_animationController),
+                    child: Text(
+                      currentQuestion.questionText,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, height: 1.4),
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 30),
-            ...List.generate(currentQuestion.options.length, (index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+          ),
+          const SizedBox(height: 30),
+          ...List.generate(currentQuestion.options.length, (index) {
+            return FadeTransition(
+              opacity: _animationController,
+              child: SlideTransition(
+                position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+                    CurvedAnimation(parent: _animationController, curve: Interval(0.2 * index, 1.0, curve: Curves.easeOut))),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: const TextStyle(fontSize: 16)
+                      foregroundColor: Colors.teal,
+                      side: const BorderSide(color: Colors.teal, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    onPressed: () => _answerQuestion(index),
+                    child: Text(currentQuestion.options[index]),
                   ),
-                  onPressed: () => _answerQuestion(index),
-                  child: Text(currentQuestion.options[index]),
                 ),
-              );
-            }),
-            const SizedBox(height: 20),
-          ],
-        ),
+              ),
+            );
+          }),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
