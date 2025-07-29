@@ -1,5 +1,6 @@
 // lib/widgets/profile_screen/app_settings_card.dart
 import 'package:flutter/material.dart';
+import 'package:lingua_chat/services/audio_service.dart'; // Müzik servisini import ediyoruz
 
 class AppSettingsCard extends StatefulWidget {
   const AppSettingsCard({super.key});
@@ -9,7 +10,14 @@ class AppSettingsCard extends StatefulWidget {
 }
 
 class _AppSettingsCardState extends State<AppSettingsCard> {
-  bool _notificationsEnabled = true;
+  late bool _isMusicEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    // Widget ilk oluşturulduğunda müziğin mevcut durumunu servisten alıyoruz
+    _isMusicEnabled = AudioService.instance.isMusicEnabled;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,14 +28,21 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
       child: Column(
         children: [
           SwitchListTile(
-            title: const Text('Bildirimler', style: TextStyle(fontWeight: FontWeight.w600)),
-            value: _notificationsEnabled,
+            title: const Text('Müzik', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(_isMusicEnabled ? 'Açık' : 'Kapalı'),
+            value: _isMusicEnabled,
             onChanged: (bool value) {
+              // Arayüzdeki switch'in durumunu güncelliyoruz
               setState(() {
-                _notificationsEnabled = value;
+                _isMusicEnabled = value;
               });
+              // Müzik servisine yeni durumu bildirerek müziği açıp kapatmasını sağlıyoruz
+              AudioService.instance.toggleMusic(value);
             },
-            secondary: const Icon(Icons.notifications_active_outlined, color: Colors.blue),
+            secondary: Icon(
+              _isMusicEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              color: Colors.orange,
+            ),
             activeColor: Colors.teal,
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),

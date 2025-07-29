@@ -1,5 +1,3 @@
-// lib/screens/root_screen.dart
-
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -76,7 +74,6 @@ class _RootScreenState extends State<RootScreen> {
       _selectedIndex = 2;
     }
 
-    // DÜZELTME: Scaffold'u basitleştirip gereksiz AppBar'ı ve özelliği kaldırıyoruz.
     return Scaffold(
       body: Stack(
         children: [
@@ -93,7 +90,7 @@ class _RootScreenState extends State<RootScreen> {
           boxShadow: [
             BoxShadow(
               blurRadius: 20,
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withAlpha(26),
             )
           ],
         ),

@@ -3,8 +3,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
-// GÜNCELLEME: LeaderboardTable widget'ını import ediyoruz.
 import 'package:lingua_chat/widgets/community_screen/leaderboard_table.dart';
 import 'package:lingua_chat/widgets/community_screen/feed_post_card.dart';
 import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
@@ -71,14 +69,17 @@ class GroupChatRoom {
   final int members;
   final Color color1;
   final Color color2;
+  final bool isFeatured;
 
-  GroupChatRoom(
-      {required this.name,
-        required this.description,
-        required this.icon,
-        required this.members,
-        required this.color1,
-        required this.color2});
+  GroupChatRoom({
+    required this.name,
+    required this.description,
+    required this.icon,
+    required this.members,
+    required this.color1,
+    required this.color2,
+    this.isFeatured = false,
+  });
 }
 
 // --- ANA EKRAN WIDGET'I ---
@@ -92,54 +93,56 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // GÜNCELLEME: Veriyi tutmak için Future state'i
   late Future<List<LeaderboardUser>> _leaderboardFuture;
-  String _leaderboardPeriod = 'partnerCount'; // 'dailyPartnerCount' vs. olabilir
+  final String _leaderboardPeriod = 'partnerCount';
 
   final List<GroupChatRoom> _chatRooms = [
     GroupChatRoom(
-        name: "Film & Dizi Kulübü",
-        description: "Haftanın popüler yapımlarını tartışın.",
-        icon: Icons.movie_filter_outlined,
-        members: 128,
-        color1: Colors.purple.shade300,
-        color2: Colors.indigo.shade400),
-    GroupChatRoom(
-        name: "Gezginler Durağı",
-        description: "Seyahat anılarınızı ve ipuçlarınızı paylaşın.",
-        icon: Icons.airplanemode_active_outlined,
-        members: 89,
-        color1: Colors.orange.shade300,
-        color2: Colors.red.shade400),
-    GroupChatRoom(
         name: "Müzik Kutusu",
-        description: "Farklı türlerden müzikler keşfedin.",
+        description: "Farklı türlerden müzikler keşfedin ve favori sanatçılarınızı paylaşın.",
         icon: Icons.music_note_outlined,
         members: 215,
         color1: Colors.pink.shade300,
-        color2: Colors.red.shade300),
+        color2: Colors.red.shade400,
+        isFeatured: true),
+    GroupChatRoom(
+        name: "Film & Dizi Kulübü",
+        description: "Haftanın popüler yapımlarını ve kült klasiklerini tartışın.",
+        icon: Icons.movie_filter_outlined,
+        members: 128,
+        color1: Colors.purple.shade400,
+        color2: Colors.indigo.shade500),
+    GroupChatRoom(
+        name: "Gezginler Durağı",
+        description: "Seyahat anılarınızı ve bir sonraki macera için ipuçlarınızı paylaşın.",
+        icon: Icons.airplanemode_active_outlined,
+        members: 89,
+        color1: Colors.orange.shade400,
+        color2: Colors.deepOrange.shade500),
+    GroupChatRoom(
+        name: "Teknoloji Tayfası",
+        description: "En yeni gadget'ları, yazılımları ve gelecek teknolojilerini konuşun.",
+        icon: Icons.computer_outlined,
+        members: 150,
+        color1: Colors.blue.shade500,
+        color2: Colors.cyan.shade600),
     GroupChatRoom(
         name: "Kitap Kurtları",
-        description: "Okuduğunuz kitaplar hakkında konuşun.",
+        description: "Okuduğunuz kitaplar hakkında derinlemesine sohbet edin.",
         icon: Icons.menu_book_outlined,
         members: 76,
-        color1: Colors.brown.shade300,
-        color2: Colors.brown.shade500),
+        color1: Colors.brown.shade400,
+        color2: Colors.brown.shade600),
   ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      setState(() {});
-    });
-    // GÜNCELLEME: Başlangıçta veriyi çek
+    _tabController.addListener(() => setState(() {}));
     _leaderboardFuture = _fetchLeaderboardData();
   }
 
-  // GÜNCELLEME: Firestore'dan liderlik verisini çeken metot
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
@@ -147,11 +150,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         .limit(20)
         .get();
 
-    if (snapshot.docs.isEmpty) {
-      return [];
-    }
-
-    // Gelen dökümanları LeaderboardUser objelerine dönüştür
+    if (snapshot.docs.isEmpty) return [];
     return snapshot.docs.asMap().entries.map((entry) {
       int rank = entry.key + 1;
       Map<String, dynamic> data = entry.value.data();
@@ -166,7 +165,6 @@ class _CommunityScreenState extends State<CommunityScreen>
 
   @override
   void dispose() {
-    _tabController.removeListener(() {});
     _tabController.dispose();
     super.dispose();
   }
@@ -285,7 +283,6 @@ class _CommunityScreenState extends State<CommunityScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // GÜNCELLEME: FutureBuilder ile veriyi bekleyip tabloya gönderiyoruz
           FutureBuilder<List<LeaderboardUser>>(
             future: _leaderboardFuture,
             builder: (context, snapshot) {
@@ -298,17 +295,76 @@ class _CommunityScreenState extends State<CommunityScreen>
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return const Center(child: Text('Henüz liderlik verisi yok.'));
               }
-              // Veri başarıyla çekilince tabloyu göster
               return LeaderboardTable(users: snapshot.data!);
             },
           ),
           _buildFeedList(),
-          _buildGroupChatList(),
+          _buildRoomsTab(),
         ],
       ),
     );
   }
 
+  Widget _buildRoomsTab() {
+    return ListView(
+      padding: const EdgeInsets.only(top: 24.0),
+      children: [
+        _buildSectionHeader("Haftanın Sahnesi"),
+        _buildFeaturedRoomCard(),
+        const SizedBox(height: 30),
+        _buildSectionHeader("Popüler Odalar"),
+        _buildRoomCategory(
+          rooms: _chatRooms.where((r) => r.members > 100 && !r.isFeatured).toList(),
+        ),
+        const SizedBox(height: 30),
+        _buildSectionHeader("Yeni Keşifler"),
+        _buildRoomCategory(
+          rooms: _chatRooms.where((r) => r.members <= 100).toList(),
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+      ),
+    );
+  }
+
+  Widget _buildFeaturedRoomCard() {
+    final featuredRoom = _chatRooms.firstWhere((r) => r.isFeatured);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+      child: GroupChatCard(room: featuredRoom),
+    );
+  }
+
+  Widget _buildRoomCategory({required List<GroupChatRoom> rooms}) {
+    return SizedBox(
+      height: 220,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: rooms.length,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        itemBuilder: (context, index) {
+          return SizedBox(
+            width: 280,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: GroupChatCard(room: rooms[index]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // *** HATA DÜZELTMESİ BU FONKSİYONDA YAPILDI ***
   Widget _buildFeedList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -316,9 +372,15 @@ class _CommunityScreenState extends State<CommunityScreen>
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
+        // YÜKLENME DURUMU
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        // HATA DURUMU
+        if (snapshot.hasError) {
+          return const Center(child: Text('Gönderiler yüklenemedi.\nLütfen tekrar deneyin.', textAlign: TextAlign.center));
+        }
+        // VERİ OLMAMA DURUMU (Boş liste veya null data)
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(
             child: Text(
@@ -329,28 +391,17 @@ class _CommunityScreenState extends State<CommunityScreen>
           );
         }
 
+        // VERİ BAŞARIYLA GELDİYSE
         final posts = snapshot.data!.docs;
 
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(
-              8.0, 8.0, 8.0, 80.0), // FAB için boşluk
+          padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = FeedPost.fromFirestore(posts[index]);
             return FeedPostCard(post: post);
           },
         );
-      },
-    );
-  }
-
-  Widget _buildGroupChatList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12.0),
-      itemCount: _chatRooms.length,
-      itemBuilder: (context, index) {
-        final room = _chatRooms[index];
-        return GroupChatCard(room: room);
       },
     );
   }

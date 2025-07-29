@@ -5,22 +5,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:lingua_chat/screens/root_screen.dart'; // HATA BURADA DÜZELTİLDİ
+import 'package:lingua_chat/screens/root_screen.dart';
 import 'firebase_options.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
+import 'package:lingua_chat/services/audio_service.dart'; // Müzik servisini import ediyoruz
 
 void main() async {
+  // Flutter binding'lerinin hazır olduğundan emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase'i başlatıyoruz
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Müzik servisini başlatıyoruz ve kayıtlı ayarları yüklüyoruz
+  await AudioService.instance.init();
+
+  // Sistem UI stilini ayarlıyoruz
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Tarih formatlama için yerelleştirmeyi başlatıyoruz
   await initializeDateFormatting('tr_TR', null);
+
+  // Uygulamayı çalıştırıyoruz
   runApp(const MyApp());
 }
 
