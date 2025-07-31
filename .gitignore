@@ -50,3 +50,4 @@ lib/services/firebase_options.dart
 /lib/services/linguabot_service.dart # <-- YENİ EKLENEN SATIR
 /firebase.json
 /functions/package-lock.json
+/lib/services/linguabot_service.dart
