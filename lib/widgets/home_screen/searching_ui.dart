@@ -138,7 +138,8 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
       ),
       child: InkWell(
         onTap: () {
-          // GÜNCELLENDİ: SnackBar yerine LinguaBot sohbet ekranına yönlendiriliyor.
+          // YENİ: Önce arama iptal ediliyor, sonra sayfaya yönlendiriliyor.
+          widget.onCancelSearch();
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const LinguaBotChatScreen()),
