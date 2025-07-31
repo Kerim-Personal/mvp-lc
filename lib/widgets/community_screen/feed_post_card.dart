@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:lingua_chat/screens/comment_screen.dart'; // Yorum ekranını import et
 
 class FeedPostCard extends StatefulWidget {
   final FeedPost post;
@@ -175,9 +176,12 @@ class _FeedPostCardState extends State<FeedPostCard> {
                   icon: Icons.chat_bubble_outline_rounded,
                   text: '${widget.post.commentCount} Yorum',
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Yorum özelliği yakında gelecek!')),
+                    // Yorum ekranına yönlendirme
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CommentScreen(postId: widget.post.id),
+                      ),
                     );
                   },
                 ),
