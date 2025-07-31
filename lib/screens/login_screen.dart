@@ -6,8 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/screens/register_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
-// home_screen import'u artık gerekli değil.
-// import 'package:lingua_chat/screens/home_screen.dart';
+import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Lokalizasyon importu
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -100,16 +99,10 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      // DÜZELTME: AuthService'den dönen değeri kontrol ediyoruz.
-      // Başarılı girişten sonra manuel yönlendirme yapmıyoruz,
-      // AuthWrapper bu işi halledecek.
       await _authService.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-
-      // Yönlendirme kısmı kaldırıldı. AuthStateChanges stream'i yönlendirmeyi yapacak.
-
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -123,7 +116,6 @@ class _LoginScreenState extends State<LoginScreen>
                 VerificationScreen(email: _emailController.text.trim()),
           ),
         );
-        // Hata mesajı göstermeye gerek yok, kullanıcı doğrulama ekranına yönlendirildi.
       } else if (e.code == 'user-not-found' ||
           e.code == 'wrong-password' ||
           e.code == 'invalid-credential') {
@@ -154,10 +146,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold'u, gradyanı olan bir Container ile sarmalıyoruz
     return Container(
       decoration: const BoxDecoration(
-        // Bu gradyan tüm ekranı kaplayacak
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -165,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       ),
       child: Scaffold(
-        backgroundColor: Colors.transparent, // Scaffold'u şeffaf yapıyoruz
+        backgroundColor: Colors.transparent,
         body: MouseRegion(
           onHover: (event) {
             setState(() {
@@ -194,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen>
                           fadeAnimation: _emailFade,
                           slideAnimation: _emailSlide,
                           controller: _emailController,
-                          hintText: 'E-posta adresiniz',
+                          hintText: AppLocalizations.of(context)!.emailAddress, // <-- GÜNCELLENDİ
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                         ),
@@ -203,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen>
                           fadeAnimation: _passwordFade,
                           slideAnimation: _passwordSlide,
                           controller: _passwordController,
-                          hintText: 'Şifreniz',
+                          hintText: AppLocalizations.of(context)!.password, // <-- GÜNCELLENDİ
                           icon: Icons.lock_outline,
                           obscureText: true,
                         ),
@@ -253,10 +243,10 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             const Icon(Icons.language, size: 80, color: Colors.white),
             const SizedBox(height: 16),
-            const Text(
-              'LinguaChat',
+            Text(
+              AppLocalizations.of(context)!.appName, // <-- GÜNCELLENDİ
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 45.0,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
@@ -270,7 +260,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
             Text(
-              'Dil pratiği yapmanın en eğlenceli yolu',
+              AppLocalizations.of(context)!.appSubtitle, // <-- GÜNCELLENDİ
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -365,10 +355,10 @@ class _LoginScreenState extends State<LoginScreen>
                     color: Colors.teal,
                   ),
                 )
-                    : const Text(
-                  'Giriş Yap',
-                  key: ValueKey('loginText'),
-                  style: TextStyle(
+                    : Text(
+                  AppLocalizations.of(context)!.login, // <-- GÜNCELLENDİ
+                  key: const ValueKey('loginText'),
+                  style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -386,7 +376,7 @@ class _LoginScreenState extends State<LoginScreen>
         position: _buttonSlide,
         child: TextButton(
           child: Text(
-            'Hesabın yok mu? Kaydol',
+            AppLocalizations.of(context)!.dontHaveAnAccount, // <-- GÜNCELLENDİ
             style: TextStyle(color: Colors.white.withOpacity(0.9)),
           ),
           onPressed: () {

@@ -10,7 +10,8 @@ import 'package:lingua_chat/screens/root_screen.dart';
 import 'firebase_options.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
 import 'package:lingua_chat/services/audio_service.dart'; // Müzik servisini import ediyoruz
-
+import 'package:flutter_localizations/flutter_localizations.dart'; // <-- YENİ: Lokalizasyon paketini import edin
+import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Lokalizasyon importu
 void main() async {
   // Flutter binding'lerinin hazır olduğundan emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,6 +115,18 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
       ),
+      // --- YENİ: LOKALİZASYON AYARLARI ---
+      localizationsDelegates: [ // <-- Sadece 'const' kelimesini kaldırın
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', ''), // İngilizce (Varsayılan)
+        Locale('tr', ''), // Türkçe
+      ],
+      // ------------------------------------
       home: const AuthWrapper(),
     );
   }

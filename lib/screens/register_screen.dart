@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
+import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Lokalizasyon importu
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -261,7 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               const SizedBox(height: 30.0),
                               _buildTextField(
                                 controller: _emailController,
-                                hintText: 'E-posta',
+                                hintText: AppLocalizations.of(context)!.emailAddress, // <-- GÜNCELLENDİ
                                 icon: Icons.email_outlined,
                                 keyboardType: TextInputType.emailAddress,
                                 validator: (value) {
@@ -280,7 +281,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               const SizedBox(height: 12.0),
                               _buildTextField(
                                   controller: _passwordController,
-                                  hintText: 'Şifre',
+                                  hintText: AppLocalizations.of(context)!.password, // <-- GÜNCELLENDİ
                                   icon: Icons.lock_outline,
                                   obscureText: true,
                                   validator: (value) =>
@@ -290,7 +291,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               const SizedBox(height: 12.0),
                               _buildTextField(
                                 controller: _usernameController,
-                                hintText: 'Kullanıcı Adı',
+                                hintText: AppLocalizations.of(context)!.username, // <-- GÜNCELLENDİ
                                 icon: Icons.person_outline,
                                 validator: (value) => (value == null ||
                                     value.isEmpty)
@@ -301,7 +302,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               _buildTextField(
                                 controller: _birthDateController,
                                 readOnly: true,
-                                hintText: 'Doğum Tarihi',
+                                hintText: AppLocalizations.of(context)!.birthDate, // <-- GÜNCELLENDİ
                                 icon: Icons.calendar_today_outlined,
                                 onTap: _showDatePicker,
                                 validator: (value) =>
@@ -310,9 +311,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                                     : null,
                               ),
                               const SizedBox(height: 20.0),
-                              const Text('Cinsiyetinizi Seçin',
+                              Text(AppLocalizations.of(context)!.selectYourGender, // <-- GÜNCELLENDİ
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                       color: Colors.white70, fontSize: 16)),
                               const SizedBox(height: 10.0),
                               Row(
@@ -320,13 +321,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 children: [
                                   GenderSelectionBox(
                                       icon: Icons.female,
-                                      label: 'Kadın',
+                                      label: AppLocalizations.of(context)!.female, // <-- GÜNCELLENDİ
                                       isSelected: _selectedGender == 'Female',
                                       onTap: () =>
                                           setState(() => _selectedGender = 'Female')),
                                   GenderSelectionBox(
                                       icon: Icons.male,
-                                      label: 'Erkek',
+                                      label: AppLocalizations.of(context)!.male, // <-- GÜNCELLENDİ
                                       isSelected: _selectedGender == 'Male',
                                       onTap: () =>
                                           setState(() => _selectedGender = 'Male')),
@@ -350,12 +351,12 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Widget _buildHeader() {
-    return const Column(
+    return Column(
       children: [
         Text(
-          'Hesap Oluştur',
+          AppLocalizations.of(context)!.createAccount, // <-- GÜNCELLENDİ
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 38.0,
             fontWeight: FontWeight.w900,
             color: Colors.white,
@@ -368,11 +369,11 @@ class _RegisterScreenState extends State<RegisterScreen>
             ],
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
-          'Maceraya katılmak için sadece birkaç adım kaldı!',
+          AppLocalizations.of(context)!.joinTheAdventure, // <-- GÜNCELLENDİ
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             color: Colors.white70,
             fontWeight: FontWeight.w300,
@@ -485,10 +486,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                 color: Colors.teal,
               ),
             )
-                : const Text(
-              'Kaydol',
-              key: ValueKey('registerText'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                : Text(
+              AppLocalizations.of(context)!.register, // <-- GÜNCELLENDİ
+              key: const ValueKey('registerText'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
         ),
