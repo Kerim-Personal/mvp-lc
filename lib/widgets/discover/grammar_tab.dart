@@ -1,6 +1,8 @@
 // lib/widgets/discover/grammar_tab.dart
 
 import 'package:flutter/material.dart';
+import 'package:lingua_chat/lessons/grammar/a1/verb_to_be.dart';
+import 'package:lingua_chat/navigation/lesson_router.dart';
 
 // --- VERİ MODELLERİ ---
 
@@ -351,11 +353,8 @@ class GrammarLevelScreen extends StatelessWidget {
               trailing: const Icon(Icons.arrow_forward_ios,
                   size: 16, color: Colors.grey),
               onTap: () {
-                // TODO: Her bir ders için özel içerik veya quiz sayfası burada açılabilir.
-                // Yönlendirme için 'lesson.contentPath' kullanılabilir.
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${lesson.title} dersi yakında gelecek!')),
-                );
+                // Yönlendirme için merkezi LessonRouter'ı kullan
+                LessonRouter.navigateToLesson(context, lesson.contentPath, lesson.title);
               },
             ),
           );
