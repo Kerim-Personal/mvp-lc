@@ -185,16 +185,6 @@ class _FeedPostCardState extends State<FeedPostCard> {
                     );
                   },
                 ),
-                _buildActionButton(
-                  icon: Icons.share_outlined,
-                  text: 'Paylaş',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Paylaşma özelliği yakında gelecek!')),
-                    );
-                  },
-                ),
               ],
             )
           ],
