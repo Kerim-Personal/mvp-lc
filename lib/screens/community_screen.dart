@@ -99,6 +99,11 @@ class _CommunityScreenState extends State<CommunityScreen>
   late Future<List<LeaderboardUser>> _leaderboardFuture;
   final String _leaderboardPeriod = 'partnerCount';
 
+  // Akış ve Odalar için Future'lar eklendi
+  late Future<QuerySnapshot> _feedFuture;
+  late Future<QuerySnapshot> _roomsFuture;
+
+
   // *** GÜNCELLEME: State'in korunması için eklendi ***
   @override
   bool get wantKeepAlive => true;
@@ -109,6 +114,8 @@ class _CommunityScreenState extends State<CommunityScreen>
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() => setState(() {}));
     _leaderboardFuture = _fetchLeaderboardData();
+    _feedFuture = _fetchFeedData();
+    _roomsFuture = _fetchRoomsData();
   }
 
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
@@ -130,6 +137,30 @@ class _CommunityScreenState extends State<CommunityScreen>
       );
     }).toList();
   }
+
+  Future<QuerySnapshot> _fetchFeedData() {
+    return FirebaseFirestore.instance
+        .collection('posts')
+        .orderBy('timestamp', descending: true)
+        .get();
+  }
+
+  Future<QuerySnapshot> _fetchRoomsData() {
+    return FirebaseFirestore.instance.collection('group_chats').orderBy('isFeatured', descending: true).get();
+  }
+
+  Future<void> _refreshFeed() async {
+    setState(() {
+      _feedFuture = _fetchFeedData();
+    });
+  }
+
+  Future<void> _refreshRooms() async {
+    setState(() {
+      _roomsFuture = _fetchRoomsData();
+    });
+  }
+
 
   @override
   void dispose() {
@@ -199,6 +230,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                   });
 
                   Navigator.pop(context);
+                  _refreshFeed(); // Gönderi paylaşıldıktan sonra akışı yenile
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
@@ -277,7 +309,7 @@ class _CommunityScreenState extends State<CommunityScreen>
 
   Widget _buildRoomsTab() {
     return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('group_chats').orderBy('isFeatured', descending: true).get(),
+      future: _roomsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -316,27 +348,27 @@ class _CommunityScreenState extends State<CommunityScreen>
           );
         }).toList();
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-          itemCount: rooms.length,
-          itemBuilder: (context, index) {
-            final roomInfo = rooms[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: GroupChatCard(roomInfo: roomInfo),
-            );
-          },
+        return RefreshIndicator(
+          onRefresh: _refreshRooms,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+            itemCount: rooms.length,
+            itemBuilder: (context, index) {
+              final roomInfo = rooms[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: GroupChatCard(roomInfo: roomInfo),
+              );
+            },
+          ),
         );
       },
     );
   }
 
   Widget _buildFeedList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('posts')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+    return FutureBuilder<QuerySnapshot>(
+      future: _feedFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -356,13 +388,16 @@ class _CommunityScreenState extends State<CommunityScreen>
 
         final posts = snapshot.data!.docs;
 
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
-          itemCount: posts.length,
-          itemBuilder: (context, index) {
-            final post = FeedPost.fromFirestore(posts[index]);
-            return FeedPostCard(post: post);
-          },
+        return RefreshIndicator(
+          onRefresh: _refreshFeed,
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = FeedPost.fromFirestore(posts[index]);
+              return FeedPostCard(post: post);
+            },
+          ),
         );
       },
     );
