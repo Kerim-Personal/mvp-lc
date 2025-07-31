@@ -1,8 +1,10 @@
 // lib/screens/community_screen.dart
 
+import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lingua_chat/widgets/community_screen/leaderboard_table.dart';
 import 'package:lingua_chat/widgets/community_screen/feed_post_card.dart';
 import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
@@ -20,7 +22,22 @@ class LeaderboardUser {
     required this.rank,
     required this.partnerCount,
   });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'avatarUrl': avatarUrl,
+    'rank': rank,
+    'partnerCount': partnerCount,
+  };
+
+  factory LeaderboardUser.fromJson(Map<String, dynamic> json) => LeaderboardUser(
+    name: json['name'] as String,
+    avatarUrl: json['avatarUrl'] as String,
+    rank: json['rank'] as int,
+    partnerCount: json['partnerCount'] as int,
+  );
 }
+
 
 class FeedPost {
   final String id;
@@ -45,10 +62,6 @@ class FeedPost {
 
   factory FeedPost.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    final List<dynamic> likesData = data['likes'] ?? [];
-    final List<String> likes =
-    likesData.map((item) => item.toString()).toList();
-
     return FeedPost(
       id: doc.id,
       userName: data['userName'] ?? 'Bilinmiyor',
@@ -56,10 +69,32 @@ class FeedPost {
       userId: data['userId'] ?? '',
       postText: data['postText'] ?? '',
       timestamp: data['timestamp'] ?? Timestamp.now(),
-      likes: likes,
+      likes: List<String>.from(data['likes'] ?? []),
       commentCount: data['commentCount'] ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'userName': userName,
+    'userAvatarUrl': userAvatarUrl,
+    'userId': userId,
+    'postText': postText,
+    'timestamp': timestamp.millisecondsSinceEpoch,
+    'likes': likes,
+    'commentCount': commentCount,
+  };
+
+  factory FeedPost.fromJson(Map<String, dynamic> json) => FeedPost(
+    id: json['id'] as String,
+    userName: json['userName'] as String,
+    userAvatarUrl: json['userAvatarUrl'] as String,
+    userId: json['userId'] as String,
+    postText: json['postText'] as String,
+    timestamp: Timestamp.fromMillisecondsSinceEpoch(json['timestamp'] as int),
+    likes: List<String>.from(json['likes'] as List),
+    commentCount: json['commentCount'] as int,
+  );
 }
 
 class GroupChatRoom {
@@ -93,8 +128,13 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late Future<List<LeaderboardUser>> _leaderboardFuture;
   final String _leaderboardPeriod = 'partnerCount';
+
+  List<LeaderboardUser>? _leaderboardUsers;
+  bool _isLeaderboardLoading = true;
+
+  List<FeedPost>? _feedPosts;
+  bool _isFeedLoading = false;
 
   final List<GroupChatRoom> _chatRooms = [
     GroupChatRoom(
@@ -140,27 +180,96 @@ class _CommunityScreenState extends State<CommunityScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() => setState(() {}));
-    _leaderboardFuture = _fetchLeaderboardData();
+    _loadOrFetchLeaderboard();
+    _loadFeedFromCacheAndFetchLatest();
   }
 
-  Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .orderBy(_leaderboardPeriod, descending: true)
-        .limit(20)
-        .get();
+  // --- LİDERLİK TABLOSU VERİ YÖNETİMİ ---
+  Future<void> _loadOrFetchLeaderboard() async {
+    setState(() => _isLeaderboardLoading = true);
+    final prefs = await SharedPreferences.getInstance();
+    final lastFetchMillis = prefs.getInt('leaderboard_last_fetch');
+    final oneHourInMillis = const Duration(hours: 1).inMilliseconds;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
-    if (snapshot.docs.isEmpty) return [];
-    return snapshot.docs.asMap().entries.map((entry) {
-      int rank = entry.key + 1;
-      Map<String, dynamic> data = entry.value.data();
-      return LeaderboardUser(
-        rank: rank,
-        name: data['displayName'] ?? 'Bilinmeyen',
-        avatarUrl: data['avatarUrl'] ?? '',
-        partnerCount: data['partnerCount'] ?? 0,
-      );
-    }).toList();
+    if (lastFetchMillis != null && (now - lastFetchMillis < oneHourInMillis)) {
+      final cachedDataString = prefs.getString('leaderboard_cache');
+      if (cachedDataString != null) {
+        final List<dynamic> jsonData = jsonDecode(cachedDataString);
+        if (mounted) {
+          setState(() {
+            _leaderboardUsers = jsonData.map((item) => LeaderboardUser.fromJson(item)).toList();
+            _isLeaderboardLoading = false;
+          });
+        }
+        return;
+      }
+    }
+    await _fetchAndCacheLeaderboardData();
+  }
+
+  Future<void> _fetchAndCacheLeaderboardData() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('users').orderBy(_leaderboardPeriod, descending: true).limit(20).get();
+      final users = snapshot.docs.asMap().entries.map((entry) {
+        int rank = entry.key + 1;
+        Map<String, dynamic> data = entry.value.data();
+        return LeaderboardUser(
+          rank: rank,
+          name: data['displayName'] ?? 'Bilinmeyen',
+          avatarUrl: data['avatarUrl'] ?? '',
+          partnerCount: data['partnerCount'] ?? 0,
+        );
+      }).toList();
+
+      if (mounted) {
+        setState(() => _leaderboardUsers = users);
+        final prefs = await SharedPreferences.getInstance();
+        final dataToCache = jsonEncode(users.map((user) => user.toJson()).toList());
+        await prefs.setString('leaderboard_cache', dataToCache);
+        await prefs.setInt('leaderboard_last_fetch', DateTime.now().millisecondsSinceEpoch);
+      }
+    } finally {
+      if (mounted) setState(() => _isLeaderboardLoading = false);
+    }
+  }
+
+  // --- AKIŞ (FEED) VERİ YÖNETİMİ ---
+  Future<void> _loadFeedFromCacheAndFetchLatest() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedDataString = prefs.getString('feed_cache');
+    if (cachedDataString != null) {
+      final List<dynamic> jsonData = jsonDecode(cachedDataString);
+      if (mounted) {
+        setState(() {
+          _feedPosts = jsonData.map((item) => FeedPost.fromJson(item)).toList();
+        });
+      }
+    } else {
+      setState(() => _isFeedLoading = true);
+    }
+    await _fetchAndCacheFeedData();
+  }
+
+  Future<void> _fetchAndCacheFeedData({bool isManualRefresh = false}) async {
+    if (isManualRefresh && mounted) {
+      setState(() => _isFeedLoading = true);
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('posts').orderBy('timestamp', descending: true).limit(20).get();
+      final newPosts = snapshot.docs.map((doc) => FeedPost.fromFirestore(doc)).toList();
+      final bool isDataDifferent = _feedPosts == null || _feedPosts!.length != newPosts.length || (_feedPosts!.isNotEmpty && _feedPosts!.first.id != newPosts.first.id);
+
+      if (mounted && isDataDifferent) {
+        setState(() => _feedPosts = newPosts);
+        final prefs = await SharedPreferences.getInstance();
+        final dataToCache = jsonEncode(newPosts.map((post) => post.toJson()).toList());
+        await prefs.setString('feed_cache', dataToCache);
+      }
+    } finally {
+      if (mounted) setState(() => _isFeedLoading = false);
+    }
   }
 
   @override
@@ -208,29 +317,22 @@ class _CommunityScreenState extends State<CommunityScreen>
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
-                  if (postController.text.trim().isEmpty ||
-                      currentUser == null) {
+                  if (postController.text.trim().isEmpty || currentUser == null) {
                     return;
                   }
-
-                  final userDoc = await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(currentUser.uid)
-                      .get();
+                  final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
                   final userData = userDoc.data();
-
                   await FirebaseFirestore.instance.collection('posts').add({
                     'postText': postController.text.trim(),
                     'userId': currentUser.uid,
-                    'userName':
-                    userData?['displayName'] ?? 'Bilinmeyen Kullanıcı',
+                    'userName': userData?['displayName'] ?? 'Bilinmeyen Kullanıcı',
                     'userAvatarUrl': userData?['avatarUrl'] ?? '',
                     'timestamp': FieldValue.serverTimestamp(),
                     'likes': [],
                     'commentCount': 0,
                   });
-
-                  Navigator.pop(context);
+                  if (mounted) Navigator.pop(context);
+                  _fetchAndCacheFeedData(isManualRefresh: true);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
@@ -276,32 +378,34 @@ class _CommunityScreenState extends State<CommunityScreen>
         onPressed: () => _showCreatePostModal(context),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
         tooltip: 'Yeni Gönderi',
+        child: const Icon(Icons.add),
       )
           : null,
       body: TabBarView(
         controller: _tabController,
         children: [
-          FutureBuilder<List<LeaderboardUser>>(
-            future: _leaderboardFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Bir hata oluştu: ${snapshot.error}'));
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('Henüz liderlik verisi yok.'));
-              }
-              return LeaderboardTable(users: snapshot.data!);
-            },
-          ),
+          _buildLeaderboardTab(),
           _buildFeedList(),
           _buildRoomsTab(),
         ],
       ),
+    );
+  }
+
+  Widget _buildLeaderboardTab() {
+    if (_isLeaderboardLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_leaderboardUsers == null || _leaderboardUsers!.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchAndCacheLeaderboardData,
+        child: const Center(child: Text('Henüz liderlik verisi yok.')),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _fetchAndCacheLeaderboardData,
+      child: LeaderboardTable(users: _leaderboardUsers!),
     );
   }
 
@@ -310,18 +414,15 @@ class _CommunityScreenState extends State<CommunityScreen>
       padding: const EdgeInsets.only(top: 24.0),
       children: [
         _buildSectionHeader("Haftanın Sahnesi"),
-        _buildFeaturedRoomCard(),
-        const SizedBox(height: 30),
-        _buildSectionHeader("Popüler Odalar"),
-        _buildRoomCategory(
-          rooms: _chatRooms.where((r) => r.members > 100 && !r.isFeatured).toList(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+          child: GroupChatCard(room: _chatRooms.firstWhere((r) => r.isFeatured)),
         ),
         const SizedBox(height: 30),
-        _buildSectionHeader("Yeni Keşifler"),
+        _buildSectionHeader("Tüm Odalar"),
         _buildRoomCategory(
-          rooms: _chatRooms.where((r) => r.members <= 100).toList(),
+          rooms: _chatRooms.where((r) => !r.isFeatured).toList(),
         ),
-        const SizedBox(height: 30),
       ],
     );
   }
@@ -336,73 +437,48 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  Widget _buildFeaturedRoomCard() {
-    final featuredRoom = _chatRooms.firstWhere((r) => r.isFeatured);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
-      child: GroupChatCard(room: featuredRoom),
-    );
-  }
-
   Widget _buildRoomCategory({required List<GroupChatRoom> rooms}) {
-    return SizedBox(
-      height: 220,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: rooms.length,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        itemBuilder: (context, index) {
-          return SizedBox(
-            width: 280,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: GroupChatCard(room: rooms[index]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // *** HATA DÜZELTMESİ BU FONKSİYONDA YAPILDI ***
-  Widget _buildFeedList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('posts')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        // YÜKLENME DURUMU
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        // HATA DURUMU
-        if (snapshot.hasError) {
-          return const Center(child: Text('Gönderiler yüklenemedi.\nLütfen tekrar deneyin.', textAlign: TextAlign.center));
-        }
-        // VERİ OLMAMA DURUMU (Boş liste veya null data)
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(
-            child: Text(
-              'Henüz hiç gönderi yok.\nİlk gönderiyi sen paylaş!',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          );
-        }
-
-        // VERİ BAŞARIYLA GELDİYSE
-        final posts = snapshot.data!.docs;
-
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
-          itemCount: posts.length,
-          itemBuilder: (context, index) {
-            final post = FeedPost.fromFirestore(posts[index]);
-            return FeedPostCard(post: post);
-          },
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: rooms.length,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: GroupChatCard(room: rooms[index]),
         );
       },
+    );
+  }
+
+  Widget _buildFeedList() {
+    if (_isFeedLoading && _feedPosts == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_feedPosts == null || _feedPosts!.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () => _fetchAndCacheFeedData(isManualRefresh: true),
+        child: const Center(
+          child: Text(
+            'Henüz hiç gönderi yok.\nİlk gönderiyi sen paylaş!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _fetchAndCacheFeedData(isManualRefresh: true),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
+        itemCount: _feedPosts!.length,
+        itemBuilder: (context, index) {
+          final post = _feedPosts![index];
+          return FeedPostCard(post: post);
+        },
+      ),
     );
   }
 }
