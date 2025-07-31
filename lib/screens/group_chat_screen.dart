@@ -12,7 +12,7 @@ class GroupMessage {
   final String senderName;
   final String senderAvatarUrl;
   final String text;
-  final Timestamp timestamp;
+  final Timestamp? timestamp;
 
   GroupMessage({
     required this.senderId,
@@ -29,17 +29,18 @@ class GroupMessage {
       senderName: data['senderName'] ?? 'Bilinmeyen',
       senderAvatarUrl: data['senderAvatarUrl'] ?? '',
       text: data['text'] ?? '',
-      timestamp: data['timestamp'] ?? Timestamp.now(),
+      timestamp: data['timestamp'],
     );
   }
 }
 
 class GroupChatScreen extends StatefulWidget {
+  final String roomId;
   final String roomName;
   final IconData roomIcon;
 
   const GroupChatScreen(
-      {super.key, required this.roomName, required this.roomIcon});
+      {super.key, required this.roomId, required this.roomName, required this.roomIcon});
 
   @override
   State<GroupChatScreen> createState() => _GroupChatScreenState();
@@ -56,10 +57,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadUserDataAndJoinRoom();
   }
 
-  Future<void> _loadUserData() async {
+  @override
+  void dispose() {
+    _leaveRoom();
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUserDataAndJoinRoom() async {
     if (currentUser == null) return;
     try {
       final userDoc = await FirebaseFirestore.instance
@@ -71,11 +80,36 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           _userName = userDoc.data()?['displayName'] ?? 'Kullanıcı';
           _avatarUrl = userDoc.data()?['avatarUrl'] ?? '';
         });
+        await FirebaseFirestore.instance
+            .collection('group_chats')
+            .doc(widget.roomId)
+            .collection('members')
+            .doc(currentUser!.uid)
+            .set({
+          'displayName': _userName,
+          'avatarUrl': _avatarUrl,
+          'joinedAt': FieldValue.serverTimestamp(),
+        });
       }
     } catch (e) {
       // Hata yönetimi
     }
   }
+
+  Future<void> _leaveRoom() async {
+    if (currentUser == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('group_chats')
+          .doc(widget.roomId)
+          .collection('members')
+          .doc(currentUser!.uid)
+          .delete();
+    } catch (e) {
+      // Hata yönetimi
+    }
+  }
+
 
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty || currentUser == null) return;
@@ -85,7 +119,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     FirebaseFirestore.instance
         .collection('group_chats')
-        .doc(widget.roomName) // Her oda için benzersiz bir döküman
+        .doc(widget.roomId) // Her oda için benzersiz bir döküman
         .collection('messages')
         .add({
       'text': messageText,
@@ -127,7 +161,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('group_chats')
-                  .doc(widget.roomName)
+                  .doc(widget.roomId)
                   .collection('messages')
                   .orderBy('timestamp')
                   .snapshots(),
@@ -218,13 +252,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     style: TextStyle(color: textColor, fontSize: 16),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Text(
-                    DateFormat('HH:mm').format(message.timestamp.toDate()),
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                if (message.timestamp != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      DateFormat('HH:mm').format(message.timestamp!.toDate()),
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
