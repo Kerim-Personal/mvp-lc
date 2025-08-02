@@ -180,7 +180,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
               filter: ImageFilter.blur(sigmaX: _blurAnimation.value, sigmaY: _blurAnimation.value),
               child: child,
             ),
-            child: Container(color: Colors.black.withOpacity(0.1)),
+            child: Container(color: Colors.black.withAlpha(26)), // DÜZELTİLDİ
           ),
           SafeArea(
             child: Column(
@@ -295,7 +295,7 @@ class MessageBubble extends StatelessWidget {
         onLongPress: () {
           showDialog(
             context: context,
-            barrierColor: Colors.black.withOpacity(0.5),
+            barrierColor: Colors.black.withAlpha(128), // DÜZELTİLDİ
             builder: (_) => MessageInsightDialog(
               message: message,
               onCorrect: onCorrect,
@@ -308,11 +308,11 @@ class MessageBubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isUser ? Colors.tealAccent.withOpacity(0.5) : Colors.purpleAccent.withOpacity(0.5)),
+            border: Border.all(color: isUser ? Colors.tealAccent.withAlpha(128) : Colors.purpleAccent.withAlpha(128)), // DÜZELTİLDİ
             gradient: LinearGradient(
               colors: isUser
-                  ? [Colors.teal.withOpacity(0.2), Colors.cyan.withOpacity(0.1)]
-                  : [Colors.purple.withOpacity(0.2), Colors.deepPurple.withOpacity(0.1)],
+                  ? [Colors.teal.withAlpha(51), Colors.cyan.withAlpha(26)] // DÜZELTİLDİ
+                  : [Colors.purple.withAlpha(51), Colors.deepPurple.withAlpha(26)], // DÜZELTİLDİ
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -344,10 +344,10 @@ class MessageInsightDialog extends StatelessWidget {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
-        backgroundColor: Colors.black.withOpacity(0.75),
+        backgroundColor: Colors.black.withAlpha(191), // DÜZELTİLDİ
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: Colors.cyan.withOpacity(0.5))),
+            side: BorderSide(color: Colors.cyan.withAlpha(128))), // DÜZELTİLDİ
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
@@ -409,9 +409,9 @@ class MessageInsightDialog extends StatelessWidget {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: Colors.orange.withOpacity(0.1),
+          color: Colors.orange.withAlpha(26), // DÜZELTİLDİ
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.orangeAccent.withOpacity(0.5))
+          border: Border.all(color: Colors.orangeAccent.withAlpha(128)) // DÜZELTİLDİ
       ),
       child: Row(
         children: [
@@ -485,7 +485,7 @@ class _MetricGaugeState extends State<MetricGauge> with SingleTickerProviderStat
                     value: _animation.value,
                     strokeWidth: 5,
                     color: widget.color,
-                    backgroundColor: widget.color.withOpacity(0.2),
+                    backgroundColor: widget.color.withAlpha(51), // DÜZELTİLDİ
                   ),
                   Center(child: Text("${(_animation.value * 100).toInt()}%", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
                 ],
@@ -518,9 +518,9 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black.withAlpha(77), // DÜZELTİLDİ
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.purpleAccent.withOpacity(0.5))
+          border: Border.all(color: Colors.purpleAccent.withAlpha(128)) // DÜZELTİLDİ
       ),
       child: Row(
         children: [
@@ -530,7 +530,7 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                   hintText: "Mesajını buraya yaz...",
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  hintStyle: TextStyle(color: Colors.white.withAlpha(128)), // DÜZELTİLDİ
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10)
               ),
@@ -686,7 +686,7 @@ class CelestialPainter extends CustomPainter {
         currentRadius += 0.5;
       }
 
-      starPaint.color = Colors.white.withOpacity(currentOpacity.clamp(0.0, 1.0));
+      starPaint.color = Colors.white.withAlpha((currentOpacity.clamp(0.0, 1.0) * 255).round()); // DÜZELTİLDİ
       canvas.drawCircle(star.position, currentRadius, starPaint);
     }
   }
