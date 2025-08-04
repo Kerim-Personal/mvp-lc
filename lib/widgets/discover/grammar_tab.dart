@@ -311,8 +311,8 @@ class GrammarLevelScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Örnek tamamlanmış dersler (Bunu da Firestore'dan almalısınız)
-    final Set<String> completedLessons = {'Verb "to be" (am/is/are)', 'Present Simple', 'Present Continuous'};
+    // GÜNCELLEME: Örnek tamamlanmış dersler listesi düzenlendi.
+    final Set<String> completedLessons = {'Present Continuous'};
 
     return Scaffold(
       appBar: AppBar(
