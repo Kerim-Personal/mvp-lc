@@ -1,15 +1,17 @@
+// lib/lessons/grammar/a1/prepositions_of_place_lesson.dart
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 
 // --- ANA DERS EKRANI ---
-class VerbToBeLessonScreen extends StatefulWidget {
-  const VerbToBeLessonScreen({super.key});
+class PrepositionsOfPlaceLessonScreen extends StatefulWidget {
+  const PrepositionsOfPlaceLessonScreen({super.key});
 
   @override
-  State<VerbToBeLessonScreen> createState() => _VerbToBeLessonScreenState();
+  State<PrepositionsOfPlaceLessonScreen> createState() => _PrepositionsOfPlaceLessonScreenState();
 }
 
-class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with TickerProviderStateMixin {
+class _PrepositionsOfPlaceLessonScreenState extends State<PrepositionsOfPlaceLessonScreen> with TickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -37,20 +39,20 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
             expandedHeight: 220.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.green.shade700,
+            backgroundColor: Colors.lightBlue.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              title: const Text('Verb "to be"', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              title: const Text('Prepositions of Place', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Colors.green.shade500, Colors.teal.shade500],
+                    colors: [Colors.lightBlue.shade500, Colors.cyan.shade500],
                   ),
                 ),
                 child: const Center(
-                  child: Icon(Icons.abc, size: 80, color: Colors.white24),
+                  child: Icon(Icons.place_outlined, size: 80, color: Colors.white24),
                 ),
               ),
             ),
@@ -59,35 +61,34 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Her bir ders bloğunu animasyonla ekrana getiriyoruz
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
                   child: const _LessonBlock(
-                    icon: Icons.waving_hand_outlined,
-                    title: 'İngilizcenin Temel Taşı: "to be"',
+                    icon: Icons.map_outlined,
+                    title: 'Nerede? Yönümüzü Buluyoruz',
                     content:
-                    "Merhaba! İngilizce öğrenme maceranın en önemli adımına hoş geldin. 'To be' (olmak) fiili, kim olduğumuzu, ne olduğumuzu ve nerede olduğumuzu anlatmamızı sağlar. Cümle kurmanın adeta legosudur!",
+                    "Prepositions of Place (Yer Edatları), bir şeyin veya birinin nerede olduğunu anlatmamızı sağlayan küçük ama güçlü kelimelerdir. 'in', 'on', 'at' gibi edatlarla nesnelerin konumunu kolayca tarif edebiliriz. Haritasız bir dünya düşünülemez, değil mi? İşte bu kelimeler de dilin haritasıdır!",
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
-                    title: 'Kimlik, Durum ve Yer Bildirir',
+                    title: 'En Yaygın Kullanımlar',
                     examples: [
                       Example(
-                          icon: Icons.person_pin_circle_outlined,
-                          category: 'Kimlik:',
-                          sentence: 'I am a student.'),
+                          icon: Icons.inventory_2_outlined,
+                          category: 'İçinde (in):',
+                          sentence: 'The keys are in the box.'),
                       Example(
-                          icon: Icons.mood,
-                          category: 'Durum:',
-                          sentence: 'She is happy.'),
+                          icon: Icons.desktop_windows_outlined,
+                          category: 'Üzerinde (on):',
+                          sentence: 'The cat is on the table.'),
                       Example(
-                          icon: Icons.location_on_outlined,
-                          category: 'Yer:',
-                          sentence: 'They are in London.'),
+                          icon: Icons.door_front_door_outlined,
+                          category: 'Belirli Bir Noktada (at):',
+                          sentence: 'I will meet you at the bus stop.'),
                     ],
                   ),
                 ),
@@ -95,12 +96,12 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                   controller: _controller,
                   interval: const Interval(0.3, 0.9),
                   child: _ExampleTable(
-                    title: 'Özneye Göre Değişen 3 Hali',
-                    headers: const ['Özne', 'Fiil', 'Örnek Cümle'],
+                    title: 'Detaylı Bakış: in / on / at',
+                    headers: const ['Edat', 'Kullanım Alanı', 'Örnek Cümle'],
                     rows: const [
-                      ['I', 'am', 'I am from Turkey.'],
-                      ['He / She / It', 'is', 'He is a doctor.'],
-                      ['You / We / They', 'are', 'We are friends.'],
+                      ['in', 'Kapalı alanlar, şehirler, ülkeler', 'in a room, in London'],
+                      ['on', 'Yüzeyler, caddeler, katlar', 'on the floor, on Oxford Street'],
+                      ['at', 'Belirli noktalar, adresler, etkinlikler', 'at the corner, at the party'],
                     ],
                   ),
                 ),
@@ -108,25 +109,14 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                   controller: _controller,
                   interval: const Interval(0.4, 1.0),
                   child: _ExampleTable(
-                    title: 'Olumsuz Cümleler: "not" Ekle',
-                    headers: const ['Örnek', 'Kısaltma', 'Anlamı'],
+                    title: 'Diğer Önemli Yer Edatları',
+                    headers: const ['Edat', 'Anlamı', 'Örnek'],
                     rows: const [
-                      ['I am not tired.', "I'm not tired.", 'Yorgun değilim.'],
-                      ['He is not busy.', "He isn't busy.", 'Meşgul değil.'],
-                      ['They are not late.', "They aren't late.", 'Geç kalmadılar.'],
-                    ],
-                  ),
-                ),
-                _AnimatedLessonBlock(
-                  controller: _controller,
-                  interval: const Interval(0.5, 1.0),
-                  child: _ExampleTable(
-                    title: 'Soru Cümleleri: Yer Değiştir!',
-                    headers: const ['Soru', 'Anlamı'],
-                    rows: const [
-                      ['Am I right?', 'Haklı mıyım?'],
-                      ['Is she a teacher?', 'O bir öğretmen mi?'],
-                      ['Are they ready?', 'Onlar hazır mı?'],
+                      ['under', 'Altında', 'The ball is under the chair.'],
+                      ['next to / by', 'Yanında, bitişiğinde', 'He is standing next to me.'],
+                      ['between', 'Arasında (iki şeyin)', 'The shop is between the bank and the school.'],
+                      ['behind', 'Arkasında', 'The child is hiding behind the tree.'],
+                      ['in front of', 'Önünde', 'My car is in front of the house.'],
                     ],
                   ),
                 ),
@@ -136,8 +126,8 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                   child: const _TipCard(
                     title: 'Profesyonel Taktikler',
                     tips: [
-                      '**Kısaltmaları Kullan:** Günlük konuşmada "He is" yerine "He\'s" demek seni daha doğal gösterir. Kulağa daha akıcı gelir!',
-                      '**Özne-Fiil Uyumuna Dikkat:** En sık yapılan hata! "People are..." demek yerine "People is..." demek gibi. Her zaman özne ile fiilin uyumlu olduğundan emin ol.',
+                      '**"in" vs "at":** Genel olarak bir binanın içindeyseniz "in" kullanılır (in the hospital). Ancak o binada belirli bir amaç için bulunuyorsanız "at" daha yaygındır (at the hospital - hasta veya ziyaretçi olarak).',
+                      '**"on the corner" vs "at the corner":** Bir sokağın köşesindeki bir binadan bahsediyorsanız "on the corner" dersiniz. Sadece köşe noktasını belirtiyorsanız "at the corner" kullanılır.',
                     ],
                   ),
                 ),
@@ -158,7 +148,6 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
 
 // --- YARDIMCI WIDGET'LAR ---
 
-// Ders Blokları
 class _LessonBlock extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -180,7 +169,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.green.shade700, size: 28),
+                Icon(icon, color: Colors.lightBlue.shade700, size: 28),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -196,7 +185,6 @@ class _LessonBlock extends StatelessWidget {
   }
 }
 
-// Örnek Kartı
 class _ExampleCard extends StatelessWidget {
   final String title;
   final List<Example> examples;
@@ -220,7 +208,7 @@ class _ExampleCard extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12.0),
               child: Row(
                 children: [
-                  Icon(e.icon, size: 22, color: Colors.teal),
+                  Icon(e.icon, size: 22, color: Colors.lightBlue),
                   const SizedBox(width: 12),
                   Text(e.category, style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(width: 8),
@@ -235,7 +223,6 @@ class _ExampleCard extends StatelessWidget {
   }
 }
 
-// Tablo Widget'ı
 class _ExampleTable extends StatelessWidget {
   final String title;
   final List<String> headers;
@@ -259,7 +246,7 @@ class _ExampleTable extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor: MaterialStateProperty.all(Colors.green.shade50),
+                headingRowColor: MaterialStateProperty.all(Colors.lightBlue.shade50),
                 columns: headers.map((h) => DataColumn(label: Text(h, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
                 rows: rows.map((row) => DataRow(cells: row.map((cell) => DataCell(Text(cell))).toList())).toList(),
               ),
@@ -271,7 +258,6 @@ class _ExampleTable extends StatelessWidget {
   }
 }
 
-// Taktik Kartı
 class _TipCard extends StatelessWidget {
   final String title;
   final List<String> tips;
@@ -299,7 +285,6 @@ class _TipCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ...tips.map((tip) {
-            // Markdown benzeri bir yapi için RichText kullanıyoruz
             final parts = tip.split('**');
             return Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
@@ -331,7 +316,6 @@ class _TipCard extends StatelessWidget {
   }
 }
 
-// Quiz Bölümü
 class _QuickQuiz extends StatefulWidget {
   @override
   State<_QuickQuiz> createState() => _QuickQuizState();
@@ -347,7 +331,6 @@ class _QuickQuizState extends State<_QuickQuiz> {
     setState(() {
       _showResult = true;
     });
-    // Sonucu gösterdikten sonra bir süre bekleyip sıfırla
     Timer(const Duration(seconds: 5), () {
       if (mounted) {
         setState(() {
@@ -362,9 +345,9 @@ class _QuickQuizState extends State<_QuickQuiz> {
 
   @override
   Widget build(BuildContext context) {
-    final isCorrect1 = _selectedAnswer1 == 1;
+    final isCorrect1 = _selectedAnswer1 == 2;
     final isCorrect2 = _selectedAnswer2 == 0;
-    final isCorrect3 = _selectedAnswer3 == 2;
+    final isCorrect3 = _selectedAnswer3 == 1;
     final canCheck = _selectedAnswer1 != null && _selectedAnswer2 != null && _selectedAnswer3 != null;
 
     return Card(
@@ -378,26 +361,26 @@ class _QuickQuizState extends State<_QuickQuiz> {
             const Text('Hadi Test Edelim!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _QuizQuestion(
-              question: '1. She ___ a talented artist.',
-              options: const ['am', 'is', 'are'],
+              question: '1. The clock is ___ the wall.',
+              options: const ['at', 'in', 'on'],
               selectedAnswer: _selectedAnswer1,
-              correctAnswer: 1,
+              correctAnswer: 2,
               showResult: _showResult,
               onChanged: (value) => setState(() => _selectedAnswer1 = value),
             ),
             _QuizQuestion(
-              question: '2. We ___ not from Canada.',
-              options: const ["aren't", "isn't", "amn't"],
+              question: '2. She lives ___ Paris.',
+              options: const ["in", "at", "on"],
               selectedAnswer: _selectedAnswer2,
               correctAnswer: 0,
               showResult: _showResult,
               onChanged: (value) => setState(() => _selectedAnswer2 = value),
             ),
             _QuizQuestion(
-              question: '3. ___ they students?',
-              options: const ['Is', 'Am', 'Are'],
+              question: '3. The dog is sleeping ___ the table.',
+              options: const ['next to', 'under', 'between'],
               selectedAnswer: _selectedAnswer3,
-              correctAnswer: 2,
+              correctAnswer: 1,
               showResult: _showResult,
               onChanged: (value) => setState(() => _selectedAnswer3 = value),
             ),
@@ -405,7 +388,7 @@ class _QuickQuizState extends State<_QuickQuiz> {
             ElevatedButton(
               onPressed: canCheck && !_showResult ? _checkAnswers : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: Colors.lightBlue,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
@@ -430,7 +413,6 @@ class _QuickQuizState extends State<_QuickQuiz> {
   }
 }
 
-// Quiz Soru Widget'ı
 class _QuizQuestion extends StatelessWidget {
   final String question;
   final List<String> options;
@@ -472,7 +454,7 @@ class _QuizQuestion extends StatelessWidget {
                 selected: selectedAnswer == index,
                 onSelected: (isSelected) => onChanged(isSelected ? index : null),
                 backgroundColor: color,
-                selectedColor: Colors.teal.shade200,
+                selectedColor: Colors.lightBlue.shade200,
               ),
             );
           }),
@@ -482,7 +464,6 @@ class _QuizQuestion extends StatelessWidget {
   }
 }
 
-// Animasyonlu Blok
 class _AnimatedLessonBlock extends StatelessWidget {
   final AnimationController controller;
   final Interval interval;
@@ -507,8 +488,6 @@ class _AnimatedLessonBlock extends StatelessWidget {
   }
 }
 
-
-// Veri Modelleri
 class Example {
   final IconData icon;
   final String category;
