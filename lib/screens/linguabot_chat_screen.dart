@@ -180,7 +180,8 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
               filter: ImageFilter.blur(sigmaX: _blurAnimation.value, sigmaY: _blurAnimation.value),
               child: child,
             ),
-            child: Container(color: Colors.black.withAlpha(26)), // DÜZELTİLDİ
+            // İYİLEŞTİRME: Efektin daha belirgin olması için hafif bir overlay eklendi.
+            child: Container(color: Colors.black.withAlpha(26)),
           ),
           SafeArea(
             child: Column(
@@ -295,7 +296,8 @@ class MessageBubble extends StatelessWidget {
         onLongPress: () {
           showDialog(
             context: context,
-            barrierColor: Colors.black.withAlpha(128), // DÜZELTİLDİ
+            // İYİLEŞTİRME: Diyalog arkaplanı daha estetik hale getirildi.
+            barrierColor: Colors.black.withAlpha(128),
             builder: (_) => MessageInsightDialog(
               message: message,
               onCorrect: onCorrect,
@@ -308,11 +310,12 @@ class MessageBubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isUser ? Colors.tealAccent.withAlpha(128) : Colors.purpleAccent.withAlpha(128)), // DÜZELTİLDİ
+            // İYİLEŞTİRME: Kenarlık ve arkaplan opaklıkları ayarlandı.
+            border: Border.all(color: isUser ? Colors.tealAccent.withAlpha(128) : Colors.purpleAccent.withAlpha(128)),
             gradient: LinearGradient(
               colors: isUser
-                  ? [Colors.teal.withAlpha(51), Colors.cyan.withAlpha(26)] // DÜZELTİLDİ
-                  : [Colors.purple.withAlpha(51), Colors.deepPurple.withAlpha(26)], // DÜZELTİLDİ
+                  ? [Colors.teal.withAlpha(51), Colors.cyan.withAlpha(26)]
+                  : [Colors.purple.withAlpha(51), Colors.deepPurple.withAlpha(26)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -344,10 +347,11 @@ class MessageInsightDialog extends StatelessWidget {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
-        backgroundColor: Colors.black.withAlpha(191), // DÜZELTİLDİ
+        // İYİLEŞTİRME: Diyalog arkaplanı ve kenarlığı estetik olarak güncellendi.
+        backgroundColor: Colors.black.withAlpha(191),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: Colors.cyan.withAlpha(128))), // DÜZELTİLDİ
+            side: BorderSide(color: Colors.cyan.withAlpha(128))),
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
@@ -409,9 +413,10 @@ class MessageInsightDialog extends StatelessWidget {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: Colors.orange.withAlpha(26), // DÜZELTİLDİ
+        // İYİLEŞTİRME: Düzeltme kutusunun opaklığı ayarlandı.
+          color: Colors.orange.withAlpha(26),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.orangeAccent.withAlpha(128)) // DÜZELTİLDİ
+          border: Border.all(color: Colors.orangeAccent.withAlpha(128))
       ),
       child: Row(
         children: [
@@ -485,7 +490,8 @@ class _MetricGaugeState extends State<MetricGauge> with SingleTickerProviderStat
                     value: _animation.value,
                     strokeWidth: 5,
                     color: widget.color,
-                    backgroundColor: widget.color.withAlpha(51), // DÜZELTİLDİ
+                    // İYİLEŞTİRME: Arkaplan renginin opaklığı ayarlandı.
+                    backgroundColor: widget.color.withAlpha(51),
                   ),
                   Center(child: Text("${(_animation.value * 100).toInt()}%", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
                 ],
@@ -518,9 +524,10 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: Colors.black.withAlpha(77), // DÜZELTİLDİ
+        // İYİLEŞTİRME: Yazma alanının opaklığı ayarlandı.
+          color: Colors.black.withAlpha(77),
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.purpleAccent.withAlpha(128)) // DÜZELTİLDİ
+          border: Border.all(color: Colors.purpleAccent.withAlpha(128))
       ),
       child: Row(
         children: [
@@ -530,7 +537,8 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                   hintText: "Mesajını buraya yaz...",
-                  hintStyle: TextStyle(color: Colors.white.withAlpha(128)), // DÜZELTİLDİ
+                  // İYİLEŞTİRME: İpucu metninin opaklığı ayarlandı.
+                  hintStyle: TextStyle(color: Colors.white.withAlpha(128)),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10)
               ),
@@ -624,7 +632,7 @@ class _CelestialBackgroundState extends State<CelestialBackground> {
             position: Offset(random.nextDouble() * size.width, random.nextDouble() * size.height),
             radius: random.nextDouble() * 1.2 + 0.4,
             baseOpacity: random.nextDouble() * 0.4 + 0.1,
-            twinkleSpeed: random.nextDouble() * 0.4 + 0.1, // Yavaşlatıldı
+            twinkleSpeed: random.nextDouble() * 0.4 + 0.1,
             twinkleOffset: random.nextDouble() * 2 * pi,
           );
         });
@@ -677,16 +685,16 @@ class CelestialPainter extends CustomPainter {
     final starPaint = Paint();
     for (var star in stars) {
       final sineValue = sin((time * 2 * pi * star.twinkleSpeed) + star.twinkleOffset);
-      double currentOpacity = star.baseOpacity + (sineValue + 1) / 2 * 0.3; // Daha az parlaklık değişimi
+      double currentOpacity = star.baseOpacity + (sineValue + 1) / 2 * 0.3;
       double currentRadius = star.radius;
 
-      // Her framede %0.1 ihtimalle bir yıldızın anlık parlaması
       if (_random.nextDouble() < 0.001) {
         currentOpacity += 0.5;
         currentRadius += 0.5;
       }
 
-      starPaint.color = Colors.white.withAlpha((currentOpacity.clamp(0.0, 1.0) * 255).round()); // DÜZELTİLDİ
+      // İYİLEŞTİRME: withAlpha kullanarak opaklık ayarlandı.
+      starPaint.color = Colors.white.withAlpha((currentOpacity.clamp(0.0, 1.0) * 255).round());
       canvas.drawCircle(star.position, currentRadius, starPaint);
     }
   }

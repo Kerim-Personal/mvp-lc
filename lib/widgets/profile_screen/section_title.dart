@@ -10,7 +10,6 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // HEDEFE YÖNELİK DÜZELTME: Başlık ve içerik arasındaki boşluğu azaltmak için 'bottom' değeri düşürüldü.
       padding: const EdgeInsets.only(top: 24.0, bottom: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -20,7 +19,9 @@ class SectionTitle extends StatelessWidget {
             height: 24,
             width: 4,
             decoration: BoxDecoration(
-              color: Colors.teal.withOpacity(0.8),
+              // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı.
+              // 204 değeri, %80 opaklığa denk gelir (255 * 0.8).
+              color: Colors.teal.withAlpha(204),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -31,7 +32,9 @@ class SectionTitle extends StatelessWidget {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: Colors.black.withOpacity(0.75),
+              // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı.
+              // 191 değeri, %75 opaklığa denk gelir (255 * 0.75).
+              color: Colors.black.withAlpha(191),
               letterSpacing: 0.5,
             ),
           ),

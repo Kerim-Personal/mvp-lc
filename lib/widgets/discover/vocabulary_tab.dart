@@ -111,6 +111,7 @@ class VocabularyPackCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [pack.color1, pack.color2], begin: Alignment.topLeft, end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(24),
+          // ÇÖZÜLDÜ: `withOpacity` uyarısını gidermek için `withAlpha` kullanıldı.
           boxShadow: [BoxShadow(color: pack.color2.withAlpha(102), blurRadius: 12, offset: const Offset(0, 6))],
         ),
         child: Column(
@@ -118,20 +119,19 @@ class VocabularyPackCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Icon(pack.icon, color: Colors.white, size: 36),
-            // HATA DÜZELTİLDİ: Esnek olmayan Column'u Expanded ile sarmalayarak taşmayı önledik.
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end, // İçeriği aşağıya yasladık
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // HATA DÜZELTİLDİ: Text widget'ının alt satıra kaymasına izin verdik.
                   Text(
                     pack.title,
-                    softWrap: true, // Metnin alt satıra kaymasını sağlar
-                    overflow: TextOverflow.fade, // Çok uzunsa yumuşak bir şekilde silikleşir
+                    softWrap: true,
+                    overflow: TextOverflow.fade,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   const SizedBox(height: 4),
+                  // ÇÖZÜLDÜ: `withOpacity` uyarısını gidermek için `withAlpha` kullanıldı.
                   Text('${pack.wordCount} kelime', style: TextStyle(color: Colors.white.withAlpha(230))),
                   const SizedBox(height: 8),
                   if (pack.progress > 0)
@@ -139,6 +139,7 @@ class VocabularyPackCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       child: LinearProgressIndicator(
                         value: pack.progress,
+                        // ÇÖZÜLDÜ: `withOpacity` uyarısını gidermek için `withAlpha` kullanıldı.
                         backgroundColor: Colors.white.withAlpha(77),
                         valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                         minHeight: 6,

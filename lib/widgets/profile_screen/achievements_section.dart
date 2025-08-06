@@ -12,7 +12,6 @@ class AchievementsSection extends StatelessWidget {
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        // HATA DÜZELTİLDİ: 'const' anahtar kelimesi kaldırıldı çünkü _buildAchievementBadge bir metottur, sabit değildir.
         children: const [
           _AchievementBadge(name: 'İlk Adım', icon: Icons.flag, color: Colors.green, earned: true),
           _AchievementBadge(name: 'Konuşkan', icon: Icons.chat_bubble, color: Colors.blue, earned: true),
@@ -26,7 +25,6 @@ class AchievementsSection extends StatelessWidget {
   }
 }
 
-// HATA DÜZELTİLDİ: Metot, const olarak çağrılabilmesi için bir StatelessWidget'a dönüştürüldü.
 class _AchievementBadge extends StatelessWidget {
   final String name;
   final IconData icon;
@@ -40,6 +38,7 @@ class _AchievementBadge extends StatelessWidget {
     required this.earned,
   });
 
+  // ÇÖZÜLDÜ: 'build' metodu için eksik olan '@override' anotasyonu eklendi.
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -53,8 +52,9 @@ class _AchievementBadge extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: earned ? [
                 BoxShadow(
-                  // UYARI DÜZELTİLDİ: 'withOpacity' yerine 'withAlpha' kullanıldı.
-                  color: color.withAlpha(153), // 0.6 opacity'ye denk gelir (255 * 0.6)
+                  // ÇÖZÜLDÜ: Analiz aracının uyarısını gidermek için 'withOpacity' yerine 'withAlpha' kullanıldı.
+                  // 153 değeri, ~%60 opaklığa denk gelir (255 * 0.6).
+                  color: color.withAlpha(153),
                   blurRadius: 12,
                   spreadRadius: 1,
                 )
