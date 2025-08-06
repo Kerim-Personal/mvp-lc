@@ -82,7 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           final userData = snapshot.data!.data()!;
           final displayName = userData['displayName'] ?? 'İsimsiz';
           final email = userData['email'] ?? 'E-posta yok';
-          final level = userData['level'] ?? 'Belirlenmemiş';
+          final level = userData['level'] ?? '-';
           final memberSince = (userData['createdAt'] as Timestamp?)?.toDate();
           final avatarUrl = userData['avatarUrl'] as String?;
           final streak = userData['streak'] ?? 0;
