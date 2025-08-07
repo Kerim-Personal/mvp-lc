@@ -458,19 +458,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildAnimatedUI(
       {required Widget child, required Interval interval}) {
-    return AnimatedBuilder(
-      animation: _entryAnimationController,
-      builder: (context, snapshot) {
-        final animationValue =
-        interval.transform(_entryAnimationController.value);
-        return Opacity(
-          opacity: animationValue,
-          child: Transform.translate(
-            offset: Offset(0, 50 * (1 - animationValue)),
-            child: child,
-          ),
-        );
-      },
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: _entryAnimationController,
+        curve: interval,
+      ),
       child: child,
     );
   }
