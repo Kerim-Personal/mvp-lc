@@ -209,11 +209,12 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       'Sınırsız Çeviri Desteği',
       'Sınırsız Sohbet Uzatma Jetonu',
       'Cinsiyete Göre Partner Arama',
-      'İleri Seviye Partnerlerle Eşleşme (C1-C2)',
-      'İleri Seviye İstatistikler',
+      'Seviyeye Göre Partner Arama',
       'Öncelikli Destek',
-      'Özel Tema Seçenekleri',
       'Reklamsız Deneyim',
+      "LinguaBot'a Sınırsız Erişim",
+      "Gelişmiş Gramer Analizi",
+      "Premium'a Özel Kişiselleştirmeler",
     ];
 
     return Flexible(

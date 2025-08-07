@@ -1,7 +1,12 @@
+// lib/lessons/grammar/a1/verb_to_be.dart
+
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter_tts/flutter_tts.dart'; // Seslendirme paketi import edildi
 
 // --- ANA DERS EKRANI ---
+
+// GÜNCELLEME: Widget, ses motorunu yönetebilmek için StatefulWidget'a dönüştürüldü.
 class VerbToBeLessonScreen extends StatefulWidget {
   const VerbToBeLessonScreen({super.key});
 
@@ -9,21 +14,37 @@ class VerbToBeLessonScreen extends StatefulWidget {
   State<VerbToBeLessonScreen> createState() => _VerbToBeLessonScreenState();
 }
 
-class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with TickerProviderStateMixin {
+class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen>
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
+  late FlutterTts flutterTts; // YENİ: flutter_tts nesnesi eklendi.
 
   @override
   void initState() {
     super.initState();
+    _initializeTts(); // YENİ: Ses motoru başlatılıyor.
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..forward();
   }
 
+  // YENİ: Ses motorunu yapılandıran fonksiyon.
+  void _initializeTts() {
+    flutterTts = FlutterTts();
+    flutterTts.setLanguage("en-US");
+    flutterTts.setSpeechRate(0.5);
+  }
+
+  // YENİ: Verilen metni seslendiren fonksiyon.
+  Future<void> _speak(String text) async {
+    await flutterTts.speak(text);
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    flutterTts.stop(); // YENİ: Sayfa kapatılırken ses motoru durduruluyor.
     super.dispose();
   }
 
@@ -40,7 +61,9 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
             backgroundColor: Colors.green.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              title: const Text('Verb "to be"', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              title: const Text('Verb "to be"',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.white)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -59,7 +82,6 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Her bir ders bloğunu animasyonla ekrana getiriyoruz
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
@@ -73,9 +95,10 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.2, 0.8),
+                  // GÜNCELLEME: onSpeak parametresi ile seslendirme fonksiyonu gönderiliyor.
                   child: _ExampleCard(
                     title: 'Kimlik, Durum ve Yer Bildirir',
-                    examples: [
+                    examples: const [
                       Example(
                           icon: Icons.person_pin_circle_outlined,
                           category: 'Kimlik:',
@@ -89,11 +112,13 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                           category: 'Yer:',
                           sentence: 'They are in London.'),
                     ],
+                    onSpeak: _speak,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.3, 0.9),
+                  // GÜNCELLEME: onSpeak parametresi ve cümlenin olduğu kolonun indeksi gönderiliyor.
                   child: _ExampleTable(
                     title: 'Özneye Göre Değişen 3 Hali',
                     headers: const ['Özne', 'Fiil', 'Örnek Cümle'],
@@ -102,6 +127,8 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                       ['He / She / It', 'is', 'He is a doctor.'],
                       ['You / We / They', 'are', 'We are friends.'],
                     ],
+                    onSpeak: _speak,
+                    sentenceColumnIndex: 2,
                   ),
                 ),
                 _AnimatedLessonBlock(
@@ -115,6 +142,8 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                       ['He is not busy.', "He isn't busy.", 'Meşgul değil.'],
                       ['They are not late.', "They aren't late.", 'Geç kalmadılar.'],
                     ],
+                    onSpeak: _speak,
+                    sentenceColumnIndex: 0,
                   ),
                 ),
                 _AnimatedLessonBlock(
@@ -128,6 +157,8 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
                       ['Is she a teacher?', 'O bir öğretmen mi?'],
                       ['Are they ready?', 'Onlar hazır mı?'],
                     ],
+                    onSpeak: _speak,
+                    sentenceColumnIndex: 0,
                   ),
                 ),
                 _AnimatedLessonBlock(
@@ -157,6 +188,7 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen> with Ticker
 }
 
 // --- YARDIMCI WIDGET'LAR ---
+// (LessonBlock, TipCard, QuickQuiz, _QuizQuestion, _AnimatedLessonBlock widget'ları değişmemiştir)
 
 // Ders Blokları
 class _LessonBlock extends StatelessWidget {
@@ -200,7 +232,10 @@ class _LessonBlock extends StatelessWidget {
 class _ExampleCard extends StatelessWidget {
   final String title;
   final List<Example> examples;
-  const _ExampleCard({required this.title, required this.examples});
+  final Function(String) onSpeak; // GÜNCELLEME: onSpeak fonksiyonu eklendi.
+
+  const _ExampleCard(
+      {required this.title, required this.examples, required this.onSpeak});
 
   @override
   Widget build(BuildContext context) {
@@ -214,17 +249,30 @@ class _ExampleCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(title,
+                style:
+                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
+              padding: const EdgeInsets.only(bottom: 4.0),
               child: Row(
                 children: [
                   Icon(e.icon, size: 22, color: Colors.teal),
                   const SizedBox(width: 12),
-                  Text(e.category, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(e.category,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(e.sentence, style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic))),
+                  Expanded(
+                      child: Text(e.sentence,
+                          style: const TextStyle(
+                              fontSize: 16, fontStyle: FontStyle.italic))),
+                  // YENİ: Seslendirme butonu eklendi.
+                  IconButton(
+                    icon: const Icon(Icons.volume_up_outlined,
+                        color: Colors.grey, size: 22),
+                    onPressed: () => onSpeak(e.sentence),
+                    tooltip: 'Dinle',
+                  ),
                 ],
               ),
             )),
@@ -240,7 +288,16 @@ class _ExampleTable extends StatelessWidget {
   final String title;
   final List<String> headers;
   final List<List<String>> rows;
-  const _ExampleTable({required this.title, required this.headers, required this.rows});
+  final Function(String) onSpeak; // GÜNCELLEME: onSpeak fonksiyonu eklendi.
+  final int sentenceColumnIndex; // GÜNCELLEME: Seslendirilecek kolonun indeksi eklendi.
+
+  const _ExampleTable({
+    required this.title,
+    required this.headers,
+    required this.rows,
+    required this.onSpeak,
+    required this.sentenceColumnIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -254,14 +311,50 @@ class _ExampleTable extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(title,
+                style:
+                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor: MaterialStateProperty.all(Colors.green.shade50),
-                columns: headers.map((h) => DataColumn(label: Text(h, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
-                rows: rows.map((row) => DataRow(cells: row.map((cell) => DataCell(Text(cell))).toList())).toList(),
+                headingRowColor:
+                MaterialStateProperty.all(Colors.green.shade50),
+                columns: headers
+                    .map((h) => DataColumn(
+                    label: Text(h,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold))))
+                    .toList(),
+                // GÜNCELLEME: Satırlar, seslendirme butonunu içerecek şekilde oluşturuluyor.
+                rows: rows.map((row) {
+                  return DataRow(
+                    cells: List.generate(row.length, (index) {
+                      final cellText = row[index];
+                      // Eğer bu hücre seslendirilecek cümleyi içeriyorsa...
+                      if (index == sentenceColumnIndex) {
+                        return DataCell(
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: Text(cellText)),
+                              IconButton(
+                                icon: const Icon(Icons.volume_up_outlined,
+                                    color: Colors.grey, size: 20),
+                                onPressed: () => onSpeak(cellText),
+                                tooltip: 'Dinle',
+                                padding: const EdgeInsets.only(left: 12),
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      // Değilse, sadece metni göster.
+                      return DataCell(Text(cellText));
+                    }),
+                  );
+                }).toList(),
               ),
             ),
           ],
@@ -506,7 +599,6 @@ class _AnimatedLessonBlock extends StatelessWidget {
     );
   }
 }
-
 
 // Veri Modelleri
 class Example {

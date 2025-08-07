@@ -1,6 +1,7 @@
 // lib/screens/level_assessment_screen.dart
 
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -26,9 +27,9 @@ class LevelAssessmentScreen extends StatefulWidget {
   State<LevelAssessmentScreen> createState() => _LevelAssessmentScreenState();
 }
 
-class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with TickerProviderStateMixin {
-
-  // --- QUESTION POOLS (EKSİKSİZ) ---
+class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
+    with TickerProviderStateMixin {
+  // --- QUESTION POOLS (EKSİKSİZ VE TAM LİSTE) ---
 
   // Beginner Level Question Pool (A1/A2)
   final List<Question> _beginnerQuestions = const [
@@ -324,6 +325,9 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
   bool _isTestStarted = false;
 
   late AnimationController _animationController;
+  late AnimationController _welcomeScreenAnimationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -332,23 +336,34 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
+
+    _welcomeScreenAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+        parent: _welcomeScreenAnimationController,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOut)));
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+            CurvedAnimation(
+                parent: _welcomeScreenAnimationController,
+                curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic)));
+
+    _welcomeScreenAnimationController.forward();
   }
 
   void _prepareTest() {
     final random = Random();
-
-    // Tüm soruları tek bir listede birleştirelim
     final List<Question> allQuestions = [
       ..._beginnerQuestions,
       ..._intermediateQuestions,
       ..._advancedQuestions,
     ];
-
     allQuestions.shuffle(random);
-
-    // Test için 20 soru seçelim
     _selectedQuestions = allQuestions.take(20).toList();
-
     if (mounted) {
       setState(() {
         _isTestStarted = true;
@@ -358,10 +373,10 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
   }
 
   void _answerQuestion(int selectedOptionIndex) {
-    if (selectedOptionIndex == _selectedQuestions[_currentQuestionIndex].correctAnswerIndex) {
+    if (selectedOptionIndex ==
+        _selectedQuestions[_currentQuestionIndex].correctAnswerIndex) {
       _score++;
     }
-
     if (_currentQuestionIndex < _selectedQuestions.length - 1) {
       setState(() {
         _currentQuestionIndex++;
@@ -386,20 +401,24 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
     setState(() => _isLoading = true);
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
     final level = _calculateLevel(_score);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'level': level});
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'level': level});
       if (mounted) {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => AssessmentResultsScreen(
-              score: _score,
-              totalQuestions: _selectedQuestions.length,
-              level: level,
-            ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                AssessmentResultsScreen(
+                  score: _score,
+                  totalQuestions: _selectedQuestions.length,
+                  level: level,
+                ),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
           ),
@@ -407,7 +426,8 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Seviye kaydedilemedi: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Seviye kaydedilemedi: $e')));
         setState(() => _isLoading = false);
       }
     }
@@ -416,26 +436,33 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
   @override
   void dispose() {
     _animationController.dispose();
+    _welcomeScreenAnimationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('Seviye Belirleme Testi'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.black87,
-        centerTitle: true,
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 500),
-        transitionBuilder: (child, animation) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        child: _isTestStarted ? _buildQuestionView() : _buildWelcomeView(),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.teal.shade50,
+              Colors.amber.shade50,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            child: _isTestStarted ? _buildQuestionView() : _buildWelcomeView(),
+          ),
+        ),
       ),
     );
   }
@@ -443,36 +470,109 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
   Widget _buildWelcomeView() {
     return Container(
       key: const ValueKey('welcome'),
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.school_outlined, size: 120, color: Colors.teal.shade300),
-          const SizedBox(height: 24),
-          const Text(
-            'Dil Seviyeni Keşfet!',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Sana en uygun pratik partnerlerini bulabilmemiz için kısa bir testle İngilizce seviyeni belirleyelim.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade600, height: 1.5),
-          ),
-          const SizedBox(height: 40),
-          ElevatedButton(
-            onPressed: _prepareTest,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              elevation: 5,
-              shadowColor: Colors.teal.withOpacity(0.5),
+          const Spacer(),
+          SlideTransition(
+            position: _slideAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [Colors.teal.shade200, Colors.teal.shade400],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: const Icon(Icons.school_outlined,
+                              size: 50, color: Colors.white),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Dil Seviyeni Keşfet!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildFeatureRow(
+                            'Seviyeni Belirle', Icons.bar_chart_rounded),
+                        _buildFeatureRow(
+                            'Doğru Partneri Bul', Icons.people_alt_outlined),
+                        _buildFeatureRow(
+                            'İlerlemeni Takip Et', Icons.trending_up_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            child: const Text('Teste Başla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          const Spacer(),
+          SlideTransition(
+            position: _slideAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 32.0),
+                child: ElevatedButton(
+                  onPressed: _prepareTest,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 48, vertical: 18),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30)),
+                    elevation: 8,
+                    shadowColor: Colors.teal.withOpacity(0.5),
+                  ),
+                  child: const Text('Teste Başla',
+                      style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow(String text, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.grey.shade700, size: 20),
+          const SizedBox(width: 10),
+          Text(
+            text,
+            style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade800,
+                fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -507,12 +607,14 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
                         value: value,
                         strokeWidth: 8,
                         backgroundColor: Colors.grey.shade200,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+                        valueColor:
+                        const AlwaysStoppedAnimation<Color>(Colors.teal),
                       ),
                       Center(
                         child: Text(
                           '${_currentQuestionIndex + 1}/${_selectedQuestions.length}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                       ),
                     ],
@@ -528,11 +630,16 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
                 child: FadeTransition(
                   opacity: _animationController,
                   child: SlideTransition(
-                    position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(_animationController),
+                    position: Tween<Offset>(
+                        begin: const Offset(0, 0.1), end: Offset.zero)
+                        .animate(_animationController),
                     child: Text(
                       currentQuestion.questionText,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, height: 1.4),
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4),
                     ),
                   ),
                 ),
@@ -544,8 +651,12 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
             return FadeTransition(
               opacity: _animationController,
               child: SlideTransition(
-                position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-                    CurvedAnimation(parent: _animationController, curve: Interval(0.2 * index, 1.0, curve: Curves.easeOut))),
+                position: Tween<Offset>(
+                    begin: const Offset(0, 0.3), end: Offset.zero)
+                    .animate(CurvedAnimation(
+                    parent: _animationController,
+                    curve: Interval(0.2 * index, 1.0,
+                        curve: Curves.easeOut))),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: OutlinedButton(
@@ -553,8 +664,10 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen> with Tick
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       foregroundColor: Colors.teal,
                       side: const BorderSide(color: Colors.teal, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      textStyle: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     onPressed: () => _answerQuestion(index),
                     child: Text(currentQuestion.options[index]),

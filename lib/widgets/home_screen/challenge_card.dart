@@ -1,6 +1,7 @@
 // lib/widgets/home_screen/challenge_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:lingua_chat/models/challenge_model.dart';
 import 'package:lingua_chat/screens/challenge_screen.dart';
 
 class ChallengeCard extends StatelessWidget {
@@ -8,12 +9,11 @@ class ChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const challenges = [
-      "Bugün tanıştığın partnere en sevdiğin filmi anlat.",
-      "Sohbetinde 5 yeni kelime kullanmayı dene.",
-      "Partnerine 'Nasılsın?' demenin 3 farklı yolunu sor.",
-    ];
-    final randomChallenge = (List.of(challenges)..shuffle()).first;
+    // Her gün aynı görevin gelmesi için günün sırasını kullanan mantık
+    final dayOfYear =
+        DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
+    final challengeIndex = dayOfYear % challenges.length;
+    final dailyChallenge = challenges[challengeIndex];
 
     return InkWell(
       onTap: () {
@@ -21,42 +21,58 @@ class ChallengeCard extends StatelessWidget {
             context,
             MaterialPageRoute(
                 builder: (context) =>
-                    ChallengeScreen(challenge: randomChallenge)));
+                    ChallengeScreen(challenge: dailyChallenge)));
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-            color: Colors.white,
+          // GÜNCELLEME: Düz beyaz renk yerine gradient eklendi.
+            gradient: LinearGradient(
+              colors: [Colors.amber.shade400, Colors.orange.shade600],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(20),
+            // GÜNCELLEME: Gradient ile uyumlu, daha belirgin bir gölge eklendi.
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withAlpha(13),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5))
+                  color: Colors.orange.withAlpha(70),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6))
             ]),
         child: Row(
           children: [
+            // GÜNCELLEME: İkon rengi beyaz yapıldı ve boyutu biraz büyütüldü.
             const Icon(Icons.flag_circle_outlined,
-                color: Colors.amber, size: 40),
+                color: Colors.white, size: 44),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Günün Görevi",
-                      style:
-                      TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text(
+                    "Günün Görevi",
+                    // GÜNCELLEME: Metin rengi beyaz yapıldı.
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white),
+                  ),
                   const SizedBox(height: 4),
-                  Text(randomChallenge,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.grey[700], fontSize: 14)),
+                  Text(
+                    dailyChallenge.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    // GÜNCELLEME: Metin rengi opaklığı ayarlanmış beyaz yapıldı.
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16)
+            // GÜNCELLEME: İkon rengi beyaz yapıldı.
+            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16)
           ],
         ),
       ),

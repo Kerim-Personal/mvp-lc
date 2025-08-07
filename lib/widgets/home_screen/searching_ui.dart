@@ -1,7 +1,10 @@
 // lib/widgets/home_screen/searching_ui.dart
 
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/linguabot_chat_screen.dart'; // Yönlendirme için import edildi
+import 'package:lingua_chat/screens/linguabot_chat_screen.dart';
 
 class SearchingUI extends StatefulWidget {
   final bool isSearching;
@@ -23,6 +26,18 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
   late final AnimationController _shimmerController;
   late final AnimationController _pulseController;
 
+  // İpucu zamanlayıcısı için
+  Timer? _tipTimer;
+  String _currentTip = "";
+  final List<String> _tips = const [
+    "Yeni bir kelime öğrendiğinde, onu 3 farklı cümlede kullanmaya çalış.",
+    "Hata yapmaktan korkma! Hatalar öğrenme sürecinin bir parçasıdır.",
+    "Anlamadığın bir şey olduğunda tekrar sormaktan çekinme.",
+    "Partnerine gününün nasıl geçtiğini sorarak sohbete başla.",
+    "Sohbetteki amacın mükemmel olmak değil, iletişim kurmak olsun.",
+    "Partnerinin söylediklerini başka kelimelerle tekrar ederek anladığını teyit et."
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -35,36 +50,68 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat(reverse: true);
+
+    // Başlangıçta rastgele bir ipucu ata
+    _currentTip = _tips[Random().nextInt(_tips.length)];
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchingUI oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isSearching && !oldWidget.isSearching) {
+      _startTimers();
+    }
+    if (!widget.isSearching && oldWidget.isSearching) {
+      _stopTimers();
+    }
+  }
+
+  void _startTimers() {
+    // İpucu değiştirme sayacını başlat
+    _tipTimer?.cancel();
+    _tipTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      if (mounted) {
+        setState(() {
+          // Mevcut ipucundan farklı yeni bir ipucu seç
+          String newTip = _currentTip;
+          while (newTip == _currentTip) {
+            newTip = _tips[Random().nextInt(_tips.length)];
+          }
+          _currentTip = newTip;
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _stopTimers() {
+    _tipTimer?.cancel();
   }
 
   @override
   void dispose() {
     _shimmerController.dispose();
     _pulseController.dispose();
+    _tipTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    const tips = [
-      "Yeni bir kelime öğrendiğinde, onu 3 farklı cümlede kullanmaya çalış.",
-      "Hata yapmaktan korkma! Hatalar öğrenme sürecinin bir parçasıdır.",
-      "Anlamadığın bir şey olduğunda tekrar sormaktan çekinme."
-    ];
-    final randomTip = (List.of(tips)..shuffle()).first;
-
     return IgnorePointer(
       ignoring: !widget.isSearching,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 500),
         opacity: widget.isSearching ? 1 : 0,
-        child: SizedBox(
+        child: Container(
+          color: Colors.white.withOpacity(0.8),
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Spacer(flex: 3), // Üst boşluk
+              const Spacer(flex: 3),
               Hero(
                 tag: 'find-partner-hero',
                 child: Stack(
@@ -106,11 +153,20 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
                 decoration: BoxDecoration(
                     color: Colors.teal.withAlpha(26),
                     borderRadius: BorderRadius.circular(12)),
-                child: Text('İpucu: $randomTip',
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+                  child: Text(
+                    'İpucu: $_currentTip',
+                    key: ValueKey<String>(_currentTip),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: Colors.black54)),
+                    style: const TextStyle(fontSize: 16, color: Colors.black54),
+                  ),
+                ),
               ),
-              const Spacer(flex: 2), // Orta boşluk
+              const Spacer(flex: 2),
               _buildLinguaBotCard(context),
               const SizedBox(height: 30),
               TextButton.icon(
@@ -123,7 +179,7 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
                 label: const Text('Aramayı İptal Et',
                     style: TextStyle(fontSize: 16)),
               ),
-              const Spacer(flex: 1), // Alt boşluk
+              const Spacer(flex: 1),
             ],
           ),
         ),
@@ -138,7 +194,6 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
       ),
       child: InkWell(
         onTap: () {
-          // YENİ: Önce arama iptal ediliyor, sonra sayfaya yönlendiriliyor.
           widget.onCancelSearch();
           Navigator.push(
             context,

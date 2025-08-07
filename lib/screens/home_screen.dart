@@ -14,10 +14,8 @@ import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 
-// Yeni kart widget'ları için importlar
-import 'package:lingua_chat/widgets/home_screen/topic_of_the_week_card.dart';
+// Silinen kartların importları kaldırıldı
 import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
-import 'package:lingua_chat/widgets/home_screen/role_playing_card.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -437,7 +435,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildPageIndicator() {
-    const int pageCount = 5;
+    // GÜNCELLEME: Sayfa sayısı 5'ten 3'e düşürüldü.
+    const int pageCount = 3;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(pageCount, (index) {
@@ -473,6 +472,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       height: 150,
       child: PageView(
         controller: _pageController,
+        // GÜNCELLEME: İstenmeyen kartlar listeden kaldırıldı.
         children: [
           _buildCardPageItem(
             index: 0,
@@ -484,15 +484,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           _buildCardPageItem(
             index: 2,
-            child: const TopicOfTheWeekCard(),
-          ),
-          _buildCardPageItem(
-            index: 3,
             child: const VocabularyTreasureCard(),
-          ),
-          _buildCardPageItem(
-            index: 4,
-            child: const RolePlayingCard(),
           ),
         ],
       ),
