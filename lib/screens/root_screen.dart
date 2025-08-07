@@ -1,3 +1,5 @@
+// lib/screens/root_screen.dart
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,13 +17,37 @@ class RootScreen extends StatefulWidget {
   State<RootScreen> createState() => _RootScreenState();
 }
 
-class _RootScreenState extends State<RootScreen> {
+class _RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   int _selectedIndex = 2;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    _animationController.forward().then((value) => _animationController.reverse());
   }
 
   Widget _buildAnimatedBackground() {
@@ -104,10 +130,29 @@ class _RootScreenState extends State<RootScreen> {
               activeColor: Colors.white,
               iconSize: 24,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 100),
               tabBackgroundColor: Colors.teal.shade400,
               color: Colors.black54,
-              tabs: tabs,
+              tabs: tabs.asMap().entries.map((entry) {
+                int idx = entry.key;
+                GButton tab = entry.value;
+                return GButton(
+                  icon: tab.icon,
+                  text: tab.text!,
+                  leading: _selectedIndex == idx
+                      ? ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: Icon(
+                      tab.icon,
+                      color: Colors.white,
+                    ),
+                  )
+                      : Icon(
+                    tab.icon,
+                    color: Colors.black54,
+                  ),
+                );
+              }).toList(),
               selectedIndex: _selectedIndex,
               onTabChange: _onItemTapped,
             ),

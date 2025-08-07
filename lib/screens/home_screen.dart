@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String? _selectedGenderFilter;
   String? _selectedLevelGroupFilter;
   bool _isProUser = false;
+  bool _isPartnerButtonHeldDown = false;
 
   late AnimationController _entryAnimationController;
   late AnimationController _pulseAnimationController;
@@ -521,13 +522,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Column(
       children: [
         GestureDetector(
-          onTap: _findPracticePartner,
+          onTapDown: (_) => setState(() => _isPartnerButtonHeldDown = true),
+          onTapUp: (_) {
+            setState(() => _isPartnerButtonHeldDown = false);
+            _findPracticePartner();
+          },
+          onTapCancel: () => setState(() => _isPartnerButtonHeldDown = false),
           child: Hero(
             tag: 'find-partner-hero',
             child: AnimatedBuilder(
               animation: _pulseAnimationController,
               builder: (context, child) {
-                final scale = 1.0 - (_pulseAnimationController.value * 0.05);
+                final scale = _isPartnerButtonHeldDown ? 0.95 : 1.0 - (_pulseAnimationController.value * 0.05);
                 return Transform.scale(
                     scale: scale, child: child ?? const SizedBox());
               },
