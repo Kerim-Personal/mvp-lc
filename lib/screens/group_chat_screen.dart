@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:lingua_chat/screens/report_user_screen.dart';
 
 // Mesaj veri modeli
 class GroupMessage {
@@ -141,6 +142,37 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     });
   }
 
+  void _showReportUserDialog(GroupMessage message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${message.senderName} hakkında işlem yap'),
+        content: const Text('Bu kullanıcıyı bildirmek istediğinizden emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ReportUserScreen(
+                    reportedUserId: message.senderId,
+                    reportedContent: '"${message.text}" (Grup Sohbeti Mesajı)',
+                  ),
+                ),
+              );
+            },
+            child: const Text('Bildir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -189,7 +221,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   itemBuilder: (context, index) {
                     final message = GroupMessage.fromFirestore(messages[index]);
                     final isMe = message.senderId == currentUser?.uid;
-                    return _buildMessageBubble(message, isMe);
+                    return GestureDetector(
+                      onLongPress: isMe ? null : () => _showReportUserDialog(message),
+                      child: _buildMessageBubble(message, isMe),
+                    );
                   },
                 );
               },

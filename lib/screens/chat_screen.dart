@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:lingua_chat/screens/report_user_screen.dart';
 import 'package:lingua_chat/screens/root_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -286,6 +287,32 @@ class _ChatScreenState extends State<ChatScreen> {
             },
           ),
           actions: [
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'report') {
+                  if (_partnerId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReportUserScreen(reportedUserId: _partnerId!),
+                      ),
+                    );
+                  }
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.report, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Kullanıcıyı Bildir'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             IconButton(
               icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
               onPressed: _handleLeaveAttempt,

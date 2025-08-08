@@ -6,6 +6,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/comment_screen.dart'; // Yorum ekranını import et
+import 'package:lingua_chat/screens/report_user_screen.dart';
+
 
 class FeedPostCard extends StatefulWidget {
   final FeedPost post;
@@ -135,27 +137,54 @@ class _FeedPostCardState extends State<FeedPostCard> {
                   ],
                 ),
                 const Spacer(),
-                if (isAuthor)
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'delete') {
-                        _deletePost();
-                      }
-                    },
-                    itemBuilder: (BuildContext context) =>
-                    <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Sil'),
-                          ],
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _deletePost();
+                    } else if (value == 'report') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ReportUserScreen(
+                            reportedUserId: widget.post.userId,
+                            reportedContent: widget.post.postText,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      );
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    List<PopupMenuEntry<String>> items = [];
+                    if (isAuthor) {
+                      items.add(
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Sil'),
+                            ],
+                          ),
+                        ),
+                      );
+                    } else {
+                      items.add(
+                        const PopupMenuItem<String>(
+                          value: 'report',
+                          child: Row(
+                            children: [
+                              Icon(Icons.report, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Kullanıcıyı Bildir'),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return items;
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 16),
