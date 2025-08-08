@@ -62,7 +62,6 @@ class FeedPost {
   }
 }
 
-// GroupChatRoom modelini basitleştirdik. Artık sadece statik bilgileri içeriyor.
 class GroupChatRoomInfo {
   final String id;
   final String name;
@@ -92,26 +91,21 @@ class CommunityScreen extends StatefulWidget {
   State<CommunityScreen> createState() => _CommunityScreenState();
 }
 
-// *** GÜNCELLEME: AutomaticKeepAliveClientMixin eklendi ***
 class _CommunityScreenState extends State<CommunityScreen>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin<CommunityScreen> {
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late Future<List<LeaderboardUser>> _leaderboardFuture;
   final String _leaderboardPeriod = 'partnerCount';
 
-  // Akış ve Odalar için Future'lar eklendi
   late Future<QuerySnapshot> _feedFuture;
   late Future<QuerySnapshot> _roomsFuture;
-
-
-  // *** GÜNCELLEME: State'in korunması için eklendi ***
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    // Tab denetleyicisine bir dinleyici ekleyerek, sekme değiştiğinde
+    // arayüzün güncellenmesini (setState) sağlıyoruz.
     _tabController.addListener(() => setState(() {}));
     _leaderboardFuture = _fetchLeaderboardData();
     _feedFuture = _fetchFeedData();
@@ -160,7 +154,6 @@ class _CommunityScreenState extends State<CommunityScreen>
       _roomsFuture = _fetchRoomsData();
     });
   }
-
 
   @override
   void dispose() {
@@ -230,7 +223,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                   });
 
                   Navigator.pop(context);
-                  _refreshFeed(); // Gönderi paylaşıldıktan sonra akışı yenile
+                  _refreshFeed();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
@@ -250,10 +243,42 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
+  // OPTİMİZASYON: Bu fonksiyon, TabController'ın mevcut indeksine göre
+  // hangi sekmenin gösterileceğini belirler. AnimatedSwitcher bu widget'ı
+  // animasyonlu bir şekilde değiştirecektir.
+  Widget _buildCurrentTab() {
+    // AnimatedSwitcher'ın hangi widget'ın değiştiğini anlaması için her birine
+    // benzersiz bir anahtar (key) veriyoruz.
+    switch (_tabController.index) {
+      case 0:
+        return FutureBuilder<List<LeaderboardUser>>(
+          key: const ValueKey('leaderboard'),
+          future: _leaderboardFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Bir hata oluştu: ${snapshot.error}'));
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('Henüz liderlik verisi yok.'));
+            }
+            return LeaderboardTable(users: snapshot.data!);
+          },
+        );
+      case 1:
+        return Container(key: const ValueKey('feed'), child: _buildFeedList());
+      case 2:
+        return Container(key: const ValueKey('rooms'), child: _buildRoomsTab());
+      default:
+      // Varsayılan olarak boş bir container döndürerek hata oluşmasını engelliyoruz.
+        return Container(key: const ValueKey('empty'));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // *** GÜNCELLEME: State'in korunması için eklendi ***
-    super.build(context);
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -282,27 +307,17 @@ class _CommunityScreenState extends State<CommunityScreen>
         tooltip: 'Yeni Gönderi',
       )
           : null,
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          FutureBuilder<List<LeaderboardUser>>(
-            future: _leaderboardFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Bir hata oluştu: ${snapshot.error}'));
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('Henüz liderlik verisi yok.'));
-              }
-              return LeaderboardTable(users: snapshot.data!);
-            },
-          ),
-          _buildFeedList(),
-          _buildRoomsTab(),
-        ],
+      // OPTİMİZASYON: TabBarView yerine AnimatedSwitcher kullanıyoruz.
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300), // Geçiş animasyonunun süresi
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          // Solma (Fade) animasyonu. Bu, kaydırmaya göre çok daha performanslıdır.
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        child: _buildCurrentTab(), // O anki sekmeye ait widget'ı göster
       ),
     );
   }

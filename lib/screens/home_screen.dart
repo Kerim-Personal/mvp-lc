@@ -13,8 +13,7 @@ import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
-
-// Silinen kartların importları kaldırıldı
+import 'package:lingua_chat/widgets/home_screen/weekly_quiz_card.dart'; // YENİ EKLEME
 import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
 
 
@@ -435,8 +434,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildPageIndicator() {
-    // GÜNCELLEME: Sayfa sayısı 5'ten 3'e düşürüldü.
-    const int pageCount = 3;
+    // GÜNCELLEME: Sayfa sayısı 3'ten 4'e yükseltildi.
+    const int pageCount = 4;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(pageCount, (index) {
@@ -472,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       height: 150,
       child: PageView(
         controller: _pageController,
-        // GÜNCELLEME: İstenmeyen kartlar listeden kaldırıldı.
+        // GÜNCELLEME: Yeni yarışma kartı eklendi.
         children: [
           _buildCardPageItem(
             index: 0,
@@ -480,10 +479,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           _buildCardPageItem(
             index: 1,
-            child: const LevelAssessmentCard(),
+            child: const WeeklyQuizCard(),
           ),
           _buildCardPageItem(
             index: 2,
+            child: const LevelAssessmentCard(),
+          ),
+          _buildCardPageItem(
+            index: 3,
             child: const VocabularyTreasureCard(),
           ),
         ],
