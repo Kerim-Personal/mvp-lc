@@ -16,7 +16,6 @@ import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 import 'package:lingua_chat/widgets/home_screen/weekly_quiz_card.dart';
 import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
 
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -40,12 +39,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _searchAnimationController;
   late PageController _pageController;
   double _pageOffset = 0;
+  Timer? _cardScrollTimer; // Kartların kayması için zamanlayıcı
 
   @override
   void initState() {
     super.initState();
     if (_currentUser != null) {
-      _userStream = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).snapshots();
+      _userStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .snapshots();
     }
 
     _pageController = PageController(viewportFraction: 0.85)
@@ -59,7 +62,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       });
 
     _setupAnimations();
+    _startCardScrollTimer(); // Zamanlayıcıyı başlat
     _entryAnimationController.forward();
+  }
+
+  // Kartların otomatik kaymasını sağlayan zamanlayıcı
+  void _startCardScrollTimer() {
+    _cardScrollTimer = Timer.periodic(const Duration(seconds: 7), (timer) {
+      if (_isSearching || !mounted) return; // Partner aranıyorsa veya sayfa aktif değilse işlem yapma
+
+      final int pageCount = 4; // Toplam kart sayısı
+      int nextPage = _pageController.page!.round() + 1;
+
+      if (nextPage >= pageCount) {
+        nextPage = 0;
+      }
+
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   void _setupAnimations() {
@@ -76,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _matchListener?.cancel();
+    _cardScrollTimer?.cancel(); // Zamanlayıcıyı iptal et
     _entryAnimationController.dispose();
     _pulseAnimationController.dispose();
     _searchAnimationController.dispose();
@@ -190,10 +215,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             otherUserFilterLevelGroup == myLevelGroup;
 
         if (isMyGenderOk && isMyLevelGroupOk) {
-          final chatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
-          final partnerRef = FirebaseFirestore.instance.collection('users').doc(otherUserDoc.id);
+          final chatRoomRef =
+          FirebaseFirestore.instance.collection('chats').doc();
+          final partnerRef =
+          FirebaseFirestore.instance.collection('users').doc(otherUserDoc.id);
           final myRef = FirebaseFirestore.instance.collection('users').doc(myId);
-
 
           await FirebaseFirestore.instance.runTransaction((transaction) async {
             final freshOtherUserDoc =
@@ -210,7 +236,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             transaction.update(
                 otherUserDoc.reference, {'matchedChatRoomId': chatRoomRef.id});
             transaction.update(myRef, {'partnerCount': FieldValue.increment(1)});
-            transaction.update(partnerRef, {'partnerCount': FieldValue.increment(1)});
+            transaction
+                .update(partnerRef, {'partnerCount': FieldValue.increment(1)});
           });
 
           _navigateToChat(chatRoomRef.id);
@@ -458,7 +485,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-
   Widget _buildPageIndicator() {
     const int pageCount = 4;
     return Row(
@@ -552,7 +578,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: AnimatedBuilder(
               animation: _pulseAnimationController,
               builder: (context, child) {
-                final scale = _isPartnerButtonHeldDown ? 0.95 : 1.0 - (_pulseAnimationController.value * 0.05);
+                final scale = _isPartnerButtonHeldDown
+                    ? 0.95
+                    : 1.0 - (_pulseAnimationController.value * 0.05);
                 return Transform.scale(
                     scale: scale, child: child ?? const SizedBox());
               },

@@ -206,13 +206,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   Widget _buildFeatureList() {
     final features = [
-      'Sınırsız Çeviri Desteği',
-      'Sınırsız Sohbet Uzatma Jetonu',
+      'Çeviri Desteği',
+      'Sohbet Uzatma Jetonu',
       'Cinsiyete Göre Partner Arama',
       'Seviyeye Göre Partner Arama',
       'Öncelikli Destek',
       'Reklamsız Deneyim',
-      "LinguaBot'a Sınırsız Erişim",
+      "LinguaBot'a Pro Erişim",
       "Gelişmiş Gramer Analizi",
       "Premium'a Özel Kişiselleştirmeler",
     ];
