@@ -13,12 +13,14 @@ class LeaderboardUser {
   final String avatarUrl;
   final int rank;
   final int partnerCount;
+  final bool isPremium; // YENİ
 
   LeaderboardUser({
     required this.name,
     required this.avatarUrl,
     required this.rank,
     required this.partnerCount,
+    this.isPremium = false, // YENİ
   });
 }
 
@@ -31,6 +33,7 @@ class FeedPost {
   final Timestamp timestamp;
   final List<String> likes;
   final int commentCount;
+  final bool isUserPremium; // YENİ
 
   FeedPost({
     required this.id,
@@ -41,6 +44,7 @@ class FeedPost {
     required this.timestamp,
     required this.likes,
     this.commentCount = 0,
+    this.isUserPremium = false, // YENİ
   });
 
   factory FeedPost.fromFirestore(DocumentSnapshot doc) {
@@ -58,6 +62,7 @@ class FeedPost {
       timestamp: data['timestamp'] ?? Timestamp.now(),
       likes: likes,
       commentCount: data['commentCount'] ?? 0,
+      isUserPremium: data['isUserPremium'] ?? false, // YENİ
     );
   }
 }
@@ -104,8 +109,6 @@ class _CommunityScreenState extends State<CommunityScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    // Tab denetleyicisine bir dinleyici ekleyerek, sekme değiştiğinde
-    // arayüzün güncellenmesini (setState) sağlıyoruz.
     _tabController.addListener(() => setState(() {}));
     _leaderboardFuture = _fetchLeaderboardData();
     _feedFuture = _fetchFeedData();
@@ -128,6 +131,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         name: data['displayName'] ?? 'Bilinmeyen',
         avatarUrl: data['avatarUrl'] ?? '',
         partnerCount: data['partnerCount'] ?? 0,
+        isPremium: data['isPremium'] ?? false, // YENİ
       );
     }).toList();
   }
@@ -220,6 +224,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                     'timestamp': FieldValue.serverTimestamp(),
                     'likes': [],
                     'commentCount': 0,
+                    'isUserPremium': userData?['isPremium'] ?? false, // YENİ
                   });
 
                   Navigator.pop(context);
@@ -243,12 +248,7 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  // OPTİMİZASYON: Bu fonksiyon, TabController'ın mevcut indeksine göre
-  // hangi sekmenin gösterileceğini belirler. AnimatedSwitcher bu widget'ı
-  // animasyonlu bir şekilde değiştirecektir.
   Widget _buildCurrentTab() {
-    // AnimatedSwitcher'ın hangi widget'ın değiştiğini anlaması için her birine
-    // benzersiz bir anahtar (key) veriyoruz.
     switch (_tabController.index) {
       case 0:
         return FutureBuilder<List<LeaderboardUser>>(
@@ -272,7 +272,6 @@ class _CommunityScreenState extends State<CommunityScreen>
       case 2:
         return Container(key: const ValueKey('rooms'), child: _buildRoomsTab());
       default:
-      // Varsayılan olarak boş bir container döndürerek hata oluşmasını engelliyoruz.
         return Container(key: const ValueKey('empty'));
     }
   }
@@ -307,17 +306,15 @@ class _CommunityScreenState extends State<CommunityScreen>
         tooltip: 'Yeni Gönderi',
       )
           : null,
-      // OPTİMİZASYON: TabBarView yerine AnimatedSwitcher kullanıyoruz.
       body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300), // Geçiş animasyonunun süresi
+        duration: const Duration(milliseconds: 300),
         transitionBuilder: (Widget child, Animation<double> animation) {
-          // Solma (Fade) animasyonu. Bu, kaydırmaya göre çok daha performanslıdır.
           return FadeTransition(
             opacity: animation,
             child: child,
           );
         },
-        child: _buildCurrentTab(), // O anki sekmeye ait widget'ı göster
+        child: _buildCurrentTab(),
       ),
     );
   }

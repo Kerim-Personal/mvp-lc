@@ -1,7 +1,7 @@
 // lib/widgets/profile_screen/profile_sliver_app_bar.dart
 
 import 'dart:ui';
-import 'dart:math'; // HATA 1 İÇİN ÇÖZÜM: Matematik kütüphanesi eklendi.
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -18,12 +18,14 @@ class ProfileSliverAppBar extends StatefulWidget {
   final String displayName;
   final String email;
   final String? avatarUrl;
+  final bool isPremium; // Premium statüsü için parametre
 
   const ProfileSliverAppBar({
     super.key,
     required this.displayName,
     required this.email,
     this.avatarUrl,
+    this.isPremium = false, // Varsayılan olarak false
   });
 
   @override
@@ -107,9 +109,14 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
   /// Avatar, kullanıcı adı ve e-posta gibi bilgileri içeren, kaydırmaya duyarlı bölüm.
   Widget _buildUserInfo(double scrollProgress) {
     // Kaydırma ilerlemesine göre değerleri enterpole ederek yumuşak geçişler sağlıyoruz.
-    final avatarScale = lerpDouble(0.4, 1.0, scrollProgress)!;
+    final avatarScale = lerpDouble(0.4, 1.0, scrollProgress) ?? 1.0;
     final contentOpacity = Curves.easeIn.transform(scrollProgress);
-    final contentVerticalOffset = lerpDouble(0, 40, 1 - scrollProgress)!;
+    final contentVerticalOffset = lerpDouble(0, 40, 1 - scrollProgress) ?? 0.0;
+
+    // Altın rengi ve yeni ikon
+    const premiumColor = Color(0xFFE5B53A);
+    const premiumIcon = Icons.auto_awesome;
+
 
     return Opacity(
       opacity: contentOpacity,
@@ -121,21 +128,29 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
             const SizedBox(height: 40),
             _buildAnimatedAvatar(avatarScale),
             const SizedBox(height: 16),
-            Text(
-              widget.displayName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                shadows: [Shadow(blurRadius: 8, color: Colors.black38)],
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  widget.displayName,
+                  style: TextStyle(
+                    color: widget.isPremium ? premiumColor : Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    shadows: const [Shadow(blurRadius: 8, color: Colors.black38)],
+                  ),
+                ),
+                if (widget.isPremium) ...[
+                  const SizedBox(width: 8),
+                  const Icon(premiumIcon, color: premiumColor, size: 24),
+                ]
+              ],
             ),
             const SizedBox(height: 6),
             Text(
               widget.email,
               style: TextStyle(
-                // HATA 2 İÇİN ÇÖZÜM: withOpacity, withAlpha ile değiştirildi.
-                color: Colors.white.withAlpha(217), // ~85% opacity
+                color: Colors.white.withAlpha(217),
                 fontSize: 16,
               ),
             ),
@@ -158,12 +173,12 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(
-                  // HATA 2 İÇİN ÇÖZÜM: withOpacity, withAlpha ile değiştirildi.
-                  color: Colors.white.withAlpha((lerpDouble(25, 102, glowValue)!).round()), // 10% to 40% opacity
-                  blurRadius: lerpDouble(15, 25, glowValue)!,
-                  spreadRadius: lerpDouble(2, 5, glowValue)!,
-                ),
+                if (widget.isPremium)
+                  BoxShadow(
+                    color: const Color(0xFFE5B53A).withAlpha((lerpDouble(50, 150, glowValue)!).round()),
+                    blurRadius: lerpDouble(20, 30, glowValue)!,
+                    spreadRadius: lerpDouble(3, 6, glowValue)!,
+                  ),
               ],
             ),
             child: child,
@@ -171,8 +186,7 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
         },
         child: CircleAvatar(
           radius: 55,
-          // HATA 2 İÇİN ÇÖZÜM: withOpacity, withAlpha ile değiştirildi.
-          backgroundColor: Colors.white.withAlpha(230), // ~90% opacity
+          backgroundColor: Colors.white.withAlpha(230),
           child: CircleAvatar(
             radius: 52,
             backgroundColor: Colors.teal.shade100,
@@ -215,19 +229,16 @@ class _CosmicBackground extends StatelessWidget {
           colors: [Colors.teal.shade600, Colors.cyan.shade900],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          // Kaydırma ilerlemesine göre gradient'in renklerini ve konumunu değiştiriyoruz.
           stops: [0.0, lerpDouble(0.7, 1.0, scrollProgress)!],
         ),
       ),
-      // Arka plana derinlik katmak için bir bulanıklık (blur) efekti ekliyoruz.
       child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: lerpDouble(0, 5, 1 - scrollProgress)!,
           sigmaY: lerpDouble(0, 5, 1 - scrollProgress)!,
         ),
         child: Container(
-          // HATA 2 İÇİN ÇÖZÜM: withOpacity, withAlpha ile değiştirildi.
-          decoration: BoxDecoration(color: Colors.black.withAlpha(26)), // 10% opacity
+          decoration: BoxDecoration(color: Colors.black.withAlpha(26)),
         ),
       ),
     );

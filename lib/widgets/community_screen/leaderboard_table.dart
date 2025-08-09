@@ -5,19 +5,17 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lingua_chat/screens/community_screen.dart'; // LeaderboardUser modelini import etmek için
 
 class LeaderboardTable extends StatelessWidget {
-  // GÜNCELLEME: Sadece kullanıcı listesini alıyor
   final List<LeaderboardUser> users;
 
   const LeaderboardTable({super.key, required this.users});
 
   @override
   Widget build(BuildContext context) {
-    // Filtreleme butonları ve state yönetimi artık bu widget'ta değil.
-    // Bu widget sadece gelen listeyi göstermekle sorumlu.
+    const premiumColor = Color(0xFFE5B53A);
+    const premiumIcon = Icons.auto_awesome;
+
     return Column(
       children: [
-        // TODO: Zaman periyodu filtreleme butonları (ToggleButtons) buraya eklenebilir.
-        // Şimdilik sadece genel sıralamayı gösteriyoruz.
         Expanded(
           child: SingleChildScrollView(
             scrollDirection: Axis.vertical,
@@ -59,7 +57,17 @@ class LeaderboardTable extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Expanded(child: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                            Expanded(
+                                child: Text(user.name,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: user.isPremium ? premiumColor : Colors.black87
+                                    ),
+                                    overflow: TextOverflow.ellipsis)),
+                            if (user.isPremium) ...[
+                              const SizedBox(width: 4),
+                              const Icon(premiumIcon, color: premiumColor, size: 16),
+                            ]
                           ],
                         ),
                       ),

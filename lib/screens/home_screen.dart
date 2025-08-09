@@ -13,7 +13,7 @@ import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
-import 'package:lingua_chat/widgets/home_screen/weekly_quiz_card.dart'; // YENİ EKLEME
+import 'package:lingua_chat/widgets/home_screen/weekly_quiz_card.dart';
 import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
 
 
@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSearching = false;
   StreamSubscription? _matchListener;
-  Future<String?>? _userNameFuture;
+  Stream<DocumentSnapshot<Map<String, dynamic>>>? _userStream;
 
   String? _selectedGenderFilter;
   String? _selectedLevelGroupFilter;
@@ -45,8 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     if (_currentUser != null) {
-      _userNameFuture = _getUserName(_currentUser!.uid);
-      _checkIfProUser();
+      _userStream = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).snapshots();
     }
 
     _pageController = PageController(viewportFraction: 0.85)
@@ -63,12 +62,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _entryAnimationController.forward();
   }
 
-  void _checkIfProUser() async {
-    if (mounted) {
-      setState(() => _isProUser = true);
-    }
-  }
-
   void _setupAnimations() {
     _entryAnimationController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1000));
@@ -78,16 +71,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _searchAnimationController =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat();
-  }
-
-  Future<String?> _getUserName(String uid) async {
-    try {
-      final doc =
-      await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      return doc.data()?['displayName'] as String?;
-    } catch (e) {
-      return "Gezgin";
-    }
   }
 
   @override
@@ -348,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
     }
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).snapshots(),
+      stream: _userStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data?.data() == null) {
           return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
@@ -403,10 +386,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: _buildAnimatedUI(
                   interval: const Interval(0.2, 0.8),
-                  child: HomeHeader(
-                      userNameFuture:
-                      _userNameFuture ?? Future.value('Gezgin'),
-                      currentUser: _currentUser),
+                  child: _buildHeaderSection(),
                 ),
               ),
               const SizedBox(height: 24),
@@ -433,8 +413,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildHeaderSection() {
+    if (_currentUser == null) {
+      return HomeHeader(
+          userName: 'Gezgin',
+          avatarUrl: null,
+          streak: 0,
+          isPremium: false,
+          currentUser: _currentUser);
+    }
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _userStream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data?.data() == null) {
+          return HomeHeader(
+              userName: 'Yükleniyor...',
+              avatarUrl: null,
+              streak: 0,
+              isPremium: false,
+              currentUser: _currentUser);
+        }
+        var userData = snapshot.data!.data()!;
+        final userName = userData['displayName'] ?? 'Gezgin';
+        final avatarUrl = userData['avatarUrl'] as String?;
+        final isPremium = userData['isPremium'] as bool? ?? false;
+        final streak = userData['streak'] as int? ?? 0;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _isProUser != isPremium) {
+            setState(() {
+              _isProUser = isPremium;
+            });
+          }
+        });
+
+        return HomeHeader(
+          userName: userName,
+          avatarUrl: avatarUrl,
+          isPremium: isPremium,
+          streak: streak,
+          currentUser: _currentUser,
+        );
+      },
+    );
+  }
+
+
   Widget _buildPageIndicator() {
-    // GÜNCELLEME: Sayfa sayısı 3'ten 4'e yükseltildi.
     const int pageCount = 4;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -471,7 +496,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       height: 150,
       child: PageView(
         controller: _pageController,
-        // GÜNCELLEME: Yeni yarışma kartı eklendi.
         children: [
           _buildCardPageItem(
             index: 0,

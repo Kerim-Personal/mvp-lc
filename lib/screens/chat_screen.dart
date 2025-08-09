@@ -25,9 +25,11 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _heartbeatTimer;
   String? _partnerId;
   Future<DocumentSnapshot>? _partnerFuture;
+  bool _isPartnerPremium = false;
+  bool _isCurrentUserPremium = false;
 
   late DateTime _chatStartTime;
-  bool _isSaving = false; // Kaydetme işlemi sırasında tekrarı önlemek için
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -44,18 +46,35 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  void _setupPartnerInfoAndStartHeartbeat() async {
+  Future<void> _setupPartnerInfoAndStartHeartbeat() async {
+    final currentUser = _currentUser;
+    if (currentUser == null) return;
+
     try {
       final chatDoc = await FirebaseFirestore.instance.collection('chats').doc(widget.chatRoomId).get();
       if (!mounted || !chatDoc.exists) return;
 
       final List<dynamic> users = chatDoc.data()?['users'];
-      _partnerId = users.firstWhere((id) => id != _currentUser!.uid, orElse: () => '');
+      final partnerId = users.firstWhere((id) => id != currentUser.uid, orElse: () => null);
+      _partnerId = partnerId;
 
-      if (_partnerId!.isNotEmpty) {
-        setState(() {
-          _partnerFuture = FirebaseFirestore.instance.collection('users').doc(_partnerId).get();
-        });
+      if (partnerId != null) {
+        final partnerDocFuture = FirebaseFirestore.instance.collection('users').doc(partnerId).get();
+        final currentUserDocFuture = FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
+
+        final results = await Future.wait([partnerDocFuture, currentUserDocFuture]);
+
+        final partnerData = results[0].data();
+        final currentUserData = results[1].data();
+
+        if (mounted) {
+          setState(() {
+            _partnerFuture = Future.value(results[0]);
+            _isPartnerPremium = (partnerData?['isPremium'] as bool?) ?? false;
+            _isCurrentUserPremium = (currentUserData?['isPremium'] as bool?) ?? false;
+          });
+        }
+
         _listenToChatChanges();
         _startHeartbeat();
       }
@@ -66,11 +85,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _startHeartbeat() {
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
-      if (_currentUser != null) {
+      final currentUser = _currentUser;
+      if (currentUser != null) {
         FirebaseFirestore.instance
             .collection('chats')
             .doc(widget.chatRoomId)
-            .update({'${_currentUser!.uid}_lastActive': FieldValue.serverTimestamp()});
+            .update({'${currentUser.uid}_lastActive': FieldValue.serverTimestamp()});
       } else {
         timer.cancel();
       }
@@ -78,42 +98,42 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _listenToChatChanges() {
+    final partnerId = _partnerId;
+    if (partnerId == null) return;
+
     _chatSubscription = FirebaseFirestore.instance
         .collection('chats')
         .doc(widget.chatRoomId)
         .snapshots()
-        .listen((snapshot) async { // Fonksiyonu async olarak işaretledik
-      if (!mounted || !snapshot.exists || _partnerId == null || _partnerId!.isEmpty) return;
+        .listen((snapshot) async {
+      if (!mounted || !snapshot.exists) return;
 
       final data = snapshot.data()!;
 
-      // Partnerin sohbetten ayrılıp ayrılmadığını kontrol et
-      if (data['status'] == 'ended' && data['leftBy'] == _partnerId) {
+      if (data['status'] == 'ended' && data['leftBy'] == partnerId) {
         await _endChatAndSaveChanges("Partneriniz sohbetten ayrıldı.");
         return;
       }
 
-      // Partnerin bağlantısının kopup kopmadığını kontrol et
-      final partnerLastActive = data['${_partnerId}_lastActive'] as Timestamp?;
+      final partnerLastActive = data['${partnerId}_lastActive'] as Timestamp?;
       if (partnerLastActive != null) {
         final difference = Timestamp.now().seconds - partnerLastActive.seconds;
-        if (difference > 30) { // 30 saniyeden uzun süre aktif değilse
+        if (difference > 30) {
           await _endChatAndSaveChanges("Partnerinizin bağlantısı koptu.");
         }
       }
     });
   }
 
-  // Pratik süresini kaydedip sohbeti bitiren merkezi fonksiyon
   Future<void> _savePracticeTime() async {
-    if (_currentUser == null) return;
+    final currentUser = _currentUser;
+    if (currentUser == null) return;
 
     final chatDuration = DateTime.now().difference(_chatStartTime);
     final durationInMinutes = chatDuration.inMinutes;
 
-    // Sadece 0'dan büyük süreleri kaydet
     if (durationInMinutes > 0) {
-      final userRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+      final userRef = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
@@ -121,7 +141,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
         final userData = userDoc.data() as Map<String, dynamic>;
 
-        // Streak (seri) hesaplaması
         int currentStreak = userData['streak'] ?? 0;
         Timestamp lastActivityTimestamp = userData['lastActivityDate'] ?? Timestamp.now();
         DateTime lastActivityDate = lastActivityTimestamp.toDate();
@@ -147,9 +166,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
 
-  // Partner ayrıldığında veya bağlantı koptuğunda çağrılacak fonksiyon
   Future<void> _endChatAndSaveChanges(String message) async {
-    if (_isSaving) return; // Zaten işlem yapılıyorsa tekrar çalıştırma
+    if (_isSaving) return;
     _isSaving = true;
 
     _chatSubscription?.cancel();
@@ -161,9 +179,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // Mevcut kullanıcının ayrılma işlemi
   Future<void> _leaveChat() async {
-    if (_currentUser == null || _isSaving) return;
+    final currentUser = _currentUser;
+    if (currentUser == null || _isSaving) return;
     _isSaving = true;
 
     _heartbeatTimer?.cancel();
@@ -176,7 +194,7 @@ class _ChatScreenState extends State<ChatScreen> {
           .doc(widget.chatRoomId)
           .update({
         'status': 'ended',
-        'leftBy': _currentUser!.uid,
+        'leftBy': currentUser.uid,
       });
     } catch (e) {
       // Hata yönetimi
@@ -241,10 +259,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
         _handleLeaveAttempt();
-        return Future.value(false);
       },
       child: Scaffold(
         appBar: AppBar(
@@ -259,6 +278,9 @@ class _ChatScreenState extends State<ChatScreen> {
               }
               final partnerData = snapshot.data!.data() as Map<String, dynamic>;
               final avatarUrl = partnerData['avatarUrl'] as String?;
+              final isPremium = _isPartnerPremium;
+              const premiumColor = Color(0xFFE5B53A);
+              const premiumIcon = Icons.auto_awesome;
               return Row(
                 children: [
                   CircleAvatar(
@@ -280,8 +302,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   const SizedBox(width: 12),
                   Text(
                     partnerData['displayName'] ?? 'Bilinmeyen Kullanıcı',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: isPremium ? premiumColor : Colors.black87,
+                    ),
                   ),
+                  if (isPremium) ...[
+                    const SizedBox(width: 4),
+                    const Icon(premiumIcon, color: premiumColor, size: 18),
+                  ]
                 ],
               );
             },
@@ -290,11 +320,12 @@ class _ChatScreenState extends State<ChatScreen> {
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'report') {
-                  if (_partnerId != null) {
+                  final partnerId = _partnerId;
+                  if (partnerId != null) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ReportUserScreen(reportedUserId: _partnerId!),
+                        builder: (context) => ReportUserScreen(reportedUserId: partnerId),
                       ),
                     );
                   }
@@ -346,10 +377,12 @@ class _ChatScreenState extends State<ChatScreen> {
                     itemBuilder: (context, index) {
                       final message = chatDocs[index].data() as Map<String, dynamic>;
                       final isMe = message['userId'] == _currentUser?.uid;
+                      final isPremium = isMe ? _isCurrentUserPremium : _isPartnerPremium;
                       return MessageBubble(
                         message: message['text'],
                         timestamp: message['createdAt'],
                         isMe: isMe,
+                        isPremium: isPremium,
                       );
                     },
                   );
@@ -466,8 +499,9 @@ class MessageBubble extends StatelessWidget {
   final String message;
   final Timestamp timestamp;
   final bool isMe;
+  final bool isPremium;
 
-  const MessageBubble({super.key, required this.message, required this.timestamp, required this.isMe});
+  const MessageBubble({super.key, required this.message, required this.timestamp, required this.isMe, this.isPremium = false});
 
   @override
   Widget build(BuildContext context) {
@@ -479,7 +513,16 @@ class MessageBubble extends StatelessWidget {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: isMe ? Colors.teal[400] : Colors.grey[300],
+              gradient: isPremium
+                  ? LinearGradient(
+                colors: isMe
+                    ? [const Color(0xFFE5B53A), const Color(0xFFC08A0A)]
+                    : [Colors.grey.shade300, Colors.grey.shade400],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+                  : null,
+              color: isPremium ? null : (isMe ? Colors.teal[400] : Colors.grey[300]),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),

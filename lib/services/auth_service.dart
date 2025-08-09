@@ -35,7 +35,7 @@ class AuthService {
       // E-posta doğrulama linki gönder
       await userCredential.user?.sendEmailVerification();
 
-      // YENİ: Avatar URL'i oluşturuluyor
+      // Avatar URL'i oluşturuluyor
       final avatarUrl = _generateAvatarUrl(username);
 
       // 2. Kullanıcının ek bilgilerini Firestore veritabanına kaydet.
@@ -52,12 +52,13 @@ class AuthService {
           'createdAt': Timestamp.now(),
           'emailVerified':
           false, // Başlangıçta e-posta doğrulanmamış olarak ayarlanır.
-          'avatarUrl': avatarUrl, // YENİ: Avatar URL'i eklendi
+          'avatarUrl': avatarUrl,
           'partnerCount': 0,
           // İstatistik alanları başlatılıyor
           'streak': 0,
           'totalPracticeTime': 0, // Dakika cinsinden
           'lastActivityDate': Timestamp.now(),
+          'isPremium': false, // Varsayılan olarak premium değil
         });
       }
       return userCredential;

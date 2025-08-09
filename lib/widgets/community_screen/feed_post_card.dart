@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/screens/comment_screen.dart'; // Yorum ekranını import et
+import 'package:lingua_chat/screens/comment_screen.dart';
 import 'package:lingua_chat/screens/report_user_screen.dart';
 
 
@@ -125,18 +125,33 @@ class _FeedPostCardState extends State<FeedPostCard> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.post.userName,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(_timeAgo(widget.post.timestamp),
-                        style: TextStyle(
-                            color: Colors.grey.shade600, fontSize: 12)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(widget.post.userName,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: widget.post.isUserPremium ? const Color(0xFFE5B53A) : Colors.black87),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if(widget.post.isUserPremium) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.auto_awesome, color: Color(0xFFE5B53A), size: 16),
+                          ]
+                        ],
+                      ),
+                      Text(_timeAgo(widget.post.timestamp),
+                          style: TextStyle(
+                              color: Colors.grey.shade600, fontSize: 12)),
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 PopupMenuButton<String>(
                   onSelected: (value) {
                     if (value == 'delete') {
@@ -205,7 +220,6 @@ class _FeedPostCardState extends State<FeedPostCard> {
                   icon: Icons.chat_bubble_outline_rounded,
                   text: '${widget.post.commentCount} Yorum',
                   onTap: () {
-                    // Yorum ekranına yönlendirme
                     Navigator.push(
                       context,
                       MaterialPageRoute(
