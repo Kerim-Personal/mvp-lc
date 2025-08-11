@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/edit_profile_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
+import 'package:lingua_chat/widgets/profile_screen/delete_account_dialog.dart'; // <-- YENİ: Bu satırı ekleyin
 
 class AccountManagementCard extends StatelessWidget {
   final DateTime? memberSince;
@@ -54,7 +55,15 @@ class AccountManagementCard extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
             title: const Text('Hesabı Sil', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
-            onTap: () {},
+            onTap: () {
+              // YENİ: Onay diyaloğunu göster
+              showDialog(
+                context: context,
+                builder: (BuildContext dialogContext) {
+                  return const DeleteAccountDialog();
+                },
+              );
+            },
           ),
         ],
       ),

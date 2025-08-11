@@ -1,6 +1,7 @@
 // lib/screens/root_screen.dart
 
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart'; // <-- YENİ: Firestore'u import edin
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
@@ -9,6 +10,33 @@ import 'package:lingua_chat/screens/profile_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
 import 'package:lingua_chat/screens/discover_screen.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
+
+// YENİ: Sohbet odalarını oluşturan fonksiyonu buraya taşıdık.
+Future<void> _createDefaultChatRooms() async {
+  final chatRoomsCollection = FirebaseFirestore.instance.collection('group_chats');
+  final snapshot = await chatRoomsCollection.limit(1).get();
+
+  if (snapshot.docs.isEmpty) {
+    final batch = FirebaseFirestore.instance.batch();
+    final defaultRooms = [
+      {
+        "name": "Müzik Kutusu",
+        "description": "Farklı türlerden müzikler keşfedin ve favori sanatçılarınızı paylaşın.",
+        "iconName": "music_note_outlined",
+        "color1": "0xFFF06292",
+        "color2": "0xFFE57373",
+        "isFeatured": true
+      },
+      // ... (Diğer odalarınız buraya eklenebilir)
+    ];
+
+    for (var roomData in defaultRooms) {
+      final docRef = chatRoomsCollection.doc();
+      batch.set(docRef, roomData);
+    }
+    await batch.commit();
+  }
+}
 
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
@@ -35,6 +63,9 @@ class _RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
         curve: Curves.easeOut,
       ),
     );
+
+    // GÜNCELLENDİ: Fonksiyonu burada, güvenli bir şekilde çağırıyoruz.
+    _createDefaultChatRooms();
   }
 
   @override

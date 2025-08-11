@@ -115,9 +115,13 @@ class _CommunityScreenState extends State<CommunityScreen>
     _roomsFuture = _fetchRoomsData();
   }
 
+  // lib/screens/community_screen.dart içinde
+
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
+    // YENİ EKLENEN FİLTRE: Durumu "deleted" OLMAYAN kullanıcıları getir.
+        .where('status', isNotEqualTo: 'deleted')
         .orderBy(_leaderboardPeriod, descending: true)
         .limit(20)
         .get();
@@ -131,7 +135,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         name: data['displayName'] ?? 'Bilinmeyen',
         avatarUrl: data['avatarUrl'] ?? '',
         partnerCount: data['partnerCount'] ?? 0,
-        isPremium: data['isPremium'] ?? false, // YENİ
+        isPremium: data['isPremium'] ?? false,
       );
     }).toList();
   }
