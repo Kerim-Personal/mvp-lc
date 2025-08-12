@@ -1,7 +1,7 @@
 // lib/widgets/home_screen/weekly_quiz_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/weekly_quiz_screen.dart';
+import 'package:lingua_chat/screens/saturday_quiz_screen.dart'; // YENİ: Yarışma ekranını import et
 
 class WeeklyQuizCard extends StatelessWidget {
   const WeeklyQuizCard({super.key});
@@ -10,9 +10,10 @@ class WeeklyQuizCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
+        // GÜNCELLEME: Artık yeni yarışma ekranına yönlendiriyor
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const WeeklyQuizScreen()),
+          MaterialPageRoute(builder: (context) => const SaturdayQuizScreen()),
         );
       },
       borderRadius: BorderRadius.circular(20),
@@ -52,8 +53,6 @@ class WeeklyQuizCard extends StatelessWidget {
                     "Premium ödüllü online bilgi yarışmasına katıl!",
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    // ÇÖZÜLDÜ: 'withOpacity' uyarısını gidermek için 'withAlpha' kullanıldı.
-                    // (255 * 0.9 ~= 230)
                     style: TextStyle(color: Colors.white.withAlpha(230), fontSize: 14),
                   ),
                 ],
