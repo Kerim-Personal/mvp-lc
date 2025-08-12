@@ -17,7 +17,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final _currentUser = FirebaseAuth.instance.currentUser;
   final ScrollController _scrollController = ScrollController();
 
@@ -31,11 +31,28 @@ class _ChatScreenState extends State<ChatScreen> {
   late DateTime _chatStartTime;
   bool _isSaving = false;
 
+  late AnimationController _shimmerController;
+
   @override
   void initState() {
     super.initState();
     _chatStartTime = DateTime.now();
     _setupPartnerInfoAndStartHeartbeat();
+
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+
+    _shimmerController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Timer(const Duration(seconds: 1), () {
+          if (mounted) {
+            _shimmerController.forward(from: 0.0);
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -43,6 +60,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.dispose();
     _chatSubscription?.cancel();
     _heartbeatTimer?.cancel();
+    _shimmerController.dispose();
     super.dispose();
   }
 
@@ -68,11 +86,15 @@ class _ChatScreenState extends State<ChatScreen> {
         final currentUserData = results[1].data();
 
         if (mounted) {
+          final isPremium = (partnerData?['isPremium'] as bool?) ?? false;
           setState(() {
             _partnerFuture = Future.value(results[0]);
-            _isPartnerPremium = (partnerData?['isPremium'] as bool?) ?? false;
+            _isPartnerPremium = isPremium;
             _isCurrentUserPremium = (currentUserData?['isPremium'] as bool?) ?? false;
           });
+          if (isPremium) {
+            _shimmerController.forward();
+          }
         }
 
         _listenToChatChanges();
@@ -82,6 +104,8 @@ class _ChatScreenState extends State<ChatScreen> {
       // Hata yönetimi
     }
   }
+
+  // ... (geri kalan _startHeartbeat, _listenToChatChanges, _savePracticeTime, _endChatAndSaveChanges, _leaveChat, _showPartnerLeftDialog, _handleLeaveAttempt fonksiyonları aynı kalır)
 
   void _startHeartbeat() {
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
@@ -278,7 +302,7 @@ class _ChatScreenState extends State<ChatScreen> {
               }
               final partnerData = snapshot.data!.data() as Map<String, dynamic>;
               final avatarUrl = partnerData['avatarUrl'] as String?;
-              final isPremium = _isPartnerPremium;
+              final partnerName = partnerData['displayName'] ?? 'Bilinmeyen Kullanıcı';
               const premiumColor = Color(0xFFE5B53A);
               const premiumIcon = Icons.auto_awesome;
               return Row(
@@ -300,15 +324,45 @@ class _ChatScreenState extends State<ChatScreen> {
                         : const Icon(Icons.person, color: Colors.teal),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    partnerData['displayName'] ?? 'Bilinmeyen Kullanıcı',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: isPremium ? premiumColor : Colors.black87,
+                  Flexible(
+                    child: _isPartnerPremium
+                        ? AnimatedBuilder(
+                      animation: _shimmerController,
+                      builder: (context, child) {
+                        final highlightColor = Colors.white;
+                        final value = _shimmerController.value;
+                        final start = value * 1.5 - 0.5;
+                        final end = value * 1.5;
+                        return ShaderMask(
+                          blendMode: BlendMode.srcIn,
+                          shaderCallback: (bounds) => LinearGradient(
+                            colors: [premiumColor, highlightColor, premiumColor],
+                            stops: [start, (start + end) / 2, end],
+                          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                          child: child,
+                        );
+                      },
+                      child: Text(
+                        partnerName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: premiumColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                        : Text(
+                      partnerName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.black87,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (isPremium) ...[
+                  if (_isPartnerPremium) ...[
                     const SizedBox(width: 4),
                     const Icon(premiumIcon, color: premiumColor, size: 18),
                   ]
@@ -400,6 +454,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
+// ... (_MessageComposer ve MessageBubble widget'ları aynı kalır)
 class _MessageComposer extends StatefulWidget {
   final String chatRoomId;
   final User? currentUser;

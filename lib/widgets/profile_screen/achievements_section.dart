@@ -38,7 +38,6 @@ class _AchievementBadge extends StatelessWidget {
     required this.earned,
   });
 
-  // ÇÖZÜLDÜ: 'build' metodu için eksik olan '@override' anotasyonu eklendi.
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -50,15 +49,8 @@ class _AchievementBadge extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              boxShadow: earned ? [
-                BoxShadow(
-                  // ÇÖZÜLDÜ: Analiz aracının uyarısını gidermek için 'withOpacity' yerine 'withAlpha' kullanıldı.
-                  // 153 değeri, ~%60 opaklığa denk gelir (255 * 0.6).
-                  color: color.withAlpha(153),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                )
-              ] : [],
+              // YENİ: Gölge yerine daha performanslı olan çerçeve eklendi.
+              border: earned ? Border.all(color: color.withOpacity(0.5), width: 2) : null,
             ),
             child: CircleAvatar(
               radius: 30,

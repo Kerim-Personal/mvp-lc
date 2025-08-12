@@ -1,4 +1,5 @@
 // lib/widgets/community_screen/feed_post_card.dart
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -17,16 +18,41 @@ class FeedPostCard extends StatefulWidget {
   State<FeedPostCard> createState() => _FeedPostCardState();
 }
 
-class _FeedPostCardState extends State<FeedPostCard> {
+class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMixin {
   final currentUser = FirebaseAuth.instance.currentUser;
   late bool isLiked;
   late int likeCount;
+  late AnimationController _shimmerController;
 
   @override
   void initState() {
     super.initState();
     isLiked = widget.post.likes.contains(currentUser?.uid);
     likeCount = widget.post.likes.length;
+
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+
+    if (widget.post.isUserPremium) {
+      _shimmerController.addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          Timer(const Duration(seconds: 1), () {
+            if (mounted) {
+              _shimmerController.forward(from: 0.0);
+            }
+          });
+        }
+      });
+      _shimmerController.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
   }
 
   Future<void> _toggleLike() async {
@@ -98,6 +124,8 @@ class _FeedPostCardState extends State<FeedPostCard> {
   @override
   Widget build(BuildContext context) {
     final isAuthor = currentUser?.uid == widget.post.userId;
+    const premiumColor = Color(0xFFE5B53A);
+    const premiumIcon = Icons.auto_awesome;
 
     return Card(
       elevation: 2,
@@ -132,17 +160,42 @@ class _FeedPostCardState extends State<FeedPostCard> {
                       Row(
                         children: [
                           Flexible(
-                            child: Text(widget.post.userName,
-                              style: TextStyle(
+                            child: widget.post.isUserPremium
+                                ? AnimatedBuilder(
+                              animation: _shimmerController,
+                              builder: (context, child) {
+                                final highlightColor = Colors.white;
+                                final value = _shimmerController.value;
+                                final start = value * 1.5 - 0.5;
+                                final end = value * 1.5;
+                                return ShaderMask(
+                                  blendMode: BlendMode.srcIn,
+                                  shaderCallback: (bounds) => LinearGradient(
+                                    colors: [premiumColor, highlightColor, premiumColor],
+                                    stops: [start, (start + end) / 2, end],
+                                  ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                                  child: child,
+                                );
+                              },
+                              child: Text(widget.post.userName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: premiumColor),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            )
+                                : Text(widget.post.userName,
+                              style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: widget.post.isUserPremium ? const Color(0xFFE5B53A) : Colors.black87),
+                                  color: Colors.black87),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if(widget.post.isUserPremium) ...[
                             const SizedBox(width: 4),
-                            const Icon(Icons.auto_awesome, color: Color(0xFFE5B53A), size: 16),
+                            const Icon(premiumIcon, color: premiumColor, size: 16),
                           ]
                         ],
                       ),
