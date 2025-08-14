@@ -13,14 +13,14 @@ class LeaderboardUser {
   final String avatarUrl;
   final int rank;
   final int partnerCount;
-  final bool isPremium; // YENİ
+  final bool isPremium;
 
   LeaderboardUser({
     required this.name,
     required this.avatarUrl,
     required this.rank,
     required this.partnerCount,
-    this.isPremium = false, // YENİ
+    this.isPremium = false,
   });
 }
 
@@ -33,7 +33,8 @@ class FeedPost {
   final Timestamp timestamp;
   final List<String> likes;
   final int commentCount;
-  final bool isUserPremium; // YENİ
+  // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
+  // final bool isUserPremium;
 
   FeedPost({
     required this.id,
@@ -44,7 +45,8 @@ class FeedPost {
     required this.timestamp,
     required this.likes,
     this.commentCount = 0,
-    this.isUserPremium = false, // YENİ
+    // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
+    // this.isUserPremium = false,
   });
 
   factory FeedPost.fromFirestore(DocumentSnapshot doc) {
@@ -62,7 +64,8 @@ class FeedPost {
       timestamp: data['timestamp'] ?? Timestamp.now(),
       likes: likes,
       commentCount: data['commentCount'] ?? 0,
-      isUserPremium: data['isUserPremium'] ?? false, // YENİ
+      // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
+      // isUserPremium: data['isUserPremium'] ?? false,
     );
   }
 }
@@ -115,12 +118,9 @@ class _CommunityScreenState extends State<CommunityScreen>
     _roomsFuture = _fetchRoomsData();
   }
 
-  // lib/screens/community_screen.dart içinde
-
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
-    // YENİ EKLENEN FİLTRE: Durumu "deleted" OLMAYAN kullanıcıları getir.
         .where('status', isNotEqualTo: 'deleted')
         .orderBy(_leaderboardPeriod, descending: true)
         .limit(20)
@@ -228,7 +228,8 @@ class _CommunityScreenState extends State<CommunityScreen>
                     'timestamp': FieldValue.serverTimestamp(),
                     'likes': [],
                     'commentCount': 0,
-                    'isUserPremium': userData?['isPremium'] ?? false, // YENİ
+                    // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
+                    // 'isUserPremium': userData?['isPremium'] ?? false,
                   });
 
                   Navigator.pop(context);

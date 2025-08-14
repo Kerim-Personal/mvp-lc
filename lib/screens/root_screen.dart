@@ -1,7 +1,6 @@
 // lib/screens/root_screen.dart
 
-import 'dart:ui';
-import 'package:cloud_firestore/cloud_firestore.dart'; // <-- YENİ: Firestore'u import edin
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
@@ -10,8 +9,8 @@ import 'package:lingua_chat/screens/profile_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
 import 'package:lingua_chat/screens/discover_screen.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
+import 'package:lingua_chat/widgets/shared/animated_background.dart';
 
-// YENİ: Sohbet odalarını oluşturan fonksiyonu buraya taşıdık.
 Future<void> _createDefaultChatRooms() async {
   final chatRoomsCollection = FirebaseFirestore.instance.collection('group_chats');
   final snapshot = await chatRoomsCollection.limit(1).get();
@@ -27,7 +26,6 @@ Future<void> _createDefaultChatRooms() async {
         "color2": "0xFFE57373",
         "isFeatured": true
       },
-      // ... (Diğer odalarınız buraya eklenebilir)
     ];
 
     for (var roomData in defaultRooms) {
@@ -41,11 +39,13 @@ Future<void> _createDefaultChatRooms() async {
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
+  // DEĞİŞİKLİK: State sınıfının adını dışarıya açtık (public yaptık).
   @override
-  State<RootScreen> createState() => _RootScreenState();
+  RootScreenState createState() => RootScreenState();
 }
 
-class _RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
+// DEĞİŞİKLİK: State sınıfının adı '_' olmadan (public) olarak değiştirildi.
+class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -64,7 +64,6 @@ class _RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       ),
     );
 
-    // GÜNCELLENDİ: Fonksiyonu burada, güvenli bir şekilde çağırıyoruz.
     _createDefaultChatRooms();
   }
 
@@ -74,32 +73,18 @@ class _RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // YENİ: Dışarıdan sekme değiştirmeyi sağlayacak metot.
+  void changeTab(int index) {
+    if (index >= 0 && index < 5) { // Olası hataları önlemek için kontrol
+      _onItemTapped(index);
+    }
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
     _animationController.forward().then((value) => _animationController.reverse());
-  }
-
-  Widget _buildAnimatedBackground() {
-    return Stack(
-      children: [
-        Positioned(
-          top: -100,
-          right: -150,
-          child: CircleAvatar(radius: 220, backgroundColor: const Color.fromARGB(77, 156, 39, 176)),
-        ),
-        Positioned(
-          bottom: -180,
-          left: -150,
-          child: CircleAvatar(radius: 250, backgroundColor: const Color.fromARGB(77, 0, 188, 212)),
-        ),
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
-          child: Container(color: Colors.transparent),
-        ),
-      ],
-    );
   }
 
   @override
@@ -134,7 +119,7 @@ class _RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          _buildAnimatedBackground(),
+          const AnimatedBackground(),
           IndexedStack(
             index: _selectedIndex,
             children: pages,

@@ -7,14 +7,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
-import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
 import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
-import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
-import 'package:lingua_chat/widgets/home_screen/weekly_quiz_card.dart';
-import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
+import 'package:lingua_chat/widgets/home_screen/premium_upsell_dialog.dart';
+import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
+import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,14 +31,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String? _selectedGenderFilter;
   String? _selectedLevelGroupFilter;
   bool _isProUser = false;
-  bool _isPartnerButtonHeldDown = false;
 
   late AnimationController _entryAnimationController;
   late AnimationController _pulseAnimationController;
   late AnimationController _searchAnimationController;
   late PageController _pageController;
   double _pageOffset = 0;
-  Timer? _cardScrollTimer; // Kartların kayması için zamanlayıcı
+  Timer? _cardScrollTimer;
 
   @override
   void initState() {
@@ -62,22 +60,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       });
 
     _setupAnimations();
-    _startCardScrollTimer(); // Zamanlayıcıyı başlat
+    _startCardScrollTimer();
     _entryAnimationController.forward();
   }
 
-  // Kartların otomatik kaymasını sağlayan zamanlayıcı
   void _startCardScrollTimer() {
     _cardScrollTimer = Timer.periodic(const Duration(seconds: 7), (timer) {
-      if (_isSearching || !mounted) return; // Partner aranıyorsa veya sayfa aktif değilse işlem yapma
-
-      final int pageCount = 4; // Toplam kart sayısı
+      if (_isSearching || !mounted) return;
+      final int pageCount = 4;
       int nextPage = _pageController.page!.round() + 1;
-
       if (nextPage >= pageCount) {
         nextPage = 0;
       }
-
       _pageController.animateToPage(
         nextPage,
         duration: const Duration(milliseconds: 800),
@@ -100,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _matchListener?.cancel();
-    _cardScrollTimer?.cancel(); // Zamanlayıcıyı iptal et
+    _cardScrollTimer?.cancel();
     _entryAnimationController.dispose();
     _pulseAnimationController.dispose();
     _searchAnimationController.dispose();
@@ -116,7 +110,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final userData = userDoc.data() as Map<String, dynamic>;
     final userLevel = userData['level'] as String? ?? 'A1';
     final userGender = userData['gender'] as String? ?? 'Male';
-
     String levelGroup;
     if (['A1', 'A2'].contains(userLevel)) {
       levelGroup = 'Başlangıç';
@@ -125,7 +118,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } else {
       levelGroup = 'İleri';
     }
-
     await FirebaseFirestore.instance.collection('waiting_pool').doc(myId).set({
       'userId': myId,
       'waitingSince': FieldValue.serverTimestamp(),
@@ -178,7 +170,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       } else {
         myLevelGroup = 'İleri';
       }
-
       Query query = FirebaseFirestore.instance.collection('waiting_pool');
       if (_selectedGenderFilter != null && _selectedLevelGroupFilter != null) {
         query = query.where('gender_level_group',
@@ -199,7 +190,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
       }
       query = query.orderBy('waitingSince');
-
       final potentialMatches = await query.get();
       final otherUserDocs =
       potentialMatches.docs.where((doc) => doc.id != myId).toList();
@@ -208,24 +198,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final otherUserData = otherUserDoc.data() as Map<String, dynamic>;
         final otherUserFilterGender = otherUserData['filter_gender'];
         final otherUserFilterLevelGroup = otherUserData['filter_level_group'];
-
         final isMyGenderOk =
             otherUserFilterGender == null || otherUserFilterGender == myGender;
         final isMyLevelGroupOk = otherUserFilterLevelGroup == null ||
             otherUserFilterLevelGroup == myLevelGroup;
-
         if (isMyGenderOk && isMyLevelGroupOk) {
           final chatRoomRef =
           FirebaseFirestore.instance.collection('chats').doc();
           final partnerRef =
           FirebaseFirestore.instance.collection('users').doc(otherUserDoc.id);
           final myRef = FirebaseFirestore.instance.collection('users').doc(myId);
-
           await FirebaseFirestore.instance.runTransaction((transaction) async {
             final freshOtherUserDoc =
             await transaction.get(otherUserDoc.reference);
             if (!freshOtherUserDoc.exists) return;
-
             transaction.set(chatRoomRef, {
               'users': [myId, otherUserDoc.id],
               'createdAt': FieldValue.serverTimestamp(),
@@ -239,12 +225,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             transaction
                 .update(partnerRef, {'partnerCount': FieldValue.increment(1)});
           });
-
           _navigateToChat(chatRoomRef.id);
           return;
         }
       }
-
       await _addUserToWaitingPool();
     } catch (e) {
       if (mounted) {
@@ -283,38 +267,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _showGenderFilter() {
-    if (!_isProUser) {
-      showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
-            title: const Text('Premium Özellik'),
-            content: const Text(
-                'Cinsiyete göre partner arama özelliği Lingua Pro üyelerine özeldir.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Kapat')),
-              ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8))),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const StoreScreen()));
-                  },
-                  child: const Text('Pro\'ya Geç')),
-            ],
-          ));
-      return;
-    }
-
     showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
@@ -326,9 +278,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         displayLabels: const {'Male': 'Erkek', 'Female': 'Kadın'},
       ),
     ).then((selectedValue) {
-      if (mounted) {
+      if (!mounted) return;
+      if (selectedValue != null) {
+        if (_isProUser) {
+          setState(() {
+            _selectedGenderFilter = selectedValue;
+          });
+        } else {
+          showDialog(
+            context: context,
+            builder: (context) => const PremiumUpsellDialog(),
+          );
+        }
+      } else {
         setState(() {
-          _selectedGenderFilter = selectedValue;
+          _selectedGenderFilter = null;
         });
       }
     });
@@ -345,38 +309,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         selectedOption: _selectedLevelGroupFilter,
       ),
     ).then((selectedValue) {
-      if (mounted) {
+      if (!mounted) return;
+      if (selectedValue != null) {
+        if (_isProUser) {
+          setState(() {
+            _selectedLevelGroupFilter = selectedValue;
+          });
+        } else {
+          showDialog(
+            context: context,
+            builder: (context) => const PremiumUpsellDialog(),
+          );
+        }
+      } else {
         setState(() {
-          _selectedLevelGroupFilter = selectedValue;
+          _selectedLevelGroupFilter = null;
         });
       }
     });
-  }
-
-  Widget _buildStatsSection() {
-    if (_currentUser == null) {
-      return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
-    }
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _userStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data?.data() == null) {
-          return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
-        }
-
-        var userData = snapshot.data!.data() as Map<String, dynamic>;
-
-        final int streak = userData['streak'] ?? 0;
-        final int totalTime = userData['totalPracticeTime'] ?? 0;
-        final int partnerCount = userData['partnerCount'] ?? 0;
-
-        return StatsRow(
-          streak: streak,
-          totalTime: totalTime,
-          partnerCount: partnerCount,
-        );
-      },
-    );
   }
 
   @override
@@ -426,12 +376,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               const SizedBox(height: 24),
               _buildAnimatedUI(
                 interval: const Interval(0.6, 1.0),
-                child: _buildPartnerFinderSection(),
+                child: PartnerFinderSection(
+                  onFindPartner: _findPracticePartner,
+                  onShowGenderFilter: _showGenderFilter,
+                  onShowLevelFilter: _showLevelGroupFilter,
+                  selectedGenderFilter: _selectedGenderFilter,
+                  selectedLevelGroupFilter: _selectedLevelGroupFilter,
+                  pulseAnimationController: _pulseAnimationController,
+                ),
               ),
               const SizedBox(height: 24),
-              _buildHorizontallyScrollableCards(),
-              const SizedBox(height: 4),
-              _buildPageIndicator(),
+              HomeCardsSection(
+                pageController: _pageController,
+                pageOffset: _pageOffset,
+              ),
               const SizedBox(height: 24),
             ],
           ),
@@ -485,24 +443,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildPageIndicator() {
-    const int pageCount = 4;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(pageCount, (index) {
-        bool isActive = (_pageOffset.round() == index);
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          margin: const EdgeInsets.symmetric(horizontal: 4.0),
-          height: isActive ? 10.0 : 8.0,
-          width: isActive ? 10.0 : 8.0,
-          decoration: BoxDecoration(
-            color: isActive ? Colors.teal : Colors.grey.shade400,
-            borderRadius: BorderRadius.circular(5.0),
-          ),
+  Widget _buildStatsSection() {
+    if (_currentUser == null) {
+      return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
+    }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _userStream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data?.data() == null) {
+          return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
+        }
+
+        var userData = snapshot.data!.data() as Map<String, dynamic>;
+
+        final int streak = userData['streak'] ?? 0;
+        final int totalTime = userData['totalPracticeTime'] ?? 0;
+        final int partnerCount = userData['partnerCount'] ?? 0;
+
+        return StatsRow(
+          streak: streak,
+          totalTime: totalTime,
+          partnerCount: partnerCount,
         );
-      }),
+      },
     );
   }
 
@@ -514,178 +477,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         curve: interval,
       ),
       child: child,
-    );
-  }
-
-  Widget _buildHorizontallyScrollableCards() {
-    return SizedBox(
-      height: 150,
-      child: PageView(
-        controller: _pageController,
-        children: [
-          _buildCardPageItem(
-            index: 0,
-            child: const ChallengeCard(),
-          ),
-          _buildCardPageItem(
-            index: 1,
-            child: const WeeklyQuizCard(),
-          ),
-          _buildCardPageItem(
-            index: 2,
-            child: const LevelAssessmentCard(),
-          ),
-          _buildCardPageItem(
-            index: 3,
-            child: const VocabularyTreasureCard(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardPageItem({required int index, required Widget child}) {
-    Matrix4 matrix = Matrix4.identity();
-    double scale;
-    double gauss = 1 - (_pageOffset - index).abs();
-
-    scale = lerpDouble(0.8, 1.0, gauss) ?? 0.8;
-    matrix.setEntry(3, 2, 0.001);
-    matrix.rotateY((_pageOffset - index) * -0.5);
-
-    return Transform(
-      transform: matrix,
-      alignment: Alignment.center,
-      child: Transform.scale(
-        scale: scale,
-        child: child,
-      ),
-    );
-  }
-
-  Widget _buildPartnerFinderSection() {
-    return Column(
-      children: [
-        GestureDetector(
-          onTapDown: (_) => setState(() => _isPartnerButtonHeldDown = true),
-          onTapUp: (_) {
-            setState(() => _isPartnerButtonHeldDown = false);
-            _findPracticePartner();
-          },
-          onTapCancel: () => setState(() => _isPartnerButtonHeldDown = false),
-          child: Hero(
-            tag: 'find-partner-hero',
-            child: AnimatedBuilder(
-              animation: _pulseAnimationController,
-              builder: (context, child) {
-                final scale = _isPartnerButtonHeldDown
-                    ? 0.95
-                    : 1.0 - (_pulseAnimationController.value * 0.05);
-                return Transform.scale(
-                    scale: scale, child: child ?? const SizedBox());
-              },
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                        colors: [Colors.teal, Colors.cyan],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight),
-                    boxShadow: [
-                      BoxShadow(
-                          color: const Color.fromARGB(102, 0, 150, 136),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                          offset: const Offset(0, 15))
-                    ]),
-                child: const Material(
-                  color: Colors.transparent,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.language_sharp,
-                          color: Colors.white, size: 70),
-                      SizedBox(height: 8),
-                      Text('Partner Bul',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildFilterButton(
-              icon: Icons.wc,
-              label: 'Cinsiyet',
-              onTap: _showGenderFilter,
-              value: _selectedGenderFilter == 'Male'
-                  ? 'Erkek'
-                  : _selectedGenderFilter == 'Female'
-                  ? 'Kadın'
-                  : null,
-            ),
-            const SizedBox(width: 20),
-            _buildFilterButton(
-              icon: Icons.bar_chart_rounded,
-              label: 'Seviye',
-              onTap: _showLevelGroupFilter,
-              value: _selectedLevelGroupFilter,
-            ),
-          ],
-        )
-      ],
-    );
-  }
-
-  Widget _buildFilterButton(
-      {required IconData icon,
-        required String label,
-        required VoidCallback onTap,
-        String? value}) {
-    final bool isActive = value != null;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(25),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.teal.withAlpha(26) : Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border:
-          Border.all(color: isActive ? Colors.teal : Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: const Color.fromARGB(20, 0, 0, 0),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.teal, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              isActive ? '$label: $value' : label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.teal.shade800 : Colors.black54,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

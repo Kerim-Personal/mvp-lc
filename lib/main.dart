@@ -12,14 +12,15 @@ import 'package:lingua_chat/services/audio_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lingua_chat/l10n/app_localizations.dart';
 
+// YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
+final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // ARTIK BURADA DEĞİL: await _createDefaultChatRooms(); satırı silindi.
 
   await AudioService.instance.init();
 
@@ -35,8 +36,6 @@ void main() async {
   runApp(const MyApp());
 }
 
-// ARTIK BURADA DEĞİL: _createDefaultChatRooms fonksiyonu buradan silindi.
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -50,7 +49,7 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
       ),
-      localizationsDelegates: [
+      localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -81,7 +80,8 @@ class AuthWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          return const RootScreen();
+          // DEĞİŞİKLİK: RootScreen'e oluşturduğumuz anahtar atandı.
+          return RootScreen(key: rootScreenKey);
         }
         return const LoginScreen();
       },

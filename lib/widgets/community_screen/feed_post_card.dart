@@ -23,30 +23,31 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
   late bool isLiked;
   late int likeCount;
   late AnimationController _shimmerController;
+  // YENİ: Kullanıcının premium durumunu tutacak state
+  bool _isUserPremium = false;
 
   @override
   void initState() {
     super.initState();
     isLiked = widget.post.likes.contains(currentUser?.uid);
     likeCount = widget.post.likes.length;
+    // YENİ: Widget oluşturulduğunda kullanıcının premium durumunu anlık olarak çek.
+    _fetchUserPremiumStatus();
 
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     );
 
-    if (widget.post.isUserPremium) {
-      _shimmerController.addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          Timer(const Duration(seconds: 1), () {
-            if (mounted) {
-              _shimmerController.forward(from: 0.0);
-            }
-          });
-        }
-      });
-      _shimmerController.forward();
-    }
+    _shimmerController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Timer(const Duration(seconds: 1), () {
+          if (mounted) {
+            _shimmerController.forward(from: 0.0);
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -54,6 +55,30 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
     _shimmerController.dispose();
     super.dispose();
   }
+
+  // YENİ: Kullanıcının anlık premium durumunu Firestore'dan çeken fonksiyon.
+  Future<void> _fetchUserPremiumStatus() async {
+    if (widget.post.userId.isEmpty) return;
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.post.userId)
+          .get();
+      if (userDoc.exists && mounted) {
+        setState(() {
+          _isUserPremium = userDoc.data()?['isPremium'] ?? false;
+        });
+        // Eğer premium ise animasyonu başlat
+        if (_isUserPremium) {
+          _shimmerController.forward();
+        }
+      }
+    } catch (e) {
+      // Hata yönetimi (isteğe bağlı)
+      print("Premium durumu çekilirken hata: $e");
+    }
+  }
+
 
   Future<void> _toggleLike() async {
     if (currentUser == null) return;
@@ -160,7 +185,8 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                       Row(
                         children: [
                           Flexible(
-                            child: widget.post.isUserPremium
+                            // DEĞİŞİKLİK: 'widget.post.isUserPremium' yerine state'deki '_isUserPremium' kullanıldı.
+                            child: _isUserPremium
                                 ? AnimatedBuilder(
                               animation: _shimmerController,
                               builder: (context, child) {
@@ -193,7 +219,8 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if(widget.post.isUserPremium) ...[
+                          // DEĞİŞİKLİK: 'widget.post.isUserPremium' yerine state'deki '_isUserPremium' kullanıldı.
+                          if(_isUserPremium) ...[
                             const SizedBox(width: 4),
                             const Icon(premiumIcon, color: premiumColor, size: 16),
                           ]

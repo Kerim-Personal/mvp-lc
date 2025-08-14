@@ -1,6 +1,7 @@
 // lib/screens/store_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:lingua_chat/widgets/shared/animated_background.dart'; // <-- YENİ İMPORT
 import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
 
 class StoreScreen extends StatefulWidget {
@@ -42,6 +43,31 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    // DEĞİŞİKLİK: Sayfanın direkt mi yoksa RootScreen içinden mi açıldığını kontrol et
+    final bool isPushedAsSeparatePage = Navigator.of(context).canPop();
+
+    // Eğer sayfa direkt açıldıysa, kendi arkaplanını ve AppBar'ını oluştur.
+    if (isPushedAsSeparatePage) {
+      return Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: Stack(
+          children: [
+            const AnimatedBackground(),
+            _buildStoreContent(),
+          ],
+        ),
+      );
+    }
+
+    // Eğer RootScreen içindeyse, şeffaf kalmaya devam et.
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: _buildStoreContent(),
@@ -85,10 +111,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     ),
                   ),
                 ),
-                const SizedBox(height: 12), // Boşluk biraz artırıldı
+                const SizedBox(height: 12),
                 FadeTransition(
                   opacity: _fadeAnimation,
-                  // YENİ: Alt başlık, estetik görünmesi için güncellendi.
                   child: Text(
                     'Tüm premium özelliklere erişerek\npotansiyelini açığa çıkar.',
                     textAlign: TextAlign.center,
@@ -96,7 +121,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                       fontSize: 15.5,
                       color: Colors.black.withOpacity(0.7),
                       fontWeight: FontWeight.w400,
-                      height: 1.4, // Satırlar arası boşluk eklendi
+                      height: 1.4,
                     ),
                   ),
                 ),

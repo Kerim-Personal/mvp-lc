@@ -26,7 +26,6 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
   late final AnimationController _shimmerController;
   late final AnimationController _pulseController;
 
-  // İpucu zamanlayıcısı için
   Timer? _tipTimer;
   String _currentTip = "";
   final List<String> _tips = const [
@@ -51,7 +50,6 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
       vsync: this,
     )..repeat(reverse: true);
 
-    // Başlangıçta rastgele bir ipucu ata
     _currentTip = _tips[Random().nextInt(_tips.length)];
   }
 
@@ -67,12 +65,10 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
   }
 
   void _startTimers() {
-    // İpucu değiştirme sayacını başlat
     _tipTimer?.cancel();
     _tipTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (mounted) {
         setState(() {
-          // Mevcut ipucundan farklı yeni bir ipucu seç
           String newTip = _currentTip;
           while (newTip == _currentTip) {
             newTip = _tips[Random().nextInt(_tips.length)];
@@ -112,33 +108,31 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Spacer(flex: 3),
-              Hero(
-                tag: 'find-partner-hero',
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    RotationTransition(
-                      turns: widget.searchAnimationController,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: SweepGradient(
-                            center: Alignment.center,
-                            colors: [Colors.transparent, Colors.cyan],
-                            stops: [0.7, 1.0],
-                          ),
+              // HATA ÇÖZÜMÜ: Buradaki Hero widget'ı kaldırıldı.
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  RotationTransition(
+                    turns: widget.searchAnimationController,
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: SweepGradient(
+                          center: Alignment.center,
+                          colors: [Colors.transparent, Colors.cyan],
+                          stops: [0.7, 1.0],
                         ),
                       ),
                     ),
-                    const Material(
-                      color: Colors.transparent,
-                      child: Icon(Icons.person_search_rounded,
-                          color: Colors.teal, size: 60),
-                    ),
-                  ],
-                ),
+                  ),
+                  const Material(
+                    color: Colors.transparent,
+                    child: Icon(Icons.person_search_rounded,
+                        color: Colors.teal, size: 60),
+                  ),
+                ],
               ),
               const SizedBox(height: 40),
               const Text('Partner Aranıyor...',
