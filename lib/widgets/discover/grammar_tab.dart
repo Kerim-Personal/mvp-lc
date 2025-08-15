@@ -1,29 +1,46 @@
 // lib/widgets/discover/grammar_tab.dart
 
+import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/data/lesson_data.dart'; // YENİ: Ders verileri buradan import edildi.
-import 'package:lingua_chat/models/lesson_model.dart'; // YENİ: Lesson modeli buradan import edildi.
+import 'package:lingua_chat/data/lesson_data.dart';
+import 'package:lingua_chat/models/lesson_model.dart';
 import 'package:lingua_chat/navigation/lesson_router.dart';
 
-
-// --- GRAMER SEKMESİ ANA WIDGET'I (YENİDEN TASARLANDI) ---
-class GrammarTab extends StatelessWidget {
+// --- GRAMER SEKMESİ ANA WIDGET'I ---
+class GrammarTab extends StatefulWidget {
   GrammarTab({super.key});
 
-  // Örnek kullanıcı ilerlemesi. Bu veriyi Firestore'dan veya başka bir state management çözümüyle yönetmelisiniz.
+  @override
+  State<GrammarTab> createState() => _GrammarTabState();
+}
+
+class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
   final Map<String, double> userProgress = const {
-    'A1': 1.0,   // %100 tamamlandı
-    'A2': 0.75,  // %75 tamamlandı
-    'B1': 0.33,  // %33 tamamlandı
-    'B2': 0.0,
-    'C1': 0.0,
-    'C2': 0.0,
+    'A1': 1.0, 'A2': 0.75, 'B1': 0.33,
+    'B2': 0.0, 'C1': 0.0, 'C2': 0.0,
   };
+  late final AnimationController _pathController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pathController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _pathController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final Map<String, List<Lesson>> lessonsByLevel = {};
-    for (var lesson in grammarLessons) { // Artık grammarLessons listesi lesson_data.dart dosyasından geliyor.
+    for (var lesson in grammarLessons) {
       lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
     }
     final levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -32,165 +49,220 @@ class GrammarTab extends StatelessWidget {
       Colors.deepOrange, Colors.red, Colors.purple
     ];
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-      itemCount: levels.length,
-      itemBuilder: (context, index) {
-        final level = levels[index];
-        final lessonsInLevel = lessonsByLevel[level] ?? [];
-        final progress = userProgress[level] ?? 0.0;
-        final isLocked = (index > 0) && ((userProgress[levels[index - 1]] ?? 0.0) < 1.0);
-
-        return LevelPathNode(
-          level: level,
-          lessonCount: lessonsInLevel.length,
-          color: levelColors[index],
-          progress: progress,
-          isLocked: isLocked,
-          isLeftAligned: index.isEven,
-          onTap: isLocked ? null : () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => GrammarLevelScreen(
-                  level: level,
-                  lessons: lessonsInLevel,
-                  color: levelColors[index]
-              ),
+    // DEĞİŞİKLİK: Arka plan ve blur efektleri kaldırıldı, çünkü artık bir üst widget olan DiscoverScreen'de yönetiliyor.
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: SizedBox(
+        height: 1100,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _pathController,
+              builder: (context, child) {
+                return CustomPaint(
+                  size: const Size(double.infinity, 1100),
+                  painter: _CosmicPathPainter(
+                    progress: _pathController.value,
+                    levelColors: levelColors,
+                  ),
+                );
+              },
             ),
-          ),
-        );
-      },
+            ...List.generate(levels.length, (index) {
+              final level = levels[index];
+              final lessonsInLevel = lessonsByLevel[level] ?? [];
+              final progress = userProgress[level] ?? 0.0;
+              final isLocked = (index > 0) && ((userProgress[levels[index - 1]] ?? 0.0) < 1.0);
+              final position = _calculateNodePosition(index, MediaQuery.of(context).size.width);
+
+              return Positioned(
+                top: position.dy,
+                left: position.dx,
+                child: _LevelPathNode(
+                  level: level,
+                  lessonCount: lessonsInLevel.length,
+                  color: levelColors[index],
+                  progress: progress,
+                  isLocked: isLocked,
+                  animationDelay: index * 0.2,
+                  onTap: isLocked ? null : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => GrammarLevelScreen(
+                          level: level,
+                          lessons: lessonsInLevel,
+                          color: levelColors[index]),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
+  }
+
+  Offset _calculateNodePosition(int index, double width) {
+    final double horizontalPadding = width / 4;
+    final double verticalSpacing = 160.0;
+    final double startY = 120.0;
+    double x = (index % 2 == 0)
+        ? horizontalPadding - 40
+        : width - horizontalPadding - 80;
+    double y = startY + (index * verticalSpacing);
+    return Offset(x, y);
   }
 }
 
-// --- PATİKA DÜĞÜMÜ (HER SEVİYE İÇİN) ---
-class LevelPathNode extends StatelessWidget {
+// --- PATİKA DÜĞÜMÜ (SEVİYE YILDIZI) ---
+class _LevelPathNode extends StatefulWidget {
   final String level;
   final int lessonCount;
   final Color color;
   final double progress;
   final bool isLocked;
-  final bool isLeftAligned;
+  final double animationDelay;
   final VoidCallback? onTap;
 
-  const LevelPathNode({
-    super.key,
-    required this.level,
-    required this.lessonCount,
-    required this.color,
-    required this.progress,
-    required this.isLocked,
-    required this.isLeftAligned,
-    this.onTap,
+  const _LevelPathNode({
+    required this.level, required this.lessonCount, required this.color,
+    required this.progress, required this.isLocked, required this.animationDelay, this.onTap,
   });
 
   @override
+  State<_LevelPathNode> createState() => _LevelPathNodeState();
+}
+
+class _LevelPathNodeState extends State<_LevelPathNode> with TickerProviderStateMixin {
+  late AnimationController _pulseController, _entryController;
+  late Animation<double> _scaleAnimation, _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    Future.delayed(Duration(milliseconds: (widget.animationDelay * 1000).toInt()), () {
+      if(mounted) _entryController.forward();
+    });
+    _scaleAnimation = CurvedAnimation(parent: _entryController, curve: Curves.elasticOut);
+    _fadeAnimation = CurvedAnimation(parent: _entryController, curve: Curves.easeIn);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _entryController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 25),
-      child: Row(
-        mainAxisAlignment: isLeftAligned ? MainAxisAlignment.start : MainAxisAlignment.end,
-        children: [
-          if (!isLeftAligned) const Spacer(),
-          Column(
-            crossAxisAlignment: isLeftAligned ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-            children: [
-              InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 180,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isLocked
-                          ? [Colors.grey.shade500, Colors.grey.shade600]
-                          : [(color as MaterialColor).shade300, (color as MaterialColor).shade500],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      if (!isLocked)
-                        BoxShadow(
-                          color: color.withAlpha((0.4 * 255).round()), // withOpacity(0.4)
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        )
-                    ],
-                  ),
-                  child: Column(
+    final bool isCompleted = widget.progress >= 1.0;
+    final Color displayColor = widget.isLocked ? Colors.grey.shade700 : widget.color;
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final pulseValue = 1 + (_pulseController.value * 0.05);
+              return Transform.scale(
+                scale: pulseValue,
+                child: SizedBox(
+                  width: 120, height: 120,
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      if (isLocked)
-                        Icon(Icons.lock_outline, color: Colors.white.withAlpha((0.8 * 255).round()), size: 48)
-                      else
-                        Text(
-                          level,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 48,
-                              fontWeight: FontWeight.w900,
-                              shadows: [Shadow(blurRadius: 10, color: Colors.black26)]
+                      Container(
+                        width: 120, height: 120,
+                        decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [
+                          if (!widget.isLocked)
+                            BoxShadow(
+                              color: isCompleted ? Colors.amber.withOpacity(0.7) : displayColor.withOpacity(0.5),
+                              blurRadius: isCompleted ? 30 : 20,
+                              spreadRadius: isCompleted ? 5 : 2,
+                            ),
+                        ]),
+                      ),
+                      Container(
+                        width: 80, height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: widget.isLocked
+                                ? [Colors.grey.shade800, Colors.grey.shade900]
+                                : [(widget.color as MaterialColor).shade300, (widget.color as MaterialColor).shade700],
+                            begin: Alignment.topLeft, end: Alignment.bottomRight,
                           ),
+                          border: Border.all(color: Colors.white.withOpacity(0.2)),
                         ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '$lessonCount Konu',
-                        style: TextStyle(
-                          color: Colors.white.withAlpha((0.9 * 255).round()),
-                          fontSize: 14,
+                        child: Center(
+                          child: widget.isLocked
+                              ? Icon(Icons.lock, color: Colors.white.withOpacity(0.7), size: 32)
+                              : Text(
+                            widget.level,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold,
+                                shadows: [Shadow(blurRadius: 10, color: Colors.black38)]),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              if (!isLocked)
-                Container(
-                  width: 180,
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Row(
-                    children: [
-                      Icon(
-                        progress == 1.0 ? Icons.check_circle : Icons.hourglass_empty,
-                        color: progress == 1.0 ? Colors.green.shade700 : Colors.grey.shade600,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.grey.shade300,
-                            valueColor: AlwaysStoppedAnimation<Color>(color),
-                            minHeight: 8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${(progress * 100).toInt()}%',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade700,
-                          fontSize: 12,
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-            ],
+              );
+            },
           ),
-          if (isLeftAligned) const Spacer(),
-        ],
+        ),
       ),
     );
   }
 }
 
+// --- KOZMİK PATİKA ÇİZİCİ ---
+class _CosmicPathPainter extends CustomPainter {
+  final double progress;
+  final List<Color> levelColors;
+
+  _CosmicPathPainter({required this.progress, required this.levelColors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    path.moveTo(size.width * 0.25, 160);
+    path.quadraticBezierTo(size.width * 0.8, 240, size.width * 0.75 - 40, 320);
+    path.quadraticBezierTo(size.width * 0.1, 400, size.width * 0.25, 480);
+    path.quadraticBezierTo(size.width * 0.9, 560, size.width * 0.75 - 40, 640);
+    path.quadraticBezierTo(size.width * 0.2, 720, size.width * 0.25, 800);
+    path.quadraticBezierTo(size.width * 0.8, 880, size.width * 0.75 - 40, 960);
+
+    final Paint pathPaint = Paint()..style = PaintingStyle.stroke..strokeWidth = 3.0;
+    PathMetric pathMetric = path.computeMetrics().first;
+    Path extractPath = pathMetric.extractPath(0.0, pathMetric.length * progress);
+
+    final List<Color> gradientColors = levelColors;
+    pathPaint.shader = LinearGradient(colors: gradientColors).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final Paint glowPaint = Paint()
+      ..style = PaintingStyle.stroke..strokeWidth = 8.0
+      ..shader = LinearGradient(colors: gradientColors.map((c) => c.withOpacity(0.5)).toList())
+          .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    canvas.drawPath(extractPath, glowPaint);
+    canvas.drawPath(extractPath, pathPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CosmicPathPainter oldDelegate) => oldDelegate.progress != progress;
+}
 
 // --- GRAMER SEVİYE DETAY SAYFASI ---
 class GrammarLevelScreen extends StatelessWidget {
@@ -198,17 +270,11 @@ class GrammarLevelScreen extends StatelessWidget {
   final List<Lesson> lessons;
   final MaterialColor color;
 
-  const GrammarLevelScreen(
-      {super.key,
-        required this.level,
-        required this.lessons,
-        required this.color});
+  const GrammarLevelScreen({super.key, required this.level, required this.lessons, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    // GÜNCELLEME: Örnek tamamlanmış dersler listesi düzenlendi.
     final Set<String> completedLessons = {'Present Continuous'};
-
     return Scaffold(
       appBar: AppBar(
         title: Text('$level Gramer Konuları'),
@@ -225,16 +291,12 @@ class GrammarLevelScreen extends StatelessWidget {
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
             elevation: 2,
-            shadowColor: Colors.black.withAlpha((0.1 * 255).round()),
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shadowColor: Colors.black.withAlpha(26),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: isCompleted ? color.withAlpha((0.9 * 255).round()) : Colors.grey.shade200,
-                child: Icon(
-                  isCompleted ? Icons.check : lesson.icon,
-                  color: isCompleted ? Colors.white : lesson.color,
-                ),
+                backgroundColor: isCompleted ? color.withAlpha(230) : Colors.grey.shade200,
+                child: Icon(isCompleted ? Icons.check : lesson.icon, color: isCompleted ? Colors.white : lesson.color),
                 foregroundColor: Colors.white,
               ),
               title: Text(
@@ -242,13 +304,10 @@ class GrammarLevelScreen extends StatelessWidget {
                 style: TextStyle(
                     decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
                     color: isCompleted ? Colors.grey.shade600 : Colors.black87,
-                    fontWeight: isCompleted ? FontWeight.normal : FontWeight.w600
-                ),
+                    fontWeight: isCompleted ? FontWeight.normal : FontWeight.w600),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios,
-                  size: 16, color: Colors.grey),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
               onTap: () {
-                // Yönlendirme için merkezi LessonRouter'ı kullan
                 LessonRouter.navigateToLesson(context, lesson.contentPath, lesson.title);
               },
             ),

@@ -1,87 +1,119 @@
 // lib/widgets/community_screen/group_chat_card.dart
+import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:lingua_chat/screens/group_chat_screen.dart';
 
-// GÜNCELLEME: Widget tamamen sadeleştirildi, animasyon ve efektler kaldırıldı.
-class GroupChatCard extends StatelessWidget {
+class GroupChatCard extends StatefulWidget {
   final GroupChatRoomInfo roomInfo;
   const GroupChatCard({super.key, required this.roomInfo});
 
   @override
+  State<GroupChatCard> createState() => _GroupChatCardState();
+}
+
+class _GroupChatCardState extends State<GroupChatCard> {
+  Offset _offset = Offset.zero;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onPanUpdate: (details) => setState(() => _offset += details.delta),
+      onPanEnd: (_) => setState(() => _offset = Offset.zero),
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => GroupChatScreen(
-              roomName: roomInfo.name,
-              roomIcon: roomInfo.icon,
-              roomId: roomInfo.id,
+              roomName: widget.roomInfo.name,
+              roomIcon: widget.roomInfo.icon,
+              roomId: widget.roomInfo.id,
             ),
           ),
         );
       },
-      child: Container(
-        padding: const EdgeInsets.all(20.0),
-        decoration: BoxDecoration(
+      child: Transform(
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.001)
+          ..rotateX(_offset.dy * -0.002)
+          ..rotateY(_offset.dx * 0.002),
+        alignment: FractionalOffset.center,
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            colors: [roomInfo.color1, roomInfo.color2],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          // GÜNCELLEME: Tüm gölge ve parlama efektleri kaldırıldı.
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Canlı üye verisini çekmek için StreamBuilder kullanıyoruz
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('group_chats')
-                  .doc(roomInfo.id)
-                  .collection('members')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                final memberDocs = snapshot.data?.docs ?? [];
-                final memberCount = memberDocs.length;
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              height: 220,
+              padding: const EdgeInsets.all(20.0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  colors: [widget.roomInfo.color1, widget.roomInfo.color2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.roomInfo.color2.withOpacity(0.5),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 10),
+                  )
+                ],
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Canlı üye verisini çekmek için StreamBuilder kullanıyoruz
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('group_chats')
+                        .doc(widget.roomInfo.id)
+                        .collection('members')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      final memberDocs = snapshot.data?.docs ?? [];
+                      final memberCount = memberDocs.length;
 
-                final avatarUrls = memberDocs
-                    .map((doc) {
-                  final data = doc.data() as Map<String, dynamic>?;
-                  return data?['avatarUrl'] as String?;
-                })
-                    .where((url) => url != null && url.isNotEmpty)
-                    .cast<String>()
-                    .toList();
+                      final avatarUrls = memberDocs
+                          .map((doc) {
+                        final data = doc.data() as Map<String, dynamic>?;
+                        return data?['avatarUrl'] as String?;
+                      })
+                          .where((url) => url != null && url.isNotEmpty)
+                          .cast<String>()
+                          .toList();
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildHeader(memberCount),
-                    const SizedBox(height: 12),
-                    Text(
-                      roomInfo.description,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withAlpha(230),
-                        fontSize: 15,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildFooter(memberCount, avatarUrls),
-                  ],
-                );
-              },
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildHeader(memberCount),
+                          const SizedBox(height: 12),
+                          Text(
+                            widget.roomInfo.description,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildFooter(memberCount, avatarUrls),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -94,23 +126,22 @@ class GroupChatCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(51),
+            color: Colors.white.withOpacity(0.2),
             shape: BoxShape.circle,
           ),
-          child: Icon(roomInfo.icon, color: Colors.white, size: 28),
+          child: Icon(widget.roomInfo.icon, color: Colors.white, size: 28),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            roomInfo.name,
+            widget.roomInfo.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              // GÜNCELLEME: Yazı gölgesi de kaldırıldı.
-            ),
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                shadows: [Shadow(color: Colors.black26, blurRadius: 4)]),
           ),
         ),
         if (memberCount > 0)
@@ -119,6 +150,9 @@ class GroupChatCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.redAccent,
               borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(color: Colors.redAccent.withOpacity(0.5), blurRadius: 8)
+              ],
             ),
             child: const Text(
               'CANLI',
@@ -158,7 +192,8 @@ class GroupChatCard extends StatelessWidget {
                           avatarsToShow[index],
                           width: 28,
                           height: 28,
-                          placeholderBuilder: (context) => const SizedBox.shrink(),
+                          placeholderBuilder: (context) =>
+                          const SizedBox.shrink(),
                         ),
                       ),
                     ),
@@ -167,13 +202,12 @@ class GroupChatCard extends StatelessWidget {
               ),
             ),
           ),
-
         Expanded(
           child: Text(
             memberCount > 0
                 ? '$memberCount üye burada'
                 : 'Odaya ilk giren sen ol!',
-            style: TextStyle(color: Colors.white.withAlpha(204)),
+            style: TextStyle(color: Colors.white.withOpacity(0.8)),
             overflow: TextOverflow.ellipsis,
           ),
         ),

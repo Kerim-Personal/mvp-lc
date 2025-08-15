@@ -117,7 +117,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         .collection('users')
         .where('status', isNotEqualTo: 'deleted')
         .orderBy(_leaderboardPeriod, descending: true)
-        .limit(20)
+        .limit(100)
         .get();
 
     if (snapshot.docs.isEmpty) return [];
@@ -133,6 +133,13 @@ class _CommunityScreenState extends State<CommunityScreen>
       );
     }).toList();
   }
+
+  Future<void> _refreshLeaderboard() async {
+    setState(() {
+      _leaderboardFuture = _fetchLeaderboardData();
+    });
+  }
+
 
   Future<QuerySnapshot> _fetchFeedData() {
     return FirebaseFirestore.instance
@@ -248,21 +255,24 @@ class _CommunityScreenState extends State<CommunityScreen>
   Widget _buildCurrentTab() {
     switch (_tabController.index) {
       case 0:
-        return FutureBuilder<List<LeaderboardUser>>(
-          key: const ValueKey('leaderboard'),
-          future: _leaderboardFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Bir hata oluştu: ${snapshot.error}'));
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(child: Text('Henüz liderlik verisi yok.'));
-            }
-            return LeaderboardTable(users: snapshot.data!);
-          },
+        return RefreshIndicator(
+          onRefresh: _refreshLeaderboard,
+          child: FutureBuilder<List<LeaderboardUser>>(
+            key: const ValueKey('leaderboard'),
+            future: _leaderboardFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Bir hata oluştu: ${snapshot.error}'));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('Henüz liderlik verisi yok.'));
+              }
+              return LeaderboardTable(users: snapshot.data!);
+            },
+          ),
         );
       case 1:
         return Container(key: const ValueKey('feed'), child: _buildFeedList());
