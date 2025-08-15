@@ -231,31 +231,35 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   Widget _buildFeatureList() {
     final features = [
-      'Çeviri Desteği',
-      'Sohbet Uzatma Jetonu',
-      'Cinsiyete Göre Partner Arama',
-      'Seviyeye Göre Partner Arama',
-      'Öncelikli Destek',
-      'Reklamsız Deneyim',
-      "LinguaBot'a Pro Erişim",
-      "Gelişmiş Gramer Analizi",
-      "Premium'a Özel Kişiselleştirmeler",
+      {'icon': Icons.translate, 'text': 'Çeviri Desteği'},
+      {'icon': Icons.hourglass_bottom_outlined, 'text': 'Sohbet Uzatma Jetonu'},
+      {'icon': Icons.wc, 'text': 'Cinsiyete Göre Partner Arama'},
+      {'icon': Icons.bar_chart_rounded, 'text': 'Seviyeye Göre Partner Arama'},
+      {'icon': Icons.support_agent, 'text': 'Öncelikli Destek'},
+      {'icon': Icons.ads_click, 'text': 'Reklamsız Deneyim'},
+      {'icon': Icons.smart_toy_outlined, 'text': "LinguaBot'a Pro Erişim"},
+      {'icon': Icons.spellcheck, 'text': "Gelişmiş Gramer Analizi"},
+      {'icon': Icons.palette_outlined, 'text': "Premium'a Özel Kişiselleştirmeler"},
     ];
 
     return Flexible(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: features.map((feature) => Padding(
-          padding: const EdgeInsets.only(bottom: 11.0),
-          child: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.purple, size: 20),
-              const SizedBox(width: 12),
-              Expanded(child: Text(feature, style: const TextStyle(fontSize: 14.5, color: Colors.black87))),
-            ],
-          ),
-        )).toList(),
+        children: features.map((feature) => _buildFeatureRow(feature['text'] as String, feature['icon'] as IconData)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow(String text, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 11.0),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.purple, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 14.5, color: Colors.black87))),
+        ],
       ),
     );
   }

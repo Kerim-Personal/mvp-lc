@@ -1,12 +1,10 @@
 // lib/screens/home_screen.dart
 
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
-import 'package:lingua_chat/screens/store_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
@@ -36,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _pulseAnimationController;
   late AnimationController _searchAnimationController;
   late PageController _pageController;
-  double _pageOffset = 0;
+  double _pageOffset = 1000;
   Timer? _cardScrollTimer;
 
   @override
@@ -49,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           .snapshots();
     }
 
-    _pageController = PageController(viewportFraction: 0.85)
+    _pageController = PageController(viewportFraction: 0.85, initialPage: 1000)
       ..addListener(() {
         final page = _pageController.page;
         if (mounted && page != null) {
@@ -65,15 +63,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _startCardScrollTimer() {
+    _cardScrollTimer?.cancel(); // Mevcut zamanlayıcıyı iptal et
     _cardScrollTimer = Timer.periodic(const Duration(seconds: 7), (timer) {
       if (_isSearching || !mounted) return;
-      final int pageCount = 4;
-      int nextPage = _pageController.page!.round() + 1;
-      if (nextPage >= pageCount) {
-        nextPage = 0;
-      }
       _pageController.animateToPage(
-        nextPage,
+        _pageController.page!.round() + 1,
         duration: const Duration(milliseconds: 800),
         curve: Curves.easeInOut,
       );
@@ -386,9 +380,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 24),
-              HomeCardsSection(
-                pageController: _pageController,
-                pageOffset: _pageOffset,
+              Listener(
+                onPointerDown: (_) => _cardScrollTimer?.cancel(),
+                onPointerUp: (_) => _startCardScrollTimer(),
+                child: HomeCardsSection(
+                  pageController: _pageController,
+                  pageOffset: _pageOffset,
+                ),
               ),
               const SizedBox(height: 24),
             ],

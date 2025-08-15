@@ -19,30 +19,26 @@ class HomeCardsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> cards = [
+      const ChallengeCard(),
+      const WeeklyQuizCard(),
+      const LevelAssessmentCard(),
+      const VocabularyTreasureCard(),
+    ];
+
     return Column(
       children: [
         SizedBox(
           height: 150,
-          child: PageView(
+          child: PageView.builder(
             controller: pageController,
-            children: [
-              _buildCardPageItem(
-                index: 0,
-                child: const ChallengeCard(),
-              ),
-              _buildCardPageItem(
-                index: 1,
-                child: const WeeklyQuizCard(),
-              ),
-              _buildCardPageItem(
-                index: 2,
-                child: const LevelAssessmentCard(),
-              ),
-              _buildCardPageItem(
-                index: 3,
-                child: const VocabularyTreasureCard(),
-              ),
-            ],
+            itemBuilder: (context, index) {
+              final cardIndex = index % cards.length;
+              return _buildCardPageItem(
+                index: index.toDouble(),
+                child: cards[cardIndex],
+              );
+            },
           ),
         ),
         const SizedBox(height: 4),
@@ -51,7 +47,7 @@ class HomeCardsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildCardPageItem({required int index, required Widget child}) {
+  Widget _buildCardPageItem({required double index, required Widget child}) {
     Matrix4 matrix = Matrix4.identity();
     double scale;
     double gauss = 1 - (pageOffset - index).abs();
@@ -75,7 +71,7 @@ class HomeCardsSection extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(pageCount, (index) {
-        bool isActive = (pageOffset.round() == index);
+        bool isActive = (pageOffset.round() % pageCount == index);
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,

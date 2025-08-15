@@ -33,8 +33,6 @@ class FeedPost {
   final Timestamp timestamp;
   final List<String> likes;
   final int commentCount;
-  // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
-  // final bool isUserPremium;
 
   FeedPost({
     required this.id,
@@ -45,8 +43,6 @@ class FeedPost {
     required this.timestamp,
     required this.likes,
     this.commentCount = 0,
-    // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
-    // this.isUserPremium = false,
   });
 
   factory FeedPost.fromFirestore(DocumentSnapshot doc) {
@@ -64,8 +60,6 @@ class FeedPost {
       timestamp: data['timestamp'] ?? Timestamp.now(),
       likes: likes,
       commentCount: data['commentCount'] ?? 0,
-      // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
-      // isUserPremium: data['isUserPremium'] ?? false,
     );
   }
 }
@@ -228,8 +222,6 @@ class _CommunityScreenState extends State<CommunityScreen>
                     'timestamp': FieldValue.serverTimestamp(),
                     'likes': [],
                     'commentCount': 0,
-                    // DEĞİŞİKLİK: isUserPremium alanı kaldırıldı.
-                    // 'isUserPremium': userData?['isPremium'] ?? false,
                   });
 
                   Navigator.pop(context);
@@ -285,23 +277,6 @@ class _CommunityScreenState extends State<CommunityScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        toolbarHeight: 0,
-        backgroundColor: Colors.white,
-        elevation: 1,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.teal,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.teal,
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(text: 'Liderlik', icon: Icon(Icons.leaderboard_outlined)),
-            Tab(text: 'Akış', icon: Icon(Icons.dynamic_feed_outlined)),
-            Tab(text: 'Odalar', icon: Icon(Icons.chat_bubble_outline_rounded)),
-          ],
-        ),
-      ),
       floatingActionButton: _tabController.index == 1
           ? FloatingActionButton(
         onPressed: () => _showCreatePostModal(context),
@@ -311,15 +286,95 @@ class _CommunityScreenState extends State<CommunityScreen>
         tooltip: 'Yeni Gönderi',
       )
           : null,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTabSelector(),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+                child: _buildCurrentTab(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabSelector() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.black.withAlpha(13),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            _buildTabItem(title: 'Liderlik', icon: Icons.leaderboard_outlined, index: 0),
+            _buildTabItem(title: 'Akış', icon: Icons.dynamic_feed_outlined, index: 1),
+            _buildTabItem(title: 'Odalar', icon: Icons.chat_bubble_outline_rounded, index: 2),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabItem({required String title, required IconData icon, required int index}) {
+    final bool isSelected = _tabController.index == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (_tabController.index != index) {
+            setState(() {
+              _tabController.index = index;
+            });
+          }
         },
-        child: _buildCurrentTab(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isSelected
+                ? [
+              BoxShadow(
+                color: Colors.black.withAlpha(26),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.teal : Colors.grey.shade600,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.teal : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

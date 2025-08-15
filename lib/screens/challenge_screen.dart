@@ -1,104 +1,253 @@
 // lib/screens/challenge_screen.dart
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Panoya kopyalama işlevi için eklendi
+import 'package:flutter/services.dart';
 import 'package:lingua_chat/models/challenge_model.dart';
+import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart'; // HATA ÇÖZÜMÜ: Eksik import eklendi
 
-class ChallengeScreen extends StatelessWidget {
+class ChallengeScreen extends StatefulWidget {
   final Challenge challenge;
 
   const ChallengeScreen({super.key, required this.challenge});
 
   @override
+  State<ChallengeScreen> createState() => _ChallengeScreenState();
+}
+
+class _ChallengeScreenState extends State<ChallengeScreen>
+    with TickerProviderStateMixin {
+  late final AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(challenge.title),
-        backgroundColor: Colors.amber.shade700,
-        foregroundColor: Colors.white,
+      backgroundColor: const Color(0xff2a2a2a), // Koyu ve modern bir arka plan
+      body: Stack(
+        children: [
+          // Arka plan efektleri
+          const _GlowyBackground(),
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 300.0,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                stretch: true,
+                pinned: true,
+                automaticallyImplyLeading: false, // Otomatik geri tuşunu kaldır
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _buildHeader(),
+                  stretchModes: const [StretchMode.zoomBackground],
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _AnimatedContent(
+                      animationController: _animationController,
+                      interval: const Interval(0.4, 1.0),
+                      child: const Text(
+                        'Örnek Cümleler',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white70),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ...List.generate(widget.challenge.exampleSentences.length,
+                            (index) {
+                          return _AnimatedContent(
+                            animationController: _animationController,
+                            interval: Interval(0.5 + (index * 0.1), 1.0,
+                                curve: Curves.easeOut),
+                            child: _buildExampleCard(
+                                widget.challenge.exampleSentences[index]),
+                          );
+                        }),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+          // Özel Geri Butonu
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: BackButton(color: Colors.white.withAlpha(204)),
+            ),
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.transparent, Colors.black26],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 60),
             const Icon(Icons.flag_circle_outlined,
                 size: 80, color: Colors.amber),
             const SizedBox(height: 20),
             Text(
-              challenge.description,
+              widget.challenge.title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                shadows: [Shadow(blurRadius: 10, color: Colors.black38)],
+              ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Bu görevi partnerinle sohbet ederken tamamlamaya çalış. Başarılar!',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.black54),
-            ),
-            const Divider(height: 48, thickness: 1),
-            const Text(
-              'Hangi Cümleleri Kullanabilirsin?',
+            Text(
+              widget.challenge.description,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.teal),
+                  fontSize: 16, color: Colors.white.withAlpha(204)),
             ),
-            const SizedBox(height: 16),
-            ...challenge.exampleSentences.map((sentence) {
-              return Card(
-                elevation: 2,
-                shadowColor: Colors.black.withOpacity(0.1),
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  // GÜNCELLEME: Padding ayarlandı.
-                  padding: const EdgeInsets.only(left: 16, top: 16, bottom: 16, right: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2.0),
-                        child: Icon(Icons.chat_bubble_outline,
-                            color: Colors.amber.shade800, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          sentence,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              height: 1.4,
-                              fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // YENİ: Kopyala butonu eklendi.
-                      IconButton(
-                        icon: const Icon(Icons.copy_outlined, size: 22, color: Colors.grey),
-                        tooltip: 'Kopyala',
-                        onPressed: () {
-                          // Metni panoya kopyala
-                          Clipboard.setData(ClipboardData(text: sentence));
-                          // Kullanıcıya geri bildirim göster
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Cümle panoya kopyalandı!'),
-                              behavior: SnackBarBehavior.floating,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                      )
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildExampleCard(String sentence) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: GlassmorphicContainer(
+        width: double.infinity,
+        blur: 12,
+        borderRadius: 16,
+        border: Border.all(color: Colors.white.withAlpha(26)),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withAlpha(38),
+            Colors.white.withAlpha(13),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  sentence,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.white.withAlpha(230),
+                    fontStyle: FontStyle.italic,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: Icon(Icons.copy_all_outlined,
+                    color: Colors.white.withAlpha(179)),
+                tooltip: 'Kopyala',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: sentence));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: Colors.teal,
+                      content: const Text('Cümle panoya kopyalandı!'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Arka plan için yardımcı Widget
+class _GlowyBackground extends StatelessWidget {
+  const _GlowyBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -100,
+          right: -150,
+          child: CircleAvatar(
+              radius: 200, backgroundColor: Colors.amber.withAlpha(64)),
+        ),
+        Positioned(
+          bottom: -180,
+          left: -150,
+          child: CircleAvatar(
+              radius: 220, backgroundColor: Colors.orange.withAlpha(64)),
+        ),
+        BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
+          child: Container(color: Colors.transparent),
+        ),
+      ],
+    );
+  }
+}
+
+// Animasyon için yardımcı Widget
+class _AnimatedContent extends StatelessWidget {
+  final AnimationController animationController;
+  final Interval interval;
+  final Widget child;
+
+  const _AnimatedContent({
+    required this.animationController,
+    required this.interval,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: animationController, curve: interval),
+      child: SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero)
+            .animate(
+            CurvedAnimation(parent: animationController, curve: interval)),
+        child: child,
       ),
     );
   }

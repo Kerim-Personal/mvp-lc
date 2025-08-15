@@ -1,10 +1,11 @@
 // lib/screens/vocabulary_treasure_screen.dart
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/models/vocabulary_model.dart';
-import 'package:flutter_tts/flutter_tts.dart'; // YENİ: Seslendirme paketi import edildi
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
 
-// GÜNCELLEME: Widget, ses motorunu yönetebilmek için StatefulWidget'a dönüştürüldü.
 class VocabularyTreasureScreen extends StatefulWidget {
   final VocabularyWord word;
 
@@ -15,169 +16,248 @@ class VocabularyTreasureScreen extends StatefulWidget {
       _VocabularyTreasureScreenState();
 }
 
-class _VocabularyTreasureScreenState extends State<VocabularyTreasureScreen> {
-  // YENİ: FlutterTts nesnesi oluşturuldu.
+class _VocabularyTreasureScreenState extends State<VocabularyTreasureScreen> with TickerProviderStateMixin {
   late FlutterTts flutterTts;
-  bool isTtsInitialized = false;
+  late final AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
     _initializeTts();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..forward();
   }
 
-  // YENİ: Metin okuma motorunu başlatan fonksiyon.
   void _initializeTts() {
     flutterTts = FlutterTts();
-    // Dil ve konuşma hızını ayarlıyoruz.
     flutterTts.setLanguage("en-US");
-    flutterTts.setSpeechRate(0.5); // Daha anlaşılır olması için biraz yavaş.
+    flutterTts.setSpeechRate(0.5);
     flutterTts.setPitch(1.0);
   }
 
-  // YENİ: Kelimeyi seslendiren fonksiyon.
-  Future<void> _speak() async {
-    await flutterTts.speak(widget.word.word);
+  Future<void> _speak(String text) async {
+    await flutterTts.speak(text);
   }
 
   @override
   void dispose() {
-    // Sayfa kapatıldığında motoru durduruyoruz.
     flutterTts.stop();
+    _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Günün Kelimesi'),
-        backgroundColor: Colors.green.shade400,
-        foregroundColor: Colors.white,
-      ),
-      backgroundColor: Colors.grey[50],
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withAlpha(26),
-                      blurRadius: 20,
-                      spreadRadius: 5,
-                    ),
-                  ],
+      backgroundColor: const Color(0xff1d2630),
+      body: Stack(
+        children: [
+          const _GlowyBackground(),
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 350.0,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                stretch: true,
+                // ÇÖZÜM: Otomatik geri tuşunu devre dışı bırakıyoruz.
+                automaticallyImplyLeading: false,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _buildHeader(),
+                  stretchModes: const [StretchMode.zoomBackground],
                 ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.menu_book_outlined, size: 60, color: Colors.green),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _AnimatedContent(
+                      animationController: _animationController,
+                      interval: const Interval(0.4, 1.0),
+                      child: _buildInfoCard(
+                        icon: Icons.translate_rounded,
+                        title: 'Anlamı',
+                        content: widget.word.meaning,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
                     const SizedBox(height: 20),
-                    // GÜNCELLEME: Kelime ve telaffuz butonu bir satıra alındı.
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            widget.word.word,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 36, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // YENİ: Telaffuz butonu eklendi.
-                        IconButton(
-                          icon: Icon(Icons.volume_up,
-                              color: Colors.grey.shade600),
-                          iconSize: 30,
-                          tooltip: 'Telaffuz Et',
-                          onPressed: _speak,
-                        ),
-                      ],
+                    _AnimatedContent(
+                      animationController: _animationController,
+                      interval: const Interval(0.6, 1.0),
+                      child: _buildInfoCard(
+                        icon: Icons.format_quote_rounded,
+                        title: 'Örnek Cümle',
+                        content: widget.word.exampleSentence,
+                        color: Colors.orangeAccent,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.word.phonetic,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontStyle: FontStyle.italic,
-                          color: Colors.grey.shade600),
-                    ),
-                  ],
+                  ]),
                 ),
-              ),
-              const SizedBox(height: 32),
-              _buildInfoCard(
-                icon: Icons.translate_rounded,
-                title: 'Anlamı',
-                content: widget.word.meaning,
-                color: Colors.blue,
-              ),
-              const SizedBox(height: 16),
-              _buildInfoCard(
-                icon: Icons.format_quote_rounded,
-                title: 'Örnek Cümle',
-                content: widget.word.exampleSentence,
-                color: Colors.orange,
               ),
             ],
           ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: BackButton(color: Colors.white.withOpacity(0.8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.transparent, Colors.black12],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 60),
+            GestureDetector(
+              onTap: () => _speak(widget.word.word),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      widget.word.word,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 56,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(blurRadius: 20, color: Colors.black54)
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Icon(Icons.volume_up_rounded, color: Colors.white70, size: 36),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.word.phonetic,
+              style: TextStyle(
+                fontSize: 22,
+                fontStyle: FontStyle.italic,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoCard(
-      {required IconData icon,
-        required String title,
-        required String content,
-        required Color color}) {
-    return Card(
-      elevation: 0,
-      color: color.withAlpha(20),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: color.withAlpha(51)),
+  Widget _buildInfoCard({required IconData icon, required String title, required String content, required Color color}) {
+    return GlassmorphicContainer(
+      width: double.infinity,
+      blur: 12,
+      borderRadius: 20,
+      border: Border.all(color: Colors.white.withOpacity(0.1)),
+      gradient: LinearGradient(
+        colors: [
+          Colors.white.withOpacity(0.15),
+          Colors.white.withOpacity(0.05),
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, color: color, size: 22),
-                const SizedBox(width: 10),
+                Icon(icon, color: color, size: 24),
+                const SizedBox(width: 12),
                 Text(
                   title,
                   style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color.lerp(color, Colors.black, 0.4)),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               content,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.black.withAlpha(179),
+                color: Colors.white.withOpacity(0.85),
                 height: 1.5,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GlowyBackground extends StatelessWidget {
+  const _GlowyBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -150,
+          left: -200,
+          child: CircleAvatar(radius: 250, backgroundColor: Colors.green.withOpacity(0.3)),
+        ),
+        Positioned(
+          bottom: -200,
+          right: -180,
+          child: CircleAvatar(radius: 220, backgroundColor: Colors.teal.withOpacity(0.3)),
+        ),
+        BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+          child: Container(color: Colors.transparent),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnimatedContent extends StatelessWidget {
+  final AnimationController animationController;
+  final Interval interval;
+  final Widget child;
+
+  const _AnimatedContent({
+    required this.animationController,
+    required this.interval,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: animationController, curve: interval),
+      child: SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero)
+            .animate(CurvedAnimation(parent: animationController, curve: interval)),
+        child: child,
       ),
     );
   }
