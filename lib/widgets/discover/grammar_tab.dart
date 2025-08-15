@@ -1,5 +1,3 @@
-// lib/widgets/discover/grammar_tab.dart
-
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -9,7 +7,7 @@ import 'package:lingua_chat/navigation/lesson_router.dart';
 
 // --- GRAMER SEKMESİ ANA WIDGET'I ---
 class GrammarTab extends StatefulWidget {
-  GrammarTab({super.key});
+  const GrammarTab({super.key});
 
   @override
   State<GrammarTab> createState() => _GrammarTabState();
@@ -17,9 +15,14 @@ class GrammarTab extends StatefulWidget {
 
 class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
   final Map<String, double> userProgress = const {
-    'A1': 1.0, 'A2': 0.75, 'B1': 0.33,
-    'B2': 0.0, 'C1': 0.0, 'C2': 0.0,
+    'A1': 1.0,
+    'A2': 0.75,
+    'B1': 0.33,
+    'B2': 0.0,
+    'C1': 0.0,
+    'C2': 0.0,
   };
+
   late final AnimationController _pathController;
 
   @override
@@ -28,7 +31,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     _pathController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    )..forward();
+    )..repeat(); // Sonsuz döngü
   }
 
   @override
@@ -43,13 +46,17 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     for (var lesson in grammarLessons) {
       lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
     }
+
     final levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
     final levelColors = [
-      Colors.green, Colors.lightBlue, Colors.orange,
-      Colors.deepOrange, Colors.red, Colors.purple
+      Colors.green,
+      Colors.lightBlue,
+      Colors.orange,
+      Colors.deepOrange,
+      Colors.red,
+      Colors.purple
     ];
 
-    // DEĞİŞİKLİK: Arka plan ve blur efektleri kaldırıldı, çünkü artık bir üst widget olan DiscoverScreen'de yönetiliyor.
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: SizedBox(
@@ -73,8 +80,10 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
               final level = levels[index];
               final lessonsInLevel = lessonsByLevel[level] ?? [];
               final progress = userProgress[level] ?? 0.0;
-              final isLocked = (index > 0) && ((userProgress[levels[index - 1]] ?? 0.0) < 1.0);
-              final position = _calculateNodePosition(index, MediaQuery.of(context).size.width);
+              final isLocked = (index > 0) &&
+                  ((userProgress[levels[index - 1]] ?? 0.0) < 1.0);
+              final position = _calculateNodePosition(
+                  index, MediaQuery.of(context).size.width);
 
               return Positioned(
                 top: position.dy,
@@ -86,13 +95,16 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                   progress: progress,
                   isLocked: isLocked,
                   animationDelay: index * 0.2,
-                  onTap: isLocked ? null : () => Navigator.push(
+                  onTap: isLocked
+                      ? null
+                      : () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => GrammarLevelScreen(
-                          level: level,
-                          lessons: lessonsInLevel,
-                          color: levelColors[index]),
+                        level: level,
+                        lessons: lessonsInLevel,
+                        color: levelColors[index],
+                      ),
                     ),
                   ),
                 ),
@@ -127,28 +139,42 @@ class _LevelPathNode extends StatefulWidget {
   final VoidCallback? onTap;
 
   const _LevelPathNode({
-    required this.level, required this.lessonCount, required this.color,
-    required this.progress, required this.isLocked, required this.animationDelay, this.onTap,
+    required this.level,
+    required this.lessonCount,
+    required this.color,
+    required this.progress,
+    required this.isLocked,
+    required this.animationDelay,
+    this.onTap,
   });
 
   @override
   State<_LevelPathNode> createState() => _LevelPathNodeState();
 }
 
-class _LevelPathNodeState extends State<_LevelPathNode> with TickerProviderStateMixin {
+class _LevelPathNodeState extends State<_LevelPathNode>
+    with TickerProviderStateMixin {
   late AnimationController _pulseController, _entryController;
   late Animation<double> _scaleAnimation, _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
-    _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    Future.delayed(Duration(milliseconds: (widget.animationDelay * 1000).toInt()), () {
-      if(mounted) _entryController.forward();
-    });
-    _scaleAnimation = CurvedAnimation(parent: _entryController, curve: Curves.elasticOut);
-    _fadeAnimation = CurvedAnimation(parent: _entryController, curve: Curves.easeIn);
+    _pulseController = AnimationController(
+        vsync: this, duration: const Duration(seconds: 3))
+      ..repeat(reverse: true);
+    _entryController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800));
+    Future.delayed(
+      Duration(milliseconds: (widget.animationDelay * 1000).toInt()),
+          () {
+        if (mounted) _entryController.forward();
+      },
+    );
+    _scaleAnimation =
+        CurvedAnimation(parent: _entryController, curve: Curves.elasticOut);
+    _fadeAnimation =
+        CurvedAnimation(parent: _entryController, curve: Curves.easeIn);
   }
 
   @override
@@ -161,7 +187,8 @@ class _LevelPathNodeState extends State<_LevelPathNode> with TickerProviderState
   @override
   Widget build(BuildContext context) {
     final bool isCompleted = widget.progress >= 1.0;
-    final Color displayColor = widget.isLocked ? Colors.grey.shade700 : widget.color;
+    final Color displayColor =
+    widget.isLocked ? Colors.grey.shade700 : widget.color;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -176,41 +203,67 @@ class _LevelPathNodeState extends State<_LevelPathNode> with TickerProviderState
               return Transform.scale(
                 scale: pulseValue,
                 child: SizedBox(
-                  width: 120, height: 120,
+                  width: 120,
+                  height: 120,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Container(
-                        width: 120, height: 120,
-                        decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [
-                          if (!widget.isLocked)
-                            BoxShadow(
-                              color: isCompleted ? Colors.amber.withOpacity(0.7) : displayColor.withOpacity(0.5),
-                              blurRadius: isCompleted ? 30 : 20,
-                              spreadRadius: isCompleted ? 5 : 2,
-                            ),
-                        ]),
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            if (!widget.isLocked)
+                              BoxShadow(
+                                color: isCompleted
+                                    ? Colors.amber.withOpacity(0.7)
+                                    : displayColor.withOpacity(0.5),
+                                blurRadius: isCompleted ? 30 : 20,
+                                spreadRadius: isCompleted ? 5 : 2,
+                              ),
+                          ],
+                        ),
                       ),
                       Container(
-                        width: 80, height: 80,
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
                             colors: widget.isLocked
-                                ? [Colors.grey.shade800, Colors.grey.shade900]
-                                : [(widget.color as MaterialColor).shade300, (widget.color as MaterialColor).shade700],
-                            begin: Alignment.topLeft, end: Alignment.bottomRight,
+                                ? [
+                              Colors.grey.shade800,
+                              Colors.grey.shade900
+                            ]
+                                : [
+                              (widget.color as MaterialColor).shade300,
+                              (widget.color as MaterialColor).shade700
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          border: Border.all(
+                              color: Colors.white.withOpacity(0.2)),
                         ),
                         child: Center(
                           child: widget.isLocked
-                              ? Icon(Icons.lock, color: Colors.white.withOpacity(0.7), size: 32)
+                              ? Icon(Icons.lock,
+                              color: Colors.white.withOpacity(0.7),
+                              size: 32)
                               : Text(
                             widget.level,
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold,
-                                shadows: [Shadow(blurRadius: 10, color: Colors.black38)]),
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.black38,
+                                )
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -237,22 +290,41 @@ class _CosmicPathPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final path = Path();
     path.moveTo(size.width * 0.25, 160);
-    path.quadraticBezierTo(size.width * 0.8, 240, size.width * 0.75 - 40, 320);
-    path.quadraticBezierTo(size.width * 0.1, 400, size.width * 0.25, 480);
-    path.quadraticBezierTo(size.width * 0.9, 560, size.width * 0.75 - 40, 640);
-    path.quadraticBezierTo(size.width * 0.2, 720, size.width * 0.25, 800);
-    path.quadraticBezierTo(size.width * 0.8, 880, size.width * 0.75 - 40, 960);
+    path.quadraticBezierTo(
+        size.width * 0.8, 240, size.width * 0.75 - 40, 320);
+    path.quadraticBezierTo(
+        size.width * 0.1, 400, size.width * 0.25, 480);
+    path.quadraticBezierTo(
+        size.width * 0.9, 560, size.width * 0.75 - 40, 640);
+    path.quadraticBezierTo(
+        size.width * 0.2, 720, size.width * 0.25, 800);
+    path.quadraticBezierTo(
+        size.width * 0.8, 880, size.width * 0.75 - 40, 960);
 
-    final Paint pathPaint = Paint()..style = PaintingStyle.stroke..strokeWidth = 3.0;
-    PathMetric pathMetric = path.computeMetrics().first;
-    Path extractPath = pathMetric.extractPath(0.0, pathMetric.length * progress);
+    // Sabit arka plan çizgisi
+    final Paint basePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = Colors.white.withOpacity(0.2);
 
-    final List<Color> gradientColors = levelColors;
-    pathPaint.shader = LinearGradient(colors: gradientColors).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawPath(path, basePaint);
+
+    // Animasyonlu parlak çizgi
+    final PathMetric pathMetric = path.computeMetrics().first;
+    final Path extractPath =
+    pathMetric.extractPath(0.0, pathMetric.length * progress);
+
+    final Paint pathPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..shader = LinearGradient(colors: levelColors)
+          .createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final Paint glowPaint = Paint()
-      ..style = PaintingStyle.stroke..strokeWidth = 8.0
-      ..shader = LinearGradient(colors: gradientColors.map((c) => c.withOpacity(0.5)).toList())
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8.0
+      ..shader = LinearGradient(
+          colors: levelColors.map((c) => c.withOpacity(0.5)).toList())
           .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
@@ -261,7 +333,8 @@ class _CosmicPathPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _CosmicPathPainter oldDelegate) => oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _CosmicPathPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // --- GRAMER SEVİYE DETAY SAYFASI ---
@@ -270,7 +343,12 @@ class GrammarLevelScreen extends StatelessWidget {
   final List<Lesson> lessons;
   final MaterialColor color;
 
-  const GrammarLevelScreen({super.key, required this.level, required this.lessons, required this.color});
+  const GrammarLevelScreen({
+    super.key,
+    required this.level,
+    required this.lessons,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -292,23 +370,39 @@ class GrammarLevelScreen extends StatelessWidget {
             margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
             elevation: 2,
             shadowColor: Colors.black.withAlpha(26),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: isCompleted ? color.withAlpha(230) : Colors.grey.shade200,
-                child: Icon(isCompleted ? Icons.check : lesson.icon, color: isCompleted ? Colors.white : lesson.color),
+                backgroundColor: isCompleted
+                    ? color.withAlpha(230)
+                    : Colors.grey.shade200,
+                child: Icon(
+                  isCompleted ? Icons.check : lesson.icon,
+                  color:
+                  isCompleted ? Colors.white : lesson.color,
+                ),
                 foregroundColor: Colors.white,
               ),
               title: Text(
                 lesson.title,
                 style: TextStyle(
-                    decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                    color: isCompleted ? Colors.grey.shade600 : Colors.black87,
-                    fontWeight: isCompleted ? FontWeight.normal : FontWeight.w600),
+                  decoration: isCompleted
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
+                  color: isCompleted
+                      ? Colors.grey.shade600
+                      : Colors.black87,
+                  fontWeight: isCompleted
+                      ? FontWeight.normal
+                      : FontWeight.w600,
+                ),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+              trailing: const Icon(Icons.arrow_forward_ios,
+                  size: 16, color: Colors.grey),
               onTap: () {
-                LessonRouter.navigateToLesson(context, lesson.contentPath, lesson.title);
+                LessonRouter.navigateToLesson(
+                    context, lesson.contentPath, lesson.title);
               },
             ),
           );
