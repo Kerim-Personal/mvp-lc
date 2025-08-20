@@ -100,4 +100,37 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+
+  /// Kullanıcının mevcut şifresini doğruladıktan sonra şifresini günceller.
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        throw FirebaseAuthException(code: 'user-not-found');
+      }
+
+      // 1. Adım: Kullanıcının kimliğini mevcut şifresiyle yeniden doğrula.
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // 2. Adım: Kimlik doğrulama başarılıysa, yeni şifreyi ayarla.
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException {
+      // Hatanın kendisini UI katmanının işlemesi için yeniden fırlat.
+      rethrow;
+    }
+  }
+
+  /// Belirtilen e-posta adresine bir şifre sıfırlama linki gönderir.
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException {
+      // Hatanın kendisini UI katmanının işlemesi için yeniden fırlat.
+      rethrow;
+    }
+  }
 }

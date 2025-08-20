@@ -143,6 +143,92 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  void _showPasswordResetDialog() {
+    final resetEmailController = TextEditingController();
+    final dialogFormKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        bool isSending = false;
+        String? dialogError;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("Şifremi Unuttum"),
+              content: Form(
+                key: dialogFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                        "Kayıtlı e-posta adresinizi girin. Size bir sıfırlama linki göndereceğiz."),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: resetEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: "E-posta Adresi",
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || !value.contains('@')) {
+                          return 'Lütfen geçerli bir e-posta girin.';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (dialogError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(dialogError!, style: const TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("İptal"),
+                ),
+                ElevatedButton(
+                  onPressed: isSending ? null : () async {
+                    if (dialogFormKey.currentState!.validate()) {
+                      setDialogState(() {
+                        isSending = true;
+                        dialogError = null;
+                      });
+                      try {
+                        await _authService.sendPasswordResetEmail(resetEmailController.text.trim());
+                        if (!mounted) return;
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Şifre sıfırlama linki gönderildi. Lütfen e-postanızı kontrol edin."),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } catch (e) {
+                        setDialogState(() {
+                          dialogError = "E-posta gönderilemedi. Lütfen adresi kontrol edin.";
+                        });
+                      } finally {
+                        setDialogState(() => isSending = false);
+                      }
+                    }
+                  },
+                  child: isSending
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text("Gönder"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +270,7 @@ class _LoginScreenState extends State<LoginScreen>
                           fadeAnimation: _emailFade,
                           slideAnimation: _emailSlide,
                           controller: _emailController,
-                          hintText: AppLocalizations.of(context)!.emailAddress, // <-- GÜNCELLENDİ
+                          hintText: AppLocalizations.of(context)!.emailAddress,
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                         ),
@@ -193,11 +279,24 @@ class _LoginScreenState extends State<LoginScreen>
                           fadeAnimation: _passwordFade,
                           slideAnimation: _passwordSlide,
                           controller: _passwordController,
-                          hintText: AppLocalizations.of(context)!.password, // <-- GÜNCELLENDİ
+                          hintText: AppLocalizations.of(context)!.password,
                           icon: Icons.lock_outline,
                           obscureText: true,
                         ),
-                        const SizedBox(height: 24.0),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _showPasswordResetDialog,
+                              child: const Text(
+                                "Şifremi Unuttum",
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12.0),
                         _buildAnimatedLoginButton(),
                         _buildRegisterButton(),
                       ],
@@ -244,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen>
             const Icon(Icons.language, size: 80, color: Colors.white),
             const SizedBox(height: 16),
             Text(
-              AppLocalizations.of(context)!.appName, // <-- GÜNCELLENDİ
+              AppLocalizations.of(context)!.appName,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 45.0,
@@ -260,7 +359,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
             Text(
-              AppLocalizations.of(context)!.appSubtitle, // <-- GÜNCELLENDİ
+              AppLocalizations.of(context)!.appSubtitle,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -356,7 +455,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 )
                     : Text(
-                  AppLocalizations.of(context)!.login, // <-- GÜNCELLENDİ
+                  AppLocalizations.of(context)!.login,
                   key: const ValueKey('loginText'),
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold),
@@ -376,7 +475,7 @@ class _LoginScreenState extends State<LoginScreen>
         position: _buttonSlide,
         child: TextButton(
           child: Text(
-            AppLocalizations.of(context)!.dontHaveAnAccount, // <-- GÜNCELLENDİ
+            AppLocalizations.of(context)!.dontHaveAnAccount,
             style: TextStyle(color: Colors.white.withOpacity(0.9)),
           ),
           onPressed: () {
