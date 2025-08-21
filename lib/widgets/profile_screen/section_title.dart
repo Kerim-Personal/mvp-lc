@@ -19,23 +19,24 @@ class SectionTitle extends StatelessWidget {
             height: 24,
             width: 4,
             decoration: BoxDecoration(
-              // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı.
-              // 204 değeri, %80 opaklığa denk gelir (255 * 0.8).
-              color: Colors.teal.withAlpha(204),
+              // OPTİMİZASYON: `withAlpha` yerine daha performanslı olan `withOpacity` kullanıldı.
+              color: Colors.teal.withOpacity(0.8),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 12),
           // Başlık metni
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı.
-              // 191 değeri, %75 opaklığa denk gelir (255 * 0.75).
-              color: Colors.black.withAlpha(191),
-              letterSpacing: 0.5,
+          // OPTİMİZASYON: Opaklık, `Opacity` widget'ı ile yönetiliyor.
+          Opacity(
+            opacity: 0.75,
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.black, // Ana renk siyah olarak kalır
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ],

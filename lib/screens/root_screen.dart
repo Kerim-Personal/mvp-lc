@@ -11,10 +11,10 @@ import 'package:lingua_chat/screens/discover_screen.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:lingua_chat/widgets/shared/animated_background.dart';
 
+// Bu fonksiyon veritabanı kurulumu için, dokunulmasına gerek yok.
 Future<void> _createDefaultChatRooms() async {
   final chatRoomsCollection = FirebaseFirestore.instance.collection('group_chats');
   final snapshot = await chatRoomsCollection.limit(1).get();
-
   if (snapshot.docs.isEmpty) {
     final batch = FirebaseFirestore.instance.batch();
     final defaultRooms = [
@@ -27,7 +27,6 @@ Future<void> _createDefaultChatRooms() async {
         "isFeatured": true
       },
     ];
-
     for (var roomData in defaultRooms) {
       final docRef = chatRoomsCollection.doc();
       batch.set(docRef, roomData);
@@ -39,52 +38,60 @@ Future<void> _createDefaultChatRooms() async {
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
-  // DEĞİŞİKLİK: State sınıfının adını dışarıya açtık (public yaptık).
   @override
   RootScreenState createState() => RootScreenState();
 }
 
-// DEĞİŞİKLİK: State sınıfının adı '_' olmadan (public) olarak değiştirildi.
 class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   int _selectedIndex = 2;
-  late AnimationController _animationController;
+  late AnimationController _navIconAnimationController;
   late Animation<double> _scaleAnimation;
+  // MÜKEMMEL OPTİMİZASYON: PageView'i kontrol etmek için bir PageController eklendi.
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _pageController = PageController(initialPage: _selectedIndex);
+
+    _navIconAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
       CurvedAnimation(
-        parent: _animationController,
+        parent: _navIconAnimationController,
         curve: Curves.easeOut,
       ),
     );
-
     _createDefaultChatRooms();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _navIconAnimationController.dispose();
+    _pageController.dispose(); // Controller'ı dispose etmeyi unutma
     super.dispose();
   }
 
-  // YENİ: Dışarıdan sekme değiştirmeyi sağlayacak metot.
   void changeTab(int index) {
-    if (index >= 0 && index < 5) { // Olası hataları önlemek için kontrol
+    if (index >= 0 && index < 5) {
       _onItemTapped(index);
     }
   }
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
     setState(() {
       _selectedIndex = index;
     });
-    _animationController.forward().then((value) => _animationController.reverse());
+    // Sayfayı animasyonlu olarak değiştir
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 10),
+      curve: Curves.easeInOut,
+    );
+    _navIconAnimationController.forward().then((_) => _navIconAnimationController.reverse());
   }
 
   @override
@@ -96,6 +103,7 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       const DiscoverScreen(),
       const HomeScreen(),
       const CommunityScreen(),
+      if (currentUser != null) ProfileScreen(userId: currentUser.uid),
     ];
 
     final List<GButton> tabs = [
@@ -103,25 +111,20 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       const GButton(icon: Icons.explore_outlined, text: 'Keşfet'),
       const GButton(icon: Icons.home_rounded, text: 'Ana Sayfa'),
       const GButton(icon: Icons.groups_outlined, text: 'Topluluk'),
-    ];
-
-    if (currentUser != null) {
-      pages.add(ProfileScreen(userId: currentUser.uid));
-      tabs.add(
+      if (currentUser != null)
         const GButton(icon: Icons.person_rounded, text: 'Profil'),
-      );
-    }
-
-    if (_selectedIndex >= pages.length) {
-      _selectedIndex = 2;
-    }
+    ];
 
     return Scaffold(
       body: Stack(
         children: [
           const AnimatedBackground(),
-          IndexedStack(
-            index: _selectedIndex,
+          // MÜKEMMEL OPTİMİZASYON: Sayfaları yönetmek için PageView kullanılıyor.
+          // Bu, state'i korur ve akıcı geçiş animasyonları sağlar.
+          PageView(
+            controller: _pageController,
+            // Kullanıcının parmağıyla kaydırarak sekmeler arası geçmesini engelle
+            physics: const NeverScrollableScrollPhysics(),
             children: pages,
           ),
         ],
@@ -132,7 +135,7 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
           boxShadow: [
             BoxShadow(
               blurRadius: 20,
-              color: Colors.black.withAlpha(26),
+              color: Colors.black.withOpacity(0.05),
             )
           ],
         ),

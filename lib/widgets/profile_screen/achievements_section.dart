@@ -49,7 +49,7 @@ class _AchievementBadge extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              // YENİ: Gölge yerine daha performanslı olan çerçeve eklendi.
+              // OPTİMİZASYON: Gölge (BoxShadow) yerine daha performanslı olan çerçeve (Border) kullanıldı.
               border: earned ? Border.all(color: color.withOpacity(0.5), width: 2) : null,
             ),
             child: CircleAvatar(

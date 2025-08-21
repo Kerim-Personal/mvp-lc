@@ -43,23 +43,30 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
-    )..repeat();
+    );
 
     _pulseController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _currentTip = _tips[Random().nextInt(_tips.length)];
   }
 
+  // GÜNCELLEME: Widget'ın görünürlüğüne göre animasyonları yönetmek için eklendi.
   @override
   void didUpdateWidget(covariant SearchingUI oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isSearching && !oldWidget.isSearching) {
+      // Arama başladığında animasyonları ve zamanlayıcıyı başlat
+      _shimmerController.repeat();
+      _pulseController.repeat(reverse: true);
       _startTimers();
     }
     if (!widget.isSearching && oldWidget.isSearching) {
+      // Arama bittiğinde animasyonları ve zamanlayıcıyı durdur
+      _shimmerController.stop();
+      _pulseController.stop();
       _stopTimers();
     }
   }
@@ -108,7 +115,6 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Spacer(flex: 3),
-              // HATA ÇÖZÜMÜ: Buradaki Hero widget'ı kaldırıldı.
               Stack(
                 alignment: Alignment.center,
                 children: [

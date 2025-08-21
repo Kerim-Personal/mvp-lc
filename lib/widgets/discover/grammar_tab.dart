@@ -5,7 +5,7 @@ import 'package:lingua_chat/data/lesson_data.dart';
 import 'package:lingua_chat/models/lesson_model.dart';
 import 'package:lingua_chat/navigation/lesson_router.dart';
 
-// --- GRAMER SEKMESİ ANA WIDGET'I ---
+// --- GRAMER SEKMESİ ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
 class GrammarTab extends StatefulWidget {
   const GrammarTab({super.key});
 
@@ -14,6 +14,7 @@ class GrammarTab extends StatefulWidget {
 }
 
 class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
+  // Kullanıcı ilerlemesi (Bu veri normalde bir servisten veya veritabanından gelir)
   final Map<String, double> userProgress = const {
     'A1': 1.0,
     'A2': 0.75,
@@ -23,21 +24,53 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     'C2': 0.0,
   };
 
-  late final AnimationController _pathController;
+  // OPTİMİZASYON: Patika çizim animasyonu için tek seferlik bir controller.
+  late final AnimationController _entryAnimationController;
+  late final Animation<double> _pathAnimation;
+
+  final levels = const ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  final levelColors = const [
+    Colors.green,
+    Colors.lightBlue,
+    Colors.orange,
+    Colors.deepOrange,
+    Colors.red,
+    Colors.purple
+  ];
 
   @override
   void initState() {
     super.initState();
-    _pathController = AnimationController(
+    // OPTİMİZASYON: Controller'ın süresi kısaltıldı ve sadece bir kez ileriye çalışacak.
+    _entryAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(); // Sonsuz döngü
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    _pathAnimation = CurvedAnimation(
+      parent: _entryAnimationController,
+      curve: Curves.easeInOutCubic,
+    );
+
+    _entryAnimationController.forward();
   }
 
   @override
   void dispose() {
-    _pathController.dispose();
+    _entryAnimationController.dispose();
     super.dispose();
+  }
+
+  // Patika düğümlerinin pozisyonlarını hesaplayan yardımcı fonksiyon
+  Offset _calculateNodePosition(int index, double width) {
+    final double horizontalPadding = width / 4;
+    final double verticalSpacing = 160.0;
+    final double startY = 120.0;
+    double x = (index % 2 == 0)
+        ? horizontalPadding - 40
+        : width - horizontalPadding - 80;
+    double y = startY + (index * verticalSpacing);
+    return Offset(x, y);
   }
 
   @override
@@ -47,35 +80,31 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
       lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
     }
 
-    final levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-    final levelColors = [
-      Colors.green,
-      Colors.lightBlue,
-      Colors.orange,
-      Colors.deepOrange,
-      Colors.red,
-      Colors.purple
-    ];
+    // OPTİMİZASYON: Yüksekliği içeriğe göre dinamik olarak hesapla
+    final double totalHeight =
+        120.0 + (levels.length * 160.0) + 100.0; // Başlangıç + (seviye * boşluk) + bitiş payı
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: SizedBox(
-        height: 1100,
+        height: totalHeight,
         child: Stack(
           alignment: Alignment.center,
           children: [
+            // OPTİMİZASYON: Sürekli tekrar eden AnimatedBuilder yerine tek seferlik animasyon.
             AnimatedBuilder(
-              animation: _pathController,
+              animation: _pathAnimation,
               builder: (context, child) {
                 return CustomPaint(
-                  size: const Size(double.infinity, 1100),
+                  size: Size(double.infinity, totalHeight),
                   painter: _CosmicPathPainter(
-                    progress: _pathController.value,
+                    progress: _pathAnimation.value, // Animasyon değeri doğrudan veriliyor
                     levelColors: levelColors,
                   ),
                 );
               },
             ),
+            // Seviye düğümlerini oluştur
             ...List.generate(levels.length, (index) {
               final level = levels[index];
               final lessonsInLevel = lessonsByLevel[level] ?? [];
@@ -94,7 +123,9 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                   color: levelColors[index],
                   progress: progress,
                   isLocked: isLocked,
-                  animationDelay: index * 0.2,
+                  // OPTİMİZASYON: Giriş animasyonunu ana controller'a bağla
+                  entryAnimation: _entryAnimationController,
+                  animationDelay: index * 0.15, // Gecikmeyi biraz artırarak daha hoş bir sıralama sağla
                   onTap: isLocked
                       ? null
                       : () => Navigator.push(
@@ -115,17 +146,6 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
       ),
     );
   }
-
-  Offset _calculateNodePosition(int index, double width) {
-    final double horizontalPadding = width / 4;
-    final double verticalSpacing = 160.0;
-    final double startY = 120.0;
-    double x = (index % 2 == 0)
-        ? horizontalPadding - 40
-        : width - horizontalPadding - 80;
-    double y = startY + (index * verticalSpacing);
-    return Offset(x, y);
-  }
 }
 
 // --- PATİKA DÜĞÜMÜ (SEVİYE YILDIZI) ---
@@ -135,6 +155,7 @@ class _LevelPathNode extends StatefulWidget {
   final Color color;
   final double progress;
   final bool isLocked;
+  final Animation<double> entryAnimation; // OPTİMİZASYON: Dışarıdan animasyon controller'ı alır
   final double animationDelay;
   final VoidCallback? onTap;
 
@@ -144,6 +165,7 @@ class _LevelPathNode extends StatefulWidget {
     required this.color,
     required this.progress,
     required this.isLocked,
+    required this.entryAnimation,
     required this.animationDelay,
     this.onTap,
   });
@@ -154,33 +176,30 @@ class _LevelPathNode extends StatefulWidget {
 
 class _LevelPathNodeState extends State<_LevelPathNode>
     with TickerProviderStateMixin {
-  late AnimationController _pulseController, _entryController;
+  late AnimationController _pulseController;
   late Animation<double> _scaleAnimation, _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    // Nabız efekti için controller
     _pulseController = AnimationController(
         vsync: this, duration: const Duration(seconds: 3))
       ..repeat(reverse: true);
-    _entryController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800));
-    Future.delayed(
-      Duration(milliseconds: (widget.animationDelay * 1000).toInt()),
-          () {
-        if (mounted) _entryController.forward();
-      },
-    );
-    _scaleAnimation =
-        CurvedAnimation(parent: _entryController, curve: Curves.elasticOut);
-    _fadeAnimation =
-        CurvedAnimation(parent: _entryController, curve: Curves.easeIn);
+
+    // Giriş animasyonları için dışarıdan gelen controller'ı kullan
+    final intervalCurve = CurvedAnimation(
+        parent: widget.entryAnimation,
+        curve: Interval(widget.animationDelay, (widget.animationDelay + 0.5).clamp(0.0, 1.0),
+            curve: Curves.elasticOut));
+
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(intervalCurve);
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(intervalCurve);
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
-    _entryController.dispose();
     super.dispose();
   }
 
@@ -202,76 +221,79 @@ class _LevelPathNodeState extends State<_LevelPathNode>
               final pulseValue = 1 + (_pulseController.value * 0.05);
               return Transform.scale(
                 scale: pulseValue,
-                child: SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            if (!widget.isLocked)
-                              BoxShadow(
-                                color: isCompleted
-                                    ? Colors.amber.withOpacity(0.7)
-                                    : displayColor.withOpacity(0.5),
-                                blurRadius: isCompleted ? 30 : 20,
-                                spreadRadius: isCompleted ? 5 : 2,
-                              ),
+                child: child,
+              );
+            },
+            child: SizedBox(
+              width: 120,
+              height: 120,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Dış parlama efekti
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        if (!widget.isLocked)
+                          BoxShadow(
+                            color: isCompleted
+                                ? Colors.amber.withOpacity(0.7)
+                                : displayColor.withOpacity(0.5),
+                            blurRadius: isCompleted ? 30 : 20,
+                            spreadRadius: isCompleted ? 5 : 2,
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Asıl seviye topu
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: widget.isLocked
+                            ? [
+                          Colors.grey.shade800,
+                          Colors.grey.shade900
+                        ]
+                            : [
+                          (widget.color as MaterialColor).shade300,
+                          (widget.color as MaterialColor).shade700
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.2)),
+                    ),
+                    child: Center(
+                      child: widget.isLocked
+                          ? Icon(Icons.lock,
+                          color: Colors.white.withOpacity(0.7),
+                          size: 32)
+                          : Text(
+                        widget.level,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 10,
+                              color: Colors.black38,
+                            )
                           ],
                         ),
                       ),
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: widget.isLocked
-                                ? [
-                              Colors.grey.shade800,
-                              Colors.grey.shade900
-                            ]
-                                : [
-                              (widget.color as MaterialColor).shade300,
-                              (widget.color as MaterialColor).shade700
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          border: Border.all(
-                              color: Colors.white.withOpacity(0.2)),
-                        ),
-                        child: Center(
-                          child: widget.isLocked
-                              ? Icon(Icons.lock,
-                              color: Colors.white.withOpacity(0.7),
-                              size: 32)
-                              : Text(
-                            widget.level,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: 10,
-                                  color: Colors.black38,
-                                )
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -279,15 +301,15 @@ class _LevelPathNodeState extends State<_LevelPathNode>
   }
 }
 
-// --- KOZMİK PATİKA ÇİZİCİ ---
+// --- KOZMİK PATİKA ÇİZİCİ (OPTİMİZE EDİLMİŞ) ---
 class _CosmicPathPainter extends CustomPainter {
   final double progress;
   final List<Color> levelColors;
 
   _CosmicPathPainter({required this.progress, required this.levelColors});
 
-  @override
-  void paint(Canvas canvas, Size size) {
+  // Patikayı sadece bir kez hesaplamak için
+  Path _createPath(Size size) {
     final path = Path();
     path.moveTo(size.width * 0.25, 160);
     path.quadraticBezierTo(
@@ -300,36 +322,46 @@ class _CosmicPathPainter extends CustomPainter {
         size.width * 0.2, 720, size.width * 0.25, 800);
     path.quadraticBezierTo(
         size.width * 0.8, 880, size.width * 0.75 - 40, 960);
+    return path;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = _createPath(size);
 
     // Sabit arka plan çizgisi
     final Paint basePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
       ..color = Colors.white.withOpacity(0.2);
-
     canvas.drawPath(path, basePaint);
 
-    // Animasyonlu parlak çizgi
-    final PathMetric pathMetric = path.computeMetrics().first;
-    final Path extractPath =
-    pathMetric.extractPath(0.0, pathMetric.length * progress);
+    // OPTİMİZASYON: Sadece progress 0'dan büyükse çizim yap.
+    if (progress > 0) {
+      // Animasyonlu parlak çizgi
+      final PathMetric pathMetric = path.computeMetrics().first;
+      final Path extractPath =
+      pathMetric.extractPath(0.0, pathMetric.length * progress);
 
-    final Paint pathPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..shader = LinearGradient(colors: levelColors)
-          .createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+      // Parlama efekti için boya
+      final Paint glowPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8.0
+        ..shader = LinearGradient(
+            colors: levelColors.map((c) => c.withOpacity(0.5)).toList())
+            .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
-    final Paint glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8.0
-      ..shader = LinearGradient(
-          colors: levelColors.map((c) => c.withOpacity(0.5)).toList())
-          .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      // Ana yol için boya
+      final Paint pathPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..shader = LinearGradient(colors: levelColors)
+            .createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    canvas.drawPath(extractPath, glowPaint);
-    canvas.drawPath(extractPath, pathPaint);
+      canvas.drawPath(extractPath, glowPaint);
+      canvas.drawPath(extractPath, pathPaint);
+    }
   }
 
   @override
@@ -337,7 +369,7 @@ class _CosmicPathPainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
-// --- GRAMER SEVİYE DETAY SAYFASI ---
+// --- GRAMER SEVİYE DETAY SAYFASI (DEĞİŞİKLİK YOK) ---
 class GrammarLevelScreen extends StatelessWidget {
   final String level;
   final List<Lesson> lessons;

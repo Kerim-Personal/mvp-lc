@@ -111,8 +111,8 @@ class VocabularyPackCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [pack.color1, pack.color2], begin: Alignment.topLeft, end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(24),
-          // ÇÖZÜLDÜ: `withOpacity` uyarısını gidermek için `withAlpha` kullanıldı.
-          boxShadow: [BoxShadow(color: pack.color2.withAlpha(102), blurRadius: 12, offset: const Offset(0, 6))],
+          // OPTİMİZASYON: `withAlpha` yerine daha performanslı olan `withOpacity` kullanıldı.
+          boxShadow: [BoxShadow(color: pack.color2.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,16 +131,16 @@ class VocabularyPackCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   const SizedBox(height: 4),
-                  // ÇÖZÜLDÜ: `withOpacity` uyarısını gidermek için `withAlpha` kullanıldı.
-                  Text('${pack.wordCount} kelime', style: TextStyle(color: Colors.white.withAlpha(230))),
+                  // OPTİMİZASYON: `withAlpha` yerine daha performanslı olan `withOpacity` kullanıldı.
+                  Text('${pack.wordCount} kelime', style: TextStyle(color: Colors.white.withOpacity(0.9))),
                   const SizedBox(height: 8),
                   if (pack.progress > 0)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: LinearProgressIndicator(
                         value: pack.progress,
-                        // ÇÖZÜLDÜ: `withOpacity` uyarısını gidermek için `withAlpha` kullanıldı.
-                        backgroundColor: Colors.white.withAlpha(77),
+                        // OPTİMİZASYON: `withAlpha` yerine daha performanslı olan `withOpacity` kullanıldı.
+                        backgroundColor: Colors.white.withOpacity(0.3),
                         valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                         minHeight: 6,
                       ),
