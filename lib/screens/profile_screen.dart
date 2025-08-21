@@ -89,6 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           final totalPracticeTime = userData['totalPracticeTime'] ?? 0;
           final partnerCount = userData['partnerCount'] ?? 0;
           final isPremium = userData['isPremium'] as bool? ?? false; // YENİ: Premium verisi çekiliyor.
+          final role = (userData['role'] as String?) ?? 'user';
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -98,6 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                 email: email,
                 avatarUrl: avatarUrl,
                 isPremium: isPremium, // YENİ: Premium verisi AppBar'a aktarılıyor.
+                role: role,
               ),
               SliverPadding(
                 padding: const EdgeInsets.all(16.0),

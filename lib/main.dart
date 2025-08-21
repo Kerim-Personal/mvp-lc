@@ -11,6 +11,10 @@ import 'package:lingua_chat/screens/login_screen.dart';
 import 'package:lingua_chat/services/audio_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lingua_chat/l10n/app_localizations.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lingua_chat/screens/banned_screen.dart';
+import 'package:lingua_chat/screens/help_and_support_screen.dart';
+import 'package:lingua_chat/screens/support_request_screen.dart';
 
 // YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
 final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
@@ -59,6 +63,10 @@ class MyApp extends StatelessWidget {
         Locale('en', ''),
         Locale('tr', ''),
       ],
+      routes: {
+        '/help': (_) => HelpAndSupportScreen(),
+        '/support': (_) => const SupportRequestScreen(),
+      },
       home: const AuthWrapper(),
     );
   }
@@ -79,9 +87,21 @@ class AuthWrapper extends StatelessWidget {
             ),
           );
         }
-        if (snapshot.hasData) {
-          // DEĞİŞİKLİK: RootScreen'e oluşturduğumuz anahtar atandı.
-          return RootScreen(key: rootScreenKey);
+        if (snapshot.hasData && snapshot.data != null) {
+          final uid = snapshot.data!.uid;
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+            builder: (context, userSnap) {
+              if (!userSnap.hasData) {
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+              final data = userSnap.data!.data() as Map<String, dynamic>?;
+              if ((data?['status'] as String?) == 'banned') {
+                return const BannedScreen();
+              }
+              return RootScreen(key: rootScreenKey);
+            },
+          );
         }
         return const LoginScreen();
       },

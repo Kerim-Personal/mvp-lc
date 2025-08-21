@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
 import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
-import 'package:lingua_chat/widgets/home_screen/weekly_quiz_card.dart';
 import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
 
 class HomeCardsSection extends StatelessWidget {
@@ -21,7 +20,6 @@ class HomeCardsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Widget> cards = [
       const ChallengeCard(),
-      const WeeklyQuizCard(),
       const LevelAssessmentCard(),
       const VocabularyTreasureCard(),
     ];
@@ -67,7 +65,7 @@ class HomeCardsSection extends StatelessWidget {
   }
 
   Widget _buildPageIndicator() {
-    const int pageCount = 4;
+    const int pageCount = 3;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(pageCount, (index) {

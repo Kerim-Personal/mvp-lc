@@ -2,6 +2,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -14,14 +15,13 @@ class AuthService {
   }
 
   /// Kullanıcı adının veritabanında daha önce alınıp alınmadığını kontrol eder.
-  /// Sorguyu küçük harfe çevirerek büyük/küçük harf duyarsız bir kontrol sağlar.
+  /// Artık Callable Cloud Function kullanır; kimlik doğrulaması gerektirmez.
   Future<bool> isUsernameAvailable(String username) async {
-    final result = await _firestore
-        .collection('users')
-        .where('username_lowercase', isEqualTo: username.toLowerCase())
-        .limit(1) // Performans için sadece 1 doküman getirmesi yeterli
-        .get();
-    return result.docs.isEmpty; // Eğer doküman yoksa, kullanıcı adı müsaittir (true).
+    final callable = FirebaseFunctions.instance.httpsCallable('checkUsernameAvailable');
+    final res = await callable.call({'username': username});
+    final data = res.data;
+    if (data is Map && data['available'] is bool) return data['available'] as bool;
+    return false;
   }
 
   /// Yeni kullanıcı kaydı oluşturur ve ek bilgileri Firestore'a kaydeder.
@@ -49,7 +49,7 @@ class AuthService {
           'gender': gender,
           'email': email,
           'uid': userCredential.user!.uid,
-          'createdAt': Timestamp.now(),
+          'createdAt': FieldValue.serverTimestamp(),
           'emailVerified':
           false, // Başlangıçta e-posta doğrulanmamış olarak ayarlanır.
           'avatarUrl': avatarUrl,
@@ -57,8 +57,13 @@ class AuthService {
           // İstatistik alanları başlatılıyor
           'streak': 0,
           'totalPracticeTime': 0, // Dakika cinsinden
-          'lastActivityDate': Timestamp.now(),
+          'lastActivityDate': FieldValue.serverTimestamp(),
           'isPremium': false, // Varsayılan olarak premium değil
+          // Yeni: rol ve durum
+          'role': 'user',
+          'status': 'active',
+          // Yeni: Engellenen kullanıcılar listesi
+          'blockedUsers': <String>[],
         });
       }
       return userCredential;

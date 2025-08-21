@@ -8,6 +8,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/report_user_screen.dart';
 import 'package:lingua_chat/screens/root_screen.dart';
+import 'package:lingua_chat/services/admin_service.dart';
+import 'package:lingua_chat/screens/ban_user_screen.dart';
+import 'package:lingua_chat/services/block_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -27,6 +30,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Future<DocumentSnapshot>? _partnerFuture;
   bool _isPartnerPremium = false;
   bool _isCurrentUserPremium = false;
+  bool _canBan = false;
+
+  // Yeni: Engelleme durumu
+  bool _interactionAllowed = true;
+  bool _blockedByMe = false;
 
   late DateTime _chatStartTime;
   bool _isSaving = false;
@@ -64,6 +72,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future<void> _refreshBlockState(String currentUserId, String partnerId) async {
+    try {
+      final usersColl = FirebaseFirestore.instance.collection('users');
+      final results = await Future.wait([
+        usersColl.doc(currentUserId).get(),
+        usersColl.doc(partnerId).get(),
+      ]);
+      final myBlocked = (results[0].data()?['blockedUsers'] as List<dynamic>?) ?? const [];
+      final theirBlocked = (results[1].data()?['blockedUsers'] as List<dynamic>?) ?? const [];
+      final blockedByMe = myBlocked.contains(partnerId);
+      final blockedMe = theirBlocked.contains(currentUserId);
+      if (mounted) {
+        setState(() {
+          _blockedByMe = blockedByMe;
+          _interactionAllowed = !(blockedByMe || blockedMe);
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _blockedByMe = false;
+          _interactionAllowed = true;
+        });
+      }
+    }
+  }
+
   Future<void> _setupPartnerInfoAndStartHeartbeat() async {
     final currentUser = _currentUser;
     if (currentUser == null) return;
@@ -77,6 +112,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _partnerId = partnerId;
 
       if (partnerId != null) {
+        // Ban yetkisi kontrolü
+        try {
+          final allowed = await AdminService().canBanUser(partnerId);
+          if (mounted) setState(() => _canBan = allowed);
+        } catch (_) {
+          if (mounted) setState(() => _canBan = false);
+        }
+
         final partnerDocFuture = FirebaseFirestore.instance.collection('users').doc(partnerId).get();
         final currentUserDocFuture = FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
 
@@ -97,6 +140,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           }
         }
 
+        // Yeni: Engelleme durumunu güncelle
+        await _refreshBlockState(currentUser.uid, partnerId);
+
         _listenToChatChanges();
         _startHeartbeat();
       }
@@ -104,8 +150,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Hata yönetimi
     }
   }
-
-  // ... (geri kalan _startHeartbeat, _listenToChatChanges, _savePracticeTime, _endChatAndSaveChanges, _leaveChat, _showPartnerLeftDialog, _handleLeaveAttempt fonksiyonları aynı kalır)
 
   void _startHeartbeat() {
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
@@ -196,7 +240,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     _chatSubscription?.cancel();
     _heartbeatTimer?.cancel();
-    await _savePracticeTime();
+    _savePracticeTime();
 
     if (mounted) {
       _showPartnerLeftDialog(message);
@@ -232,6 +276,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _blockOrUnblock() async {
+    final partnerId = _partnerId;
+    final currentUser = _currentUser;
+    if (partnerId == null || currentUser == null) return;
+    try {
+      if (_blockedByMe) {
+        // Engeli kaldır özelliği menüden kaldırıldığı için burada işlem yapılmıyor.
+        return;
+      } else {
+        await BlockService().blockUser(currentUserId: currentUser.uid, targetUserId: partnerId);
+        await _refreshBlockState(currentUser.uid, partnerId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Kullanıcı engellendi.')),
+          );
+          // Sohbetten çık
+          await _leaveChat();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: ${e.toString()}')),
+        );
+      }
+    }
+  }
 
   void _showPartnerLeftDialog(String message) {
     if (!mounted) return;
@@ -285,7 +356,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleLeaveAttempt();
       },
@@ -303,8 +374,56 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               final partnerData = snapshot.data!.data() as Map<String, dynamic>;
               final avatarUrl = partnerData['avatarUrl'] as String?;
               final partnerName = partnerData['displayName'] ?? 'Bilinmeyen Kullanıcı';
-              const premiumColor = Color(0xFFE5B53A);
-              const premiumIcon = Icons.auto_awesome;
+              final role = partnerData['role'] as String?;
+              final isPremium = (partnerData['isPremium'] as bool?) ?? false;
+
+              Color baseColor;
+              switch (role) {
+                case 'admin':
+                  baseColor = Colors.red;
+                  break;
+                case 'moderator':
+                  baseColor = Colors.orange;
+                  break;
+                default:
+                  baseColor = Colors.black87;
+              }
+
+              if (isPremium && !_shimmerController.isAnimating) {
+                _shimmerController.forward(from: 0);
+              }
+
+              Widget nameWidget = Text(
+                partnerName,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: baseColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+              );
+
+              if (isPremium) {
+                nameWidget = AnimatedBuilder(
+                  animation: _shimmerController,
+                  builder: (context, child) {
+                    final highlightColor = Colors.white;
+                    final value = _shimmerController.value;
+                    final start = value * 1.5 - 0.5;
+                    final end = value * 1.5;
+                    return ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (bounds) => LinearGradient(
+                        colors: [baseColor, highlightColor, baseColor],
+                        stops: [start, (start + end) / 2, end],
+                      ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                      child: child!,
+                    );
+                  },
+                  child: nameWidget,
+                );
+              }
+
               return Row(
                 children: [
                   CircleAvatar(
@@ -312,67 +431,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     backgroundColor: Colors.teal.shade100,
                     child: avatarUrl != null
                         ? ClipOval(
-                      child: SvgPicture.network(
-                        avatarUrl,
-                        placeholderBuilder: (context) => const SizedBox(
-                            width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2,)
-                        ),
-                        width: 36,
-                        height: 36,
-                      ),
-                    )
+                            child: SvgPicture.network(
+                              avatarUrl,
+                              placeholderBuilder: (context) => const SizedBox(
+                                  width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2,)
+                              ),
+                              width: 36,
+                              height: 36,
+                            ),
+                          )
                         : const Icon(Icons.person, color: Colors.teal),
                   ),
                   const SizedBox(width: 12),
-                  Flexible(
-                    child: _isPartnerPremium
-                        ? AnimatedBuilder(
-                      animation: _shimmerController,
-                      builder: (context, child) {
-                        final highlightColor = Colors.white;
-                        final value = _shimmerController.value;
-                        final start = value * 1.5 - 0.5;
-                        final end = value * 1.5;
-                        return ShaderMask(
-                          blendMode: BlendMode.srcIn,
-                          shaderCallback: (bounds) => LinearGradient(
-                            colors: [premiumColor, highlightColor, premiumColor],
-                            stops: [start, (start + end) / 2, end],
-                          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-                          child: child,
-                        );
-                      },
-                      child: Text(
-                        partnerName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: premiumColor,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    )
-                        : Text(
-                      partnerName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.black87,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (_isPartnerPremium) ...[
-                    const SizedBox(width: 4),
-                    const Icon(premiumIcon, color: premiumColor, size: 18),
-                  ]
+                  Flexible(child: nameWidget),
                 ],
               );
             },
           ),
           actions: [
             PopupMenuButton<String>(
-              onSelected: (value) {
+              onSelected: (value) async {
                 if (value == 'report') {
                   final partnerId = _partnerId;
                   if (partnerId != null) {
@@ -383,20 +461,60 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       ),
                     );
                   }
+                } else if (value == 'ban') {
+                  final partnerId = _partnerId;
+                  if (partnerId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BanUserScreen(targetUserId: partnerId),
+                      ),
+                    );
+                  }
+                } else if (value == 'block') {
+                  await _blockOrUnblock();
                 }
               },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'report',
-                  child: Row(
-                    children: [
-                      Icon(Icons.report, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Kullanıcıyı Bildir'),
-                    ],
+              itemBuilder: (BuildContext context) {
+                final List<PopupMenuEntry<String>> items = [
+                  if (!_blockedByMe)
+                    const PopupMenuItem<String>(
+                      value: 'block',
+                      child: Row(
+                        children: [
+                          Icon(Icons.block, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Kullanıcıyı Engelle'),
+                        ],
+                      ),
+                    ),
+                  const PopupMenuItem<String>(
+                    value: 'report',
+                    child: Row(
+                      children: [
+                        Icon(Icons.report, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Kullanıcıyı Bildir'),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ];
+                if (_canBan) {
+                  items.add(
+                    const PopupMenuItem<String>(
+                      value: 'ban',
+                      child: Row(
+                        children: [
+                          Icon(Icons.block, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Hesabı Banla'),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return items;
+              },
             ),
             IconButton(
               icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
@@ -406,6 +524,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ),
         body: Column(
           children: <Widget>[
+            if (!_interactionAllowed)
+              Container(
+                width: double.infinity,
+                color: Colors.orange.withOpacity(0.15),
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  _blockedByMe
+                      ? 'Bu kullanıcıyı engellediniz. Mesaj göndermek için engeli kaldırın.'
+                      : 'Bu kullanıcı sizi engellemiş. Mesaj gönderemezsiniz.',
+                  style: const TextStyle(color: Colors.black87),
+                ),
+              ),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -446,6 +576,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             _MessageComposer(
               chatRoomId: widget.chatRoomId,
               currentUser: _currentUser,
+              enabled: _interactionAllowed,
             ),
           ],
         ),
@@ -458,8 +589,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 class _MessageComposer extends StatefulWidget {
   final String chatRoomId;
   final User? currentUser;
+  final bool enabled;
 
-  const _MessageComposer({required this.chatRoomId, required this.currentUser});
+  const _MessageComposer({required this.chatRoomId, required this.currentUser, this.enabled = true});
 
   @override
   State<_MessageComposer> createState() => _MessageComposerState();
@@ -489,6 +621,7 @@ class _MessageComposerState extends State<_MessageComposer> {
   }
 
   void _sendMessage() {
+    if (!widget.enabled) return;
     final messageText = _messageController.text.trim();
     if (messageText.isEmpty || widget.currentUser == null) {
       return;
@@ -514,6 +647,7 @@ class _MessageComposerState extends State<_MessageComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final canType = widget.enabled && widget.currentUser != null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
       decoration: BoxDecoration(
@@ -526,19 +660,20 @@ class _MessageComposerState extends State<_MessageComposer> {
             Expanded(
               child: TextField(
                 controller: _messageController,
+                enabled: canType,
                 textCapitalization: TextCapitalization.sentences,
                 minLines: 1,
                 maxLines: 5,
                 decoration: InputDecoration(
-                  hintText: 'Mesajını yaz...',
+                  hintText: canType ? 'Mesajını yaz...' : 'Mesaj gönderme devre dışı',
                   filled: true,
                   fillColor: Colors.grey.withAlpha(50),
                   contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(25.0), borderSide: BorderSide.none),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.send_rounded),
-                    color: _isComposing ? Colors.teal : Colors.grey,
-                    onPressed: _isComposing ? _sendMessage : null,
+                    color: (_isComposing && canType) ? Colors.teal : Colors.grey,
+                    onPressed: (_isComposing && canType) ? _sendMessage : null,
                   ),
                 ),
               ),

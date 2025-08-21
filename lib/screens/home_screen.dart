@@ -156,6 +156,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final myData = myUserDoc.data() as Map<String, dynamic>;
       final myGender = myData['gender'];
       final myLevel = myData['level'];
+      final List<dynamic> myBlocked = (myData['blockedUsers'] as List<dynamic>?) ?? const [];
       String myLevelGroup;
       if (['A1', 'A2'].contains(myLevel)) {
         myLevelGroup = 'Başlangıç';
@@ -192,6 +193,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final otherUserData = otherUserDoc.data() as Map<String, dynamic>;
         final otherUserFilterGender = otherUserData['filter_gender'];
         final otherUserFilterLevelGroup = otherUserData['filter_level_group'];
+
+        // Engelleme kontrolü: Ben onu engelledim mi ya da o beni engelledi mi?
+        final otherProfileDoc = await FirebaseFirestore.instance.collection('users').doc(otherUserDoc.id).get();
+        final List<dynamic> otherBlocked = (otherProfileDoc.data()?['blockedUsers'] as List<dynamic>?) ?? const [];
+        final blockedEitherWay = myBlocked.contains(otherUserDoc.id) || otherBlocked.contains(myId);
+        if (blockedEitherWay) {
+          continue; // Bu adayı atla
+        }
+
         final isMyGenderOk =
             otherUserFilterGender == null || otherUserFilterGender == myGender;
         final isMyLevelGroupOk = otherUserFilterLevelGroup == null ||
@@ -364,8 +374,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: _buildAnimatedUI(
-                    interval: const Interval(0.4, 1.0),
-                    child: _buildStatsSection()),
+                  interval: const Interval(0.4, 1.0),
+                  child: _buildStatsSection(),
+                ),
               ),
               const SizedBox(height: 24),
               _buildAnimatedUI(
@@ -403,7 +414,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           avatarUrl: null,
           streak: 0,
           isPremium: false,
-          currentUser: _currentUser);
+          currentUser: _currentUser,
+          role: 'user');
     }
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _userStream,
@@ -414,13 +426,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               avatarUrl: null,
               streak: 0,
               isPremium: false,
-              currentUser: _currentUser);
+              currentUser: _currentUser,
+              role: 'user');
         }
         var userData = snapshot.data!.data()!;
         final userName = userData['displayName'] ?? 'Gezgin';
         final avatarUrl = userData['avatarUrl'] as String?;
         final isPremium = userData['isPremium'] as bool? ?? false;
         final streak = userData['streak'] as int? ?? 0;
+        final role = (userData['role'] as String?) ?? 'user';
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && _isProUser != isPremium) {
@@ -436,6 +450,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           isPremium: isPremium,
           streak: streak,
           currentUser: _currentUser,
+          role: role,
         );
       },
     );

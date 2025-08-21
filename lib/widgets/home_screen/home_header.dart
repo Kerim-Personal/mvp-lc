@@ -13,6 +13,7 @@ class HomeHeader extends StatefulWidget {
     required this.streak,
     this.isPremium = false,
     required this.currentUser,
+    this.role = 'user',
   });
 
   final String userName;
@@ -20,6 +21,7 @@ class HomeHeader extends StatefulWidget {
   final int streak;
   final bool isPremium;
   final User? currentUser;
+  final String? role;
 
   @override
   State<HomeHeader> createState() => _HomeHeaderState();
@@ -29,18 +31,27 @@ class _HomeHeaderState extends State<HomeHeader>
     with SingleTickerProviderStateMixin {
   late AnimationController _shimmerController;
 
+  Color _roleColor(String? role) {
+    switch (role) {
+      case 'admin':
+        return Colors.red;
+      case 'moderator':
+        return Colors.orange;
+      default:
+        return Colors.white;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4), // Animasyon süresini 4 saniyeye çıkardım
+      duration: const Duration(seconds: 4),
     );
 
-    // Animasyon durumunu dinleyerek döngüyü kontrol ediyoruz
     _shimmerController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        // Animasyon bittikten sonra 1 saniye bekle ve tekrar başlat
         Timer(const Duration(seconds: 1), () {
           if (mounted) {
             _shimmerController.forward(from: 0.0);
@@ -49,8 +60,18 @@ class _HomeHeaderState extends State<HomeHeader>
       }
     });
 
-    // İlk animasyonu başlat
-    _shimmerController.forward();
+    if (widget.isPremium) {
+      _shimmerController.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isPremium && widget.isPremium) {
+      // Premium’a geçildiyse shimmer’ı başlat
+      _shimmerController.forward(from: 0);
+    }
   }
 
   @override
@@ -61,8 +82,7 @@ class _HomeHeaderState extends State<HomeHeader>
 
   @override
   Widget build(BuildContext context) {
-    const premiumColor = Color(0xFFE5B53A);
-    const premiumIcon = Icons.auto_awesome;
+    final baseColor = _roleColor(widget.role);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
@@ -75,7 +95,7 @@ class _HomeHeaderState extends State<HomeHeader>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
+            color: Colors.teal.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -86,7 +106,7 @@ class _HomeHeaderState extends State<HomeHeader>
           // 1. AVATAR (SOLDA)
           CircleAvatar(
             radius: 24,
-            backgroundColor: Colors.white.withOpacity(0.25),
+            backgroundColor: Colors.white.withValues(alpha: 0.25),
             child: widget.avatarUrl != null
                 ? ClipOval(
               child: SvgPicture.network(
@@ -124,18 +144,14 @@ class _HomeHeaderState extends State<HomeHeader>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Flexible(
-                      child: AnimatedBuilder(
+                      child: widget.isPremium
+                          ? AnimatedBuilder(
                         animation: _shimmerController,
                         builder: (context, child) {
-                          final baseColor =
-                          widget.isPremium ? premiumColor : Colors.white;
                           final highlightColor = Colors.white;
-
-                          // Efektin en soldan başlayıp en sağda bitmesini sağlayan yeni stop değerleri
                           final value = _shimmerController.value;
                           final start = value * 1.5 - 0.5;
                           final end = value * 1.5;
-
                           return ShaderMask(
                             blendMode: BlendMode.srcIn,
                             shaderCallback: (bounds) => LinearGradient(
@@ -152,19 +168,21 @@ class _HomeHeaderState extends State<HomeHeader>
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color:
-                            widget.isPremium ? premiumColor : Colors.white,
+                            color: baseColor,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
+                      )
+                          : Text(
+                        widget.userName,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: baseColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (widget.isPremium)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Icon(premiumIcon,
-                            color: premiumColor, size: 22),
-                      ),
                   ],
                 ),
               ],

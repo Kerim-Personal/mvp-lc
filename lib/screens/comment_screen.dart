@@ -43,9 +43,32 @@ class CommentScreen extends StatefulWidget {
   State<CommentScreen> createState() => _CommentScreenState();
 }
 
-class _CommentScreenState extends State<CommentScreen> {
+class _CommentScreenState extends State<CommentScreen> with TickerProviderStateMixin {
   final TextEditingController _commentController = TextEditingController();
   final currentUser = FirebaseAuth.instance.currentUser;
+
+  late final AnimationController _nameShimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameShimmerController = AnimationController(vsync: this, duration: const Duration(seconds: 4));
+    _nameShimmerController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) _nameShimmerController.forward(from: 0);
+        });
+      }
+    });
+    _nameShimmerController.forward();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _nameShimmerController.dispose();
+    super.dispose();
+  }
 
   Future<void> _postComment() async {
     if (_commentController.text.trim().isEmpty || currentUser == null) {
@@ -118,6 +141,17 @@ class _CommentScreenState extends State<CommentScreen> {
   }
 
   Widget _buildCommentTile(Comment comment) {
+    Color roleColor(String? role) {
+      switch (role) {
+        case 'admin':
+          return Colors.red;
+        case 'moderator':
+          return Colors.orange;
+        default:
+          return Colors.black87;
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -143,9 +177,44 @@ class _CommentScreenState extends State<CommentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    comment.userName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance.collection('users').doc(comment.userId).snapshots(),
+                    builder: (context, snapshot) {
+                      String displayName = comment.userName;
+                      String? role;
+                      bool isPremium = false;
+                      if (snapshot.hasData && snapshot.data!.exists) {
+                        final data = snapshot.data!.data() as Map<String, dynamic>;
+                        displayName = (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : displayName;
+                        role = data['role'] as String?;
+                        isPremium = data['isPremium'] == true;
+                      }
+                      final baseColor = roleColor(role);
+                      Widget name = Text(
+                        displayName,
+                        style: TextStyle(fontWeight: FontWeight.bold, color: baseColor),
+                      );
+                      if (isPremium) {
+                        name = AnimatedBuilder(
+                          animation: _nameShimmerController,
+                          builder: (context, child) {
+                            final value = _nameShimmerController.value;
+                            final start = value * 1.5 - 0.5;
+                            final end = value * 1.5;
+                            return ShaderMask(
+                              blendMode: BlendMode.srcIn,
+                              shaderCallback: (bounds) => LinearGradient(
+                                colors: [baseColor, Colors.white, baseColor],
+                                stops: [start, (start + end) / 2, end],
+                              ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                              child: child!,
+                            );
+                          },
+                          child: name,
+                        );
+                      }
+                      return name;
+                    },
                   ),
                   const SizedBox(height: 4),
                   Text(comment.text),
@@ -172,7 +241,7 @@ class _CommentScreenState extends State<CommentScreen> {
           BoxShadow(
             offset: const Offset(0, -2),
             blurRadius: 5,
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
           )
         ],
       ),

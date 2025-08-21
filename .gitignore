@@ -18,9 +18,7 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# VS Code (isteğe bağlı eklenebilir)
 #.vscode/
 
 # Flutter/Dart/Pub related
@@ -32,6 +30,25 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+coverage/
+
+# Generated localization / plugin registrant (genellikle üretilebilir)
+**/GeneratedPluginRegistrant.*
+
+# iOS / CocoaPods
+ios/Pods/
+ios/Runner.xcworkspace/
+
+# Android Gradle caches
+android/.gradle/
+android/**/gradle-wrapper.jar
+
+# Android build outputs
+android/app/debug
+android/app/profile
+android/app/release
+android/app/*.apk
+android/app/*.aab
 
 # Symbolication related
 app.*.symbols
@@ -39,15 +56,55 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Crashlytics build props
+android/app/src/main/assets/crashlytics-build.properties
 
-# Firebase ve diğer hassas konfigürasyon dosyaları.
-lib/services/firebase_options.dart
-/lib/firebase_options.dart
-/lib/services/linguabot_service.dart # <-- YENİ EKLENEN SATIR
+# Firebase & gizli anahtarlar
+# (İsteğe göre firebase.json repoda tutulabilir; gizli tutmak istiyorsanız aşağıyı açın)
 /firebase.json
-/functions/package-lock.json
-/lib/services/linguabot_service.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Derlenen veya üretilebilir yapılandırmalar
+lib/firebase_options.dart
+lib/services/firebase_options.dart
+
+# Özel servis anahtarları / gizli servis dosyaları
+lib/services/linguabot_service.dart
+
+# Çevresel değişken dosyaları
+.env
+.env.*
+
+# Sertifikalar / imzalama materyalleri
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.mobileprovision
+*.provisionprofile
+
+# Node (functions veya diğer alt projeler)
+functions/node_modules/
+functions/.firebase/
+functions/.cache/
+functions/.npm/
+
+# Paket yöneticisi lock (functions klasörü içinde kendi .gitignore yönetilebilir)
+functions/package-lock.json
+
+# Veritabanı / yerel cache dosyaları
+*.sqlite
+*.db
+
+# Logs klasörleri
+logs/
+log/
+
+# Duplicate removed & canonical list below (referans)
+# lib/services/linguabot_service.dart (tekil)
+# /lib/firebase_options.dart (zaten yukarıda)

@@ -14,6 +14,7 @@ class LeaderboardUser {
   final int rank;
   final int partnerCount;
   final bool isPremium;
+  final String role; // admin/moderator/user
 
   LeaderboardUser({
     required this.name,
@@ -21,6 +22,7 @@ class LeaderboardUser {
     required this.rank,
     required this.partnerCount,
     this.isPremium = false,
+    this.role = 'user',
   });
 }
 
@@ -115,21 +117,30 @@ class _CommunityScreenState extends State<CommunityScreen>
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
-        .where('status', isNotEqualTo: 'deleted')
         .orderBy(_leaderboardPeriod, descending: true)
         .limit(100)
         .get();
 
     if (snapshot.docs.isEmpty) return [];
-    return snapshot.docs.asMap().entries.map((entry) {
+
+    final users = snapshot.docs
+        .where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final status = data['status'];
+          return status == null || status != 'banned' && status != 'deleted';
+        })
+        .toList();
+
+    return users.asMap().entries.map((entry) {
       int rank = entry.key + 1;
-      Map<String, dynamic> data = entry.value.data();
+      Map<String, dynamic> data = entry.value.data() as Map<String, dynamic>;
       return LeaderboardUser(
         rank: rank,
-        name: data['displayName'] ?? 'Bilinmeyen',
-        avatarUrl: data['avatarUrl'] ?? '',
-        partnerCount: data['partnerCount'] ?? 0,
-        isPremium: data['isPremium'] ?? false,
+        name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Bilinmeyen',
+        avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
+        partnerCount: (data['partnerCount'] is int) ? data['partnerCount'] : 0,
+        isPremium: data['isPremium'] == true,
+        role: (data['role'] as String?) ?? 'user',
       );
     }).toList();
   }
@@ -469,17 +480,49 @@ class _CommunityScreenState extends State<CommunityScreen>
         }
 
         final posts = snapshot.data!.docs;
+        final me = FirebaseAuth.instance.currentUser;
+        if (me == null) {
+          return RefreshIndicator(
+            onRefresh: _refreshFeed,
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = FeedPost.fromFirestore(posts[index]);
+                return FeedPostCard(post: post);
+              },
+            ),
+          );
+        }
 
-        return RefreshIndicator(
-          onRefresh: _refreshFeed,
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              final post = FeedPost.fromFirestore(posts[index]);
-              return FeedPostCard(post: post);
-            },
-          ),
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance.collection('users').doc(me.uid).snapshots(),
+          builder: (context, userSnap) {
+            final blocked = (userSnap.data?.data()?['blockedUsers'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
+            final filtered = posts.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final authorId = (data['userId'] as String?) ?? '';
+              return !blocked.contains(authorId);
+            }).toList();
+
+            if (filtered.isEmpty) {
+              return const Center(
+                child: Text('Filtrelere göre gösterilecek gönderi yok.'),
+              );
+            }
+
+            return RefreshIndicator(
+              onRefresh: _refreshFeed,
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final post = FeedPost.fromFirestore(filtered[index]);
+                  return FeedPostCard(post: post);
+                },
+              ),
+            );
+          },
         );
       },
     );

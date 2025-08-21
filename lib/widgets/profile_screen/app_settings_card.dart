@@ -1,6 +1,7 @@
 // lib/widgets/profile_screen/app_settings_card.dart
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/services/audio_service.dart'; // Müzik servisini import ediyoruz
+import 'package:lingua_chat/screens/blocked_users_screen.dart';
 
 class AppSettingsCard extends StatefulWidget {
   const AppSettingsCard({super.key});
@@ -52,6 +53,17 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
             subtitle: const Text('Sistem Varsayılanı'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             onTap: () {},
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          ListTile(
+            leading: const Icon(Icons.block, color: Colors.redAccent),
+            title: const Text('Engellenenler', style: TextStyle(fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BlockedUsersScreen()),
+              );
+            },
           ),
         ],
       ),

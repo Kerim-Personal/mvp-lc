@@ -293,10 +293,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 controller: _usernameController,
                                 hintText: AppLocalizations.of(context)!.username, // <-- GÜNCELLENDİ
                                 icon: Icons.person_outline,
-                                validator: (value) => (value == null ||
-                                    value.isEmpty)
-                                    ? 'Lütfen bir kullanıcı adı girin'
-                                    : null,
+                                validator: (value) {
+                                  final v = value?.trim() ?? '';
+                                  if (v.isEmpty) return 'Lütfen bir kullanıcı adı girin';
+                                  if (v.length < 3) return 'Kullanıcı adı en az 3 karakter olmalı';
+                                  if (v.length > 29) return 'Kullanıcı adı en fazla 29 karakter olmalı';
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: 12.0),
                               _buildTextField(

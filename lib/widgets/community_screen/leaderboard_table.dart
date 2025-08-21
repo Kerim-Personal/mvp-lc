@@ -102,6 +102,17 @@ class _UserRankCard extends StatefulWidget {
 class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderStateMixin {
   late final AnimationController _shimmerController;
 
+  Color _roleColor(String role) {
+    switch (role) {
+      case 'admin':
+        return Colors.red;
+      case 'moderator':
+        return Colors.orange;
+      default:
+        return Colors.black87;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -132,8 +143,6 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
 
   @override
   Widget build(BuildContext context) {
-    const premiumColor = Color(0xFFE5B53A);
-
     final Map<int, dynamic> rankInfo = {
       1: {'color': Colors.amber, 'icon': Icons.emoji_events, 'label': 'Altın'},
       2: {'color': Colors.grey.shade400, 'icon': Icons.military_tech, 'label': 'Gümüş'},
@@ -143,6 +152,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
     final isTop3 = rankInfo.containsKey(widget.user.rank);
     final rankColor = isTop3 ? rankInfo[widget.user.rank]['color'] : Colors.grey.shade700;
     final rankIcon = isTop3 ? rankInfo[widget.user.rank]['icon'] : null;
+    final baseColor = _roleColor(widget.user.role);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -210,7 +220,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
                   return ShaderMask(
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (bounds) => LinearGradient(
-                      colors: [premiumColor, highlightColor, premiumColor],
+                      colors: [baseColor, highlightColor, baseColor],
                       stops: [start, (start + end) / 2, end],
                     ).createShader(
                       Rect.fromLTWH(0, 0, bounds.width, bounds.height),
@@ -220,18 +230,18 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
                 },
                 child: Text(
                   widget.user.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: premiumColor,
+                    color: baseColor,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               )
                   : Text(
                 widget.user.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: baseColor,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),

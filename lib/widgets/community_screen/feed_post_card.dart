@@ -8,6 +8,9 @@ import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/comment_screen.dart';
 import 'package:lingua_chat/screens/report_user_screen.dart';
+import 'package:lingua_chat/services/admin_service.dart';
+import 'package:lingua_chat/screens/ban_user_screen.dart';
+import 'package:lingua_chat/services/block_service.dart';
 
 
 class FeedPostCard extends StatefulWidget {
@@ -25,14 +28,18 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
   late AnimationController _shimmerController;
   // YENİ: Kullanıcının premium durumunu tutacak state
   bool _isUserPremium = false;
+  bool _shimmerStarted = false; // premium ışıltısını bir kez başlatmak için
+  bool _canBan = false;
 
   @override
   void initState() {
     super.initState();
     isLiked = widget.post.likes.contains(currentUser?.uid);
     likeCount = widget.post.likes.length;
-    // YENİ: Widget oluşturulduğunda kullanıcının premium durumunu anlık olarak çek.
-    _fetchUserPremiumStatus();
+    // Premium bilgisi artık Stream ile dinlenecek; burada çekmeye gerek yok.
+
+    // Ban yetkisi kontrolü
+    _checkBanPermission();
 
     _shimmerController = AnimationController(
       vsync: this,
@@ -56,29 +63,14 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
     super.dispose();
   }
 
-  // YENİ: Kullanıcının anlık premium durumunu Firestore'dan çeken fonksiyon.
-  Future<void> _fetchUserPremiumStatus() async {
-    if (widget.post.userId.isEmpty) return;
+  Future<void> _checkBanPermission() async {
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.post.userId)
-          .get();
-      if (userDoc.exists && mounted) {
-        setState(() {
-          _isUserPremium = userDoc.data()?['isPremium'] ?? false;
-        });
-        // Eğer premium ise animasyonu başlat
-        if (_isUserPremium) {
-          _shimmerController.forward();
-        }
-      }
-    } catch (e) {
-      // Hata yönetimi (isteğe bağlı)
-      print("Premium durumu çekilirken hata: $e");
+      final allowed = await AdminService().canBanUser(widget.post.userId);
+      if (mounted) setState(() => _canBan = allowed);
+    } catch (_) {
+      if (mounted) setState(() => _canBan = false);
     }
   }
-
 
   Future<void> _toggleLike() async {
     if (currentUser == null) return;
@@ -133,6 +125,36 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
     }
   }
 
+  Future<void> _blockUser() async {
+    final me = currentUser;
+    if (me == null) return;
+    try {
+      await BlockService().blockUser(currentUserId: me.uid, targetUserId: widget.post.userId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kullanıcı engellendi.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: ${e.toString()}')));
+      }
+    }
+  }
+
+  Future<void> _unblockUser() async {
+    final me = currentUser;
+    if (me == null) return;
+    try {
+      await BlockService().unblockUser(currentUserId: me.uid, targetUserId: widget.post.userId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engel kaldırıldı.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: ${e.toString()}')));
+      }
+    }
+  }
+
   String _timeAgo(Timestamp timestamp) {
     final difference = DateTime.now().difference(timestamp.toDate());
     if (difference.inSeconds < 60) {
@@ -149,8 +171,17 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final isAuthor = currentUser?.uid == widget.post.userId;
-    const premiumColor = Color(0xFFE5B53A);
-    const premiumIcon = Icons.auto_awesome;
+    // Rol renkleri
+    Color roleColor(String? role) {
+      switch (role) {
+        case 'admin':
+          return Colors.red;
+        case 'moderator':
+          return Colors.orange;
+        default:
+          return Colors.black87;
+      }
+    }
 
     return Card(
       elevation: 2,
@@ -162,125 +193,190 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.grey.shade200,
-                  child: ClipOval(
-                    child: widget.post.userAvatarUrl.isNotEmpty
-                        ? SvgPicture.network(
-                      widget.post.userAvatarUrl,
-                      placeholderBuilder: (context) =>
-                      const CircularProgressIndicator(),
-                    )
-                        : const Icon(Icons.person, color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+            // KULLANICI BAŞLIĞI: users/{userId} dokümanını canlı dinle
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(widget.post.userId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                String displayName = widget.post.userName;
+                String avatarUrl = widget.post.userAvatarUrl;
+                bool isPremium = _isUserPremium;
+                String? role;
+
+                if (snapshot.hasData && snapshot.data!.exists) {
+                  final data = snapshot.data!.data() as Map<String, dynamic>;
+                  displayName = (data['displayName'] as String?)?.trim().isNotEmpty == true
+                      ? data['displayName']
+                      : displayName;
+                  avatarUrl = (data['avatarUrl'] as String?)?.trim().isNotEmpty == true
+                      ? data['avatarUrl']
+                      : avatarUrl;
+                  isPremium = (data['isPremium'] as bool?) ?? false;
+                  role = data['role'] as String?;
+                  _isUserPremium = isPremium;
+                  if (isPremium && !_shimmerStarted) {
+                    _shimmerStarted = true;
+                    _shimmerController.forward();
+                  }
+                }
+
+                final baseColor = roleColor(role);
+
+                return Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.grey.shade200,
+                      child: ClipOval(
+                        child: avatarUrl.isNotEmpty
+                            ? SvgPicture.network(
+                                avatarUrl,
+                                placeholderBuilder: (context) =>
+                                    const CircularProgressIndicator(),
+                              )
+                            : const Icon(Icons.person, color: Colors.grey),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(
-                            // DEĞİŞİKLİK: 'widget.post.isUserPremium' yerine state'deki '_isUserPremium' kullanıldı.
-                            child: _isUserPremium
-                                ? AnimatedBuilder(
-                              animation: _shimmerController,
-                              builder: (context, child) {
-                                final highlightColor = Colors.white;
-                                final value = _shimmerController.value;
-                                final start = value * 1.5 - 0.5;
-                                final end = value * 1.5;
-                                return ShaderMask(
-                                  blendMode: BlendMode.srcIn,
-                                  shaderCallback: (bounds) => LinearGradient(
-                                    colors: [premiumColor, highlightColor, premiumColor],
-                                    stops: [start, (start + end) / 2, end],
-                                  ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-                                  child: child,
-                                );
-                              },
-                              child: Text(widget.post.userName,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: premiumColor),
-                                overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: isPremium
+                                    ? AnimatedBuilder(
+                                        animation: _shimmerController,
+                                        builder: (context, child) {
+                                          final highlightColor = Colors.white;
+                                          final value = _shimmerController.value;
+                                          final start = value * 1.5 - 0.5;
+                                          final end = value * 1.5;
+                                          return ShaderMask(
+                                            blendMode: BlendMode.srcIn,
+                                            shaderCallback: (bounds) => LinearGradient(
+                                              colors: [baseColor, highlightColor, baseColor],
+                                              stops: [start, (start + end) / 2, end],
+                                            ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                                            child: child,
+                                          );
+                                        },
+                                        child: Text(
+                                          displayName,
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              color: baseColor),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      )
+                                    : Text(
+                                        displayName,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: baseColor),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                               ),
-                            )
-                                : Text(widget.post.userName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.black87),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            ],
                           ),
-                          // DEĞİŞİKLİK: 'widget.post.isUserPremium' yerine state'deki '_isUserPremium' kullanıldı.
-                          if(_isUserPremium) ...[
-                            const SizedBox(width: 4),
-                            const Icon(premiumIcon, color: premiumColor, size: 16),
-                          ]
+                          Text(_timeAgo(widget.post.timestamp),
+                              style: TextStyle(
+                                  color: Colors.grey.shade600, fontSize: 12)),
                         ],
                       ),
-                      Text(_timeAgo(widget.post.timestamp),
-                          style: TextStyle(
-                              color: Colors.grey.shade600, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      _deletePost();
-                    } else if (value == 'report') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ReportUserScreen(
-                            reportedUserId: widget.post.userId,
-                            reportedContent: widget.post.postText,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  itemBuilder: (BuildContext context) {
-                    List<PopupMenuEntry<String>> items = [];
-                    if (isAuthor) {
-                      items.add(
-                        const PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Sil'),
-                            ],
-                          ),
-                        ),
-                      );
-                    } else {
-                      items.add(
-                        const PopupMenuItem<String>(
-                          value: 'report',
-                          child: Row(
-                            children: [
-                              Icon(Icons.report, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Kullanıcıyı Bildir'),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-                    return items;
-                  },
-                ),
-              ],
+                    ),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          _deletePost();
+                        } else if (value == 'report') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReportUserScreen(
+                                reportedUserId: widget.post.userId,
+                                reportedContent: widget.post.postText,
+                              ),
+                            ),
+                          );
+                        } else if (value == 'ban') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BanUserScreen(targetUserId: widget.post.userId),
+                            ),
+                          );
+                        } else if (value == 'block') {
+                          _blockUser();
+                        }
+                      },
+                      itemBuilder: (BuildContext context) {
+                        List<PopupMenuEntry<String>> items = [];
+                        if (isAuthor) {
+                          items.add(
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Sil'),
+                                ],
+                              ),
+                            ),
+                          );
+                        } else {
+                          items.add(
+                            const PopupMenuItem<String>(
+                              value: 'report',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.report, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Kullanıcıyı Bildir'),
+                                ],
+                              ),
+                            ),
+                          );
+                          // Engelle (engeli kaldır akışı kaldırıldı)
+                          items.add(
+                            const PopupMenuItem<String>(
+                              value: 'block',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.block, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Kullanıcıyı Engelle'),
+                                ],
+                              ),
+                            ),
+                          );
+                          if (_canBan) {
+                            items.add(
+                              const PopupMenuItem<String>(
+                                value: 'ban',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.block, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Hesabı Banla'),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                        return items;
+                      },
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             Text(widget.post.postText,
@@ -291,7 +387,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
               children: [
                 _buildActionButton(
                   icon:
-                  isLiked ? Icons.favorite : Icons.favorite_border_outlined,
+                      isLiked ? Icons.favorite : Icons.favorite_border_outlined,
                   text: '$likeCount Beğeni',
                   color: isLiked ? Colors.red : Colors.grey.shade700,
                   onTap: _toggleLike,

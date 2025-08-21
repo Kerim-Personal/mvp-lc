@@ -20,6 +20,7 @@ class ProfileSliverAppBar extends StatefulWidget {
   final String email;
   final String? avatarUrl;
   final bool isPremium;
+  final String role; // admin/moderator/user
 
   const ProfileSliverAppBar({
     super.key,
@@ -27,6 +28,7 @@ class ProfileSliverAppBar extends StatefulWidget {
     required this.email,
     this.avatarUrl,
     this.isPremium = false,
+    this.role = 'user',
   });
 
   @override
@@ -61,6 +63,19 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
         }
       });
       _shimmerController.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileSliverAppBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isPremium && widget.isPremium) {
+      // Premium etkin oldu, animasyonu başlat
+      _shimmerController.forward(from: 0);
+    } else if (oldWidget.isPremium && !widget.isPremium) {
+      // Premium kapandı, animasyonu durdur
+      _shimmerController.stop();
+      _shimmerController.reset();
     }
   }
 
@@ -109,10 +124,22 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
     );
   }
 
+  Color _roleColor(String role) {
+    switch (role) {
+      case 'admin':
+        return Colors.red;
+      case 'moderator':
+        return Colors.orange;
+      default:
+        return Colors.white;
+    }
+  }
+
   Widget _buildCollapsedTitle() {
+    final baseColor = _roleColor(widget.role);
     return Text(
       widget.displayName,
-      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0, color: Colors.white),
+      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0, color: baseColor),
     );
   }
 
@@ -120,8 +147,7 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
     final avatarScale = lerpDouble(0.4, 1.0, scrollProgress) ?? 1.0;
     final contentOpacity = Curves.easeIn.transform(scrollProgress);
     final contentVerticalOffset = lerpDouble(0, 40, 1 - scrollProgress) ?? 0.0;
-    const premiumColor = Color(0xFFE5B53A);
-    const premiumIcon = Icons.auto_awesome;
+    final baseColor = _roleColor(widget.role);
 
     return Opacity(
       opacity: contentOpacity,
@@ -148,7 +174,7 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
                       return ShaderMask(
                         blendMode: BlendMode.srcIn,
                         shaderCallback: (bounds) => LinearGradient(
-                          colors: [premiumColor, highlightColor, premiumColor],
+                          colors: [baseColor, highlightColor, baseColor],
                           stops: [start, (start + end) / 2, end],
                         ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
                         child: child,
@@ -156,30 +182,26 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
                     },
                     child: Text(
                       widget.displayName,
-                      style: const TextStyle(
-                        color: premiumColor,
+                      style: TextStyle(
+                        color: baseColor,
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
-                        shadows: [Shadow(blurRadius: 8, color: Colors.black38)],
+                        shadows: const [Shadow(blurRadius: 8, color: Colors.black38)],
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   )
                       : Text(
                     widget.displayName,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: baseColor,
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      shadows: [Shadow(blurRadius: 8, color: Colors.black38)],
+                      shadows: const [Shadow(blurRadius: 8, color: Colors.black38)],
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (widget.isPremium) ...[
-                  const SizedBox(width: 8),
-                  const Icon(premiumIcon, color: premiumColor, size: 24),
-                ]
               ],
             ),
             const SizedBox(height: 6),
@@ -270,7 +292,7 @@ class _CosmicBackground extends StatelessWidget {
         ),
       ),
       child: Container(
-        decoration: BoxDecoration(color: Colors.black.withOpacity(0.1)),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.1)),
       ),
     );
   }

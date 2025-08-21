@@ -47,5 +47,10 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<!-- Fotoğraf galerisi ve kamera erişimi açıklamaları -->
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Destek talebinize ekran görüntüsü veya fotoğraf eklemek için fotoğraf kitaplığına erişmemiz gerekiyor.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Destek talebinize fotoğraf eklemek için kamerayı kullanmamız gerekiyor.</string>
 	</dict>
 </plist>
