@@ -1,11 +1,10 @@
-import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/data/lesson_data.dart';
 import 'package:lingua_chat/models/lesson_model.dart';
 import 'package:lingua_chat/navigation/lesson_router.dart';
 
-// --- GRAMER SEKMESİ ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
+// --- GRAMER SEKMES�� ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
 class GrammarTab extends StatefulWidget {
   const GrammarTab({super.key});
 
@@ -65,7 +64,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
   Offset _calculateNodePosition(int index, double width) {
     final double horizontalPadding = width / 4;
     final double verticalSpacing = 160.0;
-    final double startY = 120.0;
+    final double startY = 60.0; // 120.0'dan düşürüldü (üst boşluk azaltıldı)
     double x = (index % 2 == 0)
         ? horizontalPadding - 40
         : width - horizontalPadding - 80;
@@ -82,7 +81,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
 
     // OPTİMİZASYON: Yüksekliği içeriğe göre dinamik olarak hesapla
     final double totalHeight =
-        120.0 + (levels.length * 160.0) + 100.0; // Başlangıç + (seviye * boşluk) + bitiş payı
+        60.0 + (levels.length * 160.0) + 100.0; // Üst boşluk azaltıldı (120 -> 60) + (seviye * boşluk) + bitiş payı
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -311,17 +310,18 @@ class _CosmicPathPainter extends CustomPainter {
   // Patikayı sadece bir kez hesaplamak için
   Path _createPath(Size size) {
     final path = Path();
-    path.moveTo(size.width * 0.25, 160);
+    // Tüm y koordinatları 60px yukarı kaydırıldı (160->100, 240->180 ...)
+    path.moveTo(size.width * 0.25, 100);
     path.quadraticBezierTo(
-        size.width * 0.8, 240, size.width * 0.75 - 40, 320);
+        size.width * 0.8, 180, size.width * 0.75 - 40, 260);
     path.quadraticBezierTo(
-        size.width * 0.1, 400, size.width * 0.25, 480);
+        size.width * 0.1, 340, size.width * 0.25, 420);
     path.quadraticBezierTo(
-        size.width * 0.9, 560, size.width * 0.75 - 40, 640);
+        size.width * 0.9, 500, size.width * 0.75 - 40, 580);
     path.quadraticBezierTo(
-        size.width * 0.2, 720, size.width * 0.25, 800);
+        size.width * 0.2, 660, size.width * 0.25, 740);
     path.quadraticBezierTo(
-        size.width * 0.8, 880, size.width * 0.75 - 40, 960);
+        size.width * 0.8, 820, size.width * 0.75 - 40, 900);
     return path;
   }
 

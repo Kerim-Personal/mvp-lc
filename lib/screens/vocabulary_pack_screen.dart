@@ -5,9 +5,12 @@ import 'dart:async';
 import 'package:flip_card/flip_card.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/discover/vocabulary_tab.dart';
 import '../data/vocabulary_data.dart';
 import '../models/word_model.dart';
+import '../services/translation_service.dart';
 
 // Main Screen Widget
 class VocabularyPackScreen extends StatefulWidget {
@@ -27,6 +30,9 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
   int _currentIndex = 0;
   final Set<int> _learnedWords = {};
   bool _isGridView = false; // Izgara/Liste görünümü için durum değişkeni
+  String? _nativeLanguageCode;
+  bool _modelsReady = false;
+  bool _loadingUserLang = true;
 
   @override
   void initState() {
@@ -50,6 +56,7 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
         });
       }
     });
+    _fetchUserNativeLanguage();
   }
 
   void _initializeTts() {
@@ -61,6 +68,25 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
 
   Future<void> _speak(String text) async {
     await _flutterTts.speak(text);
+  }
+
+  Future<void> _fetchUserNativeLanguage() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = snap.data();
+      final code = (data?['nativeLanguage'] as String?) ?? 'en';
+      _nativeLanguageCode = code;
+      if (mounted) setState(() {});
+      // Modeller hazır mı kontrol et, değilse indir.
+      _modelsReady = await TranslationService.instance.isModelReady(code);
+      if (!_modelsReady) {
+        await TranslationService.instance.preDownloadModels(code);
+        _modelsReady = await TranslationService.instance.isModelReady(code);
+      }
+    } catch (_) {}
+    if (mounted) setState(() { _loadingUserLang = false; });
   }
 
   @override
@@ -244,6 +270,10 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
   }
 
   Widget _buildWordPager() {
+    // Eğer dil kodu yükleniyorsa gösterge
+    if (_loadingUserLang) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
     return PageView.builder(
       key: const ValueKey('wordPager'),
       controller: _pageController,
@@ -263,6 +293,7 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
             onFlip: () {},
             onSpeakWord: () => _speak(_words[index].word),
             onSpeakExample: () => _speak(_words[index].example),
+            nativeLanguageCode: _nativeLanguageCode ?? 'en',
           ),
         );
       },
@@ -331,7 +362,7 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
 }
 
 // Word Card Widget
-class WordCard extends StatelessWidget {
+class WordCard extends StatefulWidget {
   final GlobalKey<FlipCardState> flipCardKey;
   final Word word;
   final bool isLearned;
@@ -339,7 +370,7 @@ class WordCard extends StatelessWidget {
   final VoidCallback onFlip;
   final VoidCallback onSpeakWord;
   final VoidCallback onSpeakExample;
-
+  final String nativeLanguageCode;
   const WordCard({
     super.key,
     required this.flipCardKey,
@@ -349,20 +380,54 @@ class WordCard extends StatelessWidget {
     required this.onFlip,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    required this.nativeLanguageCode,
   });
+
+  @override
+  State<WordCard> createState() => _WordCardState();
+}
+
+class _WordCardState extends State<WordCard> {
+  bool _showTranslationFront = false;
+  bool _showTranslationBack = false;
+  bool _loadingFront = false;
+  bool _loadingBack = false;
+  String? _translatedFront;
+  String? _translatedDefinition;
+  String? _translatedExample;
+
+  Future<void> _toggleTranslation() async {
+    final isFront = widget.flipCardKey.currentState?.isFront ?? true;
+    if (isFront) {
+      if (_translatedFront == null && !_loadingFront) {
+        setState(() { _loadingFront = true; });
+        final t = await TranslationService.instance.translateFromEnglish(widget.word.word, widget.nativeLanguageCode);
+        if (mounted) setState(() { _translatedFront = t; _loadingFront = false; });
+      }
+      setState(() { _showTranslationFront = !_showTranslationFront; });
+    } else {
+      if ((_translatedDefinition == null || _translatedExample == null) && !_loadingBack) {
+        setState(() { _loadingBack = true; });
+        final def = await TranslationService.instance.translateFromEnglish(widget.word.definition, widget.nativeLanguageCode);
+        final ex = await TranslationService.instance.translateFromEnglish(widget.word.example, widget.nativeLanguageCode);
+        if (mounted) setState(() { _translatedDefinition = def; _translatedExample = ex; _loadingBack = false; });
+      }
+      setState(() { _showTranslationBack = !_showTranslationBack; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return FlipCard(
-      key: flipCardKey,
-      onFlipDone: (_) => onFlip(),
+      key: widget.flipCardKey,
+      onFlipDone: (_) => widget.onFlip(),
       direction: FlipDirection.HORIZONTAL,
       front: _buildCardFace(
         context: context,
         content: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            word.word,
+            widget.word.word,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Colors.black87),
           ),
@@ -375,7 +440,7 @@ class WordCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              word.definition,
+              widget.word.definition,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 24,
@@ -385,7 +450,7 @@ class WordCard extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              '"${word.example}"',
+              '"${widget.word.example}"',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
@@ -401,6 +466,8 @@ class WordCard extends StatelessWidget {
   }
 
   Widget _buildCardFace({required BuildContext context, required Widget content, required bool isFront}) {
+    final show = isFront ? _showTranslationFront : _showTranslationBack;
+    final loading = isFront ? _loadingFront : _loadingBack;
     return Container(
       decoration: BoxDecoration(
         color: isFront ? Colors.white : const Color(0xFFF0F4F8),
@@ -416,40 +483,92 @@ class WordCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: content,
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: content,
+              ),
             ),
-          ),
-          if (isFront)
-            const Positioned(
-              bottom: 20,
+            if (isFront && !_showTranslationFront)
+              const Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.touch_app_outlined, color: Colors.grey, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Tap for definition',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            Positioned(
+              top: 8,
+              left: 4,
+              child: IconButton(
+                tooltip: 'Çevir',
+                icon: const Icon(Icons.translate, color: Colors.teal),
+                onPressed: _toggleTranslation,
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 4,
+              child: IconButton(
+                icon: Icon(
+                  Icons.volume_up,
+                  color: isFront ? Colors.grey.shade500 : Colors.blue.shade700,
+                ),
+                onPressed: isFront ? widget.onSpeakWord : widget.onSpeakExample,
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
               left: 0,
               right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.touch_app_outlined, color: Colors.grey, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Tap for definition',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-                ],
+              bottom: 0,
+              height: show ? 120 : 0,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: Colors.black.withOpacity(0.05),
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : SingleChildScrollView(
+                          child: isFront
+                              ? Text(
+                                  _translatedFront ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_translatedDefinition != null)
+                                      Text(
+                                        _translatedDefinition!,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                      ),
+                                    const SizedBox(height: 8),
+                                    if (_translatedExample != null)
+                                      Text(
+                                        _translatedExample!,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                                      ),
+                                  ],
+                                ),
+                        ),
+                ),
               ),
             ),
-          Positioned(
-            top: 16,
-            right: 16,
-            child: IconButton(
-              icon: Icon(
-                Icons.volume_up,
-                color: isFront ? Colors.grey.shade500 : Colors.blue.shade700,
-              ),
-              onPressed: isFront ? onSpeakWord : onSpeakExample,
-            ),
-          ),
         ],
       ),
     );
