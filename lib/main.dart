@@ -15,6 +15,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lingua_chat/screens/banned_screen.dart';
 import 'package:lingua_chat/screens/help_and_support_screen.dart';
 import 'package:lingua_chat/screens/support_request_screen.dart';
+import 'package:lingua_chat/screens/profile_completion_screen.dart';
 
 // YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
 final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
@@ -88,7 +89,8 @@ class AuthWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData && snapshot.data != null) {
-          final uid = snapshot.data!.uid;
+          final user = snapshot.data!;
+          final uid = user.uid;
           return StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
             builder: (context, userSnap) {
@@ -98,6 +100,11 @@ class AuthWrapper extends StatelessWidget {
               final data = userSnap.data!.data() as Map<String, dynamic>?;
               if ((data?['status'] as String?) == 'banned') {
                 return const BannedScreen();
+              }
+              // Sadece Google ile giriş yaptıysa ve profileCompleted false ise yönlendir
+              final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
+              if (isGoogle && data != null && data['profileCompleted'] != true) {
+                return ProfileCompletionScreen(userData: data);
               }
               return RootScreen(key: rootScreenKey);
             },

@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:lingua_chat/services/auth_service.dart';
+import 'package:lingua_chat/services/translation_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String userId;
@@ -29,6 +30,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _avatarUrl;
   DateTime? _selectedBirthDate;
   String? _selectedGender;
+  String? _selectedNativeLanguageCode; // yeni
 
   @override
   void initState() {
@@ -54,7 +56,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
 
         _selectedGender = data['gender'];
-        _nativeLanguageController.text = data['nativeLanguage'] ?? '';
+        final nl = data['nativeLanguage'];
+        if (nl is String && nl.isNotEmpty) {
+          _selectedNativeLanguageCode = nl;
+        } else {
+          _selectedNativeLanguageCode = 'en';
+        }
+        _nativeLanguageController.text = _languageLabelFor(_selectedNativeLanguageCode!);
       }
     } catch (e) {
       // Hata yönetimi
@@ -67,11 +75,60 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  String _languageLabelFor(String code) {
+    return TranslationService.supportedLanguages.firstWhere(
+      (m) => m['code'] == code,
+      orElse: () => const {'code': 'en', 'label': 'English'},
+    )['label']!;
+  }
+
   void _generateNewAvatar() {
     final random = Random().nextInt(10000).toString();
     setState(() {
       _avatarUrl = 'https://api.dicebear.com/8.x/micah/svg?seed=$random';
     });
+  }
+
+  void _showLanguagePicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: SizedBox(
+            height: 420,
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                const Text('Anadil Seç', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: TranslationService.supportedLanguages.length,
+                    itemBuilder: (context, index) {
+                      final item = TranslationService.supportedLanguages[index];
+                      final code = item['code']!;
+                      final label = item['label']!;
+                      final selected = code == _selectedNativeLanguageCode;
+                      return ListTile(
+                        title: Text(label),
+                        trailing: selected ? const Icon(Icons.check, color: Colors.teal) : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedNativeLanguageCode = code;
+                            _nativeLanguageController.text = label;
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _saveProfile() async {
@@ -88,7 +145,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'username_lowercase': newDisplayName.toLowerCase(),
         'birthDate': _selectedBirthDate != null ? Timestamp.fromDate(_selectedBirthDate!) : null,
         'gender': _selectedGender,
-        'nativeLanguage': _nativeLanguageController.text.trim(),
+        'nativeLanguage': _selectedNativeLanguageCode ?? 'en',
         'avatarUrl': _avatarUrl,
       };
 
@@ -207,6 +264,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               controller: _nativeLanguageController,
               label: 'Anadil',
               icon: Icons.language_outlined,
+              readOnly: true,
+              onTap: _showLanguagePicker,
             ),
           ],
         ),

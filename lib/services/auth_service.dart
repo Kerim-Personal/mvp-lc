@@ -3,6 +3,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -26,7 +27,7 @@ class AuthService {
 
   /// Yeni kullanıcı kaydı oluşturur ve ek bilgileri Firestore'a kaydeder.
   Future<UserCredential?> signUp(String email, String password,
-      String username, DateTime birthDate, String gender) async {
+      String username, DateTime birthDate, String gender, String nativeLanguage) async {
     try {
       // 1. Firebase Authentication ile kullanıcıyı oluştur.
       UserCredential userCredential = await _auth
@@ -40,31 +41,32 @@ class AuthService {
 
       // 2. Kullanıcının ek bilgilerini Firestore veritabanına kaydet.
       if (userCredential.user != null) {
-        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        final docRef = _firestore.collection('users').doc(userCredential.user!.uid);
+        await docRef.set({
           'displayName':
-          username, // Kullanıcının girdiği orijinal, büyük/küçük harfli ad.
-          'username_lowercase': username
-              .toLowerCase(), // Sistemin kullanacağı benzersiz, küçük harfli ad.
+          username,
+          'username_lowercase': username.toLowerCase(),
           'birthDate': Timestamp.fromDate(birthDate),
           'gender': gender,
           'email': email,
           'uid': userCredential.user!.uid,
           'createdAt': FieldValue.serverTimestamp(),
           'emailVerified':
-          false, // Başlangıçta e-posta doğrulanmamış olarak ayarlanır.
+          false,
           'avatarUrl': avatarUrl,
           'partnerCount': 0,
-          // İstatistik alanları başlatılıyor
           'streak': 0,
-          'totalPracticeTime': 0, // Dakika cinsinden
+          'totalPracticeTime': 0,
           'lastActivityDate': FieldValue.serverTimestamp(),
-          'isPremium': false, // Varsayılan olarak premium değil
-          // Yeni: rol ve durum
+          'isPremium': false,
           'role': 'user',
           'status': 'active',
-          // Yeni: Engellenen kullanıcılar listesi
           'blockedUsers': <String>[],
+          'nativeLanguage': nativeLanguage,
+          'profileCompleted': false, // rules gereği başlangıçta false
         });
+        // Email-password kullanıcıları profil tamamlamayı atlayacak -> hemen true yap
+        try { await docRef.update({'profileCompleted': true}); } catch (_) {}
       }
       return userCredential;
     } on FirebaseAuthException catch (e) {
@@ -79,24 +81,65 @@ class AuthService {
       final userCredential = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
 
+      // E-posta doğrulama durumunun güncel olduğundan emin olmak için reload
+      await userCredential.user?.reload();
+      final user = _auth.currentUser; // reload sonrası güncel referans
+
       // E-posta doğrulaması kontrolü
-      if (userCredential.user != null && !userCredential.user!.emailVerified) {
-        // Kullanıcı var ama e-postası doğrulanmamışsa özel bir hata fırlat
+      if (user != null && !user.emailVerified) {
         throw FirebaseAuthException(
           code: 'email-not-verified',
           message: 'Lütfen giriş yapmadan önce e-postanızı doğrulayın.',
         );
       }
-      // Giriş başarılıysa, Firestore'daki `emailVerified` alanını da güncelleyelim.
-      if (userCredential.user != null) {
-        await _firestore
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .update({'emailVerified': true});
+
+      // Firestore kullanıcı profili kontrolü
+      if (user != null) {
+        final docRef = _firestore.collection('users').doc(user.uid);
+        final snap = await docRef.get();
+        if (!snap.exists) {
+          // Profil eksik -> otomatik yeniden oluştur (minimum alanlar)
+          await docRef.set({
+            'displayName': user.displayName ?? user.email?.split('@').first ?? 'Kullanıcı',
+            'username_lowercase': (user.displayName ?? user.email ?? '').toLowerCase(),
+            'email': user.email,
+            'uid': user.uid,
+            'createdAt': FieldValue.serverTimestamp(),
+            'emailVerified': user.emailVerified,
+            'avatarUrl': 'https://api.dicebear.com/8.x/micah/svg?seed=${user.uid.substring(0,6)}',
+            'partnerCount': 0,
+            'streak': 0,
+            'totalPracticeTime': 0,
+            'lastActivityDate': FieldValue.serverTimestamp(),
+            'isPremium': false,
+            'role': 'user',
+            'status': 'active',
+            'blockedUsers': <String>[],
+            'nativeLanguage': 'en',
+            'profileCompleted': false, // create
+          });
+          // Email/password (providerId == password) ise hemen tamamlandı kabul et
+          final isPasswordProvider = user.providerData.any((p)=>p.providerId=='password');
+          if (isPasswordProvider) { try { await docRef.update({'profileCompleted': true}); } catch(_){} }
+        } else {
+          final data = snap.data() as Map<String, dynamic>;
+          final status = data['status'] as String?;
+          if (status == 'deleted') {
+            await _auth.signOut();
+            throw FirebaseAuthException(
+              code: 'user-deleted',
+              message: 'Bu hesap silinmiş durumda.'
+            );
+          }
+          // Eksik emailVerified alanı güncelle
+          if (data['emailVerified'] != true && user.emailVerified) {
+            await docRef.update({'emailVerified': true});
+          }
+        }
       }
+
       return userCredential;
     } on FirebaseAuthException {
-      // Hatanın kendisini yeniden fırlatarak UI katmanının yakalamasına izin ver
       rethrow;
     }
   }
@@ -136,6 +179,64 @@ class AuthService {
     } on FirebaseAuthException {
       // Hatanın kendisini UI katmanının işlemesi için yeniden fırlat.
       rethrow;
+    }
+  }
+
+  /// Google ile giriş yapmayı sağlar.
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? gAccount = await GoogleSignIn().signIn();
+      if (gAccount == null) return null; // kullanıcı iptal
+      final auth = await gAccount.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: auth.accessToken,
+        idToken: auth.idToken,
+      );
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+      if (user != null) {
+        final docRef = _firestore.collection('users').doc(user.uid);
+        final snap = await docRef.get();
+        if (!snap.exists) {
+          // Firestore security rules isValidNewUser gereksinimlerini sağlamak için zorunlu alanları dolduruyoruz.
+          final rawName = (user.displayName ?? user.email?.split('@').first ?? 'User').trim();
+          String safeName = rawName;
+          if (safeName.length < 3) safeName = (safeName + '___').substring(0, 3); // min 3
+            if (safeName.length > 29) safeName = safeName.substring(0,29);
+          final dicebear = 'https://api.dicebear.com/8.x/micah/svg?seed=${user.uid.substring(0,6)}';
+          await docRef.set({
+            'displayName': safeName,
+            'username_lowercase': safeName.toLowerCase(),
+            'email': user.email,
+            'uid': user.uid,
+            'createdAt': FieldValue.serverTimestamp(),
+            'emailVerified': false,
+            'avatarUrl': dicebear,
+            'partnerCount': 0,
+            'streak': 0,
+            'totalPracticeTime': 0,
+            'lastActivityDate': FieldValue.serverTimestamp(),
+            'isPremium': false,
+            'role': 'user',
+            'status': 'active',
+            'blockedUsers': <String>[],
+            'nativeLanguage': 'en',
+            'birthDate': Timestamp.fromDate(DateTime(2000,1,1)),
+            'gender': 'Male',
+            'profileCompleted': false, // Google kullanıcıları tamamlamaya yönlendirilecek
+          });
+        } else {
+            await docRef.update({
+              'lastActivityDate': FieldValue.serverTimestamp(),
+              if (user.emailVerified) 'emailVerified': true,
+            });
+        }
+      }
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      rethrow;
+    } catch (e) {
+      throw FirebaseAuthException(code: 'google-signin-failed', message: e.toString());
     }
   }
 }

@@ -74,6 +74,9 @@ class GroupChatRoomInfo {
   final Color color1;
   final Color color2;
   final bool isFeatured;
+  // Denormalize alanlar (maliyet azaltımı)
+  final int? memberCount;
+  final List<String>? avatarsPreview;
 
   GroupChatRoomInfo({
     required this.id,
@@ -83,6 +86,8 @@ class GroupChatRoomInfo {
     required this.color1,
     required this.color2,
     this.isFeatured = false,
+    this.memberCount,
+    this.avatarsPreview,
   });
 }
 
@@ -114,6 +119,19 @@ class _CommunityScreenState extends State<CommunityScreen>
     _roomsFuture = _fetchRoomsData();
   }
 
+  int _parseColor(dynamic value, int fallback) {
+    if (value is int) return value;
+    if (value is String) {
+      String v = value.trim();
+      if (v.startsWith('0x')) v = v.substring(2);
+      v = v.replaceAll('#', '');
+      if (v.length == 6) v = 'FF$v'; // alpha ekle
+      final parsed = int.tryParse(v, radix: 16);
+      if (parsed != null) return parsed;
+    }
+    return fallback;
+  }
+
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
@@ -125,7 +143,7 @@ class _CommunityScreenState extends State<CommunityScreen>
 
     final users = snapshot.docs
         .where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
+          final data = doc.data();
           final status = data['status'];
           return status == null || status != 'banned' && status != 'deleted';
         })
@@ -133,7 +151,7 @@ class _CommunityScreenState extends State<CommunityScreen>
 
     return users.asMap().entries.map((entry) {
       int rank = entry.key + 1;
-      Map<String, dynamic> data = entry.value.data() as Map<String, dynamic>;
+      final data = entry.value.data();
       return LeaderboardUser(
         rank: rank,
         name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Bilinmeyen',
@@ -229,6 +247,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                       .collection('users')
                       .doc(currentUser.uid)
                       .get();
+                  if (!mounted) return; // widget dispose edilmişse devam etme
                   final userData = userDoc.data();
 
                   await FirebaseFirestore.instance.collection('posts').add({
@@ -241,7 +260,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                     'likes': [],
                     'commentCount': 0,
                   });
-
+                  if (!mounted) return;
                   Navigator.pop(context);
                   _refreshFeed();
                 },
@@ -435,9 +454,16 @@ class _CommunityScreenState extends State<CommunityScreen>
             name: data['name'] ?? 'Bilinmeyen Oda',
             description: data['description'] ?? '',
             icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
-            color1: Color(int.tryParse(data['color1'] ?? '0xFFFF8A80') ?? 0xFFFF8A80),
-            color2: Color(int.tryParse(data['color2'] ?? '0xFFFF5252') ?? 0xFFFF5252),
+            color1: Color(_parseColor(data['color1'], 0xFFFF8A80)),
+            color2: Color(_parseColor(data['color2'], 0xFFFF5252)),
             isFeatured: data['isFeatured'] ?? false,
+            memberCount: data['memberCount'] is int ? data['memberCount'] : null,
+            avatarsPreview: (data['avatarsPreview'] is List)
+                ? (data['avatarsPreview'] as List)
+                    .whereType<String>()
+                    .take(3)
+                    .toList()
+                : null,
           );
         }).toList();
 

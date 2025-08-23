@@ -9,6 +9,7 @@ import 'package:lingua_chat/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
 import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Lokalizasyon importu
+import 'package:lingua_chat/services/translation_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -26,9 +27,11 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
   final _birthDateController = TextEditingController();
+  final _nativeLanguageController = TextEditingController(); // yeni
 
   DateTime? _selectedBirthDate;
   String? _selectedGender;
+  String? _selectedNativeLanguageCode; // yeni
   bool _isLoading = false;
 
   late AnimationController _entryAnimationController;
@@ -73,6 +76,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _passwordController.dispose();
     _usernameController.dispose();
     _birthDateController.dispose();
+    _nativeLanguageController.dispose(); // yeni
     super.dispose();
   }
 
@@ -143,12 +147,60 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
+  void _showLanguagePicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: SizedBox(
+          height: 420,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              const Text('Anadil Seç', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: TranslationService.supportedLanguages.length,
+                  itemBuilder: (context, index) {
+                    final item = TranslationService.supportedLanguages[index];
+                    final code = item['code']!;
+                    final label = item['label']!;
+                    final selected = code == _selectedNativeLanguageCode;
+                    return ListTile(
+                      title: Text(label),
+                      trailing: selected ? const Icon(Icons.check, color: Colors.teal) : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedNativeLanguageCode = code;
+                          _nativeLanguageController.text = label;
+                        });
+                        // Kayıtta model indirme yapılmayacak (UX için kaldırıldı)
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _register() async {
-    if (!_formKey.currentState!.validate() || _selectedGender == null) {
+    if (!_formKey.currentState!.validate() || _selectedGender == null || _selectedNativeLanguageCode == null) {
       if (_selectedGender == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Lütfen cinsiyetinizi seçin.'),
+              backgroundColor: Colors.red),
+        );
+      }
+      if (_selectedNativeLanguageCode == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Lütfen anadilinizi seçin.'),
               backgroundColor: Colors.red),
         );
       }
@@ -183,6 +235,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _usernameController.text.trim(),
         _selectedBirthDate!,
         _selectedGender!,
+        _selectedNativeLanguageCode!, // yeni
       );
 
       if (userCredential != null) {
@@ -312,6 +365,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 (value == null || value.isEmpty)
                                     ? 'Lütfen doğum tarihinizi seçin'
                                     : null,
+                              ),
+                              const SizedBox(height: 12.0),
+                              _buildTextField(
+                                controller: _nativeLanguageController,
+                                readOnly: true,
+                                hintText: 'Anadil',
+                                icon: Icons.language_outlined,
+                                onTap: _showLanguagePicker,
+                                validator: (value) => (value == null || value.isEmpty) ? 'Lütfen anadilinizi seçin' : null,
                               ),
                               const SizedBox(height: 20.0),
                               Text(AppLocalizations.of(context)!.selectYourGender, // <-- GÜNCELLENDİ
@@ -499,6 +561,8 @@ class _RegisterScreenState extends State<RegisterScreen>
       );
     });
   }
+
+  Widget _buildModelDownloadProgress() { return const SizedBox.shrink(); }
 }
 
 class GenderSelectionBox extends StatelessWidget {

@@ -10,12 +10,14 @@ class SearchingUI extends StatefulWidget {
   final bool isSearching;
   final AnimationController searchAnimationController;
   final VoidCallback onCancelSearch;
+  final bool isPremium; // yeni
 
   const SearchingUI({
     super.key,
     required this.isSearching,
     required this.searchAnimationController,
     required this.onCancelSearch,
+    this.isPremium = false,
   });
 
   @override
@@ -197,7 +199,7 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
           widget.onCancelSearch();
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const LinguaBotChatScreen()),
+            MaterialPageRoute(builder: (context) => LinguaBotChatScreen(isPremium: widget.isPremium)),
           );
         },
         borderRadius: BorderRadius.circular(20),

@@ -345,6 +345,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             isSearching: _isSearching,
             searchAnimationController: _searchAnimationController,
             onCancelSearch: _cancelSearch,
+            isPremium: _isProUser,
           ),
         ],
       ),

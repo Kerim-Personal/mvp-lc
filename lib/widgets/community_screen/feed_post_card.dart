@@ -75,26 +75,43 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
   Future<void> _toggleLike() async {
     if (currentUser == null) return;
 
+    final prevLiked = isLiked;
+    final prevCount = likeCount;
+
     setState(() {
       isLiked = !isLiked;
-      if (isLiked) {
-        likeCount++;
-      } else {
-        likeCount--;
-      }
+      likeCount = isLiked ? likeCount + 1 : likeCount - 1;
     });
 
-    final postRef =
-    FirebaseFirestore.instance.collection('posts').doc(widget.post.id);
-
-    if (isLiked) {
-      await postRef.update({
-        'likes': FieldValue.arrayUnion([currentUser!.uid])
+    final postRef = FirebaseFirestore.instance.collection('posts').doc(widget.post.id);
+    try {
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final snap = await tx.get(postRef);
+        if (!snap.exists) throw Exception('Gönderi bulunamadı');
+        final data = snap.data() as Map<String, dynamic>;
+        final List<dynamic> raw = (data['likes'] as List<dynamic>? ) ?? [];
+        final likes = raw.map((e) => e.toString()).toList();
+        final uid = currentUser!.uid;
+        if (isLiked) {
+          if (!likes.contains(uid)) {
+            likes.add(uid);
+          }
+        } else {
+          likes.remove(uid);
+        }
+        tx.update(postRef, {'likes': likes});
       });
-    } else {
-      await postRef.update({
-        'likes': FieldValue.arrayRemove([currentUser!.uid])
-      });
+    } catch (e) {
+      // Geri al
+      if (mounted) {
+        setState(() {
+          isLiked = prevLiked;
+          likeCount = prevCount;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Beğeni güncellenemedi: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -255,11 +272,15 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                                           final value = _shimmerController.value;
                                           final start = value * 1.5 - 0.5;
                                           final end = value * 1.5;
+                                          final bool isSpecialRole = (role == 'admin' || role == 'moderator');
+                                          final Color shimmerBase = isSpecialRole ? baseColor : const Color(0xFFE5B53A);
                                           return ShaderMask(
                                             blendMode: BlendMode.srcIn,
                                             shaderCallback: (bounds) => LinearGradient(
-                                              colors: [baseColor, highlightColor, baseColor],
-                                              stops: [start, (start + end) / 2, end],
+                                              colors: [shimmerBase, highlightColor, shimmerBase],
+                                              stops: [start, (start + end) / 2, end]
+                                                  .map((e) => e.clamp(0.0, 1.0))
+                                                  .toList(),
                                             ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
                                             child: child,
                                           );
@@ -269,7 +290,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16,
-                                              color: baseColor),
+                                              color: (role == 'admin' || role == 'moderator') ? baseColor : const Color(0xFFE5B53A)),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       )

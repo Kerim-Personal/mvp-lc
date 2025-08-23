@@ -16,6 +16,7 @@ class VerificationScreen extends StatefulWidget {
 class _VerificationScreenState extends State<VerificationScreen> {
   bool _isSending = false;
   String? _errorMessage;
+  bool _checking = false; // yeni: doğrulama kontrol state
 
   Future<void> _resendVerificationEmail() async {
     setState(() {
@@ -45,6 +46,33 @@ class _VerificationScreenState extends State<VerificationScreen> {
           _isSending = false;
         });
       }
+    }
+  }
+
+  Future<void> _checkIfVerified() async {
+    setState(() { _checking = true; });
+    try {
+      await FirebaseAuth.instance.currentUser?.reload();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.emailVerified) {
+        if (!mounted) return;
+        // Kök route'a dön (AuthWrapper yeniden değerlendirilir ve RootScreen açılır)
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Henüz doğrulanmamış. Lütfen e-postayı kontrol edin.'), backgroundColor: Colors.orange),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Kontrol sırasında hata: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() { _checking = false; });
     }
   }
 
@@ -107,6 +135,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 onPressed: _resendVerificationEmail,
                 icon: const Icon(Icons.send),
                 label: const Text('Resend Verification Link'),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _checking ? null : _checkIfVerified,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.teal,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+                ),
+                child: _checking
+                    ? const SizedBox(height:20,width:20,child:CircularProgressIndicator(strokeWidth:2))
+                    : const Text('E-postayı Doğruladım'),
               ),
               TextButton(
                 child: const Text('Back to Login',

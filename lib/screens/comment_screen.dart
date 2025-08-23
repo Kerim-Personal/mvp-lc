@@ -76,6 +76,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
     }
 
     final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
+    if (!mounted) return;
     final userData = userDoc.data();
 
     final postRef = FirebaseFirestore.instance.collection('posts').doc(widget.postId);
@@ -92,6 +93,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
     // Gönderideki yorum sayısını artır
     await postRef.update({'commentCount': FieldValue.increment(1)});
 
+    if (!mounted) return;
     _commentController.clear();
     FocusScope.of(context).unfocus(); // Klavyeyi kapat
   }
@@ -195,6 +197,8 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
                         style: TextStyle(fontWeight: FontWeight.bold, color: baseColor),
                       );
                       if (isPremium) {
+                         final bool isSpecialRole = (role == 'admin' || role == 'moderator');
+                        final Color shimmerBase = isSpecialRole ? baseColor : const Color(0xFFE5B53A);
                         name = AnimatedBuilder(
                           animation: _nameShimmerController,
                           builder: (context, child) {
@@ -204,13 +208,21 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
                             return ShaderMask(
                               blendMode: BlendMode.srcIn,
                               shaderCallback: (bounds) => LinearGradient(
-                                colors: [baseColor, Colors.white, baseColor],
-                                stops: [start, (start + end) / 2, end],
+                                colors: [shimmerBase, Colors.white, shimmerBase],
+                                stops: [start, (start + end) / 2, end]
+                                    .map((e) => e.clamp(0.0, 1.0))
+                                    .toList(),
                               ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
                               child: child!,
                             );
                           },
-                          child: name,
+                          child: Text(
+                            displayName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isSpecialRole ? baseColor : const Color(0xFFE5B53A),
+                            ),
+                          ),
                         );
                       }
                       return name;

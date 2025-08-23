@@ -16,6 +16,64 @@ class GroupChatCard extends StatefulWidget {
 
 class _GroupChatCardState extends State<GroupChatCard> {
   Offset _offset = Offset.zero;
+  // --- Maliyet azaltımı için eklenen cache alanları ---
+  bool _loadingMembers = true;
+  int _memberCount = 0;
+  List<String> _avatarUrls = [];
+  DateTime? _lastFetch;
+
+  @override
+  void initState() {
+    super.initState();
+    // Denormalize veriler geldiyse doğrudan kullan, ek okuma yapma
+    final initialCount = widget.roomInfo.memberCount;
+    final initialAvatars = widget.roomInfo.avatarsPreview;
+    if (initialCount != null) {
+      _memberCount = initialCount;
+      _avatarUrls = (initialAvatars ?? []).take(3).toList();
+      _loadingMembers = false;
+    } else {
+      _fetchMembers();
+    }
+  }
+
+  Future<void> _fetchMembers({bool force = false}) async {
+    // Eğer zaten denormalize veri gelmişse ve force değilse okuma yapma
+    if (!force && widget.roomInfo.memberCount != null) return;
+    // Basit throttle: 30 sn içinde yeniden istenirse atla.
+    if (!force && _lastFetch != null && DateTime.now().difference(_lastFetch!) < const Duration(seconds: 30)) return;
+    try {
+      setState(() => _loadingMembers = true);
+      final snapshot = await FirebaseFirestore.instance
+          .collection('group_chats')
+          .doc(widget.roomInfo.id)
+          .collection('members')
+          .limit(5) // Limit maliyeti azaltır
+          .get(); // Tek seferlik okuma – real-time listener yok
+
+      final docs = snapshot.docs;
+      final avatars = <String>[];
+      for (final d in docs) {
+        final data = d.data(); // unnecessary cast kaldırıldı
+        final url = data['avatarUrl'];
+        if (url is String && url.isNotEmpty) avatars.add(url);
+      }
+      if (mounted) {
+        setState(() {
+          _memberCount = docs.length; // İleride aggregate count ile değiştirilebilir
+          _avatarUrls = avatars;
+          _loadingMembers = false;
+          _lastFetch = DateTime.now();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingMembers = false; // Hata durumunda da UI dursun
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +92,8 @@ class _GroupChatCardState extends State<GroupChatCard> {
           ),
         );
       },
+      // Kullanıcı uzun basarsa manuel yenile (isteğe bağlı basit etkileşim)
+      onLongPress: () => _fetchMembers(force: true),
       child: Transform(
         transform: Matrix4.identity()
           ..setEntry(3, 2, 0.001)
@@ -56,59 +116,55 @@ class _GroupChatCardState extends State<GroupChatCard> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: widget.roomInfo.color2.withOpacity(0.5),
+                    color: widget.roomInfo.color2.withValues(alpha: 0.5),
                     blurRadius: 20,
                     spreadRadius: 2,
                     offset: const Offset(0, 10),
                   )
                 ],
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Canlı üye verisini çekmek için StreamBuilder kullanıyoruz
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('group_chats')
-                        .doc(widget.roomInfo.id)
-                        .collection('members')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      final memberDocs = snapshot.data?.docs ?? [];
-                      final memberCount = memberDocs.length;
-
-                      final avatarUrls = memberDocs
-                          .map((doc) {
-                        final data = doc.data() as Map<String, dynamic>?;
-                        return data?['avatarUrl'] as String?;
-                      })
-                          .where((url) => url != null && url.isNotEmpty)
-                          .cast<String>()
-                          .toList();
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildHeader(memberCount),
-                          const SizedBox(height: 12),
-                          Text(
-                            widget.roomInfo.description,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 15,
-                              height: 1.4,
+                  // Önceki StreamBuilder kaldırıldı; tek seferlik fetch verileri kullanılıyor.
+                  // Basit durum yönetimi:
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildHeader(_memberCount),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.roomInfo.description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 15,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_loadingMembers)
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white.withValues(alpha: 0.8)),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildFooter(memberCount, avatarUrls),
-                        ],
-                      );
-                    },
+                            const SizedBox(width: 8),
+                            Text('Yükleniyor...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+                          ],
+                        )
+                      else
+                        _buildFooter(_memberCount, _avatarUrls),
+                    ],
                   ),
                 ],
               ),
@@ -126,7 +182,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Icon(widget.roomInfo.icon, color: Colors.white, size: 28),
@@ -151,7 +207,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
               color: Colors.redAccent,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
-                BoxShadow(color: Colors.redAccent.withOpacity(0.5), blurRadius: 8)
+                BoxShadow(color: Colors.redAccent.withValues(alpha: 0.5), blurRadius: 8)
               ],
             ),
             child: const Text(
@@ -207,7 +263,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
             memberCount > 0
                 ? '$memberCount üye burada'
                 : 'Odaya ilk giren sen ol!',
-            style: TextStyle(color: Colors.white.withOpacity(0.8)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
             overflow: TextOverflow.ellipsis,
           ),
         ),

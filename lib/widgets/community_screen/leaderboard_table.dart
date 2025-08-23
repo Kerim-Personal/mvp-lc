@@ -1,9 +1,9 @@
 // lib/widgets/community_screen/leaderboard_table.dart
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
+import 'dart:async';
 
 class LeaderboardTable extends StatefulWidget {
   final List<LeaderboardUser> users;
@@ -100,8 +100,12 @@ class _UserRankCard extends StatefulWidget {
 }
 
 class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderStateMixin {
-  late final AnimationController _shimmerController;
+  // Shimmer sadece premium ve admin/moderator olmayanlarda kullanılacak.
+  AnimationController? _shimmerController;
+  bool get _isSpecialRole => widget.user.role == 'admin' || widget.user.role == 'moderator';
+  bool get _shouldShimmer => widget.user.isPremium; // Artık rol ayırt etmeksizin premiumsa shimmer
 
+  // Shimmer kaldırıldı; sadece renk değişimi kullanılıyor.
   Color _roleColor(String role) {
     switch (role) {
       case 'admin':
@@ -116,28 +120,22 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
   @override
   void initState() {
     super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    );
-
-    if (widget.user.isPremium) {
-      _shimmerController.addStatusListener((status) {
+    if (_shouldShimmer) {
+      _shimmerController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+      _shimmerController!.addStatusListener((status) {
         if (status == AnimationStatus.completed) {
-          Timer(const Duration(seconds: 1), () {
-            if (mounted) {
-              _shimmerController.forward(from: 0.0);
-            }
+          Future.delayed(const Duration(milliseconds: 600), () {
+            if (mounted) _shimmerController?.forward(from: 0);
           });
         }
       });
-      _shimmerController.forward();
+      _shimmerController!.forward();
     }
   }
 
   @override
   void dispose() {
-    _shimmerController.dispose();
+    _shimmerController?.dispose();
     super.dispose();
   }
 
@@ -157,7 +155,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       elevation: isTop3 ? 4 : 2,
-      shadowColor: isTop3 ? rankColor.withOpacity(0.3) : Colors.black.withOpacity(0.1),
+      shadowColor: isTop3 ? rankColor.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: isTop3
@@ -209,42 +207,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
             const SizedBox(width: 12),
             // User Name and Premium Icon
             Expanded(
-              child: widget.user.isPremium
-                  ? AnimatedBuilder(
-                animation: _shimmerController,
-                builder: (context, child) {
-                  final highlightColor = Colors.white;
-                  final value = _shimmerController.value;
-                  final start = value * 1.5 - 0.5;
-                  final end = value * 1.5;
-                  return ShaderMask(
-                    blendMode: BlendMode.srcIn,
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: [baseColor, highlightColor, baseColor],
-                      stops: [start, (start + end) / 2, end],
-                    ).createShader(
-                      Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                    ),
-                    child: child,
-                  );
-                },
-                child: Text(
-                  widget.user.name,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: baseColor,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              )
-                  : Text(
-                widget.user.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: baseColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: _buildName(baseColor),
             ),
             // Partner Count
             Row(
@@ -261,6 +224,45 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildName(Color baseColor) {
+    final isPremium = widget.user.isPremium;
+    final bool normalPremium = isPremium && !_isSpecialRole;
+    final color = normalPremium ? const Color(0xFFE5B53A) : baseColor;
+
+    final textWidget = Text(
+      widget.user.name,
+      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: color,
+        shadows: (isPremium && !_isSpecialRole) ? const [Shadow(blurRadius: 6, color: Colors.black26)] : null,
+      ),
+      overflow: TextOverflow.ellipsis,
+    );
+
+    if (!_shouldShimmer) return textWidget;
+
+    return AnimatedBuilder(
+      animation: _shimmerController!,
+      builder: (context, child) {
+        final v = _shimmerController!.value; // 0..1
+        final start = (v - 0.3).clamp(0.0, 1.0);
+        final mid = v.clamp(0.0, 1.0);
+        final end = (v + 0.3).clamp(0.0, 1.0);
+        return ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (bounds) => LinearGradient(
+            colors: normalPremium
+                ? const [Color(0xFFE5B53A), Colors.white, Color(0xFFE5B53A)] // Normal premium: altın
+                : [baseColor, Colors.white, baseColor], // Admin / moderator premium: rol rengi
+             stops: [start, mid, end],
+             begin: Alignment.topLeft,
+             end: Alignment.bottomRight,
+           ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+          child: child,
+        );
+      },
+      child: textWidget,
     );
   }
 }

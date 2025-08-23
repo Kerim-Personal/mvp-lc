@@ -37,19 +37,49 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
         throw Exception("Kullanıcı bulunamadı veya e-posta adresi yok.");
       }
 
-      // 1. Adım: Kullanıcıyı şifresiyle yeniden doğrula.
+      // 1. Re-auth
       final cred = EmailAuthProvider.credential(
         email: user.email!,
         password: _passwordController.text,
       );
       await user.reauthenticateWithCredential(cred);
 
-      // 2. Adım: Arka plan fonksiyonunu DOĞRU BÖLGEDE çağır.
-      final HttpsCallable callable = FirebaseFunctions.instanceFor(region: 'us-central1') // <-- TEK ve EN ÖNEMLİ DEĞİŞİKLİK BURASI
+      // 2. Sunucu fonksiyonunu çağır (hesabı auth + verileri siler)
+      final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
           .httpsCallable('deleteUserAccount');
       await callable.call();
 
-      // 3. Adım: Başarılı olursa giriş ekranına yönlendir.
+      // 3. Ek güvenlik: local oturumdaki user objesini yeniden yükle ve hala varsa silmeyi dene
+      await user.reload();
+      final still = FirebaseAuth.instance.currentUser;
+      if (still != null) {
+        try {
+          await still.delete();
+        } catch (_) {
+          // Bazı edge-case: yetki hatası varsa göz ardı et (sunucu zaten silmiş olabilir)
+        }
+      }
+
+      // 4. Oturumu kapat (özellikle cache temizliği için)
+      await FirebaseAuth.instance.signOut();
+
+      // 5. E-postanın gerçekten boşaldığından emin olmak için kısa gecikme + kontrol
+      if (user.email != null) {
+        try {
+          await Future.delayed(const Duration(milliseconds: 400));
+          final methods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(user.email!);
+          if (methods.isNotEmpty) {
+            // Kullanıcı yeniden oluşturma hemen başarısız olabilir, kullanıcıya uyarı verelim
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Hesap silme çoğaltması sürüyor, birkaç saniye sonra tekrar deneyin.'),
+                backgroundColor: Colors.orange,
+              ));
+            }
+          }
+        } catch (_) {}
+      }
+
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -65,11 +95,12 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
     } on FirebaseAuthException catch (e) {
       if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
         setState(() => _error = 'Girilen şifre yanlış. Lütfen tekrar deneyin.');
+      } else if (e.code == 'requires-recent-login') {
+        setState(() => _error = 'Lütfen tekrar giriş yapıp yeniden deneyin.');
       } else {
-        setState(() => _error = 'Bir hata oluştu: ${e.message}');
+        setState(() => _error = 'Auth hatası: ${e.message}');
       }
     } on FirebaseFunctionsException catch (e) {
-      // Hata mesajını daha anlaşılır hale getiriyoruz.
       setState(() => _error = 'Sunucu hatası: ${e.message}');
     } catch (e) {
       setState(() => _error = 'Beklenmedik bir hata oluştu: $e');

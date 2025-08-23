@@ -143,6 +143,32 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  Future<void> _loginGoogle() async {
+    setState(() { _isLoading = true; });
+    try {
+      final cred = await _authService.signInWithGoogle();
+      if (cred == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Google girişi iptal edildi'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google Giriş Hatası: ${e.message}'), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Beklenmedik hata: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() { _isLoading = false; });
+    }
+  }
+
   void _showPasswordResetDialog() {
     final resetEmailController = TextEditingController();
     final dialogFormKey = GlobalKey<FormState>();
@@ -298,6 +324,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         const SizedBox(height: 12.0),
                         _buildAnimatedLoginButton(),
+                        _buildGoogleButton(),
                         _buildRegisterButton(),
                       ],
                     ),
@@ -421,49 +448,50 @@ class _LoginScreenState extends State<LoginScreen>
       opacity: _buttonFade,
       child: SlideTransition(
         position: _buttonSlide,
-        child: LayoutBuilder(builder: (context, constraints) {
-          final buttonWidth = _isLoading ? 56.0 : constraints.maxWidth;
-
-          return AnimatedContainer(
-            width: buttonWidth,
-            height: 56,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOutCubic,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.teal.shade700,
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(_isLoading ? 28.0 : 16.0),
-                ),
-                elevation: 8,
-                shadowColor: Colors.black.withOpacity(0.5),
-              ),
-              onPressed: _isLoading ? null : _login,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) {
-                  return ScaleTransition(scale: animation, child: child);
-                },
-                child: _isLoading
-                    ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Colors.teal,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final buttonWidth = _isLoading ? 56.0 : constraints.maxWidth;
+            return AnimatedContainer(
+              width: buttonWidth,
+              height: 56,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOutCubic,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.teal.shade700,
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(_isLoading ? 28.0 : 16.0),
                   ),
-                )
-                    : Text(
-                  AppLocalizations.of(context)!.login,
-                  key: const ValueKey('loginText'),
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                  elevation: 8,
+                  shadowColor: Colors.black.withOpacity(0.5),
+                ),
+                onPressed: _isLoading ? null : _login,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, animation) {
+                    return ScaleTransition(scale: animation, child: child);
+                  },
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.teal,
+                          ),
+                        )
+                      : Text(
+                          AppLocalizations.of(context)!.login,
+                          key: const ValueKey('loginText'),
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
                 ),
               ),
-            ),
-          );
-        }),
+            );
+          },
+        ),
       ),
     );
   }
@@ -491,6 +519,33 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return FadeTransition(
+      opacity: _buttonFade,
+      child: SlideTransition(
+        position: _buttonSlide,
+        child: Padding(
+          padding: const EdgeInsets.only(top:8.0),
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: BorderSide(color: Colors.white.withOpacity(0.6)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            icon: Image.network(
+              'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+              height: 20,
+              errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata),
+            ),
+            label: const Text('Google ile Giriş'),
+            onPressed: _isLoading ? null : _loginGoogle,
+          ),
         ),
       ),
     );
