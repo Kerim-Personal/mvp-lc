@@ -44,4 +44,95 @@ class AdminService {
       'bannedBy': _auth.currentUser?.uid,
     });
   }
+
+  Future<void> unbanUser(String userId) async {
+    final currentRole = await getCurrentUserRole();
+    if (currentRole != 'admin' && currentRole != 'moderator') {
+      throw Exception('Yetkiniz yok.');
+    }
+    await _firestore.collection('users').doc(userId).update({
+      'status': 'active',
+      'unbannedAt': FieldValue.serverTimestamp(),
+      'unbannedBy': _auth.currentUser?.uid,
+      // Ban alanlarını temizleyelim (varsa)
+      'bannedReason': FieldValue.delete(),
+      'bannedDetails': FieldValue.delete(),
+      'bannedAt': FieldValue.delete(),
+      'bannedBy': FieldValue.delete(),
+    });
+  }
+
+  Future<void> updateSupportStatus(String docId, String status) async {
+    final role = await getCurrentUserRole();
+    if (role != 'admin' && role != 'moderator') return;
+    await _firestore.collection('support').doc(docId).update({
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': _auth.currentUser?.uid,
+    });
+  }
+
+  Future<void> updateReportStatus(String reportId, String status) async {
+    final role = await getCurrentUserRole();
+    if (role != 'admin' && role != 'moderator') return;
+    await _firestore.collection('reports').doc(reportId).update({
+      'status': status,
+      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedBy': _auth.currentUser?.uid,
+    });
+  }
+
+  Future<void> addSupportMessage(String ticketId, {String? text, List<String>? attachments}) async {
+    final role = await getCurrentUserRole();
+    if (role != 'admin' && role != 'moderator') {
+      throw Exception('Yetki yok');
+    }
+    if ((text == null || text.trim().isEmpty) && (attachments == null || attachments.isEmpty)) {
+      throw Exception('Boş mesaj');
+    }
+    final Map<String, dynamic> data = {
+      'senderId': _auth.currentUser?.uid,
+      'senderRole': role,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    if (text != null && text.trim().isNotEmpty) {
+      data['text'] = text.trim();
+    }
+    if (attachments != null && attachments.isNotEmpty) {
+      data['attachments'] = attachments;
+    } else {
+      data['attachments'] = [];
+    }
+    await _firestore.collection('support').doc(ticketId).collection('messages').add(data);
+    await _firestore.collection('support').doc(ticketId).set({
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastStaffReplyAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> addUserSupportMessage(String ticketId, {String? text, List<String>? attachments}) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception('Auth yok');
+    if ((text == null || text.trim().isEmpty) && (attachments == null || attachments.isEmpty)) {
+      throw Exception('Boş mesaj');
+    }
+    final Map<String, dynamic> data = {
+      'senderId': uid,
+      'senderRole': 'user',
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    if (text != null && text.trim().isNotEmpty) {
+      data['text'] = text.trim();
+    }
+    if (attachments != null && attachments.isNotEmpty) {
+      data['attachments'] = attachments;
+    } else {
+      data['attachments'] = [];
+    }
+    await _firestore.collection('support').doc(ticketId).collection('messages').add(data);
+    await _firestore.collection('support').doc(ticketId).set({
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastUserReplyAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }

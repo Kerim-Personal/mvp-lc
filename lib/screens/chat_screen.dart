@@ -37,6 +37,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _canBan = false;
   bool _autoTranslate = false; // yeni
   StreamSubscription<DocumentSnapshot>? _userPrefSub; // yeni
+  StreamSubscription<DocumentSnapshot>? _partnerUserSub; // eklendi: partner doc dinleyici
+  Map<String, dynamic>? _currentUserDataCache; // eklendi: cache
+  Map<String, dynamic>? _partnerDataCache; // eklendi: cache
   // yeni: current user native language
   bool _interactionAllowed = true;
   bool _blockedByMe = false;
@@ -49,6 +52,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final LinguaBotService _grammarService = LinguaBotService(); // premium analiz
   final Map<String, GrammarAnalysis> _grammarCache = {}; // lokal analiz cache (yalnız kendi mesajlarım)
   final Set<String> _analyzing = {}; // analiz devam eden mesaj id'leri
+
+  int _messageLimit = 30; // sayfalama başlangıç limiti
+  final int _messageIncrement = 30; // artış miktarı
+  bool _isLoadingMore = false; // tekrar tetiklemeyi engelle
+  bool _hasMore = true; // daha fazla veri var mı
 
   @override
   void initState() {
@@ -70,6 +78,21 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         });
       }
     });
+
+    _scrollController.addListener(_onScrollLoadMore);
+  }
+
+  void _onScrollLoadMore() {
+    if (!_hasMore || _isLoadingMore) return;
+    if (!_scrollController.hasClients) return;
+    // reverse:true olduğundan eski mesajlara yaklaşmak = maxScrollExtent'e yaklaşmak
+    final pos = _scrollController.position;
+    if (pos.pixels >= (pos.maxScrollExtent - 150)) {
+      setState(() {
+        _isLoadingMore = true;
+        _messageLimit += _messageIncrement;
+      });
+    }
   }
 
   @override
@@ -79,7 +102,29 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _heartbeatTimer?.cancel();
     _shimmerController.dispose();
     _userPrefSub?.cancel(); // yeni
+    _partnerUserSub?.cancel(); // eklendi
+    _scrollController.removeListener(_onScrollLoadMore);
     super.dispose();
+  }
+
+  void _updateBlockStateFromCaches() {
+    if (_currentUserDataCache == null || _partnerDataCache == null) return;
+    final currentUser = _currentUser;
+    final partnerId = _partnerId;
+    if (currentUser == null || partnerId == null) return;
+    final myBlocked = (_currentUserDataCache?['blockedUsers'] as List<dynamic>?) ?? const [];
+    final theirBlocked = (_partnerDataCache?['blockedUsers'] as List<dynamic>?) ?? const [];
+    final blockedByMe = myBlocked.contains(partnerId);
+    final blockedMe = theirBlocked.contains(currentUser.uid);
+    final interactionAllowed = !(blockedByMe || blockedMe);
+    if (blockedByMe != _blockedByMe || interactionAllowed != _interactionAllowed) {
+      if (mounted) {
+        setState(() {
+          _blockedByMe = blockedByMe;
+          _interactionAllowed = interactionAllowed;
+        });
+      }
+    }
   }
 
   Future<void> _refreshBlockState(String currentUserId, String partnerId) async {
@@ -89,16 +134,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         usersColl.doc(currentUserId).get(),
         usersColl.doc(partnerId).get(),
       ]);
-      final myBlocked = (results[0].data()?['blockedUsers'] as List<dynamic>?) ?? const [];
-      final theirBlocked = (results[1].data()?['blockedUsers'] as List<dynamic>?) ?? const [];
-      final blockedByMe = myBlocked.contains(partnerId);
-      final blockedMe = theirBlocked.contains(currentUserId);
-      if (mounted) {
-        setState(() {
-          _blockedByMe = blockedByMe;
-          _interactionAllowed = !(blockedByMe || blockedMe);
-        });
-      }
+      _currentUserDataCache = results[0].data();
+      _partnerDataCache = results[1].data();
+      _updateBlockStateFromCaches();
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -142,6 +180,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           final isPremium = (partnerData?['isPremium'] as bool?) ?? false;
           _currentUserNativeLanguage = (currentUserData?['nativeLanguage'] as String?) ?? 'en';
           _autoTranslate = (currentUserData?['autoTranslate'] as bool?) ?? false; // yeni
+          // cache initial
+          _currentUserDataCache = currentUserData;
+          _partnerDataCache = partnerData;
           setState(() {
             _partnerFuture = Future.value(results[0]);
             _isPartnerPremium = isPremium;
@@ -152,21 +193,30 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           }
         }
 
-        // Kullanıcı tercihlerini dinle (gerçek zamanlı toggle için) - yeni
+        // Kullanıcı tercihlerini + engelleme durumunu dinle (gerçek zamanlı)
         _userPrefSub = FirebaseFirestore.instance.collection('users').doc(currentUser.uid).snapshots().listen((snap) {
           final data = snap.data();
           if (data == null) return;
+          _currentUserDataCache = data;
           final nl = (data['nativeLanguage'] as String?) ?? 'en';
-            final at = (data['autoTranslate'] as bool?) ?? false;
+          final at = (data['autoTranslate'] as bool?) ?? false;
           if (mounted) {
             setState(() {
               _currentUserNativeLanguage = nl;
               _autoTranslate = at;
             });
           }
+          _updateBlockStateFromCaches();
         });
 
-        // Yeni: Engelleme durumunu güncelle
+        _partnerUserSub = FirebaseFirestore.instance.collection('users').doc(partnerId).snapshots().listen((snap) {
+          final data = snap.data();
+          if (data == null) return;
+            _partnerDataCache = data;
+          _updateBlockStateFromCaches();
+        });
+
+        // Yeni: Engelleme durumunu ilk kez güncelle (cache ile)
         await _refreshBlockState(currentUser.uid, partnerId);
 
         _listenToChatChanges();
@@ -578,9 +628,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     .doc(widget.chatRoomId)
                     .collection('messages')
                     .orderBy('createdAt', descending: true)
+                    .limit(_messageLimit)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  // Spinner sadece ilk veri yokken gosterilsin; sonraki anlik gecikmelerde flicker olmasin
+                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -588,12 +640,42 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         child: Text('Konuşmayı başlatmak için selam ver!'));
                   }
                   final chatDocs = snapshot.data!.docs;
+                  // sayfalama durum güncelle
+                  final reachedFullPage = chatDocs.length >= _messageLimit;
+                  // Eğer isLoadingMore ve yeni snapshot geldi ise loadingMore false'a dön
+                  if (_isLoadingMore) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isLoadingMore = false);
+                    });
+                  }
+                  // Daha fazla veri var mı: snapshot boyutu limitten küçükse artık yok
+                  final newHasMore = reachedFullPage; // limit doluysa muhtemelen devamı var
+                  if (newHasMore != _hasMore) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _hasMore = newHasMore);
+                    });
+                  }
                   return ListView.builder(
                     controller: _scrollController,
                     reverse: true,
                     padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
-                    itemCount: chatDocs.length,
+                    itemCount: chatDocs.length + (_hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (_hasMore && index == chatDocs.length) {
+                        // üst tarafta (eski mesajlara) loader göstergesi
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          child: Center(
+                            child: SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: _isLoadingMore
+                                  ? const CircularProgressIndicator(strokeWidth: 2)
+                                  : const SizedBox.shrink(),
+                            ),
+                          ),
+                        );
+                      }
                       final doc = chatDocs[index];
                       final message = doc.data() as Map<String, dynamic>;
                       final isMe = message['userId'] == _currentUser?.uid;
@@ -706,6 +788,7 @@ class _MessageComposerState extends State<_MessageComposer> {
       'text': messageText,
       'createdAt': Timestamp.now(),
       'userId': widget.currentUser!.uid,
+      'serverAuth': true, // security rule gereği
     });
 
     FirebaseFirestore.instance
@@ -738,7 +821,7 @@ class _MessageComposerState extends State<_MessageComposer> {
                 minLines: 1,
                 maxLines: 5,
                 decoration: InputDecoration(
-                  hintText: canType ? 'Mesajını yaz...' : 'Mesaj gönderme devre d��şı',
+                  hintText: canType ? 'Mesajını yaz...' : 'Mesaj gönderme devre dışı',
                   filled: true,
                   fillColor: Colors.grey.withAlpha(50),
                   contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),

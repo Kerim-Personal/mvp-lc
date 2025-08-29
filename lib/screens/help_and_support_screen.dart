@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/screens/faq_category_screen.dart';
 import 'package:lingua_chat/screens/support_request_screen.dart';
 import 'package:lingua_chat/data/faq_data.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HelpAndSupportScreen extends StatelessWidget {
   const HelpAndSupportScreen({super.key});
@@ -177,17 +180,49 @@ class HelpAndSupportScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Destek ekibimiz size yardımcı olmaktan mutluluk duyar.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontSize: 15)),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SupportRequestScreen()));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                elevation: 4,
-              ),
-              child: const Text('Bize Ulaşın', style: TextStyle(fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      // Premium kontrolü: Premium ise uygulama içi destek formu, değilse e-posta
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        bool isPremium = false;
+                        if (user != null) {
+                          final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+                          isPremium = (snap.data()?['isPremium'] as bool?) == true;
+                        }
+                        if (isPremium) {
+                          // Uygulama içi destek ekranına git
+                          // ignore: use_build_context_synchronously
+                          Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SupportRequestScreen()));
+                        } else {
+                          final uri = Uri(
+                            scheme: 'mailto',
+                            path: 'info@codenzi.com',
+                            query: Uri.encodeFull('subject=Destek Talebi&body=Merhaba destek ekibi, sorunumu burada açıklıyorum...'),
+                          );
+                          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                            // ignore: use_build_context_synchronously
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('E-posta uygulaması açılamadı.')));
+                          }
+                        }
+                      } catch (e) {
+                        // ignore: use_build_context_synchronously
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İşlem başarısız: $e')));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal, foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      elevation: 4,
+                    ),
+                    child: const Text('Bize Ulaşın', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

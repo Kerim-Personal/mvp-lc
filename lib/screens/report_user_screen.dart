@@ -7,11 +7,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 class ReportUserScreen extends StatefulWidget {
   final String reportedUserId;
   final String? reportedContent;
+  final String? reportedContentId; // içerik ID
+  final String? reportedContentType; // 'post', 'group_message' vb.
+  final String? reportedContentParentId; // group room id gibi üst id
 
   const ReportUserScreen({
     super.key,
     required this.reportedUserId,
     this.reportedContent,
+    this.reportedContentId,
+    this.reportedContentType,
+    this.reportedContentParentId,
   });
 
   @override
@@ -25,8 +31,10 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
   bool _isSubmitting = false;
   final _currentUser = FirebaseAuth.instance.currentUser;
   final _formKey = GlobalKey<FormState>();
+  bool _alreadyReported = false; // aynı kullanıcı aynı içeriği raporladı mı?
 
-  final List<String> _reportReasons = [
+  // Eksik olan rapor nedenleri listesi geri eklendi
+  final List<String> _reportReasons = const [
     'Spam veya aldatıcı içerik',
     'Taciz veya zorbalık',
     'Nefret söylemi veya sembolleri',
@@ -36,7 +44,34 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
     'Diğer',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _checkAlreadyReported();
+  }
+
+  Future<void> _checkAlreadyReported() async {
+    if (_currentUser == null) return;
+    final cid = widget.reportedContentId;
+    if (cid == null || cid.isEmpty) return; // içerik ID yoksa bloklama yapma
+    try {
+      final docId = '${_currentUser.uid}_$cid';
+      final doc = await FirebaseFirestore.instance.collection('reports').doc(docId).get();
+      if (mounted && doc.exists) {
+        setState(() => _alreadyReported = true);
+      }
+    } catch (_) {
+      // sessiz geç
+    }
+  }
+
   Future<void> _submitReport() async {
+    if (_alreadyReported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu içeriği zaten raporladınız.')),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -50,20 +85,57 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
       return;
     }
 
+    // Yarış durumunu önlemek için doc id temelli kontrol
+    String? fixedDocId;
+    if (widget.reportedContentId != null && widget.reportedContentId!.isNotEmpty) {
+      fixedDocId = '${_currentUser.uid}_${widget.reportedContentId}';
+      try {
+        final existing = await FirebaseFirestore.instance.collection('reports').doc(fixedDocId).get();
+        if (existing.exists) {
+          setState(() => _alreadyReported = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Bu içeriği zaten raporladınız.')),
+          );
+          return;
+        }
+      } catch (_) {}
+    }
+
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      await FirebaseFirestore.instance.collection('reports').add({
-        'reporterId': _currentUser!.uid,
-        'reportedUserId': widget.reportedUserId,
-        'reason': _selectedReason,
-        'details': _detailsController.text.trim(),
-        'reportedContent': widget.reportedContent,
-        'timestamp': FieldValue.serverTimestamp(),
-        'status': 'pending',
-      });
+      final col = FirebaseFirestore.instance.collection('reports');
+      if (fixedDocId != null) {
+        await col.doc(fixedDocId).set({
+          'reporterId': _currentUser.uid,
+          'reportedUserId': widget.reportedUserId,
+          'reason': _selectedReason,
+          'details': _detailsController.text.trim(),
+          'reportedContent': widget.reportedContent,
+          'reportedContentId': widget.reportedContentId,
+          'reportedContentType': widget.reportedContentType,
+          'reportedContentParentId': widget.reportedContentParentId,
+          'timestamp': FieldValue.serverTimestamp(),
+          'status': 'pending',
+          'serverAuth': true, // security rules
+        });
+      } else {
+        await col.add({
+          'reporterId': _currentUser.uid,
+          'reportedUserId': widget.reportedUserId,
+          'reason': _selectedReason,
+          'details': _detailsController.text.trim(),
+          'reportedContent': widget.reportedContent,
+          'reportedContentId': widget.reportedContentId,
+            'reportedContentType': widget.reportedContentType,
+            'reportedContentParentId': widget.reportedContentParentId,
+          'timestamp': FieldValue.serverTimestamp(),
+          'status': 'pending',
+          'serverAuth': true, // security rules
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -159,6 +231,23 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
                 children: [
+                  if (_alreadyReported)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: .15),
+                        border: Border.all(color: Colors.orangeAccent.withValues(alpha: .6)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orangeAccent),
+                          SizedBox(width: 8),
+                          Expanded(child: Text('Bu içeriği zaten raporladınız. Tekrar göndermenize gerek yok.')),
+                        ],
+                      ),
+                    ),
                   const Icon(Icons.report_problem_outlined,
                       color: Colors.red, size: 60),
                   const SizedBox(height: 16),
@@ -206,7 +295,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitReport,
+                onPressed: (_isSubmitting || _alreadyReported) ? null : _submitReport,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,

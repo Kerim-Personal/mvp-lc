@@ -8,6 +8,7 @@ import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
 import 'dart:math' as math;
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:lingua_chat/screens/my_support_requests_screen.dart';
 
 class SupportRequestScreen extends StatefulWidget {
   const SupportRequestScreen({super.key});
@@ -103,6 +104,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'platform': Theme.of(context).platform.name,
+        'serverAuth': true, // security rules
       });
 
       if (!mounted) return;
@@ -335,6 +337,56 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                         ),
                       ),
                       const SizedBox(height: 16),
+
+                      // Taleplerim kısayolu
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const MySupportRequestsScreen()),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.teal.shade600,
+                                  Colors.tealAccent.shade400,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(40),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.teal.shade800.withValues(alpha: 0.25),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.inbox_outlined, color: Colors.white),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Taleplerim',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: .5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
 
                       // Glass form card
                       GlassmorphicContainer(

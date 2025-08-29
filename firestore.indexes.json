@@ -1,0 +1,54 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "displayName", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "support",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "timestamp", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "waiting_pool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "gender_level_group", "order": "ASCENDING"},
+        {"fieldPath": "waitingSince", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "waiting_pool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "gender", "order": "ASCENDING"},
+        {"fieldPath": "waitingSince", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "waiting_pool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "level", "order": "ASCENDING"},
+        {"fieldPath": "waitingSince", "order": "ASCENDING"}
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
+

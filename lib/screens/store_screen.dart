@@ -7,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lingua_chat/widgets/store_screen/premium_animated_background.dart';
 import 'dart:math' as math;
-import 'package:url_launcher/url_launcher.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -364,20 +363,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _onManageSubscription,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.black87,
-                                  side: BorderSide(color: Colors.amber.shade400, width: 1.2),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                icon: const Icon(Icons.manage_accounts),
-                                label: const Text('Aboneliği Yönet'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
+                            // KALDIRILDI: 'Aboneliği Yönet' butonu
                             Expanded(
                               // Pulse micro-interaction
                               child: AnimatedBuilder(
@@ -441,32 +427,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           const Icon(Icons.check_circle, color: Colors.green, size: 20),
         ],
       ),
-    );
-  }
-
-  // Aboneliği yönet: platformdan bağımsız güvenli açılış (önce Play, sonra Apple, sonra yardım makalesi)
-  void _onManageSubscription() async {
-    const packageName = 'com.codenzi.lingua_chat';
-    final candidates = <Uri>[
-      Uri.parse('https://play.google.com/store/account/subscriptions?package=$packageName'),
-      Uri.parse('https://apps.apple.com/account/subscriptions'),
-      Uri.parse('https://support.google.com/googleplay/answer/7018481?hl=tr'),
-    ];
-
-    for (final uri in candidates) {
-      try {
-        if (await canLaunchUrl(uri)) {
-          final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-          if (ok) return;
-        }
-      } catch (_) {
-        // sıradaki adaya geç
-      }
-    }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Abonelik yönetimi açılamadı. Lütfen mağaza hesabı ayarlarınızı kontrol edin.')),
     );
   }
 

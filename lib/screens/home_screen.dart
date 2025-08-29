@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/chat_screen.dart';
+import 'package:lingua_chat/screens/partner_found_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
@@ -12,9 +13,11 @@ import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 import 'package:lingua_chat/widgets/home_screen/premium_upsell_dialog.dart';
 import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
 import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
+import 'package:lingua_chat/widgets/common/safety_help_button.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onSearchingChanged});
+  final ValueChanged<bool>? onSearchingChanged;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -133,13 +136,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         .doc(_currentUser!.uid)
         .snapshots()
         .listen((snapshot) async {
-      if (mounted &&
-          snapshot.exists &&
-          snapshot.data()?['matchedChatRoomId'] != null) {
+      if (mounted && snapshot.exists && snapshot.data()?['matchedChatRoomId'] != null) {
         final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
         _matchListener?.cancel();
-        _navigateToChat(chatRoomId);
         await snapshot.reference.delete();
+        _navigateToChat(chatRoomId);
       }
     });
   }
@@ -147,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _findPracticePartner() async {
     if (_currentUser == null || !mounted) return;
     setState(() => _isSearching = true);
+    widget.onSearchingChanged?.call(true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final myId = _currentUser!.uid;
 
@@ -225,9 +227,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             });
             transaction.update(
                 otherUserDoc.reference, {'matchedChatRoomId': chatRoomRef.id});
-            transaction.update(myRef, {'partnerCount': FieldValue.increment(1)});
-            transaction
-                .update(partnerRef, {'partnerCount': FieldValue.increment(1)});
+            // partnerCount artışları Cloud Function tarafından yapılacak (onChatCreated)
           });
           _navigateToChat(chatRoomRef.id);
           return;
@@ -253,21 +253,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           .delete()
           .catchError((_) {});
     }
-    if (mounted) setState(() => _isSearching = false);
+    if (mounted) {
+      setState(() => _isSearching = false);
+      widget.onSearchingChanged?.call(false);
+    }
   }
 
   void _navigateToChat(String chatRoomId) {
     if (!mounted) return;
     _matchListener?.cancel();
     setState(() => _isSearching = false);
+    widget.onSearchingChanged?.call(false);
     Navigator.push(
-        context,
-        PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                ChatScreen(chatRoomId: chatRoomId),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) =>
-                FadeTransition(opacity: animation, child: child)));
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => PartnerFoundScreen(chatRoomId: chatRoomId),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   void _showGenderFilter() {
@@ -337,6 +340,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      floatingActionButton: const SafetyHelpButton(),
       body: Stack(
         alignment: Alignment.center,
         children: [

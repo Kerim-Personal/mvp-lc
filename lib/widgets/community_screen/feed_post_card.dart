@@ -26,20 +26,18 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
   late bool isLiked;
   late int likeCount;
   late AnimationController _shimmerController;
-  // YENİ: Kullanıcının premium durumunu tutacak state
   bool _isUserPremium = false;
-  bool _shimmerStarted = false; // premium ışıltısını bir kez başlatmak için
+  bool _shimmerStarted = false;
   bool _canBan = false;
+  bool _isPrivileged = false; // admin veya moderator
 
   @override
   void initState() {
     super.initState();
     isLiked = widget.post.likes.contains(currentUser?.uid);
     likeCount = widget.post.likes.length;
-    // Premium bilgisi artık Stream ile dinlenecek; burada çekmeye gerek yok.
-
-    // Ban yetkisi kontrolü
     _checkBanPermission();
+    _fetchRole();
 
     _shimmerController = AnimationController(
       vsync: this,
@@ -69,6 +67,17 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
       if (mounted) setState(() => _canBan = allowed);
     } catch (_) {
       if (mounted) setState(() => _canBan = false);
+    }
+  }
+
+  Future<void> _fetchRole() async {
+    try {
+      final role = await AdminService().getCurrentUserRole();
+      if (mounted) {
+        setState(() => _isPrivileged = role == 'admin' || role == 'moderator');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isPrivileged = false);
     }
   }
 
@@ -322,6 +331,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                               builder: (context) => ReportUserScreen(
                                 reportedUserId: widget.post.userId,
                                 reportedContent: widget.post.postText,
+                                reportedContentId: widget.post.id, // içerik id eklendi
                               ),
                             ),
                           );
@@ -338,7 +348,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                       },
                       itemBuilder: (BuildContext context) {
                         List<PopupMenuEntry<String>> items = [];
-                        if (isAuthor) {
+                        if (isAuthor || _isPrivileged) {
                           items.add(
                             const PopupMenuItem<String>(
                               value: 'delete',
@@ -351,7 +361,8 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                               ),
                             ),
                           );
-                        } else {
+                        }
+                        if (!isAuthor) {
                           items.add(
                             const PopupMenuItem<String>(
                               value: 'report',
@@ -364,7 +375,6 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                               ),
                             ),
                           );
-                          // Engelle (engeli kaldır akışı kaldırıldı)
                           items.add(
                             const PopupMenuItem<String>(
                               value: 'block',

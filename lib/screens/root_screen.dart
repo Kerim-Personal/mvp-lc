@@ -44,9 +44,9 @@ class RootScreen extends StatefulWidget {
 
 class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   int _selectedIndex = 2;
+  bool _isSearching = false; // partner arama tam ekran durumu
   late AnimationController _navIconAnimationController;
   late Animation<double> _scaleAnimation;
-  // MÜKEMMEL OPTİMİZASYON: PageView'i kontrol etmek için bir PageController eklendi.
   late PageController _pageController;
 
   @override
@@ -101,7 +101,11 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     final List<Widget> pages = [
       const StoreScreen(),
       const DiscoverScreen(),
-      const HomeScreen(),
+      HomeScreen( // const kaldırıldı callback için
+        onSearchingChanged: (val) {
+          if (mounted) setState(() => _isSearching = val);
+        },
+      ),
       const CommunityScreen(),
       if (currentUser != null) ProfileScreen(userId: currentUser.uid),
     ];
@@ -119,62 +123,63 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       body: Stack(
         children: [
           const AnimatedBackground(),
-          // MÜKEMMEL OPTİMİZASYON: Sayfaları yönetmek için PageView kullanılıyor.
-          // Bu, state'i korur ve akıcı geçiş animasyonları sağlar.
           PageView(
             controller: _pageController,
-            // Kullanıcının parmağıyla kaydırarak sekmeler arası geçmesini engelle
             physics: const NeverScrollableScrollPhysics(),
             children: pages,
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 20,
-              color: Colors.black.withOpacity(0.05),
-            )
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
-            child: GNav(
-              rippleColor: Colors.grey[300]!,
-              hoverColor: Colors.grey[100]!,
-              gap: 8,
-              activeColor: Colors.white,
-              iconSize: 24,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              duration: const Duration(milliseconds: 100),
-              tabBackgroundColor: Colors.teal.shade400,
-              color: Colors.black54,
-              tabs: tabs.asMap().entries.map((entry) {
-                int idx = entry.key;
-                GButton tab = entry.value;
-                return GButton(
-                  icon: tab.icon,
-                  text: tab.text!,
-                  leading: _selectedIndex == idx
-                      ? ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: Icon(
-                      tab.icon,
-                      color: Colors.white,
-                    ),
-                  )
-                      : Icon(
-                    tab.icon,
-                    color: Colors.black54,
-                  ),
-                );
-              }).toList(),
-              selectedIndex: _selectedIndex,
-              onTabChange: _onItemTapped,
-            ),
+      bottomNavigationBar: _isSearching ? null : _buildBottomNav(tabs),
+    );
+  }
+
+  Widget _buildBottomNav(List<GButton> tabs) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 20,
+            color: Colors.black.withOpacity(0.05),
+          )
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
+          child: GNav(
+            rippleColor: Colors.grey[300]!,
+            hoverColor: Colors.grey[100]!,
+            gap: 8,
+            activeColor: Colors.white,
+            iconSize: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            duration: const Duration(milliseconds: 100),
+            tabBackgroundColor: Colors.teal.shade400,
+            color: Colors.black54,
+            tabs: tabs.asMap().entries.map((entry) {
+              int idx = entry.key;
+              GButton tab = entry.value;
+              return GButton(
+                icon: tab.icon,
+                text: tab.text!,
+                leading: _selectedIndex == idx
+                    ? ScaleTransition(
+                        scale: _scaleAnimation,
+                        child: Icon(
+                          tab.icon,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        tab.icon,
+                        color: Colors.black54,
+                      ),
+              );
+            }).toList(),
+            selectedIndex: _selectedIndex,
+            onTabChange: _onItemTapped,
           ),
         ),
       ),

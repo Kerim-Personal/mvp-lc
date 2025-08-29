@@ -15,6 +15,7 @@ import 'package:lingua_chat/models/grammar_analysis.dart';
 
 // Mesaj veri modeli
 class GroupMessage {
+  final String id; // yeni: doc id
   final String senderId;
   final String senderName;
   final String senderAvatarUrl;
@@ -24,6 +25,7 @@ class GroupMessage {
   final bool senderIsPremium;
 
   GroupMessage({
+    required this.id,
     required this.senderId,
     required this.senderName,
     required this.senderAvatarUrl,
@@ -36,6 +38,7 @@ class GroupMessage {
   factory GroupMessage.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map<String, dynamic>;
     return GroupMessage(
+      id: doc.id,
       senderId: data['senderId'] ?? '',
       senderName: data['senderName'] ?? 'Bilinmeyen',
       senderAvatarUrl: data['senderAvatarUrl'] ?? '',
@@ -59,7 +62,7 @@ class GroupChatScreen extends StatefulWidget {
   State<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
-class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderStateMixin {
+class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final currentUser = FirebaseAuth.instance.currentUser;
@@ -80,9 +83,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   final Map<String, GrammarAnalysis> _grammarCache = {}; // sadece kendi mesaj analizleri
   final Set<String> _analyzing = {}; // analiz süren mesaj id'leri
 
+  double _lastBottomInset = 0;
+
+  int _messageLimit = 50; // sayfalama başlangıç limiti
+  final int _messageIncrement = 50; // artış miktarı
+  bool _isLoadingMore = false; // yeniden tetiklemeyi engelle
+  bool _hasMore = true; // daha fazla kayıt olabilir
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadUserDataAndJoinRoom();
     _listenMyBlocked();
     // Premium isim shimmer'ı için ortak controller
@@ -98,6 +109,20 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       }
     });
     _nameShimmerController.forward();
+
+    _scrollController.addListener(_onScrollLoadMore);
+  }
+
+  void _onScrollLoadMore() {
+    if (!_hasMore || _isLoadingMore) return;
+    if (!_scrollController.hasClients) return;
+    // Liste kronolojik (en eski üstte) olduğundan en üste yaklaşınca (pixels <= 120) daha fazla çek
+    if (_scrollController.position.pixels <= 120) {
+      setState(() {
+        _isLoadingMore = true;
+        _messageLimit += _messageIncrement;
+      });
+    }
   }
 
   void _listenMyBlocked() {
@@ -111,11 +136,43 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _leaveRoom();
     _messageController.dispose();
+    _scrollController.removeListener(_onScrollLoadMore);
     _scrollController.dispose();
     _nameShimmerController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom({bool immediate = false}) {
+    if (!_scrollController.hasClients) return;
+    // Bir sonraki frame'de güvenli jump/animate
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final max = _scrollController.position.maxScrollExtent;
+      final current = _scrollController.position.pixels;
+      if ((max - current).abs() < 5) return; // Zaten altta
+      if (immediate) {
+        _scrollController.jumpTo(max);
+      } else {
+        _scrollController.animateTo(
+          max,
+            duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void didChangeMetrics() {
+    final bottomInset = WidgetsBinding.instance.window.viewInsets.bottom;
+    if (bottomInset > 0 && bottomInset != _lastBottomInset) {
+      _scrollToBottom(immediate: true); // anında zıpla
+    }
+    _lastBottomInset = bottomInset;
+    super.didChangeMetrics();
   }
 
   Future<void> _loadUserDataAndJoinRoom() async {
@@ -195,6 +252,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       'senderAvatarUrl': _avatarUrl,
       'senderRole': _userRole,
       'senderIsPremium': _isCurrentUserPremium,
+      'serverAuth': true, // security rule gereği
     }).then((ref) async {
       if (_isCurrentUserPremium) {
         setState(() => _analyzing.add(ref.id));
@@ -210,13 +268,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      _scrollToBottom(immediate: true); // mesaj sonrası da anında
     });
   }
 
@@ -265,6 +317,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                       builder: (context) => ReportUserScreen(
                         reportedUserId: message.senderId,
                         reportedContent: '"${message.text}" (Grup Sohbeti Mesajı)',
+                        reportedContentId: message.id, // yeni: mesaj id
                       ),
                     ),
                   );
@@ -449,20 +502,33 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                   .collection('group_chats')
                   .doc(widget.roomId)
                   .collection('messages')
-                  .orderBy('createdAt', descending: true) // son mesajlar önce
-                  .limit(100) // maliyet azaltma: sadece son 100 mesaj
+                  .orderBy('createdAt', descending: true)
+                  .limit(_messageLimit)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                // Spinner sadece ilk veri hiç gelmemişse gösterilsin; aksi halde eski veri üzerinden devam
+                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(child: Text("Sohbeti başlat!"));
                 }
 
-                final allDocs = snapshot.data!.docs;
-                // descending aldık; ekranda kronolojik göstermek için ters çeviriyoruz
-                final ordered = allDocs.reversed.where((d) {
+                final rawDocs = snapshot.data!.docs; // descending, limit uygulanmış
+                // hasMore hesapla: limit dolmuşsa muhtemelen daha eski var
+                final bool newHasMore = rawDocs.length >= _messageLimit;
+                if (newHasMore != _hasMore) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _hasMore = newHasMore);
+                  });
+                }
+                if (_isLoadingMore) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isLoadingMore = false);
+                  });
+                }
+
+                final ordered = rawDocs.reversed.where((d) {
                   final data = d.data() as Map<String, dynamic>;
                   final senderId = (data['senderId'] as String?) ?? '';
                   return !_blocked.contains(senderId);
@@ -470,10 +536,31 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: ordered.length,
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    bottom: 16 + MediaQuery.of(context).viewInsets.bottom * 0.0,
+                  ),
+                  itemCount: ordered.length + (_hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final doc = ordered[index];
+                    if (_hasMore && index == 0) {
+                      // En üstte loader (daha eski mesajları yüklüyor)
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Center(
+                          child: SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: _isLoadingMore
+                                ? const CircularProgressIndicator(strokeWidth: 2)
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      );
+                    }
+                    final adjIndex = _hasMore ? index - 1 : index; // loader varsa index kaydır
+                    final doc = ordered[adjIndex];
                     final message = GroupMessage.fromFirestore(doc);
                     final isMe = message.senderId == currentUser?.uid;
                     final msgId = doc.id;
@@ -581,7 +668,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                         const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          // Önceden spinner vardı; kaldırıldı ki flicker oluşmasın
                         )
                       else if (isMe && ga != null)
                         const Icon(Icons.science_outlined, size: 16, color: Colors.cyanAccent),

@@ -16,29 +16,42 @@ import 'package:lingua_chat/screens/banned_screen.dart';
 import 'package:lingua_chat/screens/help_and_support_screen.dart';
 import 'package:lingua_chat/screens/support_request_screen.dart';
 import 'package:lingua_chat/screens/profile_completion_screen.dart';
+import 'dart:async';
 
 // YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
 final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Firestore offline cache aç
+  FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+  runApp(const MyApp());
+  // runApp sonrası ağır olmayan init görevlerini asenkron başlat
+  _postAppInit();
+}
 
-  await AudioService.instance.init();
-
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
+Future<void> _postAppInit() async {
+  try {
+    // 5 sn timeout ile toplu init
+    await Future.wait([
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
+          .timeout(const Duration(seconds: 5), onTimeout: () => null),
+      initializeDateFormatting('tr_TR', null)
+          .timeout(const Duration(seconds: 5), onTimeout: () => null),
+      AudioService.instance.init()
+          .timeout(const Duration(seconds: 5), onTimeout: () => null),
+    ]);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
-    ),
-  );
-
-  await initializeDateFormatting('tr_TR', null);
-
-  runApp(const MyApp());
+    ));
+  } catch (e) {
+    // Sessiz log; splash kilidi artık olmayacağı için kritik değil
+    debugPrint('Post init hata: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -73,6 +86,19 @@ class MyApp extends StatelessWidget {
   }
 }
 
+Future<DocumentSnapshot<Map<String, dynamic>>?> _getUserDocWithTimeout(String uid) async {
+  try {
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get()
+        .timeout(const Duration(seconds: 6));
+    return snap;
+  } catch (_) {
+    return null; // timeout veya diğer hata durumunda null dön
+  }
+}
+
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -83,28 +109,27 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
         if (snapshot.hasData && snapshot.data != null) {
           final user = snapshot.data!;
           final uid = user.uid;
-          return StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+          return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>?>(
+            future: _getUserDocWithTimeout(uid),
             builder: (context, userSnap) {
-              if (!userSnap.hasData) {
+              if (userSnap.connectionState == ConnectionState.waiting) {
                 return const Scaffold(body: Center(child: CircularProgressIndicator()));
               }
-              final data = userSnap.data!.data() as Map<String, dynamic>?;
-              if ((data?['status'] as String?) == 'banned') {
-                return const BannedScreen();
-              }
-              // Sadece Google ile giriş yaptıysa ve profileCompleted false ise yönlendir
-              final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
-              if (isGoogle && data != null && data['profileCompleted'] != true) {
-                return ProfileCompletionScreen(userData: data);
+              final data = userSnap.data?.data();
+              if (data != null) {
+                if ((data['status'] as String?) == 'banned') {
+                  return const BannedScreen();
+                }
+                final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
+                if (isGoogle && data['profileCompleted'] != true) {
+                  return ProfileCompletionScreen(userData: data);
+                }
               }
               return RootScreen(key: rootScreenKey);
             },

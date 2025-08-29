@@ -12,6 +12,7 @@ import 'package:lingua_chat/widgets/profile_screen/achievements_section.dart';
 import 'package:lingua_chat/widgets/profile_screen/app_settings_card.dart';
 import 'package:lingua_chat/widgets/profile_screen/support_card.dart';
 import 'package:lingua_chat/widgets/profile_screen/account_management_card.dart';
+import 'package:lingua_chat/widgets/profile_screen/admin_panel_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -46,14 +47,19 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     super.dispose();
   }
 
-  Widget _buildAnimatedSection({required Widget child, required int index}) {
-    final interval = Interval(
-      0.1 * index,
-      0.6 + 0.1 * index,
-      curve: Curves.easeOutCubic,
-    );
+  Widget _buildAnimatedSection({required Widget child, required int index, Key? key}) {
+    // Dinamik ve güvenli aralık hesaplama: end 1.0'ı geçmesin, start < end olsun
+    double start = 0.1 * index; // artışlı başlangıç
+    double end = 0.6 + 0.1 * index; // önceki mantık
+    if (end > 1.0) end = 1.0; // clamp
+    if (start >= end) {
+      // Çok son öğelerde çakışmayı engellemek için küçük bir fark bırak
+      start = (end - 0.05).clamp(0.0, 0.95);
+    }
+    final interval = Interval(start, end, curve: Curves.easeOutCubic);
 
     return SlideTransition(
+      key: key,
       position: Tween<Offset>(
         begin: const Offset(0, 0.5),
         end: Offset.zero,
@@ -91,6 +97,101 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           final isPremium = userData['isPremium'] as bool? ?? false; // YENİ: Premium verisi çekiliyor.
           final role = (userData['role'] as String?) ?? 'user';
 
+          // --- Yeni: Dinamik listeyi önce oluştur ---
+          int animIndex = 0;
+          final List<Widget> children = [];
+
+          children.add(_buildAnimatedSection(
+            key: const ValueKey('section_stats'),
+            index: animIndex++,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle('İstatistiklerim'),
+                Transform.translate(
+                  offset: const Offset(0, -4.0),
+                  child: StatsGrid(
+                    level: level,
+                    streak: streak,
+                    totalPracticeTime: totalPracticeTime,
+                    partnerCount: partnerCount,
+                  ),
+                ),
+              ],
+            ),
+          ));
+          children.add(const SizedBox(key: ValueKey('gap_1'), height: 16));
+
+          children.add(_buildAnimatedSection(
+            key: const ValueKey('section_achievements'),
+            index: animIndex++,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle('Kazanılan Rozetler'),
+                const AchievementsSection(),
+              ],
+            ),
+          ));
+          children.add(const SizedBox(key: ValueKey('gap_2'), height: 16));
+
+          children.add(_buildAnimatedSection(
+            key: const ValueKey('section_settings'),
+            index: animIndex++,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle('Uygulama Ayarları'),
+                const AppSettingsCard(),
+              ],
+            ),
+          ));
+          children.add(const SizedBox(key: ValueKey('gap_3'), height: 16));
+
+          children.add(_buildAnimatedSection(
+            key: const ValueKey('section_support'),
+            index: animIndex++,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle('Destek'),
+                const SupportCard(),
+              ],
+            ),
+          ));
+          children.add(const SizedBox(key: ValueKey('gap_4'), height: 16));
+
+          children.add(_buildAnimatedSection(
+            key: const ValueKey('section_account'),
+            index: animIndex++,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle('Hesap Yönetimi'),
+                AccountManagementCard(
+                  memberSince: memberSince,
+                  userId: widget.userId,
+                  authService: _authService,
+                ),
+              ],
+            ),
+          ));
+
+          if (role == 'admin' || role == 'moderator') {
+            children.add(const SizedBox(key: ValueKey('gap_admin'), height: 16));
+            children.add(_buildAnimatedSection(
+              key: const ValueKey('section_admin'),
+              index: animIndex++,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  SectionTitle('Yönetim'),
+                  AdminPanelCard(),
+                ],
+              ),
+            ));
+          }
+
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -98,82 +199,13 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                 displayName: displayName,
                 email: email,
                 avatarUrl: avatarUrl,
-                isPremium: isPremium, // YENİ: Premium verisi AppBar'a aktarılıyor.
+                isPremium: isPremium,
                 role: role,
               ),
               SliverPadding(
                 padding: const EdgeInsets.all(16.0),
                 sliver: SliverList(
-                  delegate: SliverChildListDelegate(
-                    [
-                      _buildAnimatedSection(
-                        index: 0,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SectionTitle('İstatistiklerim'),
-                            Transform.translate(
-                              offset: const Offset(0, -4.0),
-                              child: StatsGrid(
-                                level: level,
-                                streak: streak,
-                                totalPracticeTime: totalPracticeTime,
-                                partnerCount: partnerCount,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAnimatedSection(
-                        index: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SectionTitle('Kazanılan Rozetler'),
-                            const AchievementsSection(),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAnimatedSection(
-                        index: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SectionTitle('Uygulama Ayarları'),
-                            const AppSettingsCard(),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAnimatedSection(
-                        index: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SectionTitle('Destek'),
-                            const SupportCard(),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildAnimatedSection(
-                        index: 4,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SectionTitle('Hesap Yönetimi'),
-                            AccountManagementCard(
-                              memberSince: memberSince,
-                              userId: widget.userId,
-                              authService: _authService,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  delegate: SliverChildListDelegate(children, addAutomaticKeepAlives: false, addRepaintBoundaries: true),
                 ),
               ),
             ],

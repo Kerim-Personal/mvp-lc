@@ -103,70 +103,54 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late Future<List<LeaderboardUser>> _leaderboardFuture;
+  // late Future<List<LeaderboardUser>> _leaderboardFuture; // Kaldırıldı
   final String _leaderboardPeriod = 'partnerCount';
 
   late Future<QuerySnapshot> _feedFuture;
   late Future<QuerySnapshot> _roomsFuture;
+
+  // Flicker azaltma cache'leri
+  List<LeaderboardUser>? _leaderboardCache;
+  bool _leaderboardLoading = false;
+  Object? _leaderboardError;
+  List<DocumentSnapshot>? _feedPostsCache;
+  List<DocumentSnapshot>? _roomsDocsCache;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() => setState(() {}));
-    _leaderboardFuture = _fetchLeaderboardData();
     _feedFuture = _fetchFeedData();
     _roomsFuture = _fetchRoomsData();
+    _loadLeaderboard(initial: true);
   }
 
-  int _parseColor(dynamic value, int fallback) {
-    if (value is int) return value;
-    if (value is String) {
-      String v = value.trim();
-      if (v.startsWith('0x')) v = v.substring(2);
-      v = v.replaceAll('#', '');
-      if (v.length == 6) v = 'FF$v'; // alpha ekle
-      final parsed = int.tryParse(v, radix: 16);
-      if (parsed != null) return parsed;
+  Future<void> _loadLeaderboard({bool force = false, bool initial = false}) async {
+    if (_leaderboardLoading) return; // eşzamanlı istek engelle
+    if (!force && !initial && _leaderboardCache != null) return; // zaten var, zorunlu değil
+    setState(() {
+      _leaderboardLoading = true;
+      if (force) _leaderboardError = null; // yenilemede önceki hatayı temizle
+    });
+    try {
+      final data = await _fetchLeaderboardData();
+      if (!mounted) return;
+      setState(() {
+        _leaderboardCache = data;
+        _leaderboardLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _leaderboardError = e;
+        _leaderboardLoading = false;
+      });
     }
-    return fallback;
-  }
-
-  Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .orderBy(_leaderboardPeriod, descending: true)
-        .limit(100)
-        .get();
-
-    if (snapshot.docs.isEmpty) return [];
-
-    final users = snapshot.docs
-        .where((doc) {
-          final data = doc.data();
-          final status = data['status'];
-          return status == null || status != 'banned' && status != 'deleted';
-        })
-        .toList();
-
-    return users.asMap().entries.map((entry) {
-      int rank = entry.key + 1;
-      final data = entry.value.data();
-      return LeaderboardUser(
-        rank: rank,
-        name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Bilinmeyen',
-        avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
-        partnerCount: (data['partnerCount'] is int) ? data['partnerCount'] : 0,
-        isPremium: data['isPremium'] == true,
-        role: (data['role'] as String?) ?? 'user',
-      );
-    }).toList();
   }
 
   Future<void> _refreshLeaderboard() async {
-    setState(() {
-      _leaderboardFuture = _fetchLeaderboardData();
-    });
+    await _loadLeaderboard(force: true);
   }
 
 
@@ -282,68 +266,35 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  Widget _buildCurrentTab() {
-    switch (_tabController.index) {
-      case 0:
-        return RefreshIndicator(
-          onRefresh: _refreshLeaderboard,
-          child: FutureBuilder<List<LeaderboardUser>>(
-            key: const ValueKey('leaderboard'),
-            future: _leaderboardFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Bir hata oluştu: ${snapshot.error}'));
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('Henüz liderlik verisi yok.'));
-              }
-              return LeaderboardTable(users: snapshot.data!);
-            },
-          ),
-        );
-      case 1:
-        return Container(key: const ValueKey('feed'), child: _buildFeedList());
-      case 2:
-        return Container(key: const ValueKey('rooms'), child: _buildRoomsTab());
-      default:
-        return Container(key: const ValueKey('empty'));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      floatingActionButton: _tabController.index == 1
-          ? FloatingActionButton(
-        onPressed: () => _showCreatePostModal(context),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-        tooltip: 'Yeni Gönderi',
-      )
-          : null,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTabSelector(),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: child,
-                  );
-                },
-                child: _buildCurrentTab(),
+  Widget _buildLeaderboardTab() {
+    return RefreshIndicator(
+      onRefresh: _refreshLeaderboard,
+      child: Builder(
+        builder: (context) {
+          if (_leaderboardLoading && (_leaderboardCache == null || _leaderboardCache!.isEmpty)) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (_leaderboardError != null && (_leaderboardCache == null || _leaderboardCache!.isEmpty)) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Bir hata oluştu: ' + _leaderboardError.toString()),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => _loadLeaderboard(force: true),
+                    child: const Text('Tekrar Dene'),
+                  )
+                ],
               ),
-            ),
-          ],
-        ),
+            );
+          }
+          final data = _leaderboardCache;
+          if (data == null || data.isEmpty) {
+            return const Center(child: Text('Henüz liderlik verisi yok.'));
+          }
+          return LeaderboardTable(users: data);
+        },
       ),
     );
   }
@@ -423,63 +374,71 @@ class _CommunityScreenState extends State<CommunityScreen>
     return FutureBuilder<QuerySnapshot>(
       future: _roomsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData && _roomsDocsCache == null) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
+          if (_roomsDocsCache != null) {
+            // Önceki veri ile listeyi yine göster
+            return _buildRoomsListFromDocs(_roomsDocsCache!);
+          }
           return const Center(child: Text('Odalar yüklenemedi.'));
         }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (snapshot.hasData) {
+          _roomsDocsCache = snapshot.data!.docs; // cache güncelle
+        }
+        if (_roomsDocsCache == null || _roomsDocsCache!.isEmpty) {
           return const Center(child: Text('Henüz hiç oda yok.'));
         }
-
-        final roomDocs = snapshot.data!.docs;
-
-        final List<GroupChatRoomInfo> rooms = roomDocs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-
-          IconData getIconData(String iconName) {
-            switch (iconName) {
-              case 'music_note_outlined': return Icons.music_note_outlined;
-              case 'movie_filter_outlined': return Icons.movie_filter_outlined;
-              case 'airplanemode_active_outlined': return Icons.airplanemode_active_outlined;
-              case 'computer_outlined': return Icons.computer_outlined;
-              case 'menu_book_outlined': return Icons.menu_book_outlined;
-              default: return Icons.chat_bubble_outline_rounded;
-            }
-          }
-
-          return GroupChatRoomInfo(
-            id: doc.id,
-            name: data['name'] ?? 'Bilinmeyen Oda',
-            description: data['description'] ?? '',
-            icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
-            color1: Color(_parseColor(data['color1'], 0xFFFF8A80)),
-            color2: Color(_parseColor(data['color2'], 0xFFFF5252)),
-            isFeatured: data['isFeatured'] ?? false,
-            memberCount: data['memberCount'] is int ? data['memberCount'] : null,
-            avatarsPreview: (data['avatarsPreview'] is List)
-                ? (data['avatarsPreview'] as List)
-                    .whereType<String>()
-                    .take(3)
-                    .toList()
-                : null,
-          );
-        }).toList();
-
         return RefreshIndicator(
           onRefresh: _refreshRooms,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-            itemCount: rooms.length,
-            itemBuilder: (context, index) {
-              final roomInfo = rooms[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: GroupChatCard(roomInfo: roomInfo),
-              );
-            },
-          ),
+          child: _buildRoomsListFromDocs(_roomsDocsCache!),
+        );
+      },
+    );
+  }
+
+  Widget _buildRoomsListFromDocs(List<DocumentSnapshot> roomDocs) {
+    final List<GroupChatRoomInfo> rooms = roomDocs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+
+      IconData getIconData(String iconName) {
+        switch (iconName) {
+          case 'music_note_outlined': return Icons.music_note_outlined;
+          case 'movie_filter_outlined': return Icons.movie_filter_outlined;
+          case 'airplanemode_active_outlined': return Icons.airplanemode_active_outlined;
+          case 'computer_outlined': return Icons.computer_outlined;
+          case 'menu_book_outlined': return Icons.menu_book_outlined;
+          default: return Icons.chat_bubble_outline_rounded;
+        }
+      }
+
+      return GroupChatRoomInfo(
+        id: doc.id,
+        name: data['name'] ?? 'Bilinmeyen Oda',
+        description: data['description'] ?? '',
+        icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
+        color1: Color(_parseColor(data['color1'], 0xFFFF8A80)),
+        color2: Color(_parseColor(data['color2'], 0xFFFF5252)),
+        isFeatured: data['isFeatured'] ?? false,
+        memberCount: data['memberCount'] is int ? data['memberCount'] : null,
+        avatarsPreview: (data['avatarsPreview'] is List)
+            ? (data['avatarsPreview'] as List)
+                .whereType<String>()
+                .take(3)
+                .toList()
+            : null,
+      );
+    }).toList();
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+      itemCount: rooms.length,
+      itemBuilder: (context, index) {
+        final roomInfo = rooms[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: GroupChatCard(roomInfo: roomInfo),
         );
       },
     );
@@ -489,13 +448,19 @@ class _CommunityScreenState extends State<CommunityScreen>
     return FutureBuilder<QuerySnapshot>(
       future: _feedFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData && _feedPostsCache == null) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
+          if (_feedPostsCache != null) {
+            return _buildFeedListFromDocs(_feedPostsCache!);
+          }
           return const Center(child: Text('Gönderiler yüklenemedi.\nLütfen tekrar deneyin.', textAlign: TextAlign.center));
         }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (snapshot.hasData) {
+          _feedPostsCache = snapshot.data!.docs; // cache
+        }
+        if (_feedPostsCache == null || _feedPostsCache!.isEmpty) {
           return const Center(
             child: Text(
               'Henüz hiç gönderi yok.\nİlk gönderiyi sen paylaş!',
@@ -504,53 +469,126 @@ class _CommunityScreenState extends State<CommunityScreen>
             ),
           );
         }
+        return _buildFeedListFromDocs(_feedPostsCache!);
+      },
+    );
+  }
 
-        final posts = snapshot.data!.docs;
-        final me = FirebaseAuth.instance.currentUser;
-        if (me == null) {
-          return RefreshIndicator(
-            onRefresh: _refreshFeed,
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = FeedPost.fromFirestore(posts[index]);
-                return FeedPostCard(post: post);
-              },
-            ),
+  Widget _buildFeedListFromDocs(List<DocumentSnapshot> posts) {
+    final me = FirebaseAuth.instance.currentUser;
+    if (me == null) {
+      return RefreshIndicator(
+        onRefresh: _refreshFeed,
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            final post = FeedPost.fromFirestore(posts[index]);
+            return FeedPostCard(post: post);
+          },
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(me.uid).snapshots(),
+      builder: (context, userSnap) {
+        final blocked = (userSnap.data?.data()?['blockedUsers'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
+        final filtered = posts.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final authorId = (data['userId'] as String?) ?? '';
+          return !blocked.contains(authorId);
+        }).toList();
+
+        if (filtered.isEmpty) {
+          return const Center(
+            child: Text('Filtrelere göre gösterilecek gönderi yok.'),
           );
         }
 
-        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance.collection('users').doc(me.uid).snapshots(),
-          builder: (context, userSnap) {
-            final blocked = (userSnap.data?.data()?['blockedUsers'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
-            final filtered = posts.where((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              final authorId = (data['userId'] as String?) ?? '';
-              return !blocked.contains(authorId);
-            }).toList();
-
-            if (filtered.isEmpty) {
-              return const Center(
-                child: Text('Filtrelere göre gösterilecek gönderi yok.'),
-              );
-            }
-
-            return RefreshIndicator(
-              onRefresh: _refreshFeed,
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
-                itemCount: filtered.length,
-                itemBuilder: (context, index) {
-                  final post = FeedPost.fromFirestore(filtered[index]);
-                  return FeedPostCard(post: post);
-                },
-              ),
-            );
-          },
+        return RefreshIndicator(
+          onRefresh: _refreshFeed,
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
+            itemCount: filtered.length,
+            itemBuilder: (context, index) {
+              final post = FeedPost.fromFirestore(filtered[index]);
+              return FeedPostCard(post: post);
+            },
+          ),
         );
       },
+    );
+  }
+
+  Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .orderBy(_leaderboardPeriod, descending: true)
+        .limit(100)
+        .get();
+    if (snapshot.docs.isEmpty) return [];
+    final users = snapshot.docs.where((doc) {
+      final data = doc.data();
+      final status = data['status'];
+      return status == null || (status != 'banned' && status != 'deleted');
+    }).toList();
+    return users.asMap().entries.map((entry) {
+      final data = entry.value.data();
+      return LeaderboardUser(
+        rank: entry.key + 1,
+        name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Bilinmeyen',
+        avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
+        partnerCount: (data['partnerCount'] is int) ? data['partnerCount'] : 0,
+        isPremium: data['isPremium'] == true,
+        role: (data['role'] as String?) ?? 'user',
+      );
+    }).toList();
+  }
+
+  int _parseColor(dynamic value, int fallback) {
+    if (value is int) return value;
+    if (value is String) {
+      String v = value.trim();
+      if (v.startsWith('0x')) v = v.substring(2);
+      v = v.replaceAll('#', '');
+      if (v.length == 6) v = 'FF$v';
+      final parsed = int.tryParse(v, radix: 16);
+      if (parsed != null) return parsed;
+    }
+    return fallback;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: _tabController.index == 1
+          ? FloatingActionButton(
+              onPressed: () => _showCreatePostModal(context),
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+              tooltip: 'Yeni Gönderi',
+            )
+          : null,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTabSelector(),
+            Expanded(
+              child: IndexedStack(
+                index: _tabController.index,
+                children: [
+                  _buildLeaderboardTab(),
+                  Container(key: const ValueKey('feed'), child: _buildFeedList()),
+                  Container(key: const ValueKey('rooms'), child: _buildRoomsTab()),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

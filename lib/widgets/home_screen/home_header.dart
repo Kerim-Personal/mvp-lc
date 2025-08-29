@@ -130,9 +130,9 @@ class _HomeHeaderState extends State<HomeHeader>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.18),
-                      Colors.white.withValues(alpha: 0.04),
-                      Colors.black.withValues(alpha: 0.10),
+                      Colors.white.withOpacity(0.18),
+                      Colors.white.withOpacity(0.04),
+                      Colors.black.withOpacity(0.10),
                     ],
                     stops: const [0.0, 0.45, 1.0],
                   ),
@@ -145,7 +145,7 @@ class _HomeHeaderState extends State<HomeHeader>
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.6),
+                  border: Border.all(color: Colors.white.withOpacity(0.12), width: 0.6),
                 ),
               ),
             ),
@@ -187,44 +187,44 @@ class _HomeHeaderState extends State<HomeHeader>
         shape: BoxShape.circle,
         boxShadow: premium
             ? [
-                BoxShadow(
-                  color: const Color(0xFFE5B53A).withValues(alpha: 0.55),
-                  blurRadius: 18,
-                  spreadRadius: 1.5,
-                ),
-                BoxShadow(
-                  color: const Color(0xFF8F6A00).withValues(alpha: 0.35),
-                  blurRadius: 32,
-                  spreadRadius: 10,
-                ),
-              ]
+          BoxShadow(
+            color: const Color(0xFFE5B53A).withOpacity(0.55),
+            blurRadius: 18,
+            spreadRadius: 1.5,
+          ),
+          BoxShadow(
+            color: const Color(0xFF8F6A00).withOpacity(0.35),
+            blurRadius: 32,
+            spreadRadius: 10,
+          ),
+        ]
             : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: CircleAvatar(
         radius: 28,
-        backgroundColor: Colors.white.withValues(alpha: 0.15),
+        backgroundColor: Colors.white.withOpacity(0.15),
         child: widget.avatarUrl != null
             ? ClipOval(
-                child: SvgPicture.network(
-                  widget.avatarUrl!,
-                  width: 56,
-                  height: 56,
-                  placeholderBuilder: (context) => const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                ),
-              )
+          child: SvgPicture.network(
+            widget.avatarUrl!,
+            width: 56,
+            height: 56,
+            placeholderBuilder: (context) => const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+          ),
+        )
             : Text(
-                widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
-                style: const TextStyle(fontSize: 26, color: Colors.white, fontWeight: FontWeight.bold),
-              ),
+          widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
+          style: const TextStyle(fontSize: 26, color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -284,7 +284,7 @@ class _HomeHeaderState extends State<HomeHeader>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
+              color: Colors.black.withOpacity(0.25),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -306,79 +306,27 @@ class _HomeHeaderState extends State<HomeHeader>
     );
   }
 
-  Gradient _selectAdaptiveGradient(DateTime now, bool isPremium, String? role) {
-    final hour = now.hour;
-    // Time-based palette
-    if (isPremium) {
-      if (role == 'admin') {
-        return const LinearGradient(
-          colors: [Color(0xFF5A0000), Color(0xFFB30000), Color(0xFFFF6A00)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      }
-      if (role == 'moderator') {
-        return const LinearGradient(
-          colors: [Color(0xFF4E2E00), Color(0xFFCC7A00), Color(0xFFFFC773)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      }
-      // Premium normal kullanıcı altın + derinlik
-      return const LinearGradient(
-        colors: [Color(0xFF3B2A00), Color(0xFF8B6300), Color(0xFFE5B53A)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-
-    if (hour >= 5 && hour < 12) {
-      // Sabah
-      return const LinearGradient(
-        colors: [Color(0xFFFFECD2), Color(0xFFFCCF8A), Color(0xFFEFA45C)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    } else if (hour >= 12 && hour < 18) {
-      // Öğlen
-      return const LinearGradient(
-        colors: [Color(0xFF0093E9), Color(0xFF38B2AC), Color(0xFF006F7A)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    } else if (hour >= 18 && hour < 22) {
-      // Akşamüstü / Gün batımı
-      return const LinearGradient(
-        colors: [Color(0xFF41295A), Color(0xFF6F2F84), Color(0xFFD66D75)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    } else {
-      // Gece
-      return const LinearGradient(
-        colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-  }
-
   List<Color> _selectAdaptivePalette(DateTime now, bool isPremium, String? role) {
-    final g = _selectAdaptiveGradient(now, isPremium, role) as LinearGradient;
-    return g.colors;
+    if (isPremium) {
+      if (role == 'admin') return [const Color(0xFF5A0000), const Color(0xFFB30000), const Color(0xFFFF6A00)];
+      if (role == 'moderator') return [const Color(0xFF4E2E00), const Color(0xFFCC7A00), const Color(0xFFFFC773)];
+      return [const Color(0xFF3B2A00), const Color(0xFF8B6300), const Color(0xFFE5B53A)];
+    }
+    final hour = now.hour;
+    if (hour >= 5 && hour < 12) return [const Color(0xFFFFECD2), const Color(0xFFFCCF8A), const Color(0xFFEFA45C)];
+    if (hour >= 12 && hour < 18) return [const Color(0xFF0093E9), const Color(0xFF38B2AC), const Color(0xFF006F7A)];
+    if (hour >= 18 && hour < 22) return [const Color(0xFF41295A), const Color(0xFF6F2F84), const Color(0xFFD66D75)];
+    return [const Color(0xFF0F2027), const Color(0xFF203A43), const Color(0xFF2C5364)];
   }
 
   List<Color> _modulatePalette(List<Color> base, double t) {
     if (base.isEmpty) return [Colors.grey];
-    // Hafif nefes alma efekti: renkleri sırayla azıcık aydınlat / koyulaştır.
     return List<Color>.generate(base.length, (i) {
       final c = base[i];
-      // i ile faz kaydırmalı sinüs; süreklilik için sin kullanılır.
-      final wave = math.sin((t + i * 0.33) * math.pi * 2) * 0.09; // ~ -0.09..0.09 light adjust
-       // Yalın lighten/darken: Color.lerp ile beyaza veya siyaha çek.
-       final Color target = wave >= 0 ? Colors.white : Colors.black;
-       final factor = wave.abs();
-       return Color.lerp(c, target, factor) ?? c;
+      final wave = math.sin((t + i * 0.33) * math.pi * 2) * 0.09;
+      final Color target = wave >= 0 ? Colors.white : Colors.black;
+      final factor = wave.abs();
+      return Color.lerp(c, target, factor) ?? c;
     });
   }
 }
