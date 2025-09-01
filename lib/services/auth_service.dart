@@ -9,9 +9,10 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Login tarafında ek bekleyen credential tutmuyoruz; linking sadece profilden yapılır.
+
   // DiceBear avatar URL'i oluşturma fonksiyonu
   String _generateAvatarUrl(String seed) {
-    // Farklı stiller için 'micah', 'bottts', 'jdenticon' gibi isimler deneyebilirsiniz.
     return 'https://api.dicebear.com/8.x/micah/svg?seed=$seed';
   }
 
@@ -32,6 +33,20 @@ class AuthService {
       // 1. Firebase Authentication ile kullanıcıyı oluştur.
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(email: email, password: password);
+
+      // 1.5: Kullanıcı adı rezervasyonu – yarış koşullarını engelle
+      try {
+        final callable = FirebaseFunctions.instance.httpsCallable('reserveUsername');
+        await callable.call({'username': username});
+      } catch (e) {
+        // Rezervasyon başarısız: oluşturulan auth kullanıcısını geri al
+        try { await userCredential.user?.delete(); } catch (_) {}
+        try { await _auth.signOut(); } catch (_) {}
+        throw FirebaseAuthException(
+          code: 'username-taken',
+          message: 'Kullanıcı adı zaten alınmış. Lütfen başka bir ad deneyin.',
+        );
+      }
 
       // E-posta doğrulama linki gönder
       await userCredential.user?.sendEmailVerification();
@@ -61,7 +76,6 @@ class AuthService {
           'isPremium': false,
           'role': 'user',
           'status': 'active',
-          'blockedUsers': <String>[],
           'nativeLanguage': nativeLanguage,
           'profileCompleted': false, // rules gereği başlangıçta false
         });
@@ -69,9 +83,9 @@ class AuthService {
         try { await docRef.update({'profileCompleted': true}); } catch (_) {}
       }
       return userCredential;
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (_) {
       // Hata yönetimi için hatayı yeniden fırlat
-      throw e;
+      rethrow;
     }
   }
 
@@ -114,7 +128,6 @@ class AuthService {
             'isPremium': false,
             'role': 'user',
             'status': 'active',
-            'blockedUsers': <String>[],
             'nativeLanguage': 'en',
             'profileCompleted': false, // create
           });
@@ -123,6 +136,23 @@ class AuthService {
           if (isPasswordProvider) { try { await docRef.update({'profileCompleted': true}); } catch(_){} }
         } else {
           final data = snap.data() as Map<String, dynamic>;
+
+          // Eski 'blockedUsers' array -> alt koleksiyona migrasyon (best-effort)
+          final List<dynamic>? legacyBlocked = data['blockedUsers'] as List<dynamic>?;
+          if (legacyBlocked != null && legacyBlocked.isNotEmpty) {
+            final batch = _firestore.batch();
+            for (final id in legacyBlocked) {
+              final uid = id?.toString();
+              if (uid == null || uid.isEmpty) continue;
+              final ref = docRef.collection('blockedUsers').doc(uid);
+              batch.set(ref, {
+                'blockedAt': FieldValue.serverTimestamp(),
+                'targetUserId': uid,
+              }, SetOptions(merge: true));
+            }
+            try { await batch.commit(); } catch (_) {}
+          }
+
           final status = data['status'] as String?;
           if (status == 'deleted') {
             await _auth.signOut();
@@ -185,13 +215,20 @@ class AuthService {
   /// Google ile giriş yapmayı sağlar.
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? gAccount = await GoogleSignIn().signIn();
+      final googleSignIn = GoogleSignIn();
+      // Hesap seçiciyi zorlamak için önceki oturumu temizle
+      try { await googleSignIn.disconnect(); } catch (_) {}
+      try { await googleSignIn.signOut(); } catch (_) {}
+
+      final GoogleSignInAccount? gAccount = await googleSignIn.signIn();
       if (gAccount == null) return null; // kullanıcı iptal
       final auth = await gAccount.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: auth.accessToken,
         idToken: auth.idToken,
       );
+
+      // Basit akış: doğrudan credential ile giriş yap. Çakışmalar UI'da yönlendirilecek.
       final userCredential = await _auth.signInWithCredential(credential);
       final user = userCredential.user;
       if (user != null) {
@@ -200,17 +237,33 @@ class AuthService {
         if (!snap.exists) {
           // Firestore security rules isValidNewUser gereksinimlerini sağlamak için zorunlu alanları dolduruyoruz.
           final rawName = (user.displayName ?? user.email?.split('@').first ?? 'User').trim();
-          String safeName = rawName;
-          if (safeName.length < 3) safeName = (safeName + '___').substring(0, 3); // min 3
-            if (safeName.length > 29) safeName = safeName.substring(0,29);
+          String baseName = rawName;
+          if (baseName.length < 3) baseName = (baseName + '___').substring(0, 3); // min 3
+          if (baseName.length > 29) baseName = baseName.substring(0,29);
+
+          // Kullanıcı adı rezervasyonu: çakışırsa küçük varyasyonlar dene
+          String reservedName = baseName;
+          final reserveFn = FirebaseFunctions.instance.httpsCallable('reserveUsername');
+          bool reserved = false;
+          for (int i = 0; i < 3 && !reserved; i++) {
+            final tryName = (i == 0) ? reservedName : '${baseName}_${user.uid.substring(0, 2 + i)}';
+            try {
+              await reserveFn.call({'username': tryName});
+              reservedName = tryName;
+              reserved = true;
+            } catch (_) {
+              // devam et
+            }
+          }
+
           final dicebear = 'https://api.dicebear.com/8.x/micah/svg?seed=${user.uid.substring(0,6)}';
           await docRef.set({
-            'displayName': safeName,
-            'username_lowercase': safeName.toLowerCase(),
+            'displayName': reserved ? reservedName : baseName,
+            'username_lowercase': (reserved ? reservedName : baseName).toLowerCase(),
             'email': user.email,
             'uid': user.uid,
             'createdAt': FieldValue.serverTimestamp(),
-            'emailVerified': false,
+            'emailVerified': user.emailVerified, // Google genelde doğrulanmış gelir
             'avatarUrl': dicebear,
             'partnerCount': 0,
             'streak': 0,
@@ -219,24 +272,103 @@ class AuthService {
             'isPremium': false,
             'role': 'user',
             'status': 'active',
-            'blockedUsers': <String>[],
             'nativeLanguage': 'en',
             'birthDate': Timestamp.fromDate(DateTime(2000,1,1)),
             'gender': 'Male',
             'profileCompleted': false, // Google kullanıcıları tamamlamaya yönlendirilecek
           });
         } else {
-            await docRef.update({
-              'lastActivityDate': FieldValue.serverTimestamp(),
-              if (user.emailVerified) 'emailVerified': true,
-            });
+          await docRef.update({
+            'lastActivityDate': FieldValue.serverTimestamp(),
+            if (user.emailVerified) 'emailVerified': true,
+          });
+          // Eski 'blockedUsers' array -> alt koleksiyona migrasyon (best-effort)
+          final data = snap.data();
+          if (data != null) {
+            final List<dynamic>? legacyBlocked = data['blockedUsers'] as List<dynamic>?;
+            if (legacyBlocked != null && legacyBlocked.isNotEmpty) {
+              final batch = _firestore.batch();
+              for (final id in legacyBlocked) {
+                final uid = id?.toString();
+                if (uid == null || uid.isEmpty) continue;
+                final ref = docRef.collection('blockedUsers').doc(uid);
+                batch.set(ref, {
+                  'blockedAt': FieldValue.serverTimestamp(),
+                  'targetUserId': uid,
+                }, SetOptions(merge: true));
+              }
+              try { await batch.commit(); } catch (_) {}
+            }
+          }
         }
       }
       return userCredential;
     } on FirebaseAuthException catch (e) {
+      // Basit uyarı için çakışma kodunu aynen ilet
+      if (e.code == 'account-exists-with-different-credential' || e.code == 'credential-already-in-use') {
+        rethrow;
+      }
       rethrow;
     } catch (e) {
       throw FirebaseAuthException(code: 'google-signin-failed', message: e.toString());
     }
+  }
+
+  /// Oturum açıkken mevcut kullanıcıya Google sağlayıcısını bağlar (manuel linking).
+  /// true: başarı, false: kullanıcı Google hesabı seçiminde iptal etti.
+  Future<bool> linkCurrentUserWithGoogle() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'no-current-user', message: 'Oturum bulunamadı.');
+    }
+    if (user.providerData.any((p) => p.providerId == 'google.com')) {
+      // Zaten bağlı; hata yerine başarı gibi davranabiliriz
+      return true;
+    }
+
+    final googleSignIn = GoogleSignIn();
+    try { await googleSignIn.disconnect(); } catch (_) {}
+    try { await googleSignIn.signOut(); } catch (_) {}
+
+    final GoogleSignInAccount? gAccount = await googleSignIn.signIn();
+    if (gAccount == null) {
+      return false; // kullanıcı iptal
+    }
+    final auth = await gAccount.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: auth.accessToken,
+      idToken: auth.idToken,
+    );
+    try {
+      await user.linkWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'provider-already-linked') {
+        return true;
+      }
+      // Başka bir kullanıcı bu Google kimliğini kullanıyorsa
+      if (e.code == 'credential-already-in-use' || e.code == 'account-exists-with-different-credential') {
+        throw FirebaseAuthException(
+          code: 'credential-already-in-use',
+          message: 'Bu Google hesabı başka bir kullanıcıyla ilişkili.',
+        );
+      }
+      if (e.code == 'requires-recent-login') {
+        throw FirebaseAuthException(
+          code: 'requires-recent-login',
+          message: 'Güvenlik için lütfen tekrar giriş yaptıktan sonra bağlamayı deneyin.',
+        );
+      }
+      rethrow;
+    }
+
+    // Firestore dokümanını hafifçe güncelle
+    try {
+      await _firestore.collection('users').doc(user.uid).update({
+        'lastActivityDate': FieldValue.serverTimestamp(),
+        if (user.emailVerified) 'emailVerified': true,
+      });
+    } catch (_) {}
+
+    return true;
   }
 }

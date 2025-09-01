@@ -8,33 +8,48 @@ class BlockService {
   /// Mevcut kullanıcının hedef kullanıcıyı engellemesini sağlar.
   Future<void> blockUser({required String currentUserId, required String targetUserId}) async {
     if (currentUserId == targetUserId) return;
-    final userRef = _firestore.collection('users').doc(currentUserId);
-    await userRef.update({
-      'blockedUsers': FieldValue.arrayUnion([targetUserId])
-    });
+    final docRef = _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('blockedUsers')
+        .doc(targetUserId);
+    await docRef.set({
+      'blockedAt': FieldValue.serverTimestamp(),
+      'targetUserId': targetUserId,
+    }, SetOptions(merge: true));
   }
 
   /// Mevcut kullanıcının hedef kullanıcının engelini kaldırmasını sağlar.
   Future<void> unblockUser({required String currentUserId, required String targetUserId}) async {
-    final userRef = _firestore.collection('users').doc(currentUserId);
-    await userRef.update({
-      'blockedUsers': FieldValue.arrayRemove([targetUserId])
-    });
+    final docRef = _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('blockedUsers')
+        .doc(targetUserId);
+    await docRef.delete();
   }
 
   /// İki kullanıcı arasında etkileşime izin verilip verilmediğini döner.
   /// currentUser hedefi engellediyse veya hedef currentUser'ı engellediyse false döner.
   Future<bool> isInteractionAllowed(String currentUserId, String targetUserId) async {
     if (currentUserId == targetUserId) return true;
-    final currentUserDoc = await _firestore.collection('users').doc(currentUserId).get();
-    final targetUserDoc = await _firestore.collection('users').doc(targetUserId).get();
 
-    final List<dynamic> myBlocked = (currentUserDoc.data()?['blockedUsers'] as List<dynamic>?) ?? const [];
-    final List<dynamic> theirBlocked = (targetUserDoc.data()?['blockedUsers'] as List<dynamic>?) ?? const [];
+    final myBlockDoc = await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .collection('blockedUsers')
+        .doc(targetUserId)
+        .get();
 
-    final blockedByMe = myBlocked.contains(targetUserId);
-    final blockedMe = theirBlocked.contains(currentUserId);
+    final theirBlockDoc = await _firestore
+        .collection('users')
+        .doc(targetUserId)
+        .collection('blockedUsers')
+        .doc(currentUserId)
+        .get();
+
+    final blockedByMe = myBlockDoc.exists;
+    final blockedMe = theirBlockDoc.exists;
     return !(blockedByMe || blockedMe);
   }
 }
-

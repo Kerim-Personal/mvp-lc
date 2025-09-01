@@ -96,6 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           final partnerCount = userData['partnerCount'] ?? 0;
           final isPremium = userData['isPremium'] as bool? ?? false; // YENİ: Premium verisi çekiliyor.
           final role = (userData['role'] as String?) ?? 'user';
+          final highestStreak = userData['highestStreak'] ?? (streak ?? 0);
 
           // --- Yeni: Dinamik listeyi önce oluştur ---
           int animIndex = 0;
@@ -115,6 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                     streak: streak,
                     totalPracticeTime: totalPracticeTime,
                     partnerCount: partnerCount,
+                    highestStreak: highestStreak is int ? highestStreak : 0,
                   ),
                 ),
               ],

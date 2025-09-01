@@ -128,8 +128,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   void _listenMyBlocked() {
     final me = currentUser;
     if (me == null) return;
-    FirebaseFirestore.instance.collection('users').doc(me.uid).snapshots().listen((snap) {
-      final list = (snap.data()?['blockedUsers'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(me.uid)
+        .collection('blockedUsers')
+        .snapshots()
+        .listen((snap) {
+      final list = snap.docs.map((d) => d.id).toList(growable: false);
       if (mounted) setState(() => _blocked = list);
     });
   }
@@ -167,7 +172,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   @override
   void didChangeMetrics() {
-    final bottomInset = WidgetsBinding.instance.window.viewInsets.bottom;
+    final bottomInset = View.of(context).viewInsets.bottom;
     if (bottomInset > 0 && bottomInset != _lastBottomInset) {
       _scrollToBottom(immediate: true); // anında zıpla
     }
@@ -288,10 +293,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     bool isBlocked = false;
     if (me != null) {
       try {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(me.uid).get();
+        final blockDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(me.uid)
+            .collection('blockedUsers')
+            .doc(message.senderId)
+            .get();
         if (!mounted) return;
-        final blocked = (userDoc.data()?['blockedUsers'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
-        isBlocked = blocked.contains(message.senderId);
+        isBlocked = blockDoc.exists;
       } catch (_) {}
     }
     if (!mounted) return;
@@ -376,8 +385,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: Colors.black.withOpacity(0.85),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: Colors.cyanAccent.withOpacity(.4))),
+        backgroundColor: Colors.black.withValues(alpha: 0.85),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: Colors.cyanAccent.withValues(alpha: .4))),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxH, minWidth: 300),
           child: Padding(
@@ -405,7 +414,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                   if (ga.corrections.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.orange.withOpacity(.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orangeAccent.withOpacity(.6))),
+                      decoration: BoxDecoration(color: Colors.orange.withValues(alpha: .1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orangeAccent.withValues(alpha: .6))),
                       child: Row(children: [
                         const Icon(Icons.edit, color: Colors.orangeAccent, size: 18),
                         const SizedBox(width: 8),
@@ -476,7 +485,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   Widget _pill(IconData i, String text) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.cyanAccent.withOpacity(.3))),
+    decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.cyanAccent.withValues(alpha: .3))),
     child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(i, size: 13, color: Colors.cyanAccent), const SizedBox(width: 4), Text(text, style: const TextStyle(color: Colors.white70, fontSize: 11))]),
   );
 
@@ -823,12 +832,9 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
     }
     setState(() { _translating = true; _error = null; });
     try {
-      final ready = await TranslationService.instance.isModelReady(widget.targetLanguageCode);
-      if (!ready) {
-        await TranslationService.instance.preDownloadModels(widget.targetLanguageCode);
-      }
-      final tr = await TranslationService.instance.translateFromEnglish(widget.message.text, widget.targetLanguageCode);
-      setState(() { _translated = tr; _showTranslation = true; });
+      await TranslationService.instance.ensureReady(widget.targetLanguageCode);
+       final tr = await TranslationService.instance.translateFromEnglish(widget.message.text, widget.targetLanguageCode);
+       setState(() { _translated = tr; _showTranslation = true; });
     } catch (e) {
       setState(() { _error = 'Çeviri başarısız: ${e.toString()}'; });
     } finally {
@@ -846,7 +852,7 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.message.text, style: TextStyle(color: baseColor.withOpacity(0.75), fontSize: 14, fontStyle: FontStyle.italic)),
+          Text(widget.message.text, style: TextStyle(color: baseColor.withValues(alpha: 0.75), fontSize: 14, fontStyle: FontStyle.italic)),
           const SizedBox(height: 4),
           Text(_translated!, style: TextStyle(color: baseColor, fontSize: 16, fontWeight: FontWeight.w500)),
         ],
@@ -871,7 +877,7 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
                         decoration: BoxDecoration(
                           color: (isMe ? Colors.teal[600] : Colors.white),
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
                           border: Border.all(color: isMe ? Colors.white70 : Colors.teal.shade200, width: 1),
                         ),
                         padding: const EdgeInsets.all(3),
@@ -884,7 +890,7 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
                         decoration: BoxDecoration(
                           color: (isMe ? Colors.teal[600] : Colors.white),
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
                           border: Border.all(color: isMe ? Colors.white70 : Colors.teal.shade200, width: 1),
                         ),
                         child: Icon(
@@ -899,19 +905,6 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
             ),
           )
         : const SizedBox.shrink();
-
-    Widget trailing = const SizedBox.shrink();
-    if (widget.isMe && widget.analyzing) {
-      trailing = const Padding(
-        padding: EdgeInsets.only(left: 6.0),
-        child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    } else if (widget.isMe && widget.grammarAnalysis != null) {
-      trailing = const Padding(
-        padding: EdgeInsets.only(left: 6.0),
-        child: Icon(Icons.science_outlined, size: 14, color: Colors.cyanAccent),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

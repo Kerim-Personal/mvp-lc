@@ -28,13 +28,13 @@ class SectionTitle extends StatelessWidget {
           // Başlık metni
           // OPTİMİZASYON: Opaklık, `Opacity` widget'ı ile yönetiliyor.
           Opacity(
-            opacity: 0.75,
+            opacity: 0.90,
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: Colors.black, // Ana renk siyah olarak kalır
+                color: Theme.of(context).colorScheme.onSurface,
                 letterSpacing: 0.5,
               ),
             ),

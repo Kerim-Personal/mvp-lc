@@ -59,6 +59,13 @@ dependencies:
   google_sign_in: ^6.2.1
   google_generative_ai: ^0.4.0
 
+  # Konuşmayı yazıya çeviri
+  speech_to_text: ^7.3.0
+
+# Mobil hedefte sürüm uyuşmazlığını çözmek için web paketini override ediyoruz
+dependency_overrides:
+  web: ^1.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -72,5 +79,6 @@ flutter:
 
   assets:
     - assets/
+    - assets/practice/ # <-- EKLENDİ: Resimlerin bulunduğu klasörü açıkça belirtiyoruz.
 flutter_intl:
   enabled: false

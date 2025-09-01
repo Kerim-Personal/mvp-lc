@@ -159,145 +159,189 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Şifreyi Değiştir'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        centerTitle: true,
+        // M3: Varsayılan renkler ve scrolledUnderElevation kullanılsın
+        scrolledUnderElevation: 2,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(24.0),
-          children: [
-            TextFormField(
-              controller: _currentPasswordController,
-              obscureText: !_showCurrent,
-              decoration: InputDecoration(
-                labelText: 'Mevcut Şifre',
-                prefixIcon: const Icon(Icons.lock_outline),
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(_showCurrent ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setState(() => _showCurrent = !_showCurrent),
-                ),
-              ),
-              validator: (value) => (value == null || value.isEmpty)
-                  ? 'Lütfen mevcut şifrenizi girin.'
-                  : null,
-              onChanged: (_) => _recalcStrength(),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _newPasswordController,
-              obscureText: !_showNew,
-              decoration: InputDecoration(
-                labelText: 'Yeni Şifre',
-                prefixIcon: const Icon(Icons.lock),
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(_showNew ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setState(() => _showNew = !_showNew),
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Yeni şifre girin.';
-                final r = _strength ?? PasswordStrength.evaluate(value);
-                // Zorunlu kriterler: ilk 7 (eski şifre farklı olması kullanıcı opsiyonel olabilir ama yine de zorunlu kılalım)
-                if (!r.allSatisfied) {
-                  return 'Eksik: ${r.unmetCriteria.first}';
-                }
-                if (r.score < 70) {
-                  return 'Şifre daha güçlü olmalı (en az Güçlü).';
-                }
-                return null;
-              },
-              onChanged: (_) => _recalcStrength(),
-            ),
-            if (_strength != null) ...[
-              const SizedBox(height: 10),
-              LayoutBuilder(
-                builder: (ctx, cons) {
-                  final s = _strength!;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: LinearProgressIndicator(
-                                value: s.score / 100,
-                                minHeight: 10,
-                                backgroundColor: Colors.grey.shade300,
-                                valueColor: AlwaysStoppedAnimation(_strengthColor(s.score)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(s.label, style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _strengthColor(s.score),
-                          )),
-                        ],
+      body: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(24.0),
+                children: [
+                  TextFormField(
+                    controller: _currentPasswordController,
+                    obscureText: !_showCurrent,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: InputDecoration(
+                      labelText: 'Mevcut Şifre',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      _criteriaList(s),
-                    ],
-                  );
-                },
+                      suffixIcon: IconButton(
+                        icon: Icon(_showCurrent ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _showCurrent = !_showCurrent),
+                        tooltip: _showCurrent ? 'Şifreyi gizle' : 'Şifreyi göster',
+                      ),
+                    ),
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Lütfen mevcut şifrenizi girin.'
+                        : null,
+                    onChanged: (_) => _recalcStrength(),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _newPasswordController,
+                    obscureText: !_showNew,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.newPassword],
+                    decoration: InputDecoration(
+                      labelText: 'Yeni Şifre',
+                      prefixIcon: const Icon(Icons.lock),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(_showNew ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _showNew = !_showNew),
+                        tooltip: _showNew ? 'Şifreyi gizle' : 'Şifreyi göster',
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Yeni şifre girin.';
+                      final r = _strength ?? PasswordStrength.evaluate(value);
+                      if (!r.allSatisfied) {
+                        return 'Eksik: ${r.unmetCriteria.first}';
+                      }
+                      if (r.score < 70) {
+                        return 'Şifre daha güçlü olmalı (en az Güçlü).';
+                      }
+                      return null;
+                    },
+                    onChanged: (_) => _recalcStrength(),
+                  ),
+                  if (_strength != null) ...[
+                    const SizedBox(height: 10),
+                    LayoutBuilder(
+                      builder: (ctx, cons) {
+                        final s = _strength!;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: LinearProgressIndicator(
+                                      value: s.score / 100,
+                                      minHeight: 10,
+                                      backgroundColor: Colors.grey.shade300,
+                                      valueColor: AlwaysStoppedAnimation(_strengthColor(s.score)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  s.label,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _strengthColor(s.score),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            _criteriaList(s),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: !_showConfirm,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) {
+                      if (!_isLoading) _submit();
+                    },
+                    autofillHints: const [AutofillHints.newPassword],
+                    decoration: InputDecoration(
+                      labelText: 'Yeni Şifreyi Onayla',
+                      prefixIcon: const Icon(Icons.lock_person),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(_showConfirm ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _showConfirm = !_showConfirm),
+                        tooltip: _showConfirm ? 'Şifreyi gizle' : 'Şifreyi göster',
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value != _newPasswordController.text) {
+                        return 'Şifreler eşleşmiyor.';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _isLoading ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                      child: _isLoading
+                          ? const SizedBox(
+                              key: ValueKey('loading'),
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Row(
+                              key: const ValueKey('label'),
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.password_rounded, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Şifreyi Güncelle',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _confirmPasswordController,
-              obscureText: !_showConfirm,
-              decoration: InputDecoration(
-                labelText: 'Yeni Şifreyi Onayla',
-                prefixIcon: const Icon(Icons.lock_person),
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(_showConfirm ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setState(() => _showConfirm = !_showConfirm),
-                ),
-              ),
-              validator: (value) {
-                if (value != _newPasswordController.text) {
-                  return 'Şifreler eşleşmiyor.';
-                }
-                return null;
-              },
             ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: Text(_error!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center),
-              ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
-                ),
-              )
-                  : const Text('Şifreyi Güncelle',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ],
+          ),
         ),
       ),
     );

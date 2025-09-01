@@ -267,35 +267,34 @@ exports.onGroupMemberRemoved = functions.firestore
     });
     return null;
   });
-/** Yeni sohbet odası oluşturulduğunda her iki kullanıcının partnerCount değerini +1 artır */
+/** Yeni sohbet odası oluşturulduğunda partnerCount artırma PASİF (artık ilk mesajda sayıyoruz) */
 exports.onChatCreated = functions.firestore
   .document('chats/{chatId}')
-  .onCreate(async (snap, context) => {
+  .onCreate(async (_snap, _context) => {
+    return null; // partnerCount artışı ilk mesajda yapılacak
+  });
+/** Bir sohbette ilk mesaj atıldığında her iki kullanıcının partnerCount değerini +1 artır */
+exports.onChatMessageCreated = functions.firestore
+  .document('chats/{chatId}/messages/{messageId}')
+  .onCreate(async (_msgSnap, context) => {
+    const chatId = context.params.chatId;
+    const chatRef = db.collection('chats').doc(chatId);
     try {
-      const data = snap.data() || {};
-      const users = Array.isArray(data.users) ? data.users : [];
-      if (users.length !== 2) return null; // Beklenen ikili eşleşme
-      const sorted = [...users].sort();
-      const expectedId = `${sorted[0]}_${sorted[1]}`;
-
-      // Eğer doc id deterministik formatta değilse ve deterministik doc zaten varsa çift artışı engelle
-      if (context.params.chatId !== expectedId) {
-        const expectedRef = db.collection('chats').doc(expectedId);
-        const existing = await expectedRef.get();
-        if (existing.exists) {
-          console.log('Duplicate chat detected, skipping partnerCount increment:', context.params.chatId, 'existing canonical:', expectedId);
-          return null;
-        }
-      }
-
-      const batch = db.batch();
-      users.forEach(uid => {
-        const ref = db.collection('users').doc(uid);
-        batch.update(ref, { partnerCount: admin.firestore.FieldValue.increment(1) });
+      await db.runTransaction(async (tx) => {
+        const chatDoc = await tx.get(chatRef);
+        if (!chatDoc.exists) return;
+        const chat = chatDoc.data() || {};
+        if (chat.counted === true) return; // zaten sayılmış
+        const users = Array.isArray(chat.users) ? chat.users : [];
+        if (users.length !== 2) return;
+        users.forEach((uid) => {
+          const uref = db.collection('users').doc(uid);
+          tx.update(uref, { partnerCount: admin.firestore.FieldValue.increment(1) });
+        });
+        tx.set(chatRef, { counted: true }, { merge: true });
       });
-      await batch.commit();
     } catch (e) {
-      console.error('onChatCreated partnerCount increment error:', e);
+      console.error('onChatMessageCreated partnerCount increment error:', e);
     }
     return null;
   });

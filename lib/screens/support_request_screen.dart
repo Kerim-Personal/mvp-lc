@@ -123,9 +123,11 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
   }
 
   Future<void> _pickSubject() async {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final selected = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: cs.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -134,9 +136,9 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text('Konu Seç', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text('Konu Seç', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: cs.onSurface)),
               ),
               Flexible(
                 child: ListView.builder(
@@ -148,9 +150,9 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                     return ListTile(
                       leading: Icon(
                         isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                        color: isSelected ? Colors.amber : Colors.grey,
+                        color: isSelected ? cs.primary : theme.iconTheme.color?.withValues(alpha: 0.6),
                       ),
-                      title: Text(item),
+                      title: Text(item, style: TextStyle(color: cs.onSurface)),
                       onTap: () => Navigator.of(context).pop(item),
                     );
                   },
@@ -169,21 +171,23 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
   }
 
   Future<void> _chooseImageSource() async {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final src = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: cs.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Galeriden Seç'),
+              leading: Icon(Icons.photo_library, color: cs.onSurface.withValues(alpha: 0.85)),
+              title: Text('Galeriden Seç', style: TextStyle(color: cs.onSurface)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Kameradan Çek'),
+              leading: Icon(Icons.photo_camera, color: cs.onSurface.withValues(alpha: 0.85)),
+              title: Text('Kameradan Çek', style: TextStyle(color: cs.onSurface)),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             if (_attachmentUrl != null)
@@ -198,7 +202,6 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
     );
 
     if (src == null) {
-      // null burada "kaldır" anlamında kullanıldı
       if (_attachmentUrl != null) setState(() => _attachmentUrl = null);
       return;
     }

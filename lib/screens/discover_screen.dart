@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/widgets/discover/grammar_tab.dart';
 import 'package:lingua_chat/widgets/discover/vocabulary_tab.dart';
+import '../widgets/discover/practice_tab.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -12,7 +13,7 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
-  int _selectedIndex = 0; // 0: Gramer, 1: Kelime
+  int _selectedIndex = 0; // 0: Gramer, 1: Kelime, 2: Pratik
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +27,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             _buildTabSelector(),
             const SizedBox(height: 16),
 
-            // Sekme İçeriği (Gramer veya Kelime)
+            // Sekme İçeriği (Gramer, Kelime, Pratik)
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
@@ -43,10 +44,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     ),
                   );
                 },
-                // ÇÖZÜLDÜ: 'VocabularyTab' widget'ının kurucusu const olmadığı için 'const' kaldırıldı.
                 child: _selectedIndex == 0
                     ? GrammarTab(key: const ValueKey('grammar'))
-                    : VocabularyTab(key: const ValueKey('vocabulary')),
+                    : _selectedIndex == 1
+                        ? VocabularyTab(key: const ValueKey('vocabulary'))
+                        : PracticeTab(key: const ValueKey('practice')),
               ),
             ),
           ],
@@ -70,6 +72,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             _buildTabItem(title: 'Gramer', icon: Icons.spellcheck, index: 0),
             _buildTabItem(
                 title: 'Kelime', icon: Icons.style_outlined, index: 1),
+            _buildTabItem(title: 'Pratik', icon: Icons.quiz_outlined, index: 2),
           ],
         ),
       ),
@@ -91,13 +94,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: isSelected
                 ? [
-              BoxShadow(
-                // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı. (0.1 * 255 ~= 26)
-                color: Colors.black.withAlpha(26),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              )
-            ]
+                    BoxShadow(
+                      // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı. (0.1 * 255 ~= 26)
+                      color: Colors.black.withAlpha(26),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
                 : [],
           ),
           child: Row(

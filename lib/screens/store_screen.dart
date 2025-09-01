@@ -551,7 +551,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         children: [
           Icon(icon, color: Colors.purple, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 14.5, color: Colors.black87))),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 14.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87)))),
         ],
       ),
     );
@@ -566,7 +566,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           child: Text(
             _isYearlySelected ? '899.99 TL/yıl' : '89.99 TL/ay',
             key: ValueKey<bool>(_isYearlySelected),
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9)),
           ),
         ),
         const SizedBox(height: 16),

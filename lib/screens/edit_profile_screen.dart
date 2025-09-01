@@ -219,6 +219,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark; // eklendi
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profili Düzenle'),
@@ -239,12 +240,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            _buildAvatarSection(),
+            _buildAvatarSection(isDark: isDark),
             const SizedBox(height: 24),
             _buildTextField(
               controller: _displayNameController,
               label: 'Kullanıcı Adı',
               icon: Icons.person_outline,
+              isDark: isDark,
               validator: (value) => (value == null || value.trim().length < 3)
                   ? 'Kullanıcı adı en az 3 karakter olmalı.'
                   : null,
@@ -255,16 +257,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               label: 'Doğum Tarihi',
               icon: Icons.calendar_today_outlined,
               readOnly: true,
+              isDark: isDark,
               onTap: _showDatePicker,
             ),
             const SizedBox(height: 24),
-            _buildGenderSelection(),
+            _buildGenderSelection(isDark: isDark),
             const SizedBox(height: 24),
             _buildTextField(
               controller: _nativeLanguageController,
               label: 'Anadil',
               icon: Icons.language_outlined,
               readOnly: true,
+              isDark: isDark,
               onTap: _showLanguagePicker,
             ),
           ],
@@ -273,13 +277,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildAvatarSection() {
+  Widget _buildAvatarSection({required bool isDark}) {
     return Center(
       child: Column(
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundColor: Colors.teal.shade100,
+            backgroundColor: isDark ? Colors.teal.withValues(alpha: 0.2) : Colors.teal.shade100,
             child: _avatarUrl != null
                 ? ClipOval(
               child: SvgPicture.network(
@@ -291,7 +295,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             )
                 : Text(
               _initialDisplayName.isNotEmpty ? _initialDisplayName[0].toUpperCase() : '?',
-              style: const TextStyle(fontSize: 40, color: Colors.teal, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 40,
+                color: isDark ? Colors.teal.shade200 : Colors.teal,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -300,7 +308,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             icon: const Icon(Icons.refresh),
             label: const Text('Rastgele Avatar Oluştur'),
             style: TextButton.styleFrom(
-              foregroundColor: Colors.teal,
+              foregroundColor: isDark ? Colors.teal.shade200 : Colors.teal,
             ),
           )
         ],
@@ -312,33 +320,47 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required TextEditingController controller,
     required String label,
     required IconData icon,
+    required bool isDark,
     bool readOnly = false,
     String? Function(String?)? validator,
     VoidCallback? onTap,
   }) {
+    final fill = isDark ? Colors.grey.shade800 : Colors.grey.shade50;
+    final labelStyle = TextStyle(color: isDark ? Colors.white70 : null);
     return TextFormField(
       controller: controller,
       readOnly: readOnly,
       onTap: onTap,
       validator: validator,
+      style: TextStyle(color: isDark ? Colors.white : null),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        labelStyle: labelStyle,
+        prefixIcon: Icon(icon, color: isDark ? Colors.teal.shade200 : null),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? Colors.grey.shade600 : Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.teal.shade400, width: 2),
+        ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: fill,
       ),
+      cursorColor: Colors.teal,
     );
   }
 
-  Widget _buildGenderSelection() {
+  Widget _buildGenderSelection({required bool isDark}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Cinsiyet',
           style: TextStyle(
-            color: Colors.grey.shade700,
+            color: isDark ? Colors.white70 : Colors.grey.shade700,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -352,6 +374,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Kadın',
                 isSelected: _selectedGender == 'Female',
                 onTap: () => setState(() => _selectedGender = 'Female'),
+                isDark: isDark,
               ),
             ),
             const SizedBox(width: 16),
@@ -361,6 +384,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Erkek',
                 isSelected: _selectedGender == 'Male',
                 onTap: () => setState(() => _selectedGender = 'Male'),
+                isDark: isDark,
               ),
             ),
           ],
@@ -375,6 +399,7 @@ class GenderSelectionBox extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool isDark; // eklendi
 
   const GenderSelectionBox({
     super.key,
@@ -382,10 +407,19 @@ class GenderSelectionBox extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onTap,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bg = isSelected
+        ? (isDark ? Colors.teal.withValues(alpha: 0.25) : Colors.teal.withValues(alpha: 0.1))
+        : (isDark ? Colors.grey.shade800 : Colors.grey.shade50);
+    final border = isSelected ? Colors.teal : (isDark ? Colors.grey.shade600 : Colors.grey.shade300);
+    final iconColor = isSelected ? Colors.teal : (isDark ? Colors.grey.shade300 : Colors.grey.shade600);
+    final textColor = isSelected
+        ? (isDark ? Colors.teal.shade200 : Colors.teal.shade800)
+        : (isDark ? Colors.grey.shade300 : Colors.grey.shade700);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -393,10 +427,10 @@ class GenderSelectionBox extends StatelessWidget {
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.teal.withOpacity(0.1) : Colors.grey.shade50,
+          color: bg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Colors.teal : Colors.grey.shade300,
+            color: border,
             width: isSelected ? 2 : 1.5,
           ),
         ),
@@ -406,14 +440,14 @@ class GenderSelectionBox extends StatelessWidget {
             Icon(
               icon,
               size: 32,
-              color: isSelected ? Colors.teal : Colors.grey.shade600,
+              color: iconColor,
             ),
             const SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
                 fontSize: 16,
-                color: isSelected ? Colors.teal.shade800 : Colors.grey.shade700,
+                color: textColor,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),

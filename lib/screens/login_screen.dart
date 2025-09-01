@@ -1,6 +1,7 @@
 // lib/screens/login_screen.dart
 
 import 'dart:math';
+import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/screens/register_screen.dart';
@@ -147,27 +148,40 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() { _isLoading = true; });
     try {
       final cred = await _authService.signInWithGoogle();
-      if (cred == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Google girişi iptal edildi'), backgroundColor: Colors.orange),
-          );
-        }
-      }
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google Giriş Hatası: ${e.message}'), backgroundColor: Colors.red),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Beklenmedik hata: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() { _isLoading = false; });
-    }
-  }
+       if (cred == null) {
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Google girişi iptal edildi'), backgroundColor: Colors.orange),
+           );
+         }
+       }
+     } on FirebaseAuthException catch (e) {
+       if (!mounted) return;
+       if (e.code == 'account-exists-with-different-credential' || e.code == 'credential-already-in-use') {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(
+             content: Text('Bu e-posta başka bir yöntemle kayıtlı. Lütfen önce e-posta/şifre ile giriş yapın ve Profil > Hesap Yönetimi > Google\'ı Bağla üzerinden bağlayın.'),
+             backgroundColor: Colors.orange,
+           ),
+         );
+         return;
+       }
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text('Google Giriş Hatası: ${e.message}'), backgroundColor: Colors.red),
+       );
+     } catch (e) {
+       if (!mounted) return;
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text('Beklenmedik hata: $e'), backgroundColor: Colors.red),
+       );
+     } finally {
+       if (mounted) setState(() { _isLoading = false; });
+     }
+   }
+
+  // lib/screens/login_screen.dart dosyanıza ekleyin
+
+  // lib/screens/login_screen.dart dosyanıza bu fonksiyonu ekleyin
 
   void _showPasswordResetDialog() {
     final resetEmailController = TextEditingController();
@@ -175,80 +189,148 @@ class _LoginScreenState extends State<LoginScreen>
 
     showDialog(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
       builder: (context) {
         bool isSending = false;
         String? dialogError;
 
+        // StatefulBuilder, sadece diyalog içindeki state'i yönetir,
+        // böylece tüm ekran yeniden çizilmez.
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text("Şifremi Unuttum"),
-              content: Form(
-                key: dialogFormKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                        "Kayıtlı e-posta adresinizi girin. Size bir sıfırlama linki göndereceğiz."),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: resetEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: "E-posta Adresi",
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || !value.contains('@')) {
-                          return 'Lütfen geçerli bir e-posta girin.';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (dialogError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(dialogError!, style: const TextStyle(color: Colors.red)),
-                      ),
-                  ],
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28.0),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("İptal"),
-                ),
-                ElevatedButton(
-                  onPressed: isSending ? null : () async {
-                    if (dialogFormKey.currentState!.validate()) {
-                      setDialogState(() {
-                        isSending = true;
-                        dialogError = null;
-                      });
-                      try {
-                        await _authService.sendPasswordResetEmail(resetEmailController.text.trim());
-                        if (!mounted) return;
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Şifre sıfırlama linki gönderildi. Lütfen e-postanızı kontrol edin."),
-                            backgroundColor: Colors.green,
+                backgroundColor: Colors.white.withValues(alpha: 0.9),
+                elevation: 0,
+                // Kenar boşluklarını kendimiz yöneterek tam kontrol sağlıyoruz.
+                insetPadding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                // contentPadding'i sıfırlayıp kendi padding'imizi SingleChildScrollView içine koyuyoruz.
+                contentPadding: EdgeInsets.zero,
+                content: SingleChildScrollView( // <-- HATA ÇÖZÜMÜ BURADA!
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
+                      key: dialogFormKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_open_rounded, color: Theme.of(context).primaryColor, size: 48),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Şifreni Sıfırla",
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                           ),
-                        );
-                      } catch (e) {
-                        setDialogState(() {
-                          dialogError = "E-posta gönderilemedi. Lütfen adresi kontrol edin.";
-                        });
-                      } finally {
-                        setDialogState(() => isSending = false);
-                      }
-                    }
-                  },
-                  child: isSending
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text("Gönder"),
+                          const SizedBox(height: 12),
+                          Text(
+                            "Kayıtlı e-posta adresini gir, sana şifreni sıfırlaman için bir bağlantı gönderelim.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+                          ),
+                          const SizedBox(height: 24),
+                          TextFormField(
+                            controller: resetEmailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: "E-posta Adresi",
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16.0),
+                                borderSide: BorderSide.none,
+                              ),
+                              filled: true,
+                              fillColor: Colors.black.withValues(alpha: 0.05),
+                            ),
+                            validator: (value) {
+                              if (value == null || !RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(value)) {
+                                return 'Lütfen geçerli bir e-posta adresi girin.';
+                              }
+                              return null;
+                            },
+                          ),
+                          if (dialogError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12.0),
+                              child: Text(
+                                dialogError!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ],
+                actionsAlignment: MainAxisAlignment.center,
+                actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                actions: [
+                  // Butonları da Column içine alarak dikey simetriyi pekiştiriyoruz.
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16.0),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 2,
+                        ),
+                        onPressed: isSending ? null : () async {
+                          if (dialogFormKey.currentState!.validate()) {
+                            setDialogState(() {
+                              isSending = true;
+                              dialogError = null;
+                            });
+                            try {
+                              await _authService.sendPasswordResetEmail(resetEmailController.text.trim());
+                              if (!mounted) return;
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text("Şifre sıfırlama linki e-postana gönderildi!"),
+                                  backgroundColor: Colors.green.shade600,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            } catch (e) {
+                              setDialogState(() {
+                                dialogError = "Bir hata oluştu. Lütfen adresini kontrol et.";
+                              });
+                            } finally {
+                              if (mounted) {
+                                setDialogState(() => isSending = false);
+                              }
+                            }
+                          }
+                        },
+                        child: isSending
+                            ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                        )
+                            : const Text("Sıfırlama Linki Gönder", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(
+                          "İptal",
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -390,7 +472,7 @@ class _LoginScreenState extends State<LoginScreen>
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 fontWeight: FontWeight.w300,
               ),
             ),
@@ -420,10 +502,10 @@ class _LoginScreenState extends State<LoginScreen>
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
             prefixIcon: Icon(icon, color: Colors.white),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.1),
+            fillColor: Colors.white.withValues(alpha: 0.1),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16.0),
               borderSide: BorderSide.none,
@@ -431,7 +513,7 @@ class _LoginScreenState extends State<LoginScreen>
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16.0),
               borderSide:
-              BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+              BorderSide(color: Colors.white.withValues(alpha: 0.3), width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16.0),
@@ -464,7 +546,7 @@ class _LoginScreenState extends State<LoginScreen>
                     borderRadius: BorderRadius.circular(_isLoading ? 28.0 : 16.0),
                   ),
                   elevation: 8,
-                  shadowColor: Colors.black.withOpacity(0.5),
+                  shadowColor: Colors.black.withValues(alpha: 0.5),
                 ),
                 onPressed: _isLoading ? null : _login,
                 child: AnimatedSwitcher(
@@ -504,7 +586,7 @@ class _LoginScreenState extends State<LoginScreen>
         child: TextButton(
           child: Text(
             AppLocalizations.of(context)!.dontHaveAnAccount,
-            style: TextStyle(color: Colors.white.withOpacity(0.9)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.9)),
           ),
           onPressed: () {
             Navigator.push(
@@ -534,7 +616,7 @@ class _LoginScreenState extends State<LoginScreen>
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.white.withOpacity(0.6)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
@@ -606,7 +688,7 @@ class Particle {
     radius = random.nextDouble() * 2 + 1;
     speed = random.nextDouble() * 0.001;
     angle = random.nextDouble() * 2 * pi;
-    color = Colors.white.withOpacity(random.nextDouble() * 0.5);
+    color = Colors.white.withValues(alpha: random.nextDouble() * 0.5);
   }
 
   update() {

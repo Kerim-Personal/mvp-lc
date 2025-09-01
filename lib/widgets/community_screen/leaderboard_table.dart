@@ -113,7 +113,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
       case 'moderator':
         return Colors.orange;
       default:
-        return Colors.black87;
+        return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87);
     }
   }
 
@@ -148,7 +148,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
     };
 
     final isTop3 = rankInfo.containsKey(widget.user.rank);
-    final rankColor = isTop3 ? rankInfo[widget.user.rank]['color'] : Colors.grey.shade700;
+    final rankColor = isTop3 ? rankInfo[widget.user.rank]['color'] : Theme.of(context).colorScheme.primary.withValues(alpha: 0.75);
     final rankIcon = isTop3 ? rankInfo[widget.user.rank]['icon'] : null;
     final baseColor = _roleColor(widget.user.role);
 
@@ -168,9 +168,9 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
           borderRadius: BorderRadius.circular(16),
           gradient: isTop3 ? LinearGradient(
             stops: const [0.02, 0.02],
-            colors: [rankColor, Colors.white],
+            colors: [rankColor, Theme.of(context).colorScheme.surface],
           ) : null,
-          color: isTop3 ? null : Colors.white,
+          color: isTop3 ? null : Theme.of(context).colorScheme.surface,
         ),
         child: Row(
           children: [

@@ -44,6 +44,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   // Parallax effect
   Offset _mousePosition = Offset.zero;
 
+  // Multi-step wizard state
+  int _currentStep = 0;
+  late PageController _pageController;
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +70,8 @@ class _RegisterScreenState extends State<RegisterScreen>
             CurvedAnimation(
                 parent: _entryAnimationController,
                 curve: const Interval(0.2, 1.0, curve: Curves.easeInOutCubic)));
+
+    _pageController = PageController(initialPage: 0, keepPage: true);
   }
 
   @override
@@ -77,6 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _usernameController.dispose();
     _birthDateController.dispose();
     _nativeLanguageController.dispose(); // yeni
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -188,6 +195,86 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
+  // Step navigation helpers
+  void _goToStep(int step) {
+    final clamped = step.clamp(0, 2).toInt();
+    if (clamped == _currentStep) return;
+    setState(() => _currentStep = clamped);
+    _pageController.animateToPage(
+      clamped,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  bool _isValidEmail(String v) {
+    return RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(v);
+  }
+
+  bool _validateCurrentStep() {
+    // Adım bazlı temel kontroller (final doğrulama _register içinde yapılacak)
+    switch (_currentStep) {
+      case 0: // hesap bilgileri
+        final email = _emailController.text.trim();
+        final pass = _passwordController.text;
+        if (email.isEmpty || !_isValidEmail(email)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Geçerli bir e-posta girin.'), backgroundColor: Colors.red),
+          );
+          return false;
+        }
+        if (pass.length < 6) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Şifre en az 6 karakter olmalı.'), backgroundColor: Colors.red),
+          );
+          return false;
+        }
+        return true;
+      case 1: // profil bilgileri
+        final username = _usernameController.text.trim();
+        final birth = _birthDateController.text.trim();
+        if (username.isEmpty || username.length < 3) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Geçerli bir kullanıcı adı girin.'), backgroundColor: Colors.red),
+          );
+          return false;
+        }
+        if (birth.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Lütfen doğum tarihinizi seçin.'), backgroundColor: Colors.red),
+          );
+          return false;
+        }
+        return true;
+      case 2: // tercihler
+        if (_selectedNativeLanguageCode == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Lütfen anadilinizi seçin.'), backgroundColor: Colors.red),
+          );
+          return false;
+        }
+        if (_selectedGender == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Lütfen cinsiyetinizi seçin.'), backgroundColor: Colors.red),
+          );
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  void _handleNext() {
+    if (_validateCurrentStep()) {
+      _goToStep(_currentStep + 1);
+    }
+  }
+
+  void _handleBack() {
+    _goToStep(_currentStep - 1);
+  }
+
   void _register() async {
     if (!_formKey.currentState!.validate() || _selectedGender == null || _selectedNativeLanguageCode == null) {
       if (_selectedGender == null) {
@@ -251,11 +338,17 @@ class _RegisterScreenState extends State<RegisterScreen>
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Kayıt Hatası: ${e.message ?? "Bilinmeyen bir hata oluştu"}')),
-      );
+      if (e.code == 'username-taken') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bu kullanıcı adı artık alınmış. Lütfen başka bir ad deneyin.'), backgroundColor: Colors.red),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Kayıt Hatası: ${e.message ?? "Bilinmeyen bir hata oluştu"}')),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -312,94 +405,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: <Widget>[
                               _buildHeader(),
-                              const SizedBox(height: 30.0),
-                              _buildTextField(
-                                controller: _emailController,
-                                hintText: AppLocalizations.of(context)!.emailAddress, // <-- GÜNCELLENDİ
-                                icon: Icons.email_outlined,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Lütfen bir e-posta adresi girin.';
-                                  }
-                                  final bool emailValid = RegExp(
-                                      r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
-                                      .hasMatch(value);
-                                  if (!emailValid) {
-                                    return 'Lütfen geçerli bir e-posta adresi girin.';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 12.0),
-                              _buildTextField(
-                                  controller: _passwordController,
-                                  hintText: AppLocalizations.of(context)!.password, // <-- GÜNCELLENDİ
-                                  icon: Icons.lock_outline,
-                                  obscureText: true,
-                                  validator: (value) =>
-                                  (value == null || value.length < 6)
-                                      ? 'Şifre en az 6 karakter olmalı'
-                                      : null),
-                              const SizedBox(height: 12.0),
-                              _buildTextField(
-                                controller: _usernameController,
-                                hintText: AppLocalizations.of(context)!.username, // <-- GÜNCELLENDİ
-                                icon: Icons.person_outline,
-                                validator: (value) {
-                                  final v = value?.trim() ?? '';
-                                  if (v.isEmpty) return 'Lütfen bir kullanıcı adı girin';
-                                  if (v.length < 3) return 'Kullanıcı adı en az 3 karakter olmalı';
-                                  if (v.length > 29) return 'Kullanıcı adı en fazla 29 karakter olmalı';
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 12.0),
-                              _buildTextField(
-                                controller: _birthDateController,
-                                readOnly: true,
-                                hintText: AppLocalizations.of(context)!.birthDate, // <-- GÜNCELLENDİ
-                                icon: Icons.calendar_today_outlined,
-                                onTap: _showDatePicker,
-                                validator: (value) =>
-                                (value == null || value.isEmpty)
-                                    ? 'Lütfen doğum tarihinizi seçin'
-                                    : null,
-                              ),
-                              const SizedBox(height: 12.0),
-                              _buildTextField(
-                                controller: _nativeLanguageController,
-                                readOnly: true,
-                                hintText: 'Anadil',
-                                icon: Icons.language_outlined,
-                                onTap: _showLanguagePicker,
-                                validator: (value) => (value == null || value.isEmpty) ? 'Lütfen anadilinizi seçin' : null,
-                              ),
                               const SizedBox(height: 20.0),
-                              Text(AppLocalizations.of(context)!.selectYourGender, // <-- GÜNCELLENDİ
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 16)),
-                              const SizedBox(height: 10.0),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  GenderSelectionBox(
-                                      icon: Icons.female,
-                                      label: AppLocalizations.of(context)!.female, // <-- GÜNCELLENDİ
-                                      isSelected: _selectedGender == 'Female',
-                                      onTap: () =>
-                                          setState(() => _selectedGender = 'Female')),
-                                  GenderSelectionBox(
-                                      icon: Icons.male,
-                                      label: AppLocalizations.of(context)!.male, // <-- GÜNCELLENDİ
-                                      isSelected: _selectedGender == 'Male',
-                                      onTap: () =>
-                                          setState(() => _selectedGender = 'Male')),
-                                ],
-                              ),
-                              const SizedBox(height: 24.0),
-                              _buildRegisterButton(),
+                              _buildStepIndicator(),
+                              const SizedBox(height: 16.0),
+                              _buildStepsPager(),
+                              const SizedBox(height: 16.0),
+                              _buildStepperNav(),
                             ],
                           ),
                         ),
@@ -412,6 +423,234 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         ),
       ),
+    );
+  }
+
+  // Step indicator (3 adım)
+  Widget _buildStepIndicator() {
+    final steps = 3;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(steps, (i) {
+        final isActive = i == _currentStep;
+        final isDone = i < _currentStep;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          width: isActive ? 28 : 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: isActive
+                ? Colors.white
+                : (isDone ? Colors.white70 : Colors.white30),
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
+                : [],
+          ),
+        );
+      }),
+    );
+  }
+
+  // Pages container
+  Widget _buildStepsPager() {
+    final height = MediaQuery.of(context).size.height;
+    final pagerHeight = height.clamp(520, 760) - 360; // responsive yaklaşık yükseklik
+    return SizedBox(
+      height: pagerHeight.toDouble(),
+      child: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: (i) => setState(() => _currentStep = i),
+        children: [
+          _buildStepAccountInfo(),
+          _buildStepProfileInfo(),
+          _buildStepPreferences(),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepTitle(String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 14, color: Colors.white70),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildStepAccountInfo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _stepTitle('Hesap Bilgileri', 'E-posta ve şifreni belirle'),
+        _buildTextField(
+          controller: _emailController,
+          hintText: AppLocalizations.of(context)!.emailAddress,
+          icon: Icons.email_outlined,
+          keyboardType: TextInputType.emailAddress,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Lütfen bir e-posta adresi girin.';
+            }
+            if (!_isValidEmail(value)) {
+              return 'Lütfen geçerli bir e-posta adresi girin.';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 12.0),
+        _buildTextField(
+          controller: _passwordController,
+          hintText: AppLocalizations.of(context)!.password,
+          icon: Icons.lock_outline,
+          obscureText: true,
+          validator: (value) =>
+              (value == null || value.length < 6)
+                  ? 'Şifre en az 6 karakter olmalı'
+                  : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepProfileInfo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _stepTitle('Profil Bilgileri', 'Kullanıcı adın ve doğum tarihin'),
+        _buildTextField(
+          controller: _usernameController,
+          hintText: AppLocalizations.of(context)!.username,
+          icon: Icons.person_outline,
+          validator: (value) {
+            final v = value?.trim() ?? '';
+            if (v.isEmpty) return 'Lütfen bir kullanıcı adı girin';
+            if (v.length < 3) return 'Kullanıcı adı en az 3 karakter olmalı';
+            if (v.length > 29) return 'Kullanıcı adı en fazla 29 karakter olmalı';
+            return null;
+          },
+        ),
+        const SizedBox(height: 12.0),
+        _buildTextField(
+          controller: _birthDateController,
+          readOnly: true,
+          hintText: AppLocalizations.of(context)!.birthDate,
+          icon: Icons.calendar_today_outlined,
+          onTap: _showDatePicker,
+          validator: (value) =>
+              (value == null || value.isEmpty)
+                  ? 'Lütfen doğum tarihinizi seçin'
+                  : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepPreferences() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _stepTitle('Tercihler', 'Anadilini ve cinsiyetini seç'),
+        _buildTextField(
+          controller: _nativeLanguageController,
+          readOnly: true,
+          hintText: 'Anadil',
+          icon: Icons.language_outlined,
+          onTap: _showLanguagePicker,
+          validator: (value) => (value == null || value.isEmpty)
+              ? 'Lütfen anadilinizi seçin'
+              : null,
+        ),
+        const SizedBox(height: 20.0),
+        Text(
+          AppLocalizations.of(context)!.selectYourGender,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white70, fontSize: 16),
+        ),
+        const SizedBox(height: 10.0),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            GenderSelectionBox(
+              icon: Icons.female,
+              label: AppLocalizations.of(context)!.female,
+              isSelected: _selectedGender == 'Female',
+              onTap: () => setState(() => _selectedGender = 'Female'),
+            ),
+            GenderSelectionBox(
+              icon: Icons.male,
+              label: AppLocalizations.of(context)!.male,
+              isSelected: _selectedGender == 'Male',
+              onTap: () => setState(() => _selectedGender = 'Male'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12.0),
+      ],
+    );
+  }
+
+  Widget _buildStepperNav() {
+    final isLast = _currentStep == 2;
+    return Row(
+      children: [
+        if (_currentStep > 0)
+          OutlinedButton(
+            onPressed: _isLoading ? null : _handleBack,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Geri'),
+          ),
+        if (_currentStep > 0) const SizedBox(width: 12),
+        Expanded(
+          child: isLast
+              ? _buildRegisterButton()
+              : ElevatedButton(
+                  onPressed: _isLoading ? null : _handleNext,
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.teal.shade700,
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                    ),
+                    elevation: 8,
+                    shadowColor: Colors.black.withValues(alpha: 0.5),
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                  child: const Text(
+                    'İleri',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -452,7 +691,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return AnimatedBuilder(
       animation: _backgroundAnimationController,
       builder: (context, child) {
-        final animationValue = _backgroundAnimationController.value;
+        // final animationValue = _backgroundAnimationController.value; // kaldırıldı (kullanılmıyordu)
         final size = MediaQuery.of(context).size;
         final parallaxX = (_mousePosition.dx / size.width - 0.5) * 40;
         final parallaxY = (_mousePosition.dy / size.height - 0.5) * 40;
@@ -488,17 +727,17 @@ class _RegisterScreenState extends State<RegisterScreen>
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
         prefixIcon: Icon(icon, color: Colors.white, size: 20),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
+        fillColor: Colors.white.withValues(alpha: 0.1),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.0),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.0),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.0),
@@ -534,7 +773,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               borderRadius: BorderRadius.circular(_isLoading ? 28.0 : 16.0),
             ),
             elevation: 8,
-            shadowColor: Colors.black.withOpacity(0.5),
+            shadowColor: Colors.black.withValues(alpha: 0.5),
           ),
           onPressed: _isLoading ? null : _register,
           child: AnimatedSwitcher(
@@ -561,8 +800,6 @@ class _RegisterScreenState extends State<RegisterScreen>
       );
     });
   }
-
-  Widget _buildModelDownloadProgress() { return const SizedBox.shrink(); }
 }
 
 class GenderSelectionBox extends StatelessWidget {
@@ -590,19 +827,19 @@ class GenderSelectionBox extends StatelessWidget {
         height: 110,
         decoration: BoxDecoration(
           color: isSelected
-              ? Colors.white.withOpacity(0.25)
-              : Colors.white.withOpacity(0.1),
+              ? Colors.white.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? Colors.white
-                : Colors.white.withOpacity(0.3),
+                : Colors.white.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
               ? [
             BoxShadow(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               blurRadius: 10,
               spreadRadius: 2,
             )
@@ -684,7 +921,7 @@ class Particle {
     radius = random.nextDouble() * 2 + 1;
     speed = random.nextDouble() * 0.001;
     angle = random.nextDouble() * 2 * pi;
-    color = Colors.white.withOpacity(random.nextDouble() * 0.5);
+    color = Colors.white.withValues(alpha: random.nextDouble() * 0.5);
   }
 
   update() {

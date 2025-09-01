@@ -197,6 +197,8 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final isAuthor = currentUser?.uid == widget.post.userId;
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
     // Rol renkleri
     Color roleColor(String? role) {
       switch (role) {
@@ -205,7 +207,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
         case 'moderator':
           return Colors.orange;
         default:
-          return Colors.black87;
+          return onSurface.withValues(alpha: 0.87);
       }
     }
 
@@ -315,8 +317,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                             ],
                           ),
                           Text(_timeAgo(widget.post.timestamp),
-                              style: TextStyle(
-                                  color: Colors.grey.shade600, fontSize: 12)),
+                              style: TextStyle(fontSize: 10, color: onSurface.withValues(alpha: 0.55))),
                         ],
                       ),
                     ),

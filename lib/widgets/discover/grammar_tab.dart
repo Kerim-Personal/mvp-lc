@@ -295,8 +295,9 @@ class _LevelPathNodeState extends State<_LevelPathNode>
             ),
           ),
         ),
-      ),
-    );
+       ),
+      );
+
   }
 }
 
@@ -424,7 +425,7 @@ class GrammarLevelScreen extends StatelessWidget {
                       : TextDecoration.none,
                   color: isCompleted
                       ? Colors.grey.shade600
-                      : Colors.black87,
+                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87),
                   fontWeight: isCompleted
                       ? FontWeight.normal
                       : FontWeight.w600,

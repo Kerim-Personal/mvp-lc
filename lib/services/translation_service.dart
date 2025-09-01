@@ -3,6 +3,7 @@
 
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:collection';
 
 class TranslationModelDownloadState {
   final bool inProgress;
@@ -54,7 +55,9 @@ class TranslationService {
   static final TranslationService instance = TranslationService._();
 
   final Map<String, OnDeviceTranslator> _translators = {};
-  final Map<String, String> _cache = {}; // key: text|target
+  // key: "text|target". Basit LRU için LinkedHashMap kullanılır.
+  final LinkedHashMap<String, String> _cache = LinkedHashMap();
+  static const int _cacheLimit = 500; // makul bir sınır
 
   // Desteklenen 59 dil (ISO 639-1 kodu -> Görünen ad)
   static const List<Map<String, String>> supportedLanguages = [
@@ -180,6 +183,18 @@ class TranslationService {
 
   TranslateLanguage _langFromCode(String code) => _codeMap[code] ?? TranslateLanguage.english;
 
+  void _cachePut(String key, String value) {
+    // Mevcutsa yerine koy, değilse sona ekle
+    if (_cache.containsKey(key)) {
+      _cache.remove(key);
+    }
+    _cache[key] = value;
+    if (_cache.length > _cacheLimit) {
+      // En eski girdiyi sil
+      _cache.remove(_cache.keys.first);
+    }
+  }
+
   Future<String> translateFromEnglish(String text, String targetCode) async {
     if (text.trim().isEmpty) return text;
     if (targetCode == 'en') return text; // Aynı dil
@@ -196,7 +211,7 @@ class TranslationService {
         _translators[key] = translator;
       }
       final translated = await translator.translateText(text);
-      _cache[cacheKey] = translated;
+      _cachePut(cacheKey, translated);
       return translated;
     } catch (_) {
       return text; // Hata durumunda orijinal metni göster
@@ -209,11 +224,25 @@ class TranslationService {
 
   Future<bool> isModelReady(String targetCode) async {
     final neededCodes = <String>{'en', targetCode};
-    for (final c in neededCodes) {
-      final downloaded = await _modelManager.isModelDownloaded(c);
+    for (final code in neededCodes) {
+      final downloaded = await _modelManager.isModelDownloaded(code);
       if (!downloaded) return false;
     }
     return true;
+  }
+
+  /// Model mevcut değilse indirir ve hazır olana kadar bekler. Zaman aşımı atar.
+  Future<void> ensureReady(String targetCode, {Duration timeout = const Duration(seconds: 20)}) async {
+    if (await isModelReady(targetCode)) return;
+    await preDownloadModels(targetCode);
+    final start = DateTime.now();
+    while (true) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (await isModelReady(targetCode)) return;
+      if (DateTime.now().difference(start) > timeout) {
+        throw Exception('Model indirme zaman aşımı');
+      }
+    }
   }
 
   Future<void> preDownloadModels(String targetCode) async {
@@ -227,7 +256,6 @@ class TranslationService {
     // Mevcut durumları kontrol et
     int downloaded = 0;
     for (final code in neededCodes) {
-      // Manager String (dil kodu) bekliyor
       final isDownloaded = await _modelManager.isModelDownloaded(code);
       if (isDownloaded) downloaded++;
     }

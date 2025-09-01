@@ -2,10 +2,15 @@
     <!-- Medya ve kamera izinleri -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Yalnızca Android 32 ve altı için gerekli -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- İnternet erişimi Firebase ve ağ istekleri için gereklidir -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Mikrofon izni: Speech-to-Text için gerekli -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
-        android:label="lingua_chat"
+        android:label="Lingua Chat"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

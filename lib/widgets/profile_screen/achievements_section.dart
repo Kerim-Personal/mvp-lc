@@ -203,6 +203,7 @@ class _AchievementBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final a = achievement;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return SizedBox(
       width: 90,
       child: InkWell(
@@ -234,7 +235,7 @@ class _AchievementBadge extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: a.earned ? FontWeight.w600 : FontWeight.normal,
-                  color: a.earned ? Colors.black87 : Colors.grey.shade600,
+                  color: a.earned ? onSurface.withValues(alpha: 0.9) : onSurface.withValues(alpha: 0.55),
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 1,
@@ -282,6 +283,8 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
   @override
   Widget build(BuildContext context) {
     final a = widget.achievement;
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
     const double avatarSize = 100; // küçültüldü (110 -> 100)
     const double avatarVerticalOffset = -12; // hafif yukarı
     final double topCardPadding = avatarSize / 2 + 44; // avatar küçülünce ayarlandı
@@ -327,11 +330,11 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(a.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: .5)),
+                          Text(a.name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: .5, color: onSurface.withValues(alpha: .95))),
                           const SizedBox(height: 14),
                           Text(
                             a.description,
-                            style: TextStyle(fontSize: 15, color: Colors.black.withValues(alpha: .82), height: 1.4),
+                            style: TextStyle(fontSize: 15, color: onSurface.withValues(alpha: .82), height: 1.4),
                           ),
                           const SizedBox(height: 28),
                           Row(

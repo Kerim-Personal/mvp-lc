@@ -85,9 +85,10 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Text(
       title,
-      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: onSurface.withValues(alpha: 0.9)),
     );
   }
 }

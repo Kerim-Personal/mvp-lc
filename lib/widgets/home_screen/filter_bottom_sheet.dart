@@ -31,14 +31,19 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final onSurface = cs.onSurface;
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(20.0),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(25.0),
           topRight: Radius.circular(25.0),
         ),
+        border: Border(top: BorderSide(color: theme.dividerColor.withValues(alpha: 0.25))),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -47,24 +52,34 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           Text(
             widget.title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: theme.textTheme.titleMedium?.copyWith(fontSize: 20, fontWeight: FontWeight.bold, color: onSurface),
           ),
           const SizedBox(height: 20),
           ...widget.options.map((option) {
             final isSelected = _currentSelection == option;
             final displayLabel = widget.displayLabels?[option] ?? option;
+            final baseColor = onSurface.withValues(alpha: 0.85);
             return ListTile(
-              title: Text(displayLabel, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-              trailing: isSelected
-                  ? const Icon(Icons.check_circle, color: Colors.teal)
-                  : const Icon(Icons.radio_button_unchecked, color: Colors.grey),
+              title: Text(
+                displayLabel,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: baseColor,
+                ),
+              ),
+              trailing: Icon(
+                isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: isSelected ? cs.primary : theme.iconTheme.color?.withValues(alpha: 0.6),
+              ),
               onTap: () {
                 setState(() {
                   _currentSelection = option;
                 });
               },
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              tileColor: isSelected ? Colors.teal.withOpacity(0.1) : Colors.transparent,
+              tileColor: isSelected
+                  ? cs.primary.withValues(alpha: 0.12)
+                  : Colors.transparent,
             );
           }).toList(),
           const SizedBox(height: 24),
@@ -72,12 +87,10 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pop(context, null); // Return null to indicate clearing
-                  },
+                  onPressed: () => Navigator.pop(context, null),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey.shade700,
-                    side: BorderSide(color: Colors.grey.shade300),
+                    foregroundColor: onSurface.withValues(alpha: 0.8),
+                    side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.4)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -87,15 +100,13 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context, _currentSelection);
-                  },
+                  onPressed: () => Navigator.pop(context, _currentSelection),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
+                    backgroundColor: cs.primary,
+                    foregroundColor: cs.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 5,
+                    elevation: isDark ? 0 : 5,
                   ),
                   child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),

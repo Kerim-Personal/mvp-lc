@@ -21,10 +21,11 @@ class BlockedUsersScreen extends StatelessWidget {
       );
     }
 
-    // Kullanıcının 'blockedUsers' alanını dinlemek için stream
-    final userDocStream = FirebaseFirestore.instance
+    // Alt koleksiyon: users/{uid}/blockedUsers akışı
+    final blockedStream = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUser.uid)
+        .collection('blockedUsers')
         .snapshots();
 
     return Scaffold(
@@ -35,29 +36,29 @@ class BlockedUsersScreen extends StatelessWidget {
         foregroundColor: Colors.black87,
         elevation: 1,
       ),
-      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: userDocStream,
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: blockedStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || !snapshot.data!.exists) {
+          if (!snapshot.hasData) {
             return _buildEmptyState('Kullanıcı verisi bulunamadı.');
           }
 
-          final data = snapshot.data!.data()!;
-          final List<dynamic> blockedIds = (data['blockedUsers'] as List<dynamic>?) ?? const [];
-
-          if (blockedIds.isEmpty) {
+          final docs = snapshot.data!.docs;
+          if (docs.isEmpty) {
             return _buildEmptyState(
               'Henüz kimseyi engellemediniz.',
               icon: Icons.shield_outlined,
             );
           }
 
+          final blockedIds = docs.map((d) => d.id).toList(growable: false);
+
           // Engellenen kullanıcıların detaylarını çekmek için FutureBuilder
           return FutureBuilder<List<DocumentSnapshot<Map<String, dynamic>>>>(
-            future: _fetchBlockedUsers(blockedIds.cast<String>()),
+            future: _fetchBlockedUsers(blockedIds),
             builder: (context, usersSnap) {
               if (usersSnap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -66,14 +67,14 @@ class BlockedUsersScreen extends StatelessWidget {
                 return _buildEmptyState('Engellenen kullanıcı bulunamadı.');
               }
 
-              final docs = usersSnap.data!;
+              final userDocs = usersSnap.data!;
 
               // Engellenen kullanıcıları liste olarak göster
               return ListView.builder(
                 padding: const EdgeInsets.all(16.0),
-                itemCount: docs.length,
+                itemCount: userDocs.length,
                 itemBuilder: (context, index) {
-                  final doc = docs[index];
+                  final doc = userDocs[index];
                   final userData = doc.data();
                   return _buildBlockedUserCard(context, currentUser.uid, doc.id, userData);
                 },

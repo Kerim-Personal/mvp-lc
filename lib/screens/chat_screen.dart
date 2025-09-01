@@ -14,6 +14,7 @@ import 'package:lingua_chat/services/block_service.dart';
 import 'package:lingua_chat/services/translation_service.dart';
 import 'package:lingua_chat/services/linguabot_service.dart';
 import 'package:lingua_chat/models/grammar_analysis.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -35,14 +36,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isCurrentUserPremium = false;
   String _currentUserNativeLanguage = 'en';
   bool _canBan = false;
-  bool _autoTranslate = false; // yeni
-  StreamSubscription<DocumentSnapshot>? _userPrefSub; // yeni
-  StreamSubscription<DocumentSnapshot>? _partnerUserSub; // eklendi: partner doc dinleyici
-  Map<String, dynamic>? _currentUserDataCache; // eklendi: cache
-  Map<String, dynamic>? _partnerDataCache; // eklendi: cache
-  // yeni: current user native language
+  StreamSubscription<DocumentSnapshot>? _userPrefSub; // mevcut kullanıcı tercihleri
+  StreamSubscription<DocumentSnapshot>? _partnerUserSub; // partner doc dinleyici
+  // Engelleme durum dinleyicileri
+  StreamSubscription<DocumentSnapshot>? _myBlockDocSub;
+  StreamSubscription<DocumentSnapshot>? _theirBlockDocSub;
+
+  // yeni: engelleme durum state'i
   bool _interactionAllowed = true;
   bool _blockedByMe = false;
+  bool _blockedMe = false;
 
   late DateTime _chatStartTime;
   bool _isSaving = false;
@@ -101,27 +104,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _chatSubscription?.cancel();
     _heartbeatTimer?.cancel();
     _shimmerController.dispose();
-    _userPrefSub?.cancel(); // yeni
-    _partnerUserSub?.cancel(); // eklendi
+    _userPrefSub?.cancel();
+    _partnerUserSub?.cancel();
+    _myBlockDocSub?.cancel();
+    _theirBlockDocSub?.cancel();
     _scrollController.removeListener(_onScrollLoadMore);
     super.dispose();
   }
 
   void _updateBlockStateFromCaches() {
-    if (_currentUserDataCache == null || _partnerDataCache == null) return;
-    final currentUser = _currentUser;
-    final partnerId = _partnerId;
-    if (currentUser == null || partnerId == null) return;
-    final myBlocked = (_currentUserDataCache?['blockedUsers'] as List<dynamic>?) ?? const [];
-    final theirBlocked = (_partnerDataCache?['blockedUsers'] as List<dynamic>?) ?? const [];
-    final blockedByMe = myBlocked.contains(partnerId);
-    final blockedMe = theirBlocked.contains(currentUser.uid);
-    final interactionAllowed = !(blockedByMe || blockedMe);
-    if (blockedByMe != _blockedByMe || interactionAllowed != _interactionAllowed) {
+    final allowed = !(_blockedByMe || _blockedMe);
+    if (allowed != _interactionAllowed) {
       if (mounted) {
         setState(() {
-          _blockedByMe = blockedByMe;
-          _interactionAllowed = interactionAllowed;
+          _interactionAllowed = allowed;
         });
       }
     }
@@ -131,16 +127,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     try {
       final usersColl = FirebaseFirestore.instance.collection('users');
       final results = await Future.wait([
-        usersColl.doc(currentUserId).get(),
-        usersColl.doc(partnerId).get(),
+        usersColl.doc(currentUserId).collection('blockedUsers').doc(partnerId).get(),
+        usersColl.doc(partnerId).collection('blockedUsers').doc(currentUserId).get(),
       ]);
-      _currentUserDataCache = results[0].data();
-      _partnerDataCache = results[1].data();
+      _blockedByMe = results[0].exists;
+      _blockedMe = results[1].exists;
       _updateBlockStateFromCaches();
     } catch (_) {
       if (mounted) {
         setState(() {
           _blockedByMe = false;
+          _blockedMe = false;
           _interactionAllowed = true;
         });
       }
@@ -179,10 +176,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         if (mounted) {
           final isPremium = (partnerData?['isPremium'] as bool?) ?? false;
           _currentUserNativeLanguage = (currentUserData?['nativeLanguage'] as String?) ?? 'en';
-          _autoTranslate = (currentUserData?['autoTranslate'] as bool?) ?? false; // yeni
-          // cache initial
-          _currentUserDataCache = currentUserData;
-          _partnerDataCache = partnerData;
           setState(() {
             _partnerFuture = Future.value(results[0]);
             _isPartnerPremium = isPremium;
@@ -193,30 +186,48 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           }
         }
 
-        // Kullanıcı tercihlerini + engelleme durumunu dinle (gerçek zamanlı)
+        // Kullanıcı tercihlerini dinle (dil vb.)
         _userPrefSub = FirebaseFirestore.instance.collection('users').doc(currentUser.uid).snapshots().listen((snap) {
           final data = snap.data();
           if (data == null) return;
-          _currentUserDataCache = data;
           final nl = (data['nativeLanguage'] as String?) ?? 'en';
-          final at = (data['autoTranslate'] as bool?) ?? false;
           if (mounted) {
             setState(() {
               _currentUserNativeLanguage = nl;
-              _autoTranslate = at;
             });
           }
-          _updateBlockStateFromCaches();
         });
 
         _partnerUserSub = FirebaseFirestore.instance.collection('users').doc(partnerId).snapshots().listen((snap) {
           final data = snap.data();
           if (data == null) return;
-            _partnerDataCache = data;
+          final isPremium = (data['isPremium'] as bool?) ?? false;
+          if (mounted) setState(() => _isPartnerPremium = isPremium);
+        });
+
+        // Engelleme durumunu dinle
+        _myBlockDocSub = FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .collection('blockedUsers')
+            .doc(partnerId)
+            .snapshots()
+            .listen((doc) {
+          _blockedByMe = doc.exists;
+          _updateBlockStateFromCaches();
+        });
+        _theirBlockDocSub = FirebaseFirestore.instance
+            .collection('users')
+            .doc(partnerId)
+            .collection('blockedUsers')
+            .doc(currentUser.uid)
+            .snapshots()
+            .listen((doc) {
+          _blockedMe = doc.exists;
           _updateBlockStateFromCaches();
         });
 
-        // Yeni: Engelleme durumunu ilk kez güncelle (cache ile)
+        // İlk kez engelleme durumunu getir
         await _refreshBlockState(currentUser.uid, partnerId);
 
         _listenToChatChanges();
@@ -382,49 +393,185 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   void _showPartnerLeftDialog(String message) {
     if (!mounted) return;
+    final theme = Theme.of(context);
     final navigator = Navigator.of(context);
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sohbet Sona Erdi'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            child: const Text('Ana Sayfa'),
-            onPressed: () {
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const RootScreen()),
-                    (route) => false,
-              );
-            },
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (ctx) {
+        final Color surface = theme.colorScheme.surface;
+        final Color onSurface = theme.colorScheme.onSurface.withValues(alpha: 0.85);
+        final Color accent = theme.colorScheme.primary;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                color: surface,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.20), blurRadius: 20, offset: const Offset(0, 10)),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(Icons.info_rounded, color: accent, size: 28),
+                    ),
+                    const SizedBox(height: 14),
+                    Text('Sohbet Sona Erdi',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: onSurface.withValues(alpha: 0.85)),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        icon: const Icon(Icons.home_rounded),
+                        label: const Text('Ana Sayfa'),
+                        onPressed: () {
+                          navigator.pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (context) => const RootScreen()),
+                                (route) => false,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _handleLeaveAttempt() {
-    showDialog(
+    _showLeaveBottomSheet();
+  }
+
+  void _showLeaveBottomSheet() {
+    if (!mounted) return;
+    final theme = Theme.of(context);
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sohbetten Ayrıl'),
-        content: const Text(
-            'Bu sohbeti sonlandırmak istediğinizden emin misiniz?'),
-        actions: [
-          TextButton(
-            child: const Text('İptal'),
-            onPressed: () => Navigator.of(ctx).pop(),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final Color surface = theme.colorScheme.surface;
+        final Color onSurface = theme.colorScheme.onSurface.withValues(alpha: 0.85);
+        final Color danger = Colors.red.shade600;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                color: surface,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.20), blurRadius: 20, offset: const Offset(0, 10)),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: danger.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(Icons.logout_rounded, color: danger, size: 28),
+                    ),
+                    const SizedBox(height: 14),
+                    Text('Sohbetten Ayrıl',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Bu sohbeti sonlandırmak istediğinizden emin misiniz?',
+                      style: theme.textTheme.bodyMedium?.copyWith(color: onSurface.withValues(alpha: 0.8)),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: onSurface,
+                              side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.4)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('İptal'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: danger,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            icon: const Icon(Icons.exit_to_app_rounded),
+                            label: const Text('Ayrıl'),
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              _leaveChat();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                ),
+              ),
+            ),
           ),
-          TextButton(
-            child: const Text('Ayrıl', style: TextStyle(color: Colors.red)),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              _leaveChat();
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -439,8 +586,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          backgroundColor: Theme.of(context).cardColor,
-          elevation: 1,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFE0F2F1), Color(0xFFB2DFDB)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
           title: FutureBuilder<DocumentSnapshot>(
             future: _partnerFuture,
             builder: (context, snapshot) {
@@ -607,127 +763,209 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             )
           ],
         ),
-        body: Column(
-          children: <Widget>[
-            if (!_interactionAllowed)
-              Container(
-                width: double.infinity,
-                color: Colors.orange.withValues(alpha: 0.15),
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  _blockedByMe
-                      ? 'Bu kullanıcıyı engellediniz. Mesaj göndermek için engeli kaldırın.'
-                      : 'Bu kullanıcı sizi engellemiş. Mesaj gönderemezsiniz.',
-                  style: const TextStyle(color: Colors.black87),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFF7F9FC), Color(0xFFEFF3F6)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: Column(
+            children: <Widget>[
+              if (!_interactionAllowed)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withAlpha(28),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    _blockedByMe
+                        ? 'Bu kullanıcıyı engellediniz. Mesaj göndermek için engeli kaldırın.'
+                        : 'Bu kullanıcı sizi engellemiş. Mesaj gönderemezsiniz.',
+                    style: const TextStyle(color: Colors.black87),
+                  ),
                 ),
-              ),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('chats')
-                    .doc(widget.chatRoomId)
-                    .collection('messages')
-                    .orderBy('createdAt', descending: true)
-                    .limit(_messageLimit)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  // Spinner sadece ilk veri yokken gosterilsin; sonraki anlik gecikmelerde flicker olmasin
-                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(
-                        child: Text('Konuşmayı başlatmak için selam ver!'));
-                  }
-                  final chatDocs = snapshot.data!.docs;
-                  // sayfalama durum güncelle
-                  final reachedFullPage = chatDocs.length >= _messageLimit;
-                  // Eğer isLoadingMore ve yeni snapshot geldi ise loadingMore false'a dön
-                  if (_isLoadingMore) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isLoadingMore = false);
-                    });
-                  }
-                  // Daha fazla veri var mı: snapshot boyutu limitten küçükse artık yok
-                  final newHasMore = reachedFullPage; // limit doluysa muhtemelen devamı var
-                  if (newHasMore != _hasMore) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _hasMore = newHasMore);
-                    });
-                  }
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
-                    itemCount: chatDocs.length + (_hasMore ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (_hasMore && index == chatDocs.length) {
-                        // üst tarafta (eski mesajlara) loader göstergesi
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          child: Center(
-                            child: SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: _isLoadingMore
-                                  ? const CircularProgressIndicator(strokeWidth: 2)
-                                  : const SizedBox.shrink(),
+              // Çeviri modeli indirme durumu chip'i
+              ValueListenableBuilder(
+                valueListenable: TranslationService.instance.downloadState,
+                builder: (context, state, _) {
+                  if (state.inProgress && state.targetCode == _currentUserNativeLanguage) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withAlpha(18),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.teal.withAlpha(60)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                          ),
-                        );
-                      }
-                      final doc = chatDocs[index];
-                      final message = doc.data() as Map<String, dynamic>;
-                      final isMe = message['userId'] == _currentUser?.uid;
-                      final isPremium = isMe ? _isCurrentUserPremium : _isPartnerPremium;
-                      final GrammarAnalysis? ga = isMe ? _grammarCache[doc.id] : null;
-                      final bool analyzing = isMe && _analyzing.contains(doc.id);
-                      return MessageBubble(
-                        message: message['text'],
-                        timestamp: message['createdAt'],
-                        isMe: isMe,
-                        isPremium: isPremium,
-                        canTranslate: _autoTranslate && _isCurrentUserPremium && !isMe && _currentUserNativeLanguage != 'en',
-                        targetLanguageCode: _currentUserNativeLanguage,
-                        grammarAnalysis: ga,
-                        analyzing: analyzing,
-                        onRequestAnalysis: () async {
-                          if (!_isCurrentUserPremium) return;
-                          if (analyzing) return;
-                          setState(() => _analyzing.add(doc.id));
-                          final a = await _grammarService.analyzeGrammar(message['text']);
-                          if (!mounted) return;
-                          setState(() {
-                            _analyzing.remove(doc.id);
-                            if (a != null) _grammarCache[doc.id] = a;
-                          });
-                        },
-                      );
-                    },
-                  );
+                            const SizedBox(width: 10),
+                            Text('Çeviri modeli indiriliyor: ${state.downloaded}/${state.total}'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  if (state.error != null && state.targetCode == _currentUserNativeLanguage) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withAlpha(18),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.redAccent.withAlpha(80)),
+                        ),
+                        child: Text('Çeviri modeli indirilemedi: ${state.error}', style: const TextStyle(color: Colors.redAccent)),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
                 },
               ),
-            ),
-            _MessageComposer(
-              chatRoomId: widget.chatRoomId,
-              currentUser: _currentUser,
-              enabled: _interactionAllowed,
-              isPremium: _isCurrentUserPremium,
-              onAfterSend: (text, ref) async {
-                if (_isCurrentUserPremium) {
-                  setState(() => _analyzing.add(ref.id));
-                  final analysis = await _grammarService.analyzeGrammar(text);
-                  if (!mounted) return;
-                  setState(() {
-                    _analyzing.remove(ref.id);
-                    if (analysis != null) {
-                      _grammarCache[ref.id] = analysis;
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('chats')
+                      .doc(widget.chatRoomId)
+                      .collection('messages')
+                      .orderBy('createdAt', descending: true)
+                      .limit(_messageLimit)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    // Spinner sadece ilk veri yokken gosterilsin; sonraki anlik gecikmelerde flicker olmasin
+                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
                     }
-                  });
-                }
-              },
-            ),
-          ],
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(
+                          child: Text('Konuşmayı başlatmak için selam ver!'));
+                    }
+                    final chatDocs = snapshot.data!.docs;
+                    // sayfalama durum güncelle
+                    final reachedFullPage = chatDocs.length >= _messageLimit;
+                    // Eğer isLoadingMore ve yeni snapshot geldi ise loadingMore false'a dön
+                    if (_isLoadingMore) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _isLoadingMore = false);
+                      });
+                    }
+                    // Daha fazla veri var mı: snapshot boyutu limitten küçüksa artık yok
+                    final newHasMore = reachedFullPage; // limit doluysa muhtemelen devamı var
+                    if (newHasMore != _hasMore) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _hasMore = newHasMore);
+                      });
+                    }
+                    return ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
+                      itemCount: chatDocs.length + (_hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (_hasMore && index == chatDocs.length) {
+                          // üst tarafta (eski mesajlara) loader göstergesi
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                            child: Center(
+                              child: SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: _isLoadingMore
+                                    ? const CircularProgressIndicator(strokeWidth: 2)
+                                    : const SizedBox.shrink(),
+                              ),
+                            ),
+                          );
+                        }
+                        final doc = chatDocs[index];
+                        final message = doc.data() as Map<String, dynamic>;
+                        final isMe = message['userId'] == _currentUser?.uid;
+                        final isPremium = isMe ? _isCurrentUserPremium : _isPartnerPremium;
+                        final GrammarAnalysis? ga = isMe ? _grammarCache[doc.id] : null;
+                        final bool analyzing = isMe && _analyzing.contains(doc.id);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                            children: [
+                              if (!isMe)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 8, top: 4),
+                                  width: 28,
+                                  height: 28,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFFB2DFDB),
+                                  ),
+                                  child: const Icon(Icons.person, size: 16, color: Color(0xFF00695C)),
+                                ),
+                              Flexible(
+                                child: MessageBubble(
+                                  key: ValueKey(doc.id),
+                                  message: message['text'],
+                                  timestamp: message['createdAt'],
+                                  isMe: isMe,
+                                  isPremium: isPremium,
+                                  canTranslate: _isCurrentUserPremium && !isMe && _currentUserNativeLanguage != 'en',
+                                  targetLanguageCode: _currentUserNativeLanguage,
+                                  grammarAnalysis: ga,
+                                  analyzing: analyzing,
+                                  onRequestAnalysis: () async {
+                                    if (!_isCurrentUserPremium) return;
+                                    if (analyzing) return;
+                                    setState(() => _analyzing.add(doc.id));
+                                    final a = await _grammarService.analyzeGrammar(message['text']);
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _analyzing.remove(doc.id);
+                                      if (a != null) _grammarCache[doc.id] = a;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              _MessageComposer(
+                chatRoomId: widget.chatRoomId,
+                currentUser: _currentUser,
+                enabled: _interactionAllowed,
+                isPremium: _isCurrentUserPremium,
+                onAfterSend: (text, ref) async {
+                  if (_isCurrentUserPremium) {
+                    setState(() => _analyzing.add(ref.id));
+                    final analysis = await _grammarService.analyzeGrammar(text);
+                    if (!mounted) return;
+                    setState(() {
+                      _analyzing.remove(ref.id);
+                      if (analysis != null) {
+                        _grammarCache[ref.id] = analysis;
+                      }
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -751,6 +989,25 @@ class _MessageComposer extends StatefulWidget {
 class _MessageComposerState extends State<_MessageComposer> {
   final _messageController = TextEditingController();
   bool _isComposing = false;
+  bool _showEmoticons = false;
+
+  // STT geri eklendi
+  final SpeechToText _speech = SpeechToText();
+  bool _speechReady = false;
+  bool _listening = false;
+  String _speechBaseText = '';
+
+  final List<String> _textEmoticons = const [
+    ':)', ':(', ';)', ':D', ':P', ':O', ':/', ':|', 'XD', 'T_T', '^^', '^^;', '>_<', '^_^', 'o_O', 'O_o', '-_-', '=_=',
+    ':3', '>:(', ':-)', ':-(', ':-D', ':-P', ':-O', ':-|', ':-/', ';-)', '(^_^)', '(>_<)', '(T_T)', '(._.)', '(o_O)',
+    '(^o^)/', '(¬_¬)', '(•_•)', '(•‿•)', '(☞ﾟ∀ﾟ)☞', '(づ｡◕‿‿◕｡)づ', '(╯°□°）��︵ ┻━┻', '┬─��� ノ( ゜-゜ノ)', '(ಥ﹏ಥ)', '(づ￣ ³￣)づ',
+    '¯\\_(ツ)_/¯', '(ง •̀_•́)ง', '(*_*)', '(✿◠‿◠)', '(◕‿◕)', '(ᵔᴥᵔ)', '（＾ｖ＾）', '(ʘ‿ʘ)', '(ง’̀-’́)ง', '(✧ω✧)', '(◔_◔)', '(◕‿↼)',
+    '(≧▽≦)', '(￣ー￣)', '(>‿◠)', '(✿╹◡╹)', '(��ᴗ◕✿)', '(*≧ω≦)', '(｡◕‿‿◕｡)', '(｀・ω・´)', '(；一_一)', '(●´ω｀●)', '(ノಠ益ಠ)ノ彡┻━┻',
+    '(☞ ͡° ͜ʖ ͡°)☞', '( ͡° ͜ʖ ͡°)', '(⌐■_■)', '(●__●)', '(>_<)', '(^人^)', '(◡‿◡*)', '(✿´‿`)', '(●´∀｀●)', '(•̀ᴗ•́)و ̑̑',
+    '(ᕗ ͠° ਊ ͠° )ᕗ', '(ノ´∀`)ノ', '(๑˃̵ᴗ˂̵)و', '(๑•̀ㅂ•́)و✧', '(´･_･`)', '(´；ω；`)', '(￣^￣)ゞ', '(-‿◦☀)', '(｡•̀ᴗ-)✧', '(~_^)', '(*￣▽￣)b',
+    '(づᴗ_ᴗ)づ', 'ヽ(•‿•)ノ', '(งツ)���', 'ヽ(´ー｀)ノ', 'ಠ_ಠ', 'ʕ•ᴥ•ʔ', '(•ө•)♡', '(ง •̀ω•́)ง✧', '(✿◕‿◕)', '(~˘▾˘)~', '(•̀▁•́ )', '(*￣3￣)╭',
+    'ヾ(＾-＾)ノ', '(〃＾▽＾〃)', '(￣ω￣;)', '(๑•́ ₃ •̀๑)', '(๑˘︶˘๑)', '(๑ᵕ⌓ᵕ๑)', '(´∀｀)♡', '(*^▽^*)', '(￣▽￣)ノ', 'ヽ(〃＾▽＾〃)ﾉ',
+  ];
 
   @override
   void initState() {
@@ -763,11 +1020,58 @@ class _MessageComposerState extends State<_MessageComposer> {
         });
       }
     });
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    _speechReady = await _speech.initialize(onStatus: (s) {
+      if (s == 'done' || s == 'notListening') {
+        if (mounted) setState(() => _listening = false);
+      }
+    }, onError: (e) {
+      if (mounted) setState(() => _listening = false);
+    });
+    if (mounted) setState(() {});
+  }
+
+  void _toggleEmoticons() {
+    setState(() => _showEmoticons = !_showEmoticons);
+  }
+
+  Future<void> _toggleListening() async {
+    if (!_speechReady) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cihaz konuşmayı tanımayı desteklemiyor veya izin verilmedi.')));
+      return;
+    }
+    if (_listening) {
+      await _speech.stop();
+      setState(() => _listening = false);
+      return;
+    }
+    _speechBaseText = _messageController.text;
+    setState(() => _listening = true);
+    await _speech.listen(onResult: (res) {
+      final recognized = res.recognizedWords;
+      final newText = (_speechBaseText.isEmpty ? recognized : (_speechBaseText + (recognized.isEmpty ? '' : ' ' + recognized)));
+      _messageController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: newText.length));
+    });
+  }
+
+  void _insertEmoticon(String emo) {
+    final text = _messageController.text;
+    final sel = _messageController.selection;
+    final start = sel.start >= 0 ? sel.start : text.length;
+    final end = sel.end >= 0 ? sel.end : text.length;
+    final newText = text.replaceRange(start, end, emo);
+    _messageController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: start + emo.length));
   }
 
   @override
   void dispose() {
     _messageController.dispose();
+    if (_listening) {
+      _speech.stop();
+    }
     super.dispose();
   }
 
@@ -804,39 +1108,97 @@ class _MessageComposerState extends State<_MessageComposer> {
   @override
   Widget build(BuildContext context) {
     final canType = widget.enabled && widget.currentUser != null;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [BoxShadow(offset: const Offset(0, -2), blurRadius: 5, color: Colors.black.withAlpha(10))],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                enabled: canType,
-                textCapitalization: TextCapitalization.sentences,
-                minLines: 1,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  hintText: canType ? 'Mesajını yaz...' : 'Mesaj gönderme devre dışı',
-                  filled: true,
-                  fillColor: Colors.grey.withAlpha(50),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(25.0), borderSide: BorderSide.none),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.send_rounded),
-                    color: (_isComposing && canType) ? Colors.teal : Colors.grey,
-                    onPressed: (_isComposing && canType) ? _sendMessage : null,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
+          ),
+          child: SafeArea(
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28.0),
+                      boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), blurRadius: 10, offset: const Offset(0, 4))],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.emoji_emotions_outlined),
+                          color: _showEmoticons ? Colors.teal : Colors.grey[600],
+                          onPressed: canType ? _toggleEmoticons : null,
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _messageController,
+                            enabled: canType,
+                            textCapitalization: TextCapitalization.sentences,
+                            minLines: 1,
+                            maxLines: 5,
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Mesajını yaz...',
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(_listening ? Icons.mic : Icons.mic_none),
+                          color: _listening ? Colors.teal : Colors.grey[600],
+                          onPressed: canType ? _toggleListening : null,
+                        ),
+                        const SizedBox(width: 4),
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: (_isComposing && canType) ? Colors.teal : Colors.grey[400],
+                          child: IconButton(
+                            icon: const Icon(Icons.send_rounded, color: Colors.white),
+                            onPressed: (_isComposing && canType) ? _sendMessage : null,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        if (_showEmoticons)
+          Container(
+            height: 180,
+            margin: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 10, offset: const Offset(0, 4))],
+            ),
+            child: GridView.builder(
+              itemCount: _textEmoticons.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 6,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 2.6,
+              ),
+              itemBuilder: (context, i) {
+                final emo = _textEmoticons[i];
+                return OutlinedButton(
+                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), side: BorderSide(color: Colors.grey.withAlpha(120)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  onPressed: () => _insertEmoticon(emo),
+                  child: Text(emo, style: const TextStyle(fontSize: 12)),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 }
@@ -861,69 +1223,8 @@ class MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<MessageBubble> {
   String? _translated;
   bool _translating = false;
-  bool _showTranslation = true; // gösterim şekli: orijinal üstte çeviri altta
+  bool _showTranslation = true;
   String? _error;
-
-  Future<void> _handleTranslate() async {
-    if (_translated != null) {
-      // Toggle gösterimi: çeviri zaten alınmış; göster/gizle
-      setState(() => _showTranslation = !_showTranslation);
-      return;
-    }
-    setState(() { _translating = true; _error = null; });
-    try {
-      // Model hazır değilse indir (sessiz)
-      final ready = await TranslationService.instance.isModelReady(widget.targetLanguageCode);
-      if (!ready) {
-        await TranslationService.instance.preDownloadModels(widget.targetLanguageCode);
-        // Basit bekleme döngüsü: model hazır olana dek (timeout ~20s)
-        final start = DateTime.now();
-        while (true) {
-          await Future.delayed(const Duration(milliseconds: 300));
-            final ok = await TranslationService.instance.isModelReady(widget.targetLanguageCode);
-          if (ok) break;
-          if (DateTime.now().difference(start).inSeconds > 20) {
-            throw Exception('Zaman aşımı');
-          }
-        }
-      }
-      final tr = await TranslationService.instance.translateFromEnglish(widget.message, widget.targetLanguageCode);
-      setState(() { _translated = tr; _showTranslation = true; });
-    } catch (e) {
-      setState(() { _error = 'Çeviri başarısız: ${e.toString()}'; });
-    } finally {
-      if (mounted) setState(() { _translating = false; });
-    }
-  }
-
-  void _showGrammarDialog() {
-    if (widget.grammarAnalysis == null) return;
-    final ga = widget.grammarAnalysis!;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.black87,
-        title: const Text('Gramer Analizi', style: TextStyle(color: Colors.cyanAccent)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Zaman: ${ga.tense}', style: const TextStyle(color: Colors.white70)),
-            Text('İsim: ${ga.nounCount}  Fiil: ${ga.verbCount}  Sıfat: ${ga.adjectiveCount}', style: const TextStyle(color: Colors.white70)),
-            Text('Duygu: ${(ga.sentiment).toStringAsFixed(2)}  Karmaşıklık: ${(ga.complexity).toStringAsFixed(2)}', style: const TextStyle(color: Colors.white70)),
-            Text('Formallik: ${ga.formality.name}', style: const TextStyle(color: Colors.white70)),
-            if (ga.corrections.isNotEmpty) const SizedBox(height: 8),
-            if (ga.corrections.isNotEmpty) const Text('Düzeltmeler:', style: TextStyle(color: Colors.orangeAccent)),
-            if (ga.corrections.isNotEmpty)
-              ...ga.corrections.entries.take(5).map((e) => Text('${e.key} → ${e.value}', style: const TextStyle(color: Colors.white, fontSize: 13))),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Kapat')),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -937,95 +1238,94 @@ class _MessageBubbleState extends State<MessageBubble> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.message, style: TextStyle(color: baseTextColor.withValues(alpha: 0.75), fontSize: 14, fontStyle: FontStyle.italic)),
-          const SizedBox(height: 4),
-          Text(_translated!, style: TextStyle(color: baseTextColor, fontSize: 16, fontWeight: FontWeight.w500)),
+          Text(widget.message, style: TextStyle(color: baseTextColor.withValues(alpha: 0.70), fontSize: 14, fontStyle: FontStyle.italic)),
+          const SizedBox(height: 6),
+          Text(_translated!, style: TextStyle(color: baseTextColor, fontSize: 16, fontWeight: FontWeight.w600)),
         ],
       );
     } else {
-      content = Text(widget.message, style: TextStyle(color: baseTextColor, fontSize: 16));
+      content = Text(widget.message, style: TextStyle(color: baseTextColor, fontSize: 16, height: 1.3));
     }
 
-    final translateIcon = widget.canTranslate
-        ? Positioned(
-            bottom: 0,
-            right: 0,
-            child: InkWell(
-              onTap: _translating ? null : _handleTranslate,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: _translating
-                    ? Container(
-                        key: const ValueKey('prog'),
-                        width: 22,
-                        height: 22,
-                        decoration: _iconDecoration(isMe),
-                        padding: const EdgeInsets.all(3),
-                        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(isMe ? Colors.white : Colors.teal)),
-                      )
-                    : Container(
-                        key: ValueKey(_translated == null ? 't1' : (_showTranslation ? 't2' : 't3')),
-                        width: 22,
-                        height: 22,
-                        decoration: _iconDecoration(isMe),
-                        child: Icon(
-                          _translated == null
-                              ? Icons.translate_outlined
-                              : (_showTranslation ? Icons.visibility_off : Icons.visibility),
-                          size: 14,
-                          color: isMe ? Colors.white : Colors.teal.shade700,
-                        ),
-                      ),
-              ),
-            ),
-          )
-        : const SizedBox.shrink();
-
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
       child: Column(
         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Balon + sağda ikon için boşluk
-              Padding(
-                padding: EdgeInsets.only(right: widget.canTranslate ? 28 : 0),
-                child: GestureDetector(
-                  onLongPress: () {
-                    if (widget.isMe && widget.grammarAnalysis != null) {
-                      _showGrammarDialog();
-                    }
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: widget.isPremium
-                          ? LinearGradient(
-                              colors: isMe
-                                  ? [const Color(0xFFE5B53A), const Color(0xFFC08A0A)]
-                                  : [Colors.grey.shade300, Colors.grey.shade400],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: widget.isPremium ? null : (isMe ? Colors.teal[400] : Colors.grey[300]),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: !isMe ? const Radius.circular(4) : const Radius.circular(16),
-                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
-                      ),
-                    ),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    child: content,
-                  ),
-                ),
+          // Balon kutusu
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            decoration: BoxDecoration(
+              gradient: widget.isPremium
+                  ? LinearGradient(
+                      colors: isMe
+                          ? [const Color(0xFF26A69A), const Color(0xFF2BBBAD)]
+                          : [Colors.white, Colors.white],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : (isMe
+                      ? const LinearGradient(
+                          colors: [Color(0xFF26A69A), Color(0xFF2BBBAD)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null),
+              color: (!widget.isPremium && !isMe) ? Colors.white : null,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: !isMe ? const Radius.circular(6) : const Radius.circular(16),
+                bottomRight: isMe ? const Radius.circular(6) : const Radius.circular(16),
               ),
-              translateIcon,
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(20),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            child: content,
           ),
+          // Balon altı aksiyon satırı (çeviri butonu ve hatalar)
+          if (widget.canTranslate)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(10, 32), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                    onPressed: _translating
+                        ? null
+                        : () async {
+                            if (_translated != null) {
+                              setState(() => _showTranslation = !_showTranslation);
+                              return;
+                            }
+                            setState(() { _translating = true; _error = null; });
+                            try {
+                              await TranslationService.instance.ensureReady(widget.targetLanguageCode);
+                              final tr = await TranslationService.instance.translateFromEnglish(widget.message, widget.targetLanguageCode);
+                              setState(() { _translated = tr; _showTranslation = true; });
+                            } catch (e) {
+                              setState(() { _error = 'Çeviri başarısız: ${e.toString()}'; });
+                            } finally {
+                              if (mounted) setState(() { _translating = false; });
+                            }
+                          },
+                    icon: _translating
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(_translated == null ? Icons.translate_outlined : (_showTranslation ? Icons.visibility_off : Icons.visibility), size: 16),
+                    label: Text(_translated == null ? 'Çevir' : (_showTranslation ? 'Gizle' : 'Göster')),
+                  ),
+                ],
+              ),
+            ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 2, left: 8, right: 8),
@@ -1033,18 +1333,11 @@ class _MessageBubbleState extends State<MessageBubble> {
             ),
           const SizedBox(height: 4),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 6.0),
             child: Text(formattedTime, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
           ),
         ],
       ),
     );
   }
-
-  BoxDecoration _iconDecoration(bool isMe) => BoxDecoration(
-        color: (isMe ? Colors.teal[600] : Colors.white),
-        shape: BoxShape.circle,
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
-        border: Border.all(color: isMe ? Colors.white70 : Colors.teal.shade200, width: 1),
-      );
 }

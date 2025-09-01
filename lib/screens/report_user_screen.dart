@@ -219,8 +219,8 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Kullanıcıyı Bildir'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 1,
       ),
       body: Form(

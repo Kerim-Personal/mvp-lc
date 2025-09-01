@@ -135,46 +135,68 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomNav(List<GButton> tabs) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Arka plan ile daha uyumlu, hafif saydam yüzey rengi
+    final Color backgroundColor = (isDark ? cs.surface : Colors.white).withValues(alpha: isDark ? 0.92 : 0.96);
+    final Color shadowColor = isDark ? Colors.black.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.05);
+    final Color inactiveColor = isDark ? cs.onSurface.withValues(alpha: 0.65) : Colors.black54;
+    final Color activeTabColor = cs.primary; // sekme arka planı
+    final Color activeIconColor = cs.onPrimary; // aktif ikon + yazı
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: backgroundColor,
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.04),
+            width: 0.6,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            blurRadius: 20,
-            color: Colors.black.withOpacity(0.05),
-          )
+            blurRadius: 18,
+            offset: const Offset(0, -2),
+            color: shadowColor,
+          ),
         ],
       ),
       child: SafeArea(
+        top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
           child: GNav(
-            rippleColor: Colors.grey[300]!,
-            hoverColor: Colors.grey[100]!,
+            rippleColor: activeTabColor.withValues(alpha: 0.18),
+            hoverColor: activeTabColor.withValues(alpha: 0.10),
             gap: 8,
-            activeColor: Colors.white,
+            activeColor: activeIconColor,
             iconSize: 24,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            duration: const Duration(milliseconds: 100),
-            tabBackgroundColor: Colors.teal.shade400,
-            color: Colors.black54,
+            duration: const Duration(milliseconds: 140),
+            tabBackgroundColor: activeTabColor,
+            color: inactiveColor,
             tabs: tabs.asMap().entries.map((entry) {
               int idx = entry.key;
               GButton tab = entry.value;
+              final bool selected = _selectedIndex == idx;
               return GButton(
                 icon: tab.icon,
-                text: tab.text!,
-                leading: _selectedIndex == idx
+                text: tab.text,
+                leading: selected
                     ? ScaleTransition(
                         scale: _scaleAnimation,
                         child: Icon(
                           tab.icon,
-                          color: Colors.white,
+                          color: activeIconColor,
                         ),
                       )
                     : Icon(
                         tab.icon,
-                        color: Colors.black54,
+                        color: inactiveColor,
                       ),
               );
             }).toList(),

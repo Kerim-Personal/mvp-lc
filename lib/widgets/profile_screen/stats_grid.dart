@@ -17,8 +17,8 @@ class StatsGrid extends StatelessWidget {
     required this.streak,
     required this.totalPracticeTime,
     required this.partnerCount,
-    this.newWords = 24, // Şimdilik varsayılan değer
-    this.highestStreak = 12, // Şimdilik varsayılan değer
+    this.newWords = 0, // varsayılan 0
+    this.highestStreak = 0, // varsayılan 0
   });
 
   @override

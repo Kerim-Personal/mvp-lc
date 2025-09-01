@@ -149,7 +149,7 @@ class _SupportTicketDetailScreenState extends State<SupportTicketDetailScreen> {
                     if ((d['text'] as String?)?.isNotEmpty == true)
                       Text(
                         d['text'],
-                        style: TextStyle(color: mine ? Colors.white : Colors.black87),
+                        style: TextStyle(color: mine ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87)),
                       ),
                     if (attachments.isNotEmpty) ...[
                       const SizedBox(height: 8),

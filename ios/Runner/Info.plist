@@ -52,5 +52,10 @@
 		<string>Destek talebinize ekran görüntüsü veya fotoğraf eklemek için fotoğraf kitaplığına erişmemiz gerekiyor.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>Destek talebinize fotoğraf eklemek için kamerayı kullanmamız gerekiyor.</string>
+		<!-- Konuşmayı yazıya çeviri izin açıklamaları -->
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Sesi metne dönüştürmek için mikrofona erişim gerekiyor.</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>Sesinizi metne donusturmek icin konusma tanima iznine ihtiyacimiz var.</string>
 	</dict>
 </plist>

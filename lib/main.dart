@@ -1,4 +1,6 @@
 // lib/main.dart
+// Rabbi yessir velâ tuassir Rabbi temmim bi'l-hayr.
+
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +19,8 @@ import 'package:lingua_chat/screens/help_and_support_screen.dart';
 import 'package:lingua_chat/screens/support_request_screen.dart';
 import 'package:lingua_chat/screens/profile_completion_screen.dart';
 import 'dart:async';
+import 'package:lingua_chat/screens/verification_screen.dart';
+import 'package:lingua_chat/services/theme_service.dart';
 
 // YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
 final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
@@ -26,7 +30,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Firestore offline cache aç
+  await ThemeService.instance.init(); // Tema tercihlerini yükle
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
   runApp(const MyApp());
   // runApp sonrası ağır olmayan init görevlerini asenkron başlat
@@ -59,43 +63,56 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'LinguaChat',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
-      ),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('en', ''),
-        Locale('tr', ''),
-      ],
-      routes: {
-        '/help': (_) => HelpAndSupportScreen(),
-        '/support': (_) => const SupportRequestScreen(),
+    return AnimatedBuilder(
+      animation: ThemeService.instance,
+      builder: (context, _) {
+        // Tema parlaklığını hesapla (system seçiliyse cihaz parlaklığına bak)
+        final mode = ThemeService.instance.themeMode;
+        final platformBrightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+        final brightness = switch (mode) {
+          ThemeMode.dark => Brightness.dark,
+          ThemeMode.light => Brightness.light,
+          ThemeMode.system => platformBrightness,
+        };
+        final isDark = brightness == Brightness.dark;
+        // Frame sonrası system UI rengini güncelle (tekrar build tetiklemez)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: (isDark
+                    ? ThemeService.instance.darkTheme.scaffoldBackgroundColor
+                    : ThemeService.instance.lightTheme.scaffoldBackgroundColor)
+                .withOpacity(1),
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarDividerColor: Colors.transparent,
+          ));
+        });
+        return MaterialApp(
+          title: 'LinguaChat',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeService.instance.lightTheme,
+            darkTheme: ThemeService.instance.darkTheme,
+            themeMode: ThemeService.instance.themeMode,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en', ''),
+            Locale('tr', ''),
+          ],
+          routes: {
+            '/help': (_) => HelpAndSupportScreen(),
+            '/support': (_) => const SupportRequestScreen(),
+          },
+          home: const AuthWrapper(),
+        );
       },
-      home: const AuthWrapper(),
     );
-  }
-}
-
-Future<DocumentSnapshot<Map<String, dynamic>>?> _getUserDocWithTimeout(String uid) async {
-  try {
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get()
-        .timeout(const Duration(seconds: 6));
-    return snap;
-  } catch (_) {
-    return null; // timeout veya diğer hata durumunda null dön
   }
 }
 
@@ -104,7 +121,7 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
+    return StreamBuilder<User?> (
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -115,16 +132,25 @@ class AuthWrapper extends StatelessWidget {
         if (snapshot.hasData && snapshot.data != null) {
           final user = snapshot.data!;
           final uid = user.uid;
-          return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>?>(
-            future: _getUserDocWithTimeout(uid),
+          // Kullanıcı belge akışını dinleyelim; doc henüz yoksa bekleyelim
+          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>> (
+            stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
             builder: (context, userSnap) {
               if (userSnap.connectionState == ConnectionState.waiting) {
                 return const Scaffold(body: Center(child: CircularProgressIndicator()));
               }
-              final data = userSnap.data?.data();
+              if (!userSnap.hasData || !userSnap.data!.exists) {
+                // Doc henüz oluşmamış olabilir (özellikle Google giriş sonrası). Biraz bekleyelim.
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+              final data = userSnap.data!.data();
               if (data != null) {
                 if ((data['status'] as String?) == 'banned') {
                   return const BannedScreen();
+                }
+                // E-posta doğrulanmadıysa doğrulama ekranına yönlendir
+                if (!(user.emailVerified)) {
+                  return VerificationScreen(email: user.email ?? '');
                 }
                 final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
                 if (isGoogle && data['profileCompleted'] != true) {

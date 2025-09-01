@@ -490,10 +490,15 @@ class _CommunityScreenState extends State<CommunityScreen>
       );
     }
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(me.uid).snapshots(),
+    // Alt koleksiyon: users/{uid}/blockedUsers
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(me.uid)
+          .collection('blockedUsers')
+          .snapshots(),
       builder: (context, userSnap) {
-        final blocked = (userSnap.data?.data()?['blockedUsers'] as List<dynamic>?)?.cast<String>() ?? const <String>[];
+        final blocked = (userSnap.data?.docs.map((d) => d.id).toList() ?? const <String>[]);
         final filtered = posts.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final authorId = (data['userId'] as String?) ?? '';

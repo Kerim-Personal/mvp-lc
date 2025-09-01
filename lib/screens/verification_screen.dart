@@ -152,7 +152,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
               TextButton(
                 child: const Text('Back to Login',
                     style: TextStyle(color: Colors.teal)),
-                onPressed: () {
+                onPressed: () async {
+                 try { await FirebaseAuth.instance.signOut(); } catch (_) {}
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(

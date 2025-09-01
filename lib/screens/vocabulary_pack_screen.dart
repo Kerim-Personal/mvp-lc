@@ -215,6 +215,9 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
   }
 
   Widget _buildWordList() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final onSurface = theme.colorScheme.onSurface;
     return ListView.builder(
       key: const ValueKey('wordList'),
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -222,13 +225,16 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
       itemBuilder: (context, index) {
         final word = _words[index];
         final isCurrent = index == _currentIndex;
+        final baseBg = isDark ? Colors.black : Colors.white;
+        final bgColor = isCurrent
+            ? baseBg
+            : isDark
+                ? Colors.black.withOpacity(0.7)
+                : Colors.white.withOpacity(0.7);
+        final borderColor = isCurrent ? (isDark ? Colors.white70 : widget.pack.color2) : null;
         return GestureDetector(
           onTap: () {
-            // HATA DÜZELTMESİ: Önce durumu güncelleyerek PageView'ın görünür olmasını sağlıyoruz,
-            // ardından PageController'a istediğimiz sayfaya gitmesini söylüyoruz.
-            setState(() {
-              _isGridView = false;
-            });
+            setState(() { _isGridView = false; });
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_pageController.hasClients) {
                 _pageController.jumpToPage(index);
@@ -239,17 +245,17 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
             margin: const EdgeInsets.only(bottom: 12.0),
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
             decoration: BoxDecoration(
-              color: isCurrent ? Colors.white : Colors.white.withOpacity(0.7),
+              color: bgColor,
               borderRadius: BorderRadius.circular(12),
-              border: isCurrent ? Border.all(color: widget.pack.color2, width: 2.5) : null,
+              border: borderColor != null ? Border.all(color: borderColor, width: 2.5) : null,
               boxShadow: isCurrent
                   ? [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
-                )
-              ]
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      )
+                    ]
                   : [],
             ),
             child: Text(
@@ -260,7 +266,9 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: isCurrent ? widget.pack.color1 : Colors.black87,
+                color: isCurrent
+                    ? (isDark ? Colors.white : widget.pack.color1)
+                    : (isDark ? Colors.white70 : onSurface.withValues(alpha: 0.87)),
               ),
             ),
           ),
@@ -398,6 +406,11 @@ class _WordCardState extends State<WordCard> {
 
   Future<void> _toggleTranslation() async {
     final isFront = widget.flipCardKey.currentState?.isFront ?? true;
+    try {
+      await TranslationService.instance.ensureReady(widget.nativeLanguageCode);
+    } catch (_) {
+      // Model indirilemezse yine de UI'yi kilitleme; mevcut davranışla devam et
+    }
     if (isFront) {
       if (_translatedFront == null && !_loadingFront) {
         setState(() { _loadingFront = true; });
@@ -418,24 +431,32 @@ class _WordCardState extends State<WordCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return FlipCard(
       key: widget.flipCardKey,
       onFlipDone: (_) => widget.onFlip(),
       direction: FlipDirection.HORIZONTAL,
       front: _buildCardFace(
         context: context,
+        isDark: isDark,
         content: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
             widget.word.word,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 42,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.9),
+            ),
           ),
         ),
         isFront: true,
       ),
       back: _buildCardFace(
         context: context,
+        isDark: isDark,
         content: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -445,7 +466,7 @@ class _WordCardState extends State<WordCard> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue.shade800,
+                color: isDark ? Colors.white : Colors.blue.shade800,
               ),
             ),
             const SizedBox(height: 24),
@@ -455,7 +476,7 @@ class _WordCardState extends State<WordCard> {
               style: TextStyle(
                 fontSize: 18,
                 fontStyle: FontStyle.italic,
-                color: Colors.grey.shade600,
+                color: isDark ? Colors.grey.shade300 : Colors.grey.shade600,
               ),
             ),
           ],
@@ -465,110 +486,130 @@ class _WordCardState extends State<WordCard> {
     );
   }
 
-  Widget _buildCardFace({required BuildContext context, required Widget content, required bool isFront}) {
+  Widget _buildCardFace({required BuildContext context, required Widget content, required bool isFront, required bool isDark}) {
     final show = isFront ? _showTranslationFront : _showTranslationBack;
     final loading = isFront ? _loadingFront : _loadingBack;
+    final frontBgLight = Colors.white;
+    final backBgLight = const Color(0xFFF0F4F8);
+    final frontBgDark = const Color(0xFF111111);
+    final backBgDark = const Color(0xFF1C1C1C);
+    final cardColor = isFront ? (isDark ? frontBgDark : frontBgLight) : (isDark ? backBgDark : backBgLight);
+
     return Container(
       decoration: BoxDecoration(
-        color: isFront ? Colors.white : const Color(0xFFF0F4F8),
+        color: cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 20,
-            spreadRadius: -5,
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 24,
+            spreadRadius: -6,
             offset: const Offset(0, 10),
           )
         ],
       ),
       child: Stack(
         children: [
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: content,
-              ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: content,
             ),
-            if (isFront && !_showTranslationFront)
-              const Positioned(
-                bottom: 20,
-                left: 0,
-                right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.touch_app_outlined, color: Colors.grey, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Tap for definition',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
+          ),
+          if (isFront && !_showTranslationFront)
             Positioned(
-              top: 8,
-              left: 4,
-              child: IconButton(
-                tooltip: 'Çevir',
-                icon: const Icon(Icons.translate, color: Colors.teal),
-                onPressed: _toggleTranslation,
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 4,
-              child: IconButton(
-                icon: Icon(
-                  Icons.volume_up,
-                  color: isFront ? Colors.grey.shade500 : Colors.blue.shade700,
-                ),
-                onPressed: isFront ? widget.onSpeakWord : widget.onSpeakExample,
-              ),
-            ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
+              bottom: 20,
               left: 0,
               right: 0,
-              bottom: 0,
-              height: show ? 120 : 0,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  color: Colors.black.withOpacity(0.05),
-                  child: loading
-                      ? const Center(child: CircularProgressIndicator())
-                      : SingleChildScrollView(
-                          child: isFront
-                              ? Text(
-                                  _translatedFront ?? '',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-                                )
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_translatedDefinition != null)
-                                      Text(
-                                        _translatedDefinition!,
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                      ),
-                                    const SizedBox(height: 8),
-                                    if (_translatedExample != null)
-                                      Text(
-                                        _translatedExample!,
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
-                                      ),
-                                  ],
-                                ),
-                        ),
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.touch_app_outlined, color: isDark ? Colors.grey.shade400 : Colors.grey, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tap for definition',
+                    style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontSize: 16),
+                  ),
+                ],
               ),
             ),
+          Positioned(
+            top: 8,
+            left: 4,
+            child: IconButton(
+              tooltip: 'Çevir',
+              icon: Icon(Icons.translate, color: isDark ? Colors.tealAccent.shade200 : Colors.teal),
+              onPressed: _toggleTranslation,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 4,
+            child: IconButton(
+              icon: Icon(
+                Icons.volume_up,
+                color: isFront
+                    ? (isDark ? Colors.white70 : Colors.grey.shade500)
+                    : (isDark ? Colors.white70 : Colors.blue.shade700),
+              ),
+              onPressed: isFront ? widget.onSpeakWord : widget.onSpeakExample,
+            ),
+          ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: show ? 120 : 0,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05),
+                child: loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        child: isFront
+                            ? Text(
+                                _translatedFront ?? '',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_translatedDefinition != null)
+                                    Text(
+                                      _translatedDefinition!,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 8),
+                                  if (_translatedExample != null)
+                                    Text(
+                                      _translatedExample!,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        color: isDark ? Colors.white70 : Colors.black87,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                      ),
+              ),
+            ),
+          ),
         ],
       ),
     );

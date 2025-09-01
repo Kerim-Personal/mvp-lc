@@ -4,7 +4,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/chat_screen.dart';
 import 'package:lingua_chat/screens/partner_found_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
@@ -35,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   late AnimationController _entryAnimationController;
   late AnimationController _pulseAnimationController;
-  late AnimationController _searchAnimationController;
+  // late AnimationController _searchAnimationController; // <-- HATA DÜZELTME 1: Bu satır kaldırıldı.
   late PageController _pageController;
   double _pageOffset = 1000;
   Timer? _cardScrollTimer;
@@ -83,9 +82,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _pulseAnimationController =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat(reverse: true);
-    _searchAnimationController =
-    AnimationController(vsync: this, duration: const Duration(seconds: 2))
-      ..repeat();
+    // _searchAnimationController = // <-- HATA DÜZELTME 2: Bu blok kaldırıldı.
+    // AnimationController(vsync: this, duration: const Duration(seconds: 2))
+    //   ..repeat();
   }
 
   @override
@@ -94,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _cardScrollTimer?.cancel();
     _entryAnimationController.dispose();
     _pulseAnimationController.dispose();
-    _searchAnimationController.dispose();
+    // _searchAnimationController.dispose(); // <-- HATA DÜZELTME 3: Bu satır kaldırıldı.
     _pageController.removeListener(() {});
     _pageController.dispose();
     super.dispose();
@@ -158,7 +157,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final myData = myUserDoc.data() as Map<String, dynamic>;
       final myGender = myData['gender'];
       final myLevel = myData['level'];
-      final List<dynamic> myBlocked = (myData['blockedUsers'] as List<dynamic>?) ?? const [];
+
+      // Alt koleksiyondan engellediklerimi tek seferlik çek
+      final myBlockedSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(myId)
+          .collection('blockedUsers')
+          .get();
+      final Set<String> myBlocked = myBlockedSnap.docs.map((d) => d.id).toSet();
+
       String myLevelGroup;
       if (['A1', 'A2'].contains(myLevel)) {
         myLevelGroup = 'Başlangıç';
@@ -197,9 +204,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final otherUserFilterLevelGroup = otherUserData['filter_level_group'];
 
         // Engelleme kontrolü: Ben onu engelledim mi ya da o beni engelledi mi?
-        final otherProfileDoc = await FirebaseFirestore.instance.collection('users').doc(otherUserDoc.id).get();
-        final List<dynamic> otherBlocked = (otherProfileDoc.data()?['blockedUsers'] as List<dynamic>?) ?? const [];
-        final blockedEitherWay = myBlocked.contains(otherUserDoc.id) || otherBlocked.contains(myId);
+        final otherBlockedMeDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(otherUserDoc.id)
+            .collection('blockedUsers')
+            .doc(myId)
+            .get();
+        final blockedEitherWay = myBlocked.contains(otherUserDoc.id) || otherBlockedMeDoc.exists;
         if (blockedEitherWay) {
           continue; // Bu adayı atla
         }
@@ -209,28 +220,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final isMyLevelGroupOk = otherUserFilterLevelGroup == null ||
             otherUserFilterLevelGroup == myLevelGroup;
         if (isMyGenderOk && isMyLevelGroupOk) {
-          final chatRoomRef =
-          FirebaseFirestore.instance.collection('chats').doc();
-          final partnerRef =
-          FirebaseFirestore.instance.collection('users').doc(otherUserDoc.id);
-          final myRef = FirebaseFirestore.instance.collection('users').doc(myId);
-          await FirebaseFirestore.instance.runTransaction((transaction) async {
-            final freshOtherUserDoc =
-            await transaction.get(otherUserDoc.reference);
-            if (!freshOtherUserDoc.exists) return;
-            transaction.set(chatRoomRef, {
-              'users': [myId, otherUserDoc.id],
-              'createdAt': FieldValue.serverTimestamp(),
+          final String otherId = otherUserDoc.id;
+          final String idA = myId.compareTo(otherId) < 0 ? myId : otherId;
+          final String idB = myId.compareTo(otherId) < 0 ? otherId : myId;
+          // Yeni: Her oturum için rastgele chat ID kullan
+          final chatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
+
+          try {
+            await chatRoomRef.set({
+              'users': [idA, idB],
               'status': 'active',
-              '${myId}_lastActive': FieldValue.serverTimestamp(),
-              '${otherUserDoc.id}_lastActive': FieldValue.serverTimestamp()
             });
-            transaction.update(
-                otherUserDoc.reference, {'matchedChatRoomId': chatRoomRef.id});
-            // partnerCount artışları Cloud Function tarafından yapılacak (onChatCreated)
-          });
-          _navigateToChat(chatRoomRef.id);
-          return;
+          } catch (_) {
+            rethrow; // chat oluşturulamadıysa ilerleme
+          }
+
+          try {
+            await otherUserDoc.reference.update({'matchedChatRoomId': chatRoomRef.id});
+            _navigateToChat(chatRoomRef.id);
+            return;
+          } catch (e) {
+            // Diğer taraf daha önce set etmiş olabilir; mevcut değeri al ve ona yönlen
+            final fresh = await otherUserDoc.reference.get();
+            final data = fresh.data() as Map<String, dynamic>?;
+            final existingId = data != null ? data['matchedChatRoomId'] as String? : null;
+            if (existingId != null && existingId.isNotEmpty) {
+              // Yarış sonucu: kendi oluşturduğum odayı ended yaparak pasifleştir
+              try {
+                if (chatRoomRef.id != existingId) {
+                  await chatRoomRef.update({'status': 'ended', 'leftBy': myId});
+                }
+              } catch (_) {}
+              _navigateToChat(existingId);
+              return;
+            }
+            // Aksi halde kendi oluşturduğumuza yönlenmeyi dene
+            _navigateToChat(chatRoomRef.id);
+            return;
+          }
         }
       }
       await _addUserToWaitingPool();
@@ -347,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _buildHomeUI(),
           SearchingUI(
             isSearching: _isSearching,
-            searchAnimationController: _searchAnimationController,
+            // searchAnimationController: _searchAnimationController, // <-- HATA DÜZELTME 4: Bu parametre kaldırıldı.
             onCancelSearch: _cancelSearch,
             isPremium: _isProUser,
           ),
