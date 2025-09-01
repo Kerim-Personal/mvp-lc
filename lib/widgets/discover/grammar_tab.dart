@@ -4,7 +4,7 @@ import 'package:lingua_chat/data/lesson_data.dart';
 import 'package:lingua_chat/models/lesson_model.dart';
 import 'package:lingua_chat/navigation/lesson_router.dart';
 
-// --- GRAMER SEKMES�� ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
+// --- GRAMER SEKMESİ ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
 class GrammarTab extends StatefulWidget {
   const GrammarTab({super.key});
 
@@ -108,8 +108,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
               final level = levels[index];
               final lessonsInLevel = lessonsByLevel[level] ?? [];
               final progress = userProgress[level] ?? 0.0;
-              final isLocked = (index > 0) &&
-                  ((userProgress[levels[index - 1]] ?? 0.0) < 1.0);
+              final isLocked = false; // Tüm seviyeler açık (kilit kaldırıldı)
               final position = _calculateNodePosition(
                   index, MediaQuery.of(context).size.width);
 

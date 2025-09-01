@@ -12,16 +12,16 @@ class BlockedUsersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    // Kullanıcı giriş yapmamışsa erken çıkış yap
     if (currentUser == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Engellenenler')),
-        body: const Center(child: Text('Devam etmek için giriş yapın.')),
+        body: Center(child: Text('Devam etmek için giriş yapın.', style: theme.textTheme.bodyMedium)),
       );
     }
 
-    // Alt koleksiyon: users/{uid}/blockedUsers akışı
     final blockedStream = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUser.uid)
@@ -29,12 +29,12 @@ class BlockedUsersScreen extends StatelessWidget {
         .snapshots();
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100, // Ekrana hafif bir arka plan rengi verelim
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Engellenenler'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        foregroundColor: theme.appBarTheme.foregroundColor,
+        elevation: isDark ? 0 : 1,
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: blockedStream,
@@ -43,20 +43,20 @@ class BlockedUsersScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData) {
-            return _buildEmptyState('Kullanıcı verisi bulunamadı.');
+            return _buildEmptyState(context, 'Kullanıcı verisi bulunamadı.');
           }
 
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) {
-            return _buildEmptyState(
-              'Henüz kimseyi engellemediniz.',
-              icon: Icons.shield_outlined,
-            );
-          }
+            final docs = snapshot.data!.docs;
+            if (docs.isEmpty) {
+              return _buildEmptyState(
+                context,
+                'Henüz kimseyi engellemediniz.',
+                icon: Icons.shield_outlined,
+              );
+            }
 
           final blockedIds = docs.map((d) => d.id).toList(growable: false);
 
-          // Engellenen kullanıcıların detaylarını çekmek için FutureBuilder
           return FutureBuilder<List<DocumentSnapshot<Map<String, dynamic>>>>(
             future: _fetchBlockedUsers(blockedIds),
             builder: (context, usersSnap) {
@@ -64,12 +64,11 @@ class BlockedUsersScreen extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (!usersSnap.hasData || usersSnap.data!.isEmpty) {
-                return _buildEmptyState('Engellenen kullanıcı bulunamadı.');
+                return _buildEmptyState(context, 'Engellenen kullanıcı bulunamadı.');
               }
 
               final userDocs = usersSnap.data!;
 
-              // Engellenen kullanıcıları liste olarak göster
               return ListView.builder(
                 padding: const EdgeInsets.all(16.0),
                 itemCount: userDocs.length,
@@ -86,25 +85,25 @@ class BlockedUsersScreen extends StatelessWidget {
     );
   }
 
-  /// Engellenen kullanıcıların listesini Firestore'dan çeker.
   Future<List<DocumentSnapshot<Map<String, dynamic>>>> _fetchBlockedUsers(List<String> userIds) {
     if (userIds.isEmpty) {
       return Future.value([]);
     }
-    // Her bir UID için get() isteğini paralel olarak çalıştırır.
     return Future.wait(
       userIds.map((uid) => FirebaseFirestore.instance.collection('users').doc(uid).get()),
     );
   }
 
-  /// Engellenen bir kullanıcıyı gösteren kart widget'ı.
   Widget _buildBlockedUserCard(BuildContext context, String currentUserId, String targetUserId, Map<String, dynamic>? userData) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     final displayName = userData?['displayName'] ?? 'Bilinmeyen Kullanıcı';
     final avatarUrl = userData?['avatarUrl'] as String?;
 
     return Card(
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
+      elevation: isDark ? 1.5 : 2,
+      shadowColor: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.1),
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -113,32 +112,34 @@ class BlockedUsersScreen extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: Colors.teal.shade50,
+              backgroundColor: isDark ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15) : Colors.teal.shade50,
               child: avatarUrl != null && avatarUrl.isNotEmpty
                   ? ClipOval(
-                child: SvgPicture.network(
-                  avatarUrl,
-                  width: 48,
-                  height: 48,
-                  placeholderBuilder: (_) => const Icon(Icons.person, color: Colors.teal, size: 28),
-                ),
-              )
-                  : const Icon(Icons.person, color: Colors.teal, size: 28),
+                      child: SvgPicture.network(
+                        avatarUrl,
+                        width: 48,
+                        height: 48,
+                        placeholderBuilder: (_) => Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 28),
+                      ),
+                    )
+                  : Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 displayName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(width: 8),
             ElevatedButton(
               onPressed: () => _unblockUser(context, currentUserId, targetUserId),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade100,
-                foregroundColor: Colors.red.shade800,
+                backgroundColor: Theme.of(context).colorScheme.errorContainer.withValues(alpha: isDark ? 0.25 : 1.0),
+                foregroundColor: Theme.of(context).colorScheme.error,
                 elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text('Engeli Kaldır'),
@@ -149,7 +150,6 @@ class BlockedUsersScreen extends StatelessWidget {
     );
   }
 
-  /// Bir kullanıcının engelini kaldırma işlemini yönetir.
   Future<void> _unblockUser(BuildContext context, String currentUserId, String targetUserId) async {
     try {
       await BlockService().unblockUser(
@@ -176,8 +176,9 @@ class BlockedUsersScreen extends StatelessWidget {
     }
   }
 
-  /// Engellenen kullanıcı listesi boş olduğunda gösterilecek widget.
-  Widget _buildEmptyState(String message, {IconData? icon}) {
+  Widget _buildEmptyState(BuildContext context, String message, {IconData? icon}) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -185,13 +186,16 @@ class BlockedUsersScreen extends StatelessWidget {
           Icon(
             icon ?? Icons.info_outline,
             size: 80,
-            color: Colors.grey.shade400,
+            color: cs.onSurface.withValues(alpha: 0.30),
           ),
           const SizedBox(height: 20),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.65)),
+            ),
           ),
         ],
       ),

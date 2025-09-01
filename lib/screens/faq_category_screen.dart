@@ -14,78 +14,112 @@ class FaqCategoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<FaqItem> faqs = faqData[category] ?? [];
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final appBarGradientStart = isDark ? cs.primary.withValues(alpha: 0.30) : Colors.teal.shade400;
+    final appBarGradientEnd = isDark ? cs.secondary.withValues(alpha: 0.30) : Colors.cyan.shade600;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(category, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(category, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: isDark ? cs.onSurface : Colors.white)),
         centerTitle: true,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        // AppBar arka planını ana ekranla uyumlu hale getir
+        elevation: isDark ? 0 : 2,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.teal.shade400, Colors.cyan.shade600],
+              colors: [appBarGradientStart, appBarGradientEnd],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
         ),
+        foregroundColor: isDark ? cs.onSurface : Colors.white,
+        backgroundColor: isDark ? cs.surface : Colors.teal.shade400,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-        itemCount: faqs.length,
-        itemBuilder: (context, index) {
-          final faq = faqs[index];
-          return Card(
-            elevation: 4.0,
-            shadowColor: Colors.black.withOpacity(0.2),
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            clipBehavior: Clip.antiAlias,
-            child: Container(
-              // Kart arka planına metalik gradient uygula
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFFCFD8DC), // Açık gümüş
-                    Color(0xFF90A4AE), // Koyu gümüş
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: ExpansionTile(
-                key: PageStorageKey(faq.question),
-                title: Text(
-                  faq.question,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    // Yazı rengini koyu yaparak okunabilirliği artır
-                    color: Color(0xFF37474F),
-                  ),
-                ),
-                // İkon renklerini de yazı rengiyle uyumlu yap
-                iconColor: const Color(0xFF37474F),
-                collapsedIconColor: const Color(0xFF37474F).withOpacity(0.8),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                children: [
-                  Text(
-                    faq.answer,
-                    style: TextStyle(
-                      // Cevap metninin okunabilirliğini artır
-                      color: const Color(0xFF37474F).withOpacity(0.9),
-                      height: 1.6,
-                      fontSize: 15,
+      body: faqs.isEmpty
+          ? _buildEmptyState(context)
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              itemCount: faqs.length,
+              itemBuilder: (context, index) {
+                final faq = faqs[index];
+                final questionColor = isDark ? cs.onSurface : const Color(0xFF37474F);
+                final answerColor = isDark ? cs.onSurface.withValues(alpha: 0.85) : const Color(0xFF37474F).withValues(alpha: 0.9);
+                final iconColor = questionColor;
+                final gradientColors = isDark
+                    ? [
+                        cs.surface.withValues(alpha: 0.95),
+                        cs.surface.withValues(alpha: 0.80),
+                      ]
+                    : const [
+                        Color(0xFFCFD8DC),
+                        Color(0xFF90A4AE),
+                      ];
+                return Card(
+                  elevation: isDark ? 1.5 : 4.0,
+                  shadowColor: isDark ? Colors.black.withValues(alpha: 0.45) : Colors.black.withValues(alpha: 0.2),
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  clipBehavior: Clip.antiAlias,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Theme(
+                      // ExpansionTile renklerinin koyu temada surface etkisini bozmasını engelle
+                      data: theme.copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        key: PageStorageKey(faq.question),
+                        title: Text(
+                          faq.question,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: questionColor,
+                          ),
+                        ),
+                        iconColor: iconColor,
+                        collapsedIconColor: iconColor.withValues(alpha: 0.8),
+                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        children: [
+                          Text(
+                            faq.answer,
+                            style: TextStyle(
+                              color: answerColor,
+                              height: 1.55,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.help_outline, size: 72, color: cs.onSurface.withValues(alpha: 0.35)),
+          const SizedBox(height: 16),
+          Text('Bu kategoride içerik bulunamadı.', style: theme.textTheme.titleMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.8))),
+          const SizedBox(height: 8),
+          Text('Yakında yeni içerikler eklenecek.', style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.55))),
+        ],
       ),
     );
   }

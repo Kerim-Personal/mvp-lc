@@ -183,7 +183,7 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
@@ -240,28 +240,37 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
               showModalBottomSheet(
                 context: context,
                 showDragHandle: true,
-                backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                // Önceden yarı saydamdı; opak yüzey kullanıyoruz ki alttaki içerik konstrastı bozmasın
+                backgroundColor: Theme.of(context).colorScheme.surface,
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 builder: (ctx) {
                   final current = ThemeService.instance.themeMode;
+                  final cs = Theme.of(context).colorScheme;
+                  final selectedColor = cs.primary; // Daha dengeli vurgu
+                  Color? inactiveIconColor = Theme.of(context).iconTheme.color;
+                  Color subtleText = cs.onSurface.withValues(alpha: 0.75);
+
                   Widget buildOption(ThemeMode mode, String title, IconData icon) {
                     final selected = current == mode;
                     return ListTile(
-                      leading: Icon(icon, color: selected ? Colors.tealAccent : Theme.of(context).iconTheme.color),
-                      title: Text(title,
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: selected ? Colors.tealAccent : null)),
+                      leading: Icon(icon, color: selected ? selectedColor : inactiveIconColor),
+                      title: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: selected ? selectedColor : subtleText,
+                        ),
+                      ),
                       trailing: selected
-                          ? const Icon(Icons.check_circle, color: Colors.tealAccent)
-                          : const Icon(Icons.circle_outlined, size: 18),
+                          ? Icon(Icons.check_circle, color: selectedColor)
+                          : Icon(Icons.circle_outlined, size: 18, color: subtleText.withValues(alpha: 0.55)),
                       onTap: () {
                         Navigator.pop(ctx);
                         ThemeService.instance.setThemeMode(mode);
                         AudioService.instance.playClick();
-                        setState(() {}); // alt başlık güncellensin
+                        setState(() {});
                       },
                     );
                   }
@@ -269,19 +278,27 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                   return SafeArea(
                     child: AnimatedBuilder(
                       animation: ThemeService.instance,
-                      builder: (_, __) => Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 4),
-                          const Text('Tema Seçimi',
+                      builder: (_, __) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tema Seçimi',
                               style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 8),
-                          buildOption(ThemeMode.light, 'Aydınlık', Icons.wb_sunny_outlined),
-                          buildOption(ThemeMode.dark, 'Karanlık', Icons.nights_stay_outlined),
-                          buildOption(ThemeMode.system, 'Sistem', Icons.settings_suggest_outlined),
-                          const SizedBox(height: 8),
-                        ],
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: cs.onSurface.withValues(alpha: 0.9),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Divider(height: 1, thickness: 0.6, color: cs.onSurface.withValues(alpha: 0.08)),
+                            buildOption(ThemeMode.light, 'Aydınlık', Icons.wb_sunny_outlined),
+                            buildOption(ThemeMode.dark, 'Karanlık', Icons.nights_stay_outlined),
+                            buildOption(ThemeMode.system, 'Sistem', Icons.settings_suggest_outlined),
+                          ],
+                        ),
                       ),
                     ),
                   );

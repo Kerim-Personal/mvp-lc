@@ -14,17 +14,18 @@ class HelpAndSupportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final categories = faqData.keys.toList();
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
-          _buildFinalSliverAppBar(),
+          _buildFinalSliverAppBar(context),
           SliverPadding(
             padding: const EdgeInsets.all(16.0),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                (context, index) {
                   if (index == 0) {
                     return _buildSectionHeader(context, 'Yardım Konuları');
                   }
@@ -43,23 +44,29 @@ class HelpAndSupportScreen extends StatelessWidget {
     );
   }
 
-  // Sade ve şık SliverAppBar (Değişiklik yok)
-  SliverAppBar _buildFinalSliverAppBar() {
+  // Sade ve tema duyarlı SliverAppBar
+  SliverAppBar _buildFinalSliverAppBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cs = theme.colorScheme;
+    final start = isDark ? cs.primary.withValues(alpha: 0.35) : Colors.teal.shade400;
+    final end = isDark ? cs.secondary.withValues(alpha: 0.35) : Colors.cyan.shade600;
+    final titleColor = isDark ? cs.onSurface : Colors.white;
     return SliverAppBar(
       expandedHeight: 150.0,
       pinned: true,
-      backgroundColor: Colors.teal.shade400,
-      elevation: 2,
+      backgroundColor: isDark ? cs.surface : Colors.teal.shade400,
+      elevation: isDark ? 0 : 2,
       flexibleSpace: FlexibleSpaceBar(
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'Yardım Merkezi',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
+          style: TextStyle(fontWeight: FontWeight.bold, color: titleColor, fontSize: 18),
         ),
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.teal.shade400, Colors.cyan.shade600],
+              colors: [start, end],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -69,8 +76,9 @@ class HelpAndSupportScreen extends StatelessWidget {
     );
   }
 
-  // Bölüm başlığı (Değişiklik yok)
+  // Bölüm başlığı tema uyumlu
   Widget _buildSectionHeader(BuildContext context, String title) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
       child: Text(
@@ -78,12 +86,12 @@ class HelpAndSupportScreen extends StatelessWidget {
         style: Theme.of(context)
             .textTheme
             .titleLarge
-            ?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
+            ?.copyWith(fontWeight: FontWeight.bold, color: cs.onSurface),
       ),
     );
   }
 
-  // GÜNCELLENMİŞ KATEGORİ KARTLARI (Metalik Gümüş Gri)
+  // Tema duyarlı kategori kartları
   Widget _buildCategoryCard(BuildContext context, String category, int index) {
     const categoryIcons = {
       'Uygulamayı Keşfet': Icons.explore_outlined,
@@ -91,8 +99,21 @@ class HelpAndSupportScreen extends StatelessWidget {
       'Güvenlik ve Gizlilik': Icons.shield_outlined,
       'Premium Üyelik ve Ödemeler': Icons.star_border_purple500_sharp,
     };
-
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final icon = categoryIcons[category] ?? Icons.help_outline;
+    final textColor = isDark ? cs.onSurface : const Color(0xFF37474F);
+    final arrowColor = textColor.withValues(alpha: 0.7);
+    final gradientColors = isDark
+        ? [
+            cs.surface.withValues(alpha: 0.80),
+            cs.surface.withValues(alpha: 0.55),
+          ]
+        : const [
+            Color(0xFFCFD8DC),
+            Color(0xFF90A4AE),
+          ];
 
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -108,8 +129,8 @@ class HelpAndSupportScreen extends StatelessWidget {
         );
       },
       child: Card(
-        elevation: 4.0,
-        shadowColor: Colors.black.withOpacity(0.2),
+        elevation: isDark ? 1.5 : 4.0,
+        shadowColor: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.2),
         margin: const EdgeInsets.only(bottom: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: InkWell(
@@ -121,42 +142,27 @@ class HelpAndSupportScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              // Metalik Gümüş Gri Gradient
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFCFD8DC), // Açık gümüş
-                  Color(0xFF90A4AE), // Koyu gümüş
-                ],
+              gradient: LinearGradient(
+                colors: gradientColors,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  // Kontrast için koyu renk ikon
-                  color: const Color(0xFF37474F),
-                  size: 32,
-                ),
+                Icon(icon, color: textColor, size: 32),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     category,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 17,
-                      // Kontrast için koyu renk yazı
-                      color: Color(0xFF37474F),
+                      color: textColor,
                     ),
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 18,
-                  // Kontrast için koyu renk ok
-                  color: const Color(0xFF37474F).withOpacity(0.7),
-                ),
+                Icon(Icons.arrow_forward_ios, size: 18, color: arrowColor),
               ],
             ),
           ),
@@ -165,27 +171,30 @@ class HelpAndSupportScreen extends StatelessWidget {
     );
   }
 
-  // Destek Bölümü (Değişiklik yok)
+  // Destek Bölümü tema uyumlu
   Widget _buildContactSupportSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final subtle = cs.onSurface.withValues(alpha: 0.65);
     return Card(
-      elevation: 2.0, shadowColor: Colors.black.withOpacity(0.1),
+      elevation: theme.brightness == Brightness.dark ? 1.5 : 2.0,
+      shadowColor: theme.brightness == Brightness.dark ? Colors.black.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Icon(Icons.support_agent, color: Colors.teal, size: 40),
+            Icon(Icons.support_agent, color: cs.primary, size: 40),
             const SizedBox(height: 12),
-            const Text('Aradığınızı bulamadınız mı?', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Aradığınızı bulamadınız mı?', textAlign: TextAlign.center, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('Destek ekibimiz size yardımcı olmaktan mutluluk duyar.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600, fontSize: 15)),
+            Text('Destek ekibimiz size yardımcı olmaktan mutluluk duyar.', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: subtle)),
             const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      // Premium kontrolü: Premium ise uygulama içi destek formu, değilse e-posta
                       try {
                         final user = FirebaseAuth.instance.currentUser;
                         bool isPremium = false;
@@ -194,7 +203,6 @@ class HelpAndSupportScreen extends StatelessWidget {
                           isPremium = (snap.data()?['isPremium'] as bool?) == true;
                         }
                         if (isPremium) {
-                          // Uygulama içi destek ekranına git
                           // ignore: use_build_context_synchronously
                           Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SupportRequestScreen()));
                         } else {
@@ -214,7 +222,8 @@ class HelpAndSupportScreen extends StatelessWidget {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal, foregroundColor: Colors.white,
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                       elevation: 4,
