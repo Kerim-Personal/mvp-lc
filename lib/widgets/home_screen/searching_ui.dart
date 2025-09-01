@@ -35,12 +35,12 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
   Timer? _tipTimer;
   String _currentTip = "";
   final List<String> _tips = const [
-    "Yeni bir kelime öğrendiğinde, onu 3 farklı cümlede kullanmaya çalış.",
-    "Hata yapmaktan korkma! Hatalar öğrenme sürecinin bir parçasıdır.",
-    "Anlamadığın bir şey olduğunda tekrar sormaktan çekinme.",
-    "Partnerine gününün nasıl geçtiğini sorarak sohbete başla.",
-    "Sohbetteki amacın mükemmel olmak değil, iletişim kurmak olsun.",
-    "Partnerinin söylediklerini başka kelimelerle tekrar ederek anladığını teyit et."
+    "When you learn a new word, try using it in 3 different sentences.",
+    "Don't fear mistakes! They are part of learning.",
+    "If you don't understand something, politely ask again.",
+    "Break the ice by asking how your partner's day is going.",
+    "Focus on communicating, not being perfect.",
+    "Paraphrase what your partner said to confirm understanding."
   ];
 
   @override
@@ -199,13 +199,13 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
             padding: const EdgeInsets.all(20.0),
             child: Column(
               children: [
-                const Text('Partner Aranıyor...', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('Searching for a Partner...', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 16),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 700),
                   transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
                   child: Text(
-                    'İpucu: $_currentTip',
+                    'Tip: $_currentTip',
                     key: ValueKey<String>(_currentTip),
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 15, color: Colors.white70, height: 1.4),
@@ -248,8 +248,8 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Beklemek istemiyor musun?", style: TextStyle(fontSize: 13, color: Colors.white70)),
-                        Text("LinguaBot'u dene!", style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text("Don't want to wait?", style: TextStyle(fontSize: 13, color: Colors.white70)),
+                        Text("Try LinguaBot!", style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                       ],
                     ),
                   ),
@@ -269,7 +269,7 @@ class _SearchingUIState extends State<SearchingUI> with TickerProviderStateMixin
         style: TextButton.styleFrom(foregroundColor: Colors.white70, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
         onPressed: widget.onCancelSearch,
         icon: const Icon(Icons.cancel_outlined),
-        label: const Text('Aramayı İptal Et', style: TextStyle(fontSize: 16)),
+        label: const Text('Cancel Search', style: TextStyle(fontSize: 16)),
       ),
     );
   }

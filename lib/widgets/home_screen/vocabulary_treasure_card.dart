@@ -9,7 +9,7 @@ class VocabularyTreasureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Her gün için benzersiz kelimeyi seçen algoritma
+    // Her gün için benzersiz kelimeyi se��en algoritma
     final dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
     final dailyWord = vocabularyList[dayOfYear % vocabularyList.length];
 
@@ -43,12 +43,12 @@ class VocabularyTreasureCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Kelime Hazinesi",
+                  const Text("Vocabulary Vault",
                       style:
                       TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)),
                   const SizedBox(height: 4),
                   // GÜNCELLEME: Artık o günün kelimesini gösteriyor
-                  Text("Günün kelimesi: ${dailyWord.word}",
+                  Text("Word of the day: ${dailyWord.word}",
                       style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
               ),

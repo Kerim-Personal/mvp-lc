@@ -34,7 +34,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null || user.email == null) {
-        throw Exception("Kullanıcı bulunamadı veya e-posta adresi yok.");
+        throw Exception("User not found or email missing.");
       }
 
       // 1. Re-auth
@@ -44,35 +44,35 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
       );
       await user.reauthenticateWithCredential(cred);
 
-      // 2. Sunucu fonksiyonunu çağır (hesabı auth + verileri siler)
+      // 2. Call server function (deletes auth user + related data)
       final callable = FirebaseFunctions.instanceFor(region: 'us-central1')
           .httpsCallable('deleteUserAccount');
       await callable.call();
 
-      // 3. Ek güvenlik: local oturumdaki user objesini yeniden yükle ve hala varsa silmeyi dene
+      // 3. Extra safety: reload local user; if still present attempt client-side delete
       await user.reload();
       final still = FirebaseAuth.instance.currentUser;
       if (still != null) {
         try {
           await still.delete();
         } catch (_) {
-          // Bazı edge-case: yetki hatası varsa göz ardı et (sunucu zaten silmiş olabilir)
+          // Edge-case: ignore perms error (server may have already deleted the user)
         }
       }
 
-      // 4. Oturumu kapat (özellikle cache temizliği için)
+      // 4. Sign out (cache/token cleanup)
       await FirebaseAuth.instance.signOut();
 
-      // 5. E-postanın gerçekten boşaldığından emin olmak için kısa gecikme + kontrol
+      // 5. Short delay + check methods to ensure email really cleared
       if (user.email != null) {
         try {
           await Future.delayed(const Duration(milliseconds: 400));
           final methods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(user.email!);
           if (methods.isNotEmpty) {
-            // Kullanıcı yeniden oluşturma hemen başarısız olabilir, kullanıcıya uyarı verelim
+            // Replication delay: inform user to retry later
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Hesap silme çoğaltması sürüyor, birkaç saniye sonra tekrar deneyin.'),
+                content: Text('Account deletion replication in progress, try again in a few seconds.'),
                 backgroundColor: Colors.orange,
               ));
             }
@@ -87,23 +87,23 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
         );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Hesabınız başarıyla silindi.'),
+            content: Text('Your account has been deleted successfully.'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        setState(() => _error = 'Girilen şifre yanlış. Lütfen tekrar deneyin.');
+        setState(() => _error = 'Incorrect password. Please try again.');
       } else if (e.code == 'requires-recent-login') {
-        setState(() => _error = 'Lütfen tekrar giriş yapıp yeniden deneyin.');
+        setState(() => _error = 'Please sign in again and retry.');
       } else {
-        setState(() => _error = 'Auth hatası: ${e.message}');
+        setState(() => _error = 'Auth error: ${e.message}');
       }
     } on FirebaseFunctionsException catch (e) {
-      setState(() => _error = 'Sunucu hatası: ${e.message}');
+      setState(() => _error = 'Server error: ${e.message}');
     } catch (e) {
-      setState(() => _error = 'Beklenmedik bir hata oluştu: $e');
+      setState(() => _error = 'Unexpected error: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -114,7 +114,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Hesabınızı Kalıcı Olarak Silin'),
+      title: const Text('Permanently Delete Your Account'),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -122,19 +122,19 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Bu işlem geri alınamaz. Devam etmek için lütfen şifrenizi girin.',
+                'This action is irreversible. Please enter your password to continue.',
               ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  labelText: 'Şifre',
+                  labelText: 'Password',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Lütfen şifrenizi girin.';
+                    return 'Please enter your password.';
                   }
                   return null;
                 },
@@ -154,7 +154,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('İptal'),
+          child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _deleteAccount,
@@ -171,7 +171,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               color: Colors.white,
             ),
           )
-              : const Text('Hesabımı Sil'),
+              : const Text('Delete My Account'),
         ),
       ],
     );

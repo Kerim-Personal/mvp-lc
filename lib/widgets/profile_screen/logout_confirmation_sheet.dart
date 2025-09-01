@@ -1,8 +1,8 @@
 // filepath: lib/widgets/profile_screen/logout_confirmation_sheet.dart
 import 'package:flutter/material.dart';
 
-/// Modern bir "Çıkış Yap" onay alt sayfası gösterir.
-/// true -> Onaylandı, false/null -> İptal/dismiss
+/// Shows a modern sign-out confirmation bottom sheet.
+/// true -> Confirmed, false/null -> Cancel/dismiss
 Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
   final theme = Theme.of(context);
   return showModalBottomSheet<bool>(
@@ -57,7 +57,7 @@ Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
               ),
               const SizedBox(height: 16),
               Text(
-                'Çıkış yapılsın mı?',
+                'Sign out?',
                 textAlign: TextAlign.center,
                 style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
@@ -65,7 +65,7 @@ Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
               ),
               const SizedBox(height: 8),
               Text(
-                'Bu cihazdaki oturum kapanacak. Hesabınız silinmez.',
+                'You will be signed out on this device. Your account will not be deleted.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
                   color: textTheme.bodyMedium?.color?.withOpacity(0.8),
@@ -83,7 +83,7 @@ Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('İptal'),
+                      child: const Text('Cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -104,14 +104,14 @@ Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
                         children: [
                           Icon(Icons.logout_rounded, size: 18),
                           SizedBox(width: 8),
-                          Text('Çıkış'),
+                          Text('Sign Out'),
                         ],
                       ),
                     ),
                   ),
                 ],
               ),
-              // Alt boşluk için güvenli alan marjı
+              // Bottom safe area spacer
             ],
           ),
         ),

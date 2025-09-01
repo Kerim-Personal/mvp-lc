@@ -82,12 +82,12 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             return const Center(child: CircularProgressIndicator(color: Colors.white));
           }
           if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Kullanıcı bilgileri yüklenemedi.', style: TextStyle(color: Colors.white)));
+            return const Center(child: Text('User info could not be loaded.', style: TextStyle(color: Colors.white)));
           }
 
           final userData = snapshot.data!.data()!;
-          final displayName = userData['displayName'] ?? 'İsimsiz';
-          final email = userData['email'] ?? 'E-posta yok';
+          final displayName = userData['displayName'] ?? 'Anonymous';
+          final email = userData['email'] ?? 'No email';
           final level = userData['level'] ?? '-';
           final memberSince = (userData['createdAt'] as Timestamp?)?.toDate();
           final avatarUrl = userData['avatarUrl'] as String?;
@@ -108,7 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionTitle('İstatistiklerim'),
+                const SectionTitle('My Stats'),
                 Transform.translate(
                   offset: const Offset(0, -4.0),
                   child: StatsGrid(
@@ -130,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionTitle('Kazanılan Rozetler'),
+                const SectionTitle('Earned Badges'),
                 const AchievementsSection(),
               ],
             ),
@@ -143,7 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionTitle('Uygulama Ayarları'),
+                const SectionTitle('App Settings'),
                 const AppSettingsCard(),
               ],
             ),
@@ -156,7 +156,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionTitle('Destek'),
+                const SectionTitle('Support'),
                 const SupportCard(),
               ],
             ),
@@ -169,7 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionTitle('Hesap Yönetimi'),
+                const SectionTitle('Account Management'),
                 AccountManagementCard(
                   memberSince: memberSince,
                   userId: widget.userId,
@@ -187,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  SectionTitle('Yönetim'),
+                  SectionTitle('Administration'),
                   AdminPanelCard(),
                 ],
               ),

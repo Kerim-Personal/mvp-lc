@@ -108,11 +108,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final userGender = userData['gender'] as String? ?? 'Male';
     String levelGroup;
     if (['A1', 'A2'].contains(userLevel)) {
-      levelGroup = 'Başlangıç';
+      levelGroup = 'Beginner';
     } else if (['B1', 'B2'].contains(userLevel)) {
-      levelGroup = 'Orta';
+      levelGroup = 'Intermediate';
     } else {
-      levelGroup = 'İleri';
+      levelGroup = 'Advanced';
     }
     await FirebaseFirestore.instance.collection('waiting_pool').doc(myId).set({
       'userId': myId,
@@ -168,11 +168,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       String myLevelGroup;
       if (['A1', 'A2'].contains(myLevel)) {
-        myLevelGroup = 'Başlangıç';
+        myLevelGroup = 'Beginner';
       } else if (['B1', 'B2'].contains(myLevel)) {
-        myLevelGroup = 'Orta';
+        myLevelGroup = 'Intermediate';
       } else {
-        myLevelGroup = 'İleri';
+        myLevelGroup = 'Advanced';
       }
       Query query = FirebaseFirestore.instance.collection('waiting_pool');
       if (_selectedGenderFilter != null && _selectedLevelGroupFilter != null) {
@@ -182,11 +182,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         query = query.where('gender', isEqualTo: _selectedGenderFilter);
       } else if (_selectedLevelGroupFilter != null) {
         List<String> levelsToSearch = [];
-        if (_selectedLevelGroupFilter == 'Başlangıç') {
+        if (_selectedLevelGroupFilter == 'Beginner') {
           levelsToSearch = ['A1', 'A2'];
-        } else if (_selectedLevelGroupFilter == 'Orta') {
+        } else if (_selectedLevelGroupFilter == 'Intermediate') {
           levelsToSearch = ['B1', 'B2'];
-        } else if (_selectedLevelGroupFilter == 'İleri') {
+        } else if (_selectedLevelGroupFilter == 'Advanced') {
           levelsToSearch = ['C1', 'C2'];
         }
         if (levelsToSearch.isNotEmpty) {
@@ -264,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } catch (e) {
       if (mounted) {
         scaffoldMessenger.showSnackBar(SnackBar(
-            content: Text('Arama sırasında bir hata oluştu: ${e.toString()}'),
+            content: Text('An error occurred during search: ${e.toString()}'),
             backgroundColor: Colors.red));
         await _cancelSearch();
       }
@@ -306,10 +306,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FilterBottomSheet(
-        title: 'Cinsiyete Göre Filtrele',
+        title: 'Filter by Gender',
         options: const ['Male', 'Female'],
         selectedOption: _selectedGenderFilter,
-        displayLabels: const {'Male': 'Erkek', 'Female': 'Kadın'},
+        displayLabels: const {'Male': 'Male', 'Female': 'Female'},
       ),
     ).then((selectedValue) {
       if (!mounted) return;
@@ -338,8 +338,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FilterBottomSheet(
-        title: 'Seviyeye Göre Filtrele',
-        options: const ['Başlangıç', 'Orta', 'İleri'],
+        title: 'Filter by Level Group',
+        options: const ['Beginner', 'Intermediate', 'Advanced'],
         selectedOption: _selectedLevelGroupFilter,
       ),
     ).then((selectedValue) {
@@ -442,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildHeaderSection() {
     if (_currentUser == null) {
       return HomeHeader(
-          userName: 'Gezgin',
+          userName: 'Traveler',
           avatarUrl: null,
           streak: 0,
           isPremium: false,
@@ -454,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data?.data() == null) {
           return HomeHeader(
-              userName: 'Yükleniyor...',
+              userName: 'Loading...',
               avatarUrl: null,
               streak: 0,
               isPremium: false,
@@ -462,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               role: 'user');
         }
         var userData = snapshot.data!.data()!;
-        final userName = userData['displayName'] ?? 'Gezgin';
+        final userName = userData['displayName'] ?? 'Traveler';
         final avatarUrl = userData['avatarUrl'] as String?;
         final isPremium = userData['isPremium'] as bool? ?? false;
         final streak = userData['streak'] as int? ?? 0;

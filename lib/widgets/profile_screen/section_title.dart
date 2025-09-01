@@ -14,19 +14,19 @@ class SectionTitle extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Başlığın solundaki dekoratif çizgi
+          // Decorative bar at the left of the title
           Container(
             height: 24,
             width: 4,
             decoration: BoxDecoration(
-              // OPTİMİZASYON: `withAlpha` yerine daha performanslı olan `withOpacity` kullanıldı.
+              // OPTIMIZATION: Using withOpacity instead of withAlpha for performance.
               color: Colors.teal.withOpacity(0.8),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 12),
-          // Başlık metni
-          // OPTİMİZASYON: Opaklık, `Opacity` widget'ı ile yönetiliyor.
+          // Title text
+          // OPTIMIZATION: Opacity handled via Opacity widget.
           Opacity(
             opacity: 0.90,
             child: Text(

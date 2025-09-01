@@ -12,7 +12,7 @@ class BannedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text('Oturum bulunamadı.')));
+      return const Scaffold(body: Center(child: Text('No active session.')));
     }
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -32,14 +32,14 @@ class BannedScreen extends StatelessWidget {
                     children: [
                       const Icon(Icons.error_outline, size: 64, color: Colors.red),
                       const SizedBox(height: 12),
-                      const Text('Bir hata oluştu. Lütfen tekrar deneyin.'),
+                      const Text('An error occurred. Please try again.'),
                       const SizedBox(height: 12),
                       ElevatedButton.icon(
                         onPressed: () async {
                           await FirebaseAuth.instance.signOut();
                         },
                         icon: const Icon(Icons.logout),
-                        label: const Text('Çıkış Yap'),
+                        label: const Text('Sign Out'),
                       )
                     ],
                   ),
@@ -57,7 +57,7 @@ class BannedScreen extends StatelessWidget {
         final details = (data?['bannedDetails'] as String?)?.trim();
         final bannedAt = data?['bannedAt'] as Timestamp?;
         final formattedDate = bannedAt != null
-            ? DateFormat('d MMMM y HH:mm', 'tr_TR').format(bannedAt.toDate())
+            ? DateFormat('d MMM y HH:mm', 'en_US').format(bannedAt.toDate())
             : null;
         final isPremium = (data?['isPremium'] as bool?) == true;
 
@@ -73,19 +73,19 @@ class BannedScreen extends StatelessWidget {
                   const Icon(Icons.block, size: 72, color: Colors.red),
                   const SizedBox(height: 16),
                   const Text(
-                    'Hesabınız Yasaklandı',
+                    'Your Account Has Been Banned',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   if (reason != null && reason.isNotEmpty)
-                    Text('Sebep: $reason', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+                    Text('Reason: $reason', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
                   if (details != null && details.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(details, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54)),
                   ],
                   if (formattedDate != null) ...[
                     const SizedBox(height: 8),
-                    Text('Tarih: $formattedDate', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                    Text('Date: $formattedDate', style: const TextStyle(color: Colors.black54, fontSize: 12)),
                   ],
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
@@ -93,7 +93,7 @@ class BannedScreen extends StatelessWidget {
                       await FirebaseAuth.instance.signOut();
                     },
                     icon: const Icon(Icons.logout),
-                    label: const Text('Çıkış Yap'),
+                    label: const Text('Sign Out'),
                     style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
                   ),
                   const SizedBox(height: 12),
@@ -103,19 +103,20 @@ class BannedScreen extends StatelessWidget {
                         Navigator.of(context).pushNamed('/support');
                       },
                       icon: const Icon(Icons.support_agent),
-                      label: const Text('Destek Talebi Oluştur (Pro)'))
+                      label: const Text('Create Support Ticket (Pro)'),
+                    )
                   else
                     TextButton.icon(
                       onPressed: () async {
                         final uid = currentUser.uid;
-                        final subject = 'Yasak İtirazı - $uid';
+                        final subject = 'Ban Appeal - $uid';
                         final body = [
-                          'Merhaba, hesabımın yasaklanmasına itiraz ediyorum.',
-                          if (reason != null && reason.isNotEmpty) 'Sebep: $reason',
-                          if (formattedDate != null) 'Tarih: $formattedDate',
-                          if (details != null && details.isNotEmpty) 'Detaylar: $details',
+                          'Hello, I would like to appeal the ban on my account.',
+                          if (reason != null && reason.isNotEmpty) 'Reason: $reason',
+                          if (formattedDate != null) 'Date: $formattedDate',
+                          if (details != null && details.isNotEmpty) 'Details: $details',
                           '',
-                          'Lütfen inceleyip geri dönüş yapar mısınız?\nTeşekkürler.'
+                          'Please review and respond.\nThank you.'
                         ].join('\n');
                         final uri = Uri(
                           scheme: 'mailto',
@@ -125,12 +126,12 @@ class BannedScreen extends StatelessWidget {
                         final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
                         if (!ok && context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('E-posta uygulaması açılamadı.')),
+                            const SnackBar(content: Text('Could not open email app.')),
                           );
                         }
                       },
                       icon: const Icon(Icons.email_outlined),
-                      label: const Text('E‑posta ile İtiraz Et'),
+                      label: const Text('Appeal via Email'),
                     ),
                 ],
               ),

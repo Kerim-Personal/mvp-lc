@@ -27,7 +27,7 @@ class HelpAndSupportScreen extends StatelessWidget {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   if (index == 0) {
-                    return _buildSectionHeader(context, 'Yardım Konuları');
+                    return _buildSectionHeader(context, 'Help Topics');
                   }
                   if (index <= categories.length) {
                     final category = categories[index - 1];
@@ -49,8 +49,8 @@ class HelpAndSupportScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cs = theme.colorScheme;
-    final start = isDark ? cs.primary.withValues(alpha: 0.35) : Colors.teal.shade400;
-    final end = isDark ? cs.secondary.withValues(alpha: 0.35) : Colors.cyan.shade600;
+    final start = isDark ? cs.surface.withValues(alpha: 0.85) : Colors.teal.shade400;
+    final end = isDark ? cs.surface.withValues(alpha: 0.60) : Colors.cyan.shade600;
     final titleColor = isDark ? cs.onSurface : Colors.white;
     return SliverAppBar(
       expandedHeight: 150.0,
@@ -60,7 +60,7 @@ class HelpAndSupportScreen extends StatelessWidget {
       flexibleSpace: FlexibleSpaceBar(
         centerTitle: true,
         title: Text(
-          'Yardım Merkezi',
+          'Help Center',
           style: TextStyle(fontWeight: FontWeight.bold, color: titleColor, fontSize: 18),
         ),
         background: Container(
@@ -94,10 +94,10 @@ class HelpAndSupportScreen extends StatelessWidget {
   // Tema duyarlı kategori kartları
   Widget _buildCategoryCard(BuildContext context, String category, int index) {
     const categoryIcons = {
-      'Uygulamayı Keşfet': Icons.explore_outlined,
-      'Hesap ve Profil': Icons.account_circle_outlined,
-      'Güvenlik ve Gizlilik': Icons.shield_outlined,
-      'Premium Üyelik ve Ödemeler': Icons.star_border_purple500_sharp,
+      'Explore the App': Icons.explore_outlined,
+      'Account & Profile': Icons.account_circle_outlined,
+      'Security & Privacy': Icons.shield_outlined,
+      'Premium & Billing': Icons.star_border_purple500_sharp,
     };
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -107,8 +107,8 @@ class HelpAndSupportScreen extends StatelessWidget {
     final arrowColor = textColor.withValues(alpha: 0.7);
     final gradientColors = isDark
         ? [
-            cs.surface.withValues(alpha: 0.80),
-            cs.surface.withValues(alpha: 0.55),
+            cs.surface.withValues(alpha: 0.95),
+            cs.surface.withValues(alpha: 0.75),
           ]
         : const [
             Color(0xFFCFD8DC),
@@ -186,9 +186,9 @@ class HelpAndSupportScreen extends StatelessWidget {
           children: [
             Icon(Icons.support_agent, color: cs.primary, size: 40),
             const SizedBox(height: 12),
-            Text('Aradığınızı bulamadınız mı?', textAlign: TextAlign.center, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text("Can't find what you need?", textAlign: TextAlign.center, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('Destek ekibimiz size yardımcı olmaktan mutluluk duyar.', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: subtle)),
+            Text('Our support team is happy to help you.', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: subtle)),
             const SizedBox(height: 20),
             Row(
               children: [
@@ -209,16 +209,16 @@ class HelpAndSupportScreen extends StatelessWidget {
                           final uri = Uri(
                             scheme: 'mailto',
                             path: 'info@codenzi.com',
-                            query: Uri.encodeFull('subject=Destek Talebi&body=Merhaba destek ekibi, sorunumu burada açıklıyorum...'),
+                            query: Uri.encodeFull('subject=Support Request&body=Hello support team, here is my issue...'),
                           );
                           if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                             // ignore: use_build_context_synchronously
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('E-posta uygulaması açılamadı.')));
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open email app.')));
                           }
                         }
                       } catch (e) {
                         // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('İşlem başarısız: $e')));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Action failed: $e')));
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -228,7 +228,7 @@ class HelpAndSupportScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                       elevation: 4,
                     ),
-                    child: const Text('Bize Ulaşın', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Contact Us', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],

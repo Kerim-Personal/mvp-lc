@@ -6,15 +6,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-/// ProfileSliverAppBar: Gelişmiş animasyonlar ve estetik dokunuşlarla zenginleştirilmiş,
-/// dinamik ve etkileşimli bir SliverAppBar.
+/// ProfileSliverAppBar: Enhanced with advanced animations and aesthetic details,
+/// a dynamic and interactive SliverAppBar.
 ///
-/// Özellikler:
-///   - Scroll (Kaydırma) hareketine duyarlı parallax efekti.
-///   - Avatar ve metinler için yumuşak ölçeklenme ve geçiş (fade) animasyonları.
-///   - Sürekli ve yavaşça hareket eden "kozmik" bir arkaplan animasyonu.
-///   - Avatar etrafında nefes alıp veren, canlı bir parlama efekti.
-///   - Performans ve okunabilirlik için optimize edilmiş, modüler kod yapısı.
+/// Features:
+///   - Parallax effect responsive to scroll.
+///   - Smooth scale & fade animations for avatar and texts.
+///   - Continuously, slowly moving "cosmic" background animation.
+///   - Breathing, lively glow effect around the avatar (premium).
+///   - Modular code optimized for readability & performance.
 class ProfileSliverAppBar extends StatefulWidget {
   final String displayName;
   final String email;
@@ -70,10 +70,10 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
   void didUpdateWidget(covariant ProfileSliverAppBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isPremium && widget.isPremium) {
-      // Premium etkin oldu, animasyonu başlat
+      // Premium activated: start shimmer animation
       _shimmerController.forward(from: 0);
     } else if (oldWidget.isPremium && !widget.isPremium) {
-      // Premium kapandı, animasyonu durdur
+      // Premium deactivated: stop shimmer animation
       _shimmerController.stop();
       _shimmerController.reset();
     }
@@ -295,7 +295,7 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
   }
 }
 
-/// Arka planda yavaşça hareket eden ve kaydırmaya tepki veren estetik bir katman.
+/// Aesthetic layer that moves slowly in the background and reacts to scroll.
 class _CosmicBackground extends StatelessWidget {
   final double scrollProgress;
   const _CosmicBackground({required this.scrollProgress});

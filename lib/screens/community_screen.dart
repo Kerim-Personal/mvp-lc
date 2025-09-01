@@ -55,7 +55,7 @@ class FeedPost {
 
     return FeedPost(
       id: doc.id,
-      userName: data['userName'] ?? 'Bilinmiyor',
+      userName: data['userName'] ?? 'Unknown',
       userAvatarUrl: data['userAvatarUrl'] ?? '',
       userId: data['userId'] ?? '',
       postText: data['postText'] ?? '',
@@ -204,7 +204,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Yeni Gönderi Oluştur',
+              const Text('Create New Post',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextField(
@@ -213,7 +213,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                 maxLines: 5,
                 maxLength: 280,
                 decoration: InputDecoration(
-                  hintText: 'Ne düşünüyorsun?',
+                  hintText: 'What are you thinking?',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -238,7 +238,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                     'postText': postController.text.trim(),
                     'userId': currentUser.uid,
                     'userName':
-                    userData?['displayName'] ?? 'Bilinmeyen Kullanıcı',
+                    userData?['displayName'] ?? 'Unknown User',
                     'userAvatarUrl': userData?['avatarUrl'] ?? '',
                     'timestamp': FieldValue.serverTimestamp(),
                     'likes': [],
@@ -256,7 +256,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Paylaş'),
+                child: const Text('Post'),
               ),
               const SizedBox(height: 20),
             ],
@@ -279,11 +279,11 @@ class _CommunityScreenState extends State<CommunityScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Bir hata oluştu: ' + _leaderboardError.toString()),
+                  Text('An error occurred: ' + _leaderboardError.toString()),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => _loadLeaderboard(force: true),
-                    child: const Text('Tekrar Dene'),
+                    child: const Text('Retry'),
                   )
                 ],
               ),
@@ -291,7 +291,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           }
           final data = _leaderboardCache;
           if (data == null || data.isEmpty) {
-            return const Center(child: Text('Henüz liderlik verisi yok.'));
+            return const Center(child: Text('No leaderboard data yet.'));
           }
           return LeaderboardTable(users: data);
         },
@@ -310,9 +310,9 @@ class _CommunityScreenState extends State<CommunityScreen>
         ),
         child: Row(
           children: [
-            _buildTabItem(title: 'Liderlik', icon: Icons.leaderboard_outlined, index: 0),
-            _buildTabItem(title: 'Akış', icon: Icons.dynamic_feed_outlined, index: 1),
-            _buildTabItem(title: 'Odalar', icon: Icons.chat_bubble_outline_rounded, index: 2),
+            _buildTabItem(title: 'Leaderboard', icon: Icons.leaderboard_outlined, index: 0),
+            _buildTabItem(title: 'Feed', icon: Icons.dynamic_feed_outlined, index: 1),
+            _buildTabItem(title: 'Rooms', icon: Icons.chat_bubble_outline_rounded, index: 2),
           ],
         ),
       ),
@@ -382,13 +382,13 @@ class _CommunityScreenState extends State<CommunityScreen>
             // Önceki veri ile listeyi yine göster
             return _buildRoomsListFromDocs(_roomsDocsCache!);
           }
-          return const Center(child: Text('Odalar yüklenemedi.'));
+          return const Center(child: Text('Failed to load rooms.'));
         }
         if (snapshot.hasData) {
           _roomsDocsCache = snapshot.data!.docs; // cache güncelle
         }
         if (_roomsDocsCache == null || _roomsDocsCache!.isEmpty) {
-          return const Center(child: Text('Henüz hiç oda yok.'));
+          return const Center(child: Text('No rooms yet.'));
         }
         return RefreshIndicator(
           onRefresh: _refreshRooms,
@@ -415,7 +415,7 @@ class _CommunityScreenState extends State<CommunityScreen>
 
       return GroupChatRoomInfo(
         id: doc.id,
-        name: data['name'] ?? 'Bilinmeyen Oda',
+        name: data['name'] ?? 'Unknown Room',
         description: data['description'] ?? '',
         icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
         color1: Color(_parseColor(data['color1'], 0xFFFF8A80)),
@@ -455,7 +455,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           if (_feedPostsCache != null) {
             return _buildFeedListFromDocs(_feedPostsCache!);
           }
-          return const Center(child: Text('Gönderiler yüklenemedi.\nLütfen tekrar deneyin.', textAlign: TextAlign.center));
+          return const Center(child: Text('Failed to load posts.\nPlease try again.', textAlign: TextAlign.center));
         }
         if (snapshot.hasData) {
           _feedPostsCache = snapshot.data!.docs; // cache
@@ -463,7 +463,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         if (_feedPostsCache == null || _feedPostsCache!.isEmpty) {
           return const Center(
             child: Text(
-              'Henüz hiç gönderi yok.\nİlk gönderiyi sen paylaş!',
+              'No posts yet.\nBe the first to share!',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
@@ -507,7 +507,7 @@ class _CommunityScreenState extends State<CommunityScreen>
 
         if (filtered.isEmpty) {
           return const Center(
-            child: Text('Filtrelere göre gösterilecek gönderi yok.'),
+            child: Text('No posts match the filters.'),
           );
         }
 
@@ -542,7 +542,7 @@ class _CommunityScreenState extends State<CommunityScreen>
       final data = entry.value.data();
       return LeaderboardUser(
         rank: entry.key + 1,
-        name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Bilinmeyen',
+        name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown',
         avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
         partnerCount: (data['partnerCount'] is int) ? data['partnerCount'] : 0,
         isPremium: data['isPremium'] == true,
@@ -574,7 +574,7 @@ class _CommunityScreenState extends State<CommunityScreen>
               backgroundColor: Colors.teal,
               foregroundColor: Colors.white,
               child: const Icon(Icons.add),
-              tooltip: 'Yeni Gönderi',
+              tooltip: 'New Post',
             )
           : null,
       body: SafeArea(

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 class GlassmorphicContainer extends StatelessWidget {
   final double width;
-  // ÇÖZÜM: 'height' parametresi artık zorunlu değil, opsiyonel (nullable) yapıldı.
+  // FIX: 'height' parameter is no longer required; made optional (nullable).
   final double? height;
   final double borderRadius;
   final double blur;
@@ -16,7 +16,7 @@ class GlassmorphicContainer extends StatelessWidget {
   const GlassmorphicContainer({
     super.key,
     required this.width,
-    this.height, // 'required' kaldırıldı.
+    this.height, // 'required' removed.
     required this.child,
     this.borderRadius = 20,
     this.blur = 10,
@@ -40,7 +40,7 @@ class GlassmorphicContainer extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: Container(
           width: width,
-          height: height, // Artık null olabilir, bu durumda içeriğe göre boyutlanır.
+          height: height, // May be null; then sizes to its child.
           decoration: BoxDecoration(
             gradient: gradient,
             borderRadius: BorderRadius.circular(borderRadius),

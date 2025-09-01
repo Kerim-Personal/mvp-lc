@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/services/auth_service.dart';
-import 'package:lingua_chat/utils/password_strength.dart'; // <-- Yeni: Şifre gücü aracı
+import 'package:lingua_chat/utils/password_strength.dart'; // Added: password strength helper
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -75,25 +75,25 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Şifreniz başarıyla değiştirildi.'),
+            content: Text('Your password was changed successfully.'),
             backgroundColor: Colors.green,
           ),
         );
         Navigator.of(context).pop();
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage = 'Bir hata oluştu. Lütfen tekrar deneyin.';
+      String errorMessage = 'An error occurred. Please try again.';
       if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        errorMessage = 'Mevcut şifreniz yanlış.';
+        errorMessage = 'Your current password is incorrect.';
       } else if (e.code == 'weak-password') {
-        errorMessage = 'Yeni şifre çok zayıf. Lütfen daha güçlü bir şifre seçin.';
+        errorMessage = 'The new password is too weak. Please choose a stronger one.';
       }
       setState(() {
         _error = errorMessage;
       });
     } catch (e) {
       setState(() {
-        _error = 'Beklenmedik bir hata oluştu.';
+        _error = 'An unexpected error occurred.';
       });
     } finally {
       if (mounted) {
@@ -128,7 +128,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-        const Text('Güç Kriterleri', style: TextStyle(fontWeight: FontWeight.w600)),
+        const Text('Strength Criteria', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         ...all.map((c) {
           final ok = !r.unmetCriteria.contains(c);
@@ -158,7 +158,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Şifreyi Değiştir'),
+        title: const Text('Change Password'),
         centerTitle: true,
         // M3: Varsayılan renkler ve scrolledUnderElevation kullanılsın
         scrolledUnderElevation: 2,
@@ -179,7 +179,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
-                      labelText: 'Mevcut Şifre',
+                      labelText: 'Current Password',
                       prefixIcon: const Icon(Icons.lock_outline),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -187,11 +187,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       suffixIcon: IconButton(
                         icon: Icon(_showCurrent ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _showCurrent = !_showCurrent),
-                        tooltip: _showCurrent ? 'Şifreyi gizle' : 'Şifreyi göster',
+                        tooltip: _showCurrent ? 'Hide password' : 'Show password',
                       ),
                     ),
                     validator: (value) => (value == null || value.isEmpty)
-                        ? 'Lütfen mevcut şifrenizi girin.'
+                        ? 'Please enter your current password.'
                         : null,
                     onChanged: (_) => _recalcStrength(),
                   ),
@@ -202,7 +202,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.newPassword],
                     decoration: InputDecoration(
-                      labelText: 'Yeni Şifre',
+                      labelText: 'New Password',
                       prefixIcon: const Icon(Icons.lock),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -210,17 +210,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       suffixIcon: IconButton(
                         icon: Icon(_showNew ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _showNew = !_showNew),
-                        tooltip: _showNew ? 'Şifreyi gizle' : 'Şifreyi göster',
+                        tooltip: _showNew ? 'Hide password' : 'Show password',
                       ),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Yeni şifre girin.';
+                      if (value == null || value.isEmpty) return 'Enter a new password.';
                       final r = _strength ?? PasswordStrength.evaluate(value);
                       if (!r.allSatisfied) {
                         return 'Eksik: ${r.unmetCriteria.first}';
                       }
                       if (r.score < 70) {
-                        return 'Şifre daha güçlü olmalı (en az Güçlü).';
+                        return 'Password must be stronger (at least Strong).';
                       }
                       return null;
                     },
@@ -274,7 +274,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     },
                     autofillHints: const [AutofillHints.newPassword],
                     decoration: InputDecoration(
-                      labelText: 'Yeni Şifreyi Onayla',
+                      labelText: 'Confirm New Password',
                       prefixIcon: const Icon(Icons.lock_person),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -282,12 +282,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       suffixIcon: IconButton(
                         icon: Icon(_showConfirm ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _showConfirm = !_showConfirm),
-                        tooltip: _showConfirm ? 'Şifreyi gizle' : 'Şifreyi göster',
+                        tooltip: _showConfirm ? 'Hide password' : 'Show password',
                       ),
                     ),
                     validator: (value) {
                       if (value != _newPasswordController.text) {
-                        return 'Şifreler eşleşmiyor.';
+                        return 'Passwords do not match.';
                       }
                       return null;
                     },
@@ -331,7 +331,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                 Icon(Icons.password_rounded, size: 20),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Şifreyi Güncelle',
+                                  'Update Password',
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                               ],

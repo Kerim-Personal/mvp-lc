@@ -81,17 +81,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snap.data != true) {
-          return const Scaffold(body: Center(child: Text('Erişim yok.')));
+          return const Scaffold(body: Center(child: Text('No access.')));
         }
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Yönetim Paneli'),
+            title: const Text('Admin Panel'),
             bottom: TabBar(
               controller: _tabController,
               tabs: const [
-                Tab(icon: Icon(Icons.support_agent), text: 'Destek'),
-                Tab(icon: Icon(Icons.block), text: 'Banlı'),
-                Tab(icon: Icon(Icons.report), text: 'Raporlar'),
+                Tab(icon: Icon(Icons.support_agent), text: 'Support'),
+                Tab(icon: Icon(Icons.block), text: 'Banned'),
+                Tab(icon: Icon(Icons.report), text: 'Reports'),
               ],
             ),
           ),
@@ -120,7 +120,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       // Güvenli page clamp
       final totalPages = _supportTotal == 0 ? 1 : ((_supportTotal + _supportPageSize - 1) ~/ _supportPageSize);
       if (_supportPageIndex >= totalPages) _supportPageIndex = totalPages - 1;
-    } catch(e){ _showSnack('Destek yüklenemedi: $e'); }
+    } catch(e){ _showSnack('Support load failed: $e'); }
     finally { if (mounted) setState(() { _supportLoading = false; }); }
   }
 
@@ -132,7 +132,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       if (_supportStatusFilter != 'all') base = base.where('status', isEqualTo: _supportStatusFilter);
       final snap = await base.orderBy('createdAt', descending: true).startAfterDocument(_supportDocs.last).limit(_supportPageSize).get();
       setState(() { _supportDocs.addAll(snap.docs); _supportHasMore = snap.docs.length == _supportPageSize; });
-    } catch(e){ _showSnack('Devamı alınamadı: $e'); }
+    } catch(e){ _showSnack('Load more failed: $e'); }
     finally { if (mounted) setState(() { _supportLoading = false; }); }
   }
 
@@ -146,7 +146,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       setState(() { _reportDocs.addAll(snap.docs); _reportHasMore = snap.docs.length == _reportPageSize; });
       final totalPages = _reportTotal == 0 ? 1 : ((_reportTotal + _reportPageSize - 1) ~/ _reportPageSize);
       if (_reportPageIndex >= totalPages) _reportPageIndex = totalPages - 1;
-    } catch(e){ _showSnack('Raporlar yüklenemedi: $e'); }
+    } catch(e){ _showSnack('Reports load failed: $e'); }
     finally { if (mounted) setState(() { _reportLoading = false; }); }
   }
 
@@ -158,7 +158,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       if (_reportStatusFilter != 'all') base = base.where('status', isEqualTo: _reportStatusFilter);
       final snap = await base.orderBy('timestamp', descending: true).startAfterDocument(_reportDocs.last).limit(_reportPageSize).get();
       setState(() { _reportDocs.addAll(snap.docs); _reportHasMore = snap.docs.length == _reportPageSize; });
-    } catch(e){ _showSnack('Rapor devamı alınamadı: $e'); }
+    } catch(e){ _showSnack('More reports load failed: $e'); }
     finally { if (mounted) setState(() { _reportLoading = false; }); }
   }
 
@@ -172,7 +172,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       final totalItems = _bannedTotal; // filtre yok initial
       final totalPages = totalItems == 0 ? 1 : ((totalItems + _bannedPageSize - 1) ~/ _bannedPageSize);
       if (_bannedPageIndex >= totalPages) _bannedPageIndex = totalPages - 1;
-    } catch(e){ _showSnack('Banlı kullanıcılar yüklenemedi: $e'); }
+    } catch(e){ _showSnack('Banned users load failed: $e'); }
     finally { if (mounted) setState(() { _bannedLoading = false; }); }
   }
 
@@ -183,7 +183,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       final base = FirebaseFirestore.instance.collection('users').where('status', isEqualTo: 'banned');
       final snap = await base.orderBy('displayName').startAfterDocument(_bannedDocs.last).limit(_bannedPageSize).get();
       setState(() { _bannedDocs.addAll(snap.docs); _bannedHasMore = snap.docs.length == _bannedPageSize; });
-    } catch(e){ _showSnack('Devamı alınamadı: $e'); }
+    } catch(e){ _showSnack('More banned users load failed: $e'); }
     finally { if (mounted) setState(() { _bannedLoading = false; }); }
   }
 
@@ -239,7 +239,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             child: _supportLoading && _supportDocs.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : _supportDocs.isEmpty
-                    ? const Center(child: Text('Destek talebi yok.'))
+                    ? const Center(child: Text('No support tickets.'))
                     : ListView.separated(
                         itemCount: (() { final slice = _supportDocs.skip(_supportPageIndex * _supportPageSize).take(_supportPageSize).length; return slice; })(),
                         separatorBuilder: (_, __) => const Divider(height: 0),
@@ -249,7 +249,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           final data = d.data() ?? {};
                           final status = (data['status'] as String?) ?? 'open';
                           final attachments = (data['attachments'] is List) ? (data['attachments'] as List).cast<dynamic>() : const [];
-                          final attachInfo = attachments.isNotEmpty ? '\n📎 ${attachments.length} fotoğraf' : '';
+                          final attachInfo = attachments.isNotEmpty ? '\n📎 ${attachments.length} photos' : '';
                           return ListTile(
                             key: ValueKey(d.id),
                             leading: const Icon(Icons.support_agent),
@@ -395,7 +395,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                   )
                 ],
                 const SizedBox(height: 4),
-                Text('Kullanıcı Talebi', style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600)),
+                Text('User Request', style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600)),
               ],
             ),
           );
@@ -406,7 +406,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             stream: FirebaseFirestore.instance.collection('support').doc(docId).collection('messages').orderBy('createdAt', descending: true).limit(300).snapshots(),
             builder: (c, snap) {
               if (snap.hasError) {
-                return Center(child: Text('Mesajlar yüklenemedi: ' + snap.error.toString(), textAlign: TextAlign.center));
+                return Center(child: Text('Messages failed: ' + snap.error.toString(), textAlign: TextAlign.center));
               }
               if (!snap.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -486,7 +486,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
-                        Text('Kullanıcı: ${data['displayName'] ?? ''}', style: const TextStyle(fontSize: 12)),
+                        Text('User: ${data['displayName'] ?? ''}', style: const TextStyle(fontSize: 12)),
                         const SizedBox(width: 12),
                         Expanded(child: Text('${data['email'] ?? ''}', style: const TextStyle(fontSize: 12, color: Colors.black54), overflow: TextOverflow.ellipsis)),
                       ],
@@ -504,9 +504,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                           try {
                             await _adminService.updateSupportStatus(docId, s);
                             setSt(() => status = s);
-                            _showSnack('Destek durumu güncellendi.');
+                            _showSnack('Support status updated.');
                           } catch (e) {
-                            _showSnack('Güncellenemedi: $e');
+                            _showSnack('Update failed: $e');
                           }
                         },
                       ),
@@ -550,13 +550,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                                 controller: msgCtrl,
                                 minLines: 1,
                                 maxLines: 4,
-                                decoration: const InputDecoration(hintText: 'Yanıt yaz...', border: OutlineInputBorder()),
+                                decoration: const InputDecoration(hintText: 'Type a reply...', border: OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton.icon(
                               icon: sending ? const SizedBox(width:16,height:16,child: CircularProgressIndicator(strokeWidth:2,color: Colors.white)) : const Icon(Icons.send,size:18),
-                              label: const Text('Gönder'),
+                              label: const Text('Send'),
                               onPressed: sending ? null : () => send(setSt),
                             )
                           ],
@@ -568,7 +568,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       width: double.infinity,
                       color: Colors.grey.shade200,
                       padding: const EdgeInsets.all(12),
-                      child: const Center(child: Text('Talep kapalı.')),
+                      child: const Center(child: Text('Ticket closed.')),
                     ),
                 ],
               ),
@@ -598,7 +598,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           child: TextField(
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
-              hintText: 'Kullanıcı ara (isim / e-posta)',
+              hintText: 'Search user (name / email)',
               border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
             ),
             onChanged: (v) => setState(() { _bannedSearch = v.trim().toLowerCase(); _bannedPageIndex = 0; }),
@@ -610,7 +610,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             child: _bannedLoading && _bannedDocs.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : filtered.isEmpty
-                    ? const Center(child: Text('Banlı kullanıcı yok.'))
+                    ? const Center(child: Text('No banned users.'))
                     : ListView.separated(
                         itemCount: visible.length,
                         separatorBuilder: (_, __) => const Divider(height: 0),
@@ -626,13 +626,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                               onPressed: () async {
                                 try {
                                   await _adminService.unbanUser(d.id);
-                                  _showSnack('Kullanıcı aktifleştirildi.');
+                                  _showSnack('User re-activated.');
                                   _loadInitialBanned();
                                 } catch (e) {
-                                  _showSnack('Hata: $e');
+                                  _showSnack('Error: $e');
                                 }
                               },
-                              child: const Text('Ban Kaldır'),
+                              child: const Text('Unban'),
                             ),
                           );
                         },
@@ -667,7 +667,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             child: _reportLoading && _reportDocs.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : _reportDocs.isEmpty
-                    ? const Center(child: Text('Rapor yok.'))
+                    ? const Center(child: Text('No reports.'))
                     : ListView.separated(
                         itemCount: (() { final slice = _reportDocs.skip(_reportPageIndex * _reportPageSize).take(_reportPageSize).length; return slice; })(),
                         separatorBuilder: (_, __) => const Divider(height: 0),
@@ -697,8 +697,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                                 }
                                 final contentPreview = reportedContent.isEmpty
                                     ? ''
-                                    : '\nİçerik: ' + (reportedContent.length > 60 ? reportedContent.substring(0,60) + '…' : reportedContent);
-                                return Text('Hedef: $targetName\nRaporlayan: $reporterName$contentPreview', maxLines: 4, overflow: TextOverflow.ellipsis);
+                                    : '\nContent: ' + (reportedContent.length > 60 ? reportedContent.substring(0,60) + '…' : reportedContent);
+                                return Text('Target: $targetName\nReporter: $reporterName$contentPreview', maxLines: 4, overflow: TextOverflow.ellipsis);
                               },
                             ),
                             trailing: _buildStatusChip(status),
@@ -803,12 +803,12 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             if (reason.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                child: Text('Sebep alanı boş ("reason" kaydı yok).', style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Colors.redAccent)),
+                child: Text('Reason field empty (no "reason" value).', style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Colors.redAccent)),
               );
             }
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              child: Text('Sebep: $reason', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              child: Text('Reason: $reason', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             );
           }
 
@@ -816,7 +816,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             if (details.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                child: Text('Açıklama yok ("details" alanı boş).', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic)),
+                child: Text('No description ("details" empty).', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic)),
               );
             }
             return Padding(
@@ -829,7 +829,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               if (reportedContent.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  child: Text('Raporlanan içerik yok ("reportedContent" kaydı boş).', style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+                  child: Text('No reported content ("reportedContent" empty).', style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
                 );
               }
               return Padding(
@@ -842,7 +842,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
-                  child: Text('Raporlanan İçerik:\n$reportedContent', style: const TextStyle(fontSize: 12)),
+                  child: Text('Reported Content:\n$reportedContent', style: const TextStyle(fontSize: 12)),
                 ),
               );
             }
@@ -861,7 +861,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       children: [
                         const Icon(Icons.report, color: Colors.orange),
                         const SizedBox(width: 8),
-                        const Expanded(child: Text('Rapor Detayı', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                        const Expanded(child: Text('Report Detail', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
                         _buildStatusChip(status),
                         IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close))
                       ],
@@ -873,20 +873,20 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                     child: FutureBuilder<String>(
                       future: _getUserName(reporterId),
-                      builder: (_, snap) => Text('Raporlayan: ${(snap.data ?? reporterId).isEmpty ? '—' : (snap.data ?? reporterId)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                      builder: (_, snap) => Text('Reporter: ${(snap.data ?? reporterId).isEmpty ? '—' : (snap.data ?? reporterId)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
                     child: FutureBuilder<String>(
                       future: _getUserName(reportedUserId),
-                      builder: (_, snap) => Text('Raporlanan: ${(snap.data ?? reportedUserId).isEmpty ? '—' : (snap.data ?? reportedUserId)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                      builder: (_, snap) => Text('Reported: ${(snap.data ?? reportedUserId).isEmpty ? '—' : (snap.data ?? reportedUserId)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
                     ),
                   ),
                   if (timestamp != null)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                      child: Text('Tarih: ${_formatTs(timestamp)}', style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                      child: Text('Date: ${_formatTs(timestamp)}', style: const TextStyle(fontSize: 11, color: Colors.black45)),
                     ),
                   buildReportedContent(),
                   const SizedBox(height: 4),
@@ -904,9 +904,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                               try {
                                 await _adminService.updateReportStatus(reportId, s);
                                 setSt(() => status = s);
-                                _showSnack('Rapor durumu güncellendi.');
+                                _showSnack('Report status updated.');
                               } catch (e) {
-                                _showSnack('Güncellenemedi: $e');
+                                _showSnack('Update failed: $e');
                               }
                             },
                           ),
@@ -921,17 +921,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       children: [
                         ElevatedButton.icon(
                           icon: const Icon(Icons.copy, size:18),
-                          label: const Text('ID Kopyala'),
+                          label: const Text('Copy ID'),
                           onPressed: () async {
                             await Clipboard.setData(ClipboardData(text: reportId));
-                            _showSnack('Rapor ID kopyalandı');
+                            _showSnack('Report ID copied');
                           },
                         ),
                         if (reportedUserId.isNotEmpty)
                           ElevatedButton.icon(
                             icon: const Icon(Icons.gavel, size:18),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                            label: const Text('Banla'),
+                            label: const Text('Ban'),
                             onPressed: () => _promptBanUser(reportedUserId),
                           ),
                       ],
@@ -950,7 +950,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
   Future<void> _promptBanUser(String userId) async {
     final allowed = await _adminService.canBanUser(userId);
     if (!allowed) {
-      _showSnack('Bu kullanıcıyı banlama yetkiniz yok.');
+      _showSnack('You don\'t have permission to ban this user.');
       return;
     }
     final TextEditingController reasonCtrl = TextEditingController();
@@ -958,25 +958,25 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Kullanıcıyı Banla'),
+        title: const Text('Ban User'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: reasonCtrl,
-              decoration: const InputDecoration(labelText: 'Sebep (kısa)', hintText: 'Örn: Spam'),
+              decoration: const InputDecoration(labelText: 'Reason (short)', hintText: 'Ex: Spam'),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: detailsCtrl,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Detay (opsiyonel)'),
+              decoration: const InputDecoration(labelText: 'Details (optional)'),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('İptal')),
-          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Banla')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Ban')),
         ],
       ),
     );
@@ -984,16 +984,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
     final reason = reasonCtrl.text.trim();
     final details = detailsCtrl.text.trim().isEmpty ? null : detailsCtrl.text.trim();
     if (reason.isEmpty) {
-      _showSnack('Sebep boş olamaz.');
+      _showSnack('Reason cannot be empty.');
       return;
     }
     try {
       await _adminService.banUser(userId, reason: reason, details: details);
-      _showSnack('Kullanıcı banlandı.');
+      _showSnack('User banned.');
       // Banlı sekmesini tazelemek istiyorsak:
       _loadInitialBanned();
     } catch (e) {
-      _showSnack('Ban hatası: $e');
+      _showSnack('Ban error: $e');
     }
   }
 
@@ -1016,7 +1016,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withValues(alpha: .95), boxShadow:[BoxShadow(color: Colors.black.withValues(alpha:.05), blurRadius:4)]),
       child: Row(children:[
-        IconButton(icon: const Icon(Icons.chevron_left), tooltip:'Önceki', onPressed: canPrev? onPrev : null),
+        IconButton(icon: const Icon(Icons.chevron_left), tooltip:'Previous', onPressed: canPrev? onPrev : null),
         SizedBox(width:54, child: TextField(
           controller: controller,
           textAlign: TextAlign.center,
@@ -1027,15 +1027,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
         )),
         const SizedBox(width:6),
         Text('/ $totalPages', style: const TextStyle(fontWeight: FontWeight.w600)),
-        IconButton(icon: const Icon(Icons.chevron_right), tooltip:'Sonraki', onPressed: canNext && !loading ? (){ onNext(); } : null),
+        IconButton(icon: const Icon(Icons.chevron_right), tooltip:'Next', onPressed: canNext && !loading ? (){ onNext(); } : null),
         const Spacer(),
-        if(!loading) Text('Toplam: $totalItems', style: const TextStyle(fontSize:12,fontWeight: FontWeight.w500)),
+        if(!loading) Text('Total: $totalItems', style: const TextStyle(fontSize:12,fontWeight: FontWeight.w500)),
         const SizedBox(width:12),
         DropdownButton<int>(
           value: pageSize,
           underline: const SizedBox.shrink(),
           onChanged: (v){ if(v!=null && v!=pageSize) onPageSizeChange(v); },
-          items: options.map((e)=> DropdownMenuItem(value:e, child: Text('$e/sa'))).toList(),
+          items: options.map((e)=> DropdownMenuItem(value:e, child: Text('$e/page'))).toList(),
         )
       ]),
     );

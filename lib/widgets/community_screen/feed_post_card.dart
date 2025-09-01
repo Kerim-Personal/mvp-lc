@@ -96,7 +96,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
     try {
       await FirebaseFirestore.instance.runTransaction((tx) async {
         final snap = await tx.get(postRef);
-        if (!snap.exists) throw Exception('Gönderi bulunamadı');
+        if (!snap.exists) throw Exception('Post not found');
         final data = snap.data() as Map<String, dynamic>;
         final List<dynamic> raw = (data['likes'] as List<dynamic>? ) ?? [];
         final likes = raw.map((e) => e.toString()).toList();
@@ -118,7 +118,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
           likeCount = prevCount;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Beğeni güncellenemedi: ${e.toString()}')),
+          SnackBar(content: Text('Failed to update like: ${e.toString()}')),
         );
       }
     }
@@ -128,16 +128,16 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Gönderiyi Sil'),
-        content: const Text('Bu gönderiyi silmek istediğinizden emin misiniz?'),
+        title: const Text('Delete Post'),
+        content: const Text('Are you sure you want to delete this post?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('İptal'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sil', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -157,7 +157,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
     try {
       await BlockService().blockUser(currentUserId: me.uid, targetUserId: widget.post.userId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kullanıcı engellendi.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User blocked.')));
       }
     } catch (e) {
       if (mounted) {
@@ -172,7 +172,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
     try {
       await BlockService().unblockUser(currentUserId: me.uid, targetUserId: widget.post.userId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engel kaldırıldı.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Block removed.')));
       }
     } catch (e) {
       if (mounted) {
@@ -184,13 +184,13 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
   String _timeAgo(Timestamp timestamp) {
     final difference = DateTime.now().difference(timestamp.toDate());
     if (difference.inSeconds < 60) {
-      return '${difference.inSeconds} sn önce';
+      return '${difference.inSeconds}s ago';
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} dk önce';
+      return '${difference.inMinutes}m ago';
     } else if (difference.inHours < 24) {
-      return '${difference.inHours} sa önce';
+      return '${difference.inHours}h ago';
     } else {
-      return DateFormat('dd MMM yyyy', 'tr_TR').format(timestamp.toDate());
+      return DateFormat('dd MMM yyyy', 'en_US').format(timestamp.toDate());
     }
   }
 
@@ -221,7 +221,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // KULLANICI BAŞLIĞI: users/{userId} dokümanını canlı dinle
+            // KULLANICI BAŞLIĞI: listen live to users/{userId} document
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
@@ -357,7 +357,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                                 children: [
                                   Icon(Icons.delete_outline, color: Colors.red),
                                   SizedBox(width: 8),
-                                  Text('Sil'),
+                                  Text('Delete'),
                                 ],
                               ),
                             ),
@@ -371,7 +371,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                                 children: [
                                   Icon(Icons.report, color: Colors.red),
                                   SizedBox(width: 8),
-                                  Text('Kullanıcıyı Bildir'),
+                                  Text('Report User'),
                                 ],
                               ),
                             ),
@@ -383,7 +383,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                                 children: [
                                   Icon(Icons.block, color: Colors.red),
                                   SizedBox(width: 8),
-                                  Text('Kullanıcıyı Engelle'),
+                                  Text('Block User'),
                                 ],
                               ),
                             ),
@@ -396,7 +396,7 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                                   children: [
                                     Icon(Icons.block, color: Colors.red),
                                     SizedBox(width: 8),
-                                    Text('Hesabı Banla'),
+                                    Text('Ban Account'),
                                   ],
                                 ),
                               ),
@@ -420,13 +420,13 @@ class _FeedPostCardState extends State<FeedPostCard> with TickerProviderStateMix
                 _buildActionButton(
                   icon:
                       isLiked ? Icons.favorite : Icons.favorite_border_outlined,
-                  text: '$likeCount Beğeni',
+                  text: '$likeCount Likes',
                   color: isLiked ? Colors.red : Colors.grey.shade700,
                   onTap: _toggleLike,
                 ),
                 _buildActionButton(
                   icon: Icons.chat_bubble_outline_rounded,
-                  text: '${widget.post.commentCount} Yorum',
+                  text: '${widget.post.commentCount} Comments',
                   onTap: () {
                     Navigator.push(
                       context,

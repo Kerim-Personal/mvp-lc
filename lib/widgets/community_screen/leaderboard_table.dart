@@ -142,9 +142,9 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
   @override
   Widget build(BuildContext context) {
     final Map<int, dynamic> rankInfo = {
-      1: {'color': Colors.amber, 'icon': Icons.emoji_events, 'label': 'Altın'},
-      2: {'color': Colors.grey.shade400, 'icon': Icons.military_tech, 'label': 'Gümüş'},
-      3: {'color': Colors.brown.shade400, 'icon': Icons.workspace_premium, 'label': 'Bronz'},
+      1: {'color': Colors.amber, 'icon': Icons.emoji_events, 'label': 'Gold'},
+      2: {'color': Colors.grey.shade400, 'icon': Icons.military_tech, 'label': 'Silver'},
+      3: {'color': Colors.brown.shade400, 'icon': Icons.workspace_premium, 'label': 'Bronze'},
     };
 
     final isTop3 = rankInfo.containsKey(widget.user.rank);

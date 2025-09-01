@@ -20,12 +20,9 @@ class StatsRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        // GÜNCELLEME: Değerler artık dinamik olarak geliyor
-        _buildStatItem(
-            Icons.local_fire_department_rounded, "$streak Gün", "Seri", Colors.orange),
-        _buildStatItem(
-            Icons.timer_rounded, "$totalTime dk", "Toplam Süre", Colors.teal),
-        _buildStatItem(Icons.people_alt_rounded, "$partnerCount", "Partner", Colors.blue),
+        _buildStatItem(Icons.local_fire_department_rounded, "$streak d", "Streak", Colors.orange),
+        _buildStatItem(Icons.timer_rounded, "$totalTime min", "Total Time", Colors.teal),
+        _buildStatItem(Icons.people_alt_rounded, "$partnerCount", "Partners", Colors.blue),
       ],
     );
   }

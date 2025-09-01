@@ -159,7 +159,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text('Yükleniyor...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+                            Text('Loading...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
                           ],
                         )
                       else
@@ -211,7 +211,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
               ],
             ),
             child: const Text(
-              'CANLI',
+              'LIVE',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10,
@@ -261,8 +261,8 @@ class _GroupChatCardState extends State<GroupChatCard> {
         Expanded(
           child: Text(
             memberCount > 0
-                ? '$memberCount üye burada'
-                : 'Odaya ilk giren sen ol!',
+                ? '$memberCount members here'
+                : 'Be the first to join the room!',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
             overflow: TextOverflow.ellipsis,
           ),

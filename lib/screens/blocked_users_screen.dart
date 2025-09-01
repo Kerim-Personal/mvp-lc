@@ -17,8 +17,8 @@ class BlockedUsersScreen extends StatelessWidget {
 
     if (currentUser == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Engellenenler')),
-        body: Center(child: Text('Devam etmek için giriş yapın.', style: theme.textTheme.bodyMedium)),
+        appBar: AppBar(title: const Text('Blocked Users')),
+        body: Center(child: Text('Please sign in to continue.', style: theme.textTheme.bodyMedium)),
       );
     }
 
@@ -31,7 +31,7 @@ class BlockedUsersScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Engellenenler'),
+        title: const Text('Blocked Users'),
         backgroundColor: theme.appBarTheme.backgroundColor,
         foregroundColor: theme.appBarTheme.foregroundColor,
         elevation: isDark ? 0 : 1,
@@ -43,14 +43,14 @@ class BlockedUsersScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData) {
-            return _buildEmptyState(context, 'Kullanıcı verisi bulunamadı.');
+            return _buildEmptyState(context, 'No user data found.');
           }
 
             final docs = snapshot.data!.docs;
             if (docs.isEmpty) {
               return _buildEmptyState(
                 context,
-                'Henüz kimseyi engellemediniz.',
+                'You have not blocked anyone yet.',
                 icon: Icons.shield_outlined,
               );
             }
@@ -64,7 +64,7 @@ class BlockedUsersScreen extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (!usersSnap.hasData || usersSnap.data!.isEmpty) {
-                return _buildEmptyState(context, 'Engellenen kullanıcı bulunamadı.');
+                return _buildEmptyState(context, 'No blocked users found.');
               }
 
               final userDocs = usersSnap.data!;
@@ -98,7 +98,7 @@ class BlockedUsersScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final displayName = userData?['displayName'] ?? 'Bilinmeyen Kullanıcı';
+    final displayName = userData?['displayName'] ?? 'Unknown User';
     final avatarUrl = userData?['avatarUrl'] as String?;
 
     return Card(
@@ -142,7 +142,7 @@ class BlockedUsersScreen extends StatelessWidget {
                 textStyle: const TextStyle(fontWeight: FontWeight.w600),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Engeli Kaldır'),
+              child: const Text('Unblock'),
             ),
           ],
         ),
@@ -159,7 +159,7 @@ class BlockedUsersScreen extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Kullanıcının engeli kaldırıldı.'),
+            content: Text('User unblocked.'),
             backgroundColor: Colors.green,
           ),
         );
@@ -168,7 +168,7 @@ class BlockedUsersScreen extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: ${e.toString()}'),
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );

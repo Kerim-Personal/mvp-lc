@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-/// Premium kullanıcılar için zengin aurora/parçacık efektli arka plan.
+/// Premium users' rich aurora / particle effect background.
 class PremiumAnimatedBackground extends StatefulWidget {
   const PremiumAnimatedBackground({super.key});
 
@@ -44,7 +44,7 @@ class _PremiumAnimatedBackgroundState extends State<PremiumAnimatedBackground> w
 }
 
 class _AuroraPainter extends CustomPainter {
-  final double time; // 0..1 döngü
+  final double time; // 0..1 cycle
   _AuroraPainter({required this.time});
 
   @override
@@ -64,9 +64,9 @@ class _AuroraPainter extends CustomPainter {
     ];
     final radii = [size.width * 0.35, size.width * 0.28, size.width * 0.32];
     final colors = [
-      [const Color(0xFFFFF3C0), const Color(0xFFFFC107)], // açık altın -> amber
-      [const Color(0xFFE1BEE7), const Color(0xFF9C27B0)], // lila -> mor
-      [const Color(0xFFB3E5FC), const Color(0xFF00BCD4)], // açık mavi -> camgöbeği
+      [const Color(0xFFFFF3C0), const Color(0xFFFFC107)], // light gold -> amber
+      [const Color(0xFFE1BEE7), const Color(0xFF9C27B0)], // lilac -> purple
+      [const Color(0xFFB3E5FC), const Color(0xFF00BCD4)], // light blue -> cyan
     ];
 
     for (int i = 0; i < centers.length; i++) {
@@ -109,7 +109,7 @@ class _AuroraPainter extends CustomPainter {
   }
 
   void _paintSparkles(Canvas canvas, Size size, double t) {
-    final rnd = math.Random(42); // deterministik
+    final rnd = math.Random(42); // deterministic
     final int count = 70;
 
     for (int i = 0; i < count; i++) {
@@ -124,7 +124,7 @@ class _AuroraPainter extends CustomPainter {
   }
 
   void _applyBlurOverlay(Canvas canvas, Size size) {
-    // Hafif bir üst blur/parlaklık katmanı (cam etkisini zenginleştirir)
+    // A subtle top blur/gloss layer (enriches glass effect)
     final overlayPaint = Paint()
       ..shader = LinearGradient(
         colors: [

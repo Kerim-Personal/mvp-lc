@@ -12,8 +12,8 @@ class AdminPanelCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
         leading: const Icon(Icons.admin_panel_settings, color: Colors.deepPurple),
-        title: const Text('Yönetim Paneli', style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: const Text('Destek, banlı ve raporlanan kullanıcılar'),
+        title: const Text('Admin Panel', style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: const Text('Support, banned & reported users'),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
         onTap: () {
           Navigator.of(context).push(

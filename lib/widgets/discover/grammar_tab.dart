@@ -387,7 +387,7 @@ class GrammarLevelScreen extends StatelessWidget {
     final Set<String> completedLessons = {'Present Continuous'};
     return Scaffold(
       appBar: AppBar(
-        title: Text('$level Gramer Konuları'),
+        title: Text('$level Grammar Topics'),
         backgroundColor: color.shade400,
         foregroundColor: Colors.white,
         elevation: 0,

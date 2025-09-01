@@ -9,7 +9,7 @@ class ChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Her gün aynı görevin gelmesi için günün sırasını kullanan mantık
+    // Logic to keep the same challenge for each day using day-of-year index
     final dayOfYear =
         DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
     final challengeIndex = dayOfYear % challenges.length;
@@ -27,14 +27,14 @@ class ChallengeCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          // GÜNCELLEME: Düz beyaz renk yerine gradient eklendi.
+          // UPDATE: Added gradient instead of solid white color.
             gradient: LinearGradient(
               colors: [Colors.amber.shade400, Colors.orange.shade600],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
-            // GÜNCELLEME: Gradient ile uyumlu, daha belirgin bir gölge eklendi.
+            // UPDATE: Stronger shadow matching the gradient.
             boxShadow: [
               BoxShadow(
                   color: Colors.orange.withAlpha(70),
@@ -43,7 +43,7 @@ class ChallengeCard extends StatelessWidget {
             ]),
         child: Row(
           children: [
-            // GÜNCELLEME: İkon rengi beyaz yapıldı ve boyutu biraz büyütüldü.
+            // UPDATE: Icon color set to white and size increased slightly.
             const Icon(Icons.flag_circle_outlined,
                 color: Colors.white, size: 44),
             const SizedBox(width: 15),
@@ -53,8 +53,8 @@ class ChallengeCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    "Günün Görevi",
-                    // GÜNCELLEME: Metin rengi beyaz yapıldı.
+                    "Daily Challenge",
+                    // UPDATE: Text color set to white.
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -65,13 +65,13 @@ class ChallengeCard extends StatelessWidget {
                     dailyChallenge.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    // GÜNCELLEME: Metin rengi opaklığı ayarlanmış beyaz yapıldı.
+                    // UPDATE: Text color white with adjusted opacity.
                     style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
                   ),
                 ],
               ),
             ),
-            // GÜNCELLEME: İkon rengi beyaz yapıldı.
+            // UPDATE: Icon color set to white.
             const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16)
           ],
         ),

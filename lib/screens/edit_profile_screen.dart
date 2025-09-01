@@ -65,7 +65,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _nativeLanguageController.text = _languageLabelFor(_selectedNativeLanguageCode!);
       }
     } catch (e) {
-      // Hata yönetimi
+      // Error handling
     } finally {
       if (mounted) {
         setState(() {
@@ -99,7 +99,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 12),
-                const Text('Anadil Seç', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('Select Native Language', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const Divider(height: 1),
                 Expanded(
                   child: ListView.builder(
@@ -153,7 +153,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         final isAvailable = await _authService.isUsernameAvailable(newDisplayName);
         if (!isAvailable && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bu kullanıcı adı zaten alınmış.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('This username is already taken.'), backgroundColor: Colors.red),
           );
           setState(() => _isLoading = false);
           return;
@@ -164,14 +164,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil başarıyla güncellendi!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profil güncellenemedi: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Profile update failed: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -184,7 +184,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _showDatePicker() {
-    // Cupertino stili tarih seçici
+    // Cupertino style date picker
     showModalBottomSheet(
       context: context,
       builder: (BuildContext builder) {
@@ -222,14 +222,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark; // eklendi
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profili Düzenle'),
+        title: const Text('Edit Profile'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _isLoading ? null : _saveProfile,
-            tooltip: 'Kaydet',
+            tooltip: 'Save',
           )
         ],
       ),
@@ -244,17 +244,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 24),
             _buildTextField(
               controller: _displayNameController,
-              label: 'Kullanıcı Adı',
+              label: 'Username',
               icon: Icons.person_outline,
               isDark: isDark,
               validator: (value) => (value == null || value.trim().length < 3)
-                  ? 'Kullanıcı adı en az 3 karakter olmalı.'
+                  ? 'Username must be at least 3 characters.'
                   : null,
             ),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _birthDateController,
-              label: 'Doğum Tarihi',
+              label: 'Birth Date',
               icon: Icons.calendar_today_outlined,
               readOnly: true,
               isDark: isDark,
@@ -265,7 +265,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 24),
             _buildTextField(
               controller: _nativeLanguageController,
-              label: 'Anadil',
+              label: 'Native Language',
               icon: Icons.language_outlined,
               readOnly: true,
               isDark: isDark,
@@ -306,7 +306,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextButton.icon(
             onPressed: _generateNewAvatar,
             icon: const Icon(Icons.refresh),
-            label: const Text('Rastgele Avatar Oluştur'),
+            label: const Text('Generate Random Avatar'),
             style: TextButton.styleFrom(
               foregroundColor: isDark ? Colors.teal.shade200 : Colors.teal,
             ),
@@ -358,7 +358,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Cinsiyet',
+          'Gender',
           style: TextStyle(
             color: isDark ? Colors.white70 : Colors.grey.shade700,
             fontSize: 16,
@@ -371,7 +371,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Expanded(
               child: GenderSelectionBox(
                 icon: Icons.female,
-                label: 'Kadın',
+                label: 'Female',
                 isSelected: _selectedGender == 'Female',
                 onTap: () => setState(() => _selectedGender = 'Female'),
                 isDark: isDark,
@@ -381,7 +381,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Expanded(
               child: GenderSelectionBox(
                 icon: Icons.male,
-                label: 'Erkek',
+                label: 'Male',
                 isSelected: _selectedGender == 'Male',
                 onTap: () => setState(() => _selectedGender = 'Male'),
                 isDark: isDark,

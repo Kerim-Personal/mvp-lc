@@ -8,96 +8,92 @@ class FaqItem {
 }
 
 final Map<String, List<FaqItem>> faqData = {
-  'Uygulamayı Keşfet': [
+  'Explore the App': [
     FaqItem(
-      question: 'LinguaChat tam olarak nedir?',
+      question: 'What is LinguaChat?',
       answer:
-      'LinguaChat, yapay zeka destekli bir dil öğrenme platformudur. Amacı, sizi ana dili İngilizce olan veya akıcı konuşan kişilerle eşleştirerek pratik yapmanızı sağlamak ve dil becerilerinizi gerçek dünya senaryolarında geliştirmektir.',
+          'LinguaChat is an AI‑powered language practice platform. It matches you with fluent or native speakers and provides real‑time AI assistance so you can improve in realistic contexts.',
     ),
     FaqItem(
-      question: 'Pratik partnerleri nasıl seçiliyor?',
+      question: 'How are practice partners selected?',
       answer:
-      'Partner eşleştirme algoritmamız; dil seviyenizi, belirttiğiniz ilgi alanlarını ve öğrenme hedeflerinizi analiz eder. Bu sayede, hem keyifli sohbet edebileceğiniz hem de verimli pratik yapabileceğiniz en uygun kişileri karşınıza çıkarır.',
+          'Our matching algorithm looks at your level, interests, and goals to suggest partners who are both engaging and helpful for your progress.',
     ),
     FaqItem(
-      question: 'LinguaBot ne işe yarar?',
+      question: 'What does LinguaBot do?',
       answer:
-      'LinguaBot, kişisel yapay zeka asistanınızdır. Sohbet esnasında anlık çeviri yapabilir, gramer hatalarınızı düzeltebilir, daha uygun kelime önerilerinde bulunabilir ve hatta sohbet konusu bulmanıza yardımcı olabilir.',
+          'LinguaBot is your contextual AI assistant. It can translate instantly, highlight grammar issues, suggest better wording, propose topics, and help you stay confident while chatting.',
     ),
     FaqItem(
-      question: 'Kelime Hazinesi nasıl kullanılır?',
+      question: 'How does the Vocabulary feature work?',
       answer:
-      'Sohbet sırasında karşılaştığınız veya LinguaBot\'un önerdiği yeni kelimeleri tek dokunuşla kişisel "Kelime Hazinesi"ne ekleyebilirsiniz. Bu özellik, öğrendiğiniz kelimeleri daha sonra tekrar etmeniz ve kalıcı hale getirmeniz için tasarlanmıştır.',
-    ),
-  ],
-  'Hesap ve Profil': [
-    FaqItem(
-      question: 'Profil bilgilerimi nasıl güncelleyebilirim?',
-      answer:
-      'Profil sekmesine gidin ve "Profili Düzenle" butonuna dokunun. Bu bölümden profil resminizi (avatar), kullanıcı adınızı, ilgi alanlarınızı ve hakkınızda kısa bir açıklama ekleyebilirsiniz. Profilinizi güncel tutmak, daha iyi partner eşleşmeleri bulmanıza yardımcı olur.',
-    ),
-    FaqItem(
-      question: 'E-posta adresimi veya şifremi değiştirebilir miyim?',
-      answer:
-      'Evet. "Profil > Ayarlar > Hesap" menüsü altından hem e-posta adresinizi doğrulama adımlarıyla güncelleyebilir hem de mevcut şifrenizi değiştirerek yeni bir şifre belirleyebilirsiniz.',
-    ),
-    FaqItem(
-      question: 'Hesabımı geçici olarak dondurabilir miyim?',
-      answer:
-      'Şu an için hesabı geçici olarak dondurma özelliği bulunmamaktadır. Ancak bildirim ayarlarını kapatarak uygulamadan bir süreliğine uzaklaşabilirsiniz. Hesabınızı kalıcı olarak silmek isterseniz, bu işlemi "Hesap" ayarları altından yapabilirsiniz.',
-    ),
-    FaqItem(
-      question: 'Hesabımı silersem verilerime ne olur?',
-      answer:
-      'Hesabınızı sildiğinizde, profil bilgileriniz, sohbet geçmişiniz ve kelime hazineniz dahil olmak üzere tüm verileriniz kalıcı olarak sistemimizden kaldırılır. Bu işlem geri alınamaz.',
+          'Any new word you see (or LinguaBot suggests) can be saved to your personal list with one tap. You can later review, practice, and reinforce them for long‑term retention.',
     ),
   ],
-  'Güvenlik ve Gizlilik': [
+  'Account & Profile': [
     FaqItem(
-      question: 'Bir kullanıcıyı nasıl engellerim?',
+      question: 'How do I update my profile info?',
       answer:
-      'Eğer bir kullanıcı sizi rahatsız ederse, o kullanıcının profiline giderek veya sohbet penceresinin sağ üst köşesindeki menüden "Engelle" seçeneğini kullanabilirsiniz. Engellenen kullanıcılar size mesaj gönderemez ve profilinizi göremez.',
+          'Go to Profile > Edit Profile. There you can change your avatar, username, interests, and bio. Keeping it fresh improves match quality.',
     ),
     FaqItem(
-      question: 'Uygunsuz davranışları nasıl şikayet edebilirim?',
+      question: 'Can I change my email or password?',
       answer:
-      'Kullanıcı profilindeki veya sohbet menüsündeki "Şikayet Et" seçeneğini kullanarak uygunsuz davranışları, tacizi veya topluluk kuralları ihlallerini bize bildirebilirsiniz. Destek ekibimiz şikayetleri titizlikle inceler ve gerekli aksiyonları alır.',
+          'Yes. Open Profile > Settings > Account to update your email (with verification) or set a new password.',
     ),
     FaqItem(
-      question: 'Konum bilgilerim paylaşılıyor mu?',
+      question: 'Can I temporarily deactivate my account?',
       answer:
-      'Hayır. LinguaChat, gizliliğinize saygı duyar ve konum bilginizi hiçbir şekilde diğer kullanıcılarla paylaşmaz.',
+          'Temporary deactivation is not supported yet. You can mute notifications if you need a break. To permanently delete your account, use the option under Account settings.',
     ),
     FaqItem(
-      // GÜNCELLENMİŞ CEVAP
-      question: 'Sohbetlerim ne kadar güvenli?',
+      question: 'What happens if I delete my account?',
       answer:
-      'Kullanıcı gizliliği ve veri güvenliği en önemli önceliklerimizdendir. Sohbetleriniz, sunucularımızda güvenli bir şekilde saklanır ve standart güvenlik protokolleri ile korunur. Gizliliğinize saygı duyuyoruz; bu nedenle, sohbet içeriklerinize keyfi olarak erişim sağlamayız veya incelemeyiz. Ancak, platformumuzun güvenliğini ve topluluk kurallarını korumak amacıyla iki istisnai durumda sohbet içeriklerine erişim sağlanabilir:\n\n'
-          '1.  **Yasal Talepler:** Türkiye Cumhuriyeti yetkili adli makamları tarafından usulüne uygun olarak bir veri talebinde bulunulması halinde, yasal yükümlülüklerimiz gereği ilgili verileri paylaşabiliriz.\n'
-          '2.  **Kullanıcı Şikayetleri:** Bir kullanıcının, topluluk kurallarımızı (örneğin taciz, nefret söylemi) ihlal ettiği yönünde şikayet edilmesi durumunda, şikayeti araştırmak ve doğrulamak amacıyla ilgili sohbet kayıtları incelenebilir.\n\n'
-          'Bu durumlar dışında sohbetlerinize erişilmez. Amacımız, herkes için saygılı ve güvenli bir dil öğrenme ortamı sağlamaktır.',
+          'All data (profile, chat history, vocabulary) is permanently removed and cannot be restored afterward.',
     ),
   ],
-  'Premium Üyelik ve Ödemeler': [
+  'Security & Privacy': [
     FaqItem(
-      question: 'Premium üyeliğin ne gibi avantajları var?',
+      question: 'How do I block a user?',
       answer:
-      'Premium üyeler; sınırsız sayıda partnerle sohbet etme, reklamsız bir deneyim, gelişmiş LinguaBot özellikleri (örneğin sesli analiz), özel kelime listelerine erişim ve topluluk etkinliklerinde öncelik gibi birçok ayrıcalığa sahip olur.',
+          'Open their profile or use the menu in the chat header and tap Block. Blocked users cannot message you or view your profile.',
     ),
     FaqItem(
-      question: 'Aboneliğimi nasıl iptal edebilirim?',
+      question: 'How do I report inappropriate behavior?',
       answer:
-      'Aboneliğinizi, satın alımı yaptığınız platformun (Google Play Store veya Apple App Store) ilgili abonelik yönetimi bölümünden kolayca iptal edebilirsiniz. Aboneliğiniz, mevcut fatura döneminin sonuna kadar devam edecektir.',
+          'Use the Report option in the profile or chat menu. Our trust & safety team reviews reports carefully and takes appropriate action.',
     ),
     FaqItem(
-      question: 'Ödeme yöntemimi nasıl değiştirebilirim?',
+      question: 'Is my location shared?',
       answer:
-      'Ödeme bilgileriniz doğrudan App Store veya Google Play hesabınız üzerinden yönetilir. Ödeme yönteminizi değiştirmek için lütfen ilgili uygulama mağazasının ayarlarını ziyaret edin.',
+          'No. We respect your privacy and never share your location with other users.',
     ),
     FaqItem(
-      question: 'Ücretsiz deneme süresi sunuyor musunuz?',
+      question: 'Are my chats secure?',
       answer:
-      'Zaman zaman yeni kullanıcılar için özel promosyonlar ve ücretsiz deneme süreleri sunabiliyoruz. Güncel kampanyalar için lütfen Mağaza ekranını ve bildirimlerinizi kontrol edin.',
+          'We safeguard your conversations using industry standard security controls. We do not access or review chats arbitrarily. Two exceptions apply: (1) Valid legal requests from competent authorities. (2) Confirmed user reports of serious policy violations (e.g. harassment, hate). Outside of these cases, chat content remains private.',
+    ),
+  ],
+  'Premium & Billing': [
+    FaqItem(
+      question: 'What are the benefits of Premium?',
+      answer:
+          'Premium unlocks unlimited partner chats, ad‑free experience, enhanced LinguaBot features (e.g. voice analysis), exclusive vocabulary packs, and priority in community events.',
+    ),
+    FaqItem(
+      question: 'How do I cancel my subscription?',
+      answer:
+          'Manage it through the platform you purchased on (Google Play or App Store). Your benefits remain active until the current billing period ends.',
+    ),
+    FaqItem(
+      question: 'How do I change my payment method?',
+      answer:
+          'Payment methods are managed directly via your App Store or Google Play account settings.',
+    ),
+    FaqItem(
+      question: 'Do you offer a free trial?',
+      answer:
+          'We occasionally run launch promos or free trials. Check the Store screen and notifications for current offers.',
     ),
   ],
 };

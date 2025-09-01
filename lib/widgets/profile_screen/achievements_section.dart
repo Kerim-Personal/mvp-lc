@@ -6,147 +6,147 @@ import 'package:confetti/confetti.dart';
 class AchievementsSection extends StatelessWidget {
   const AchievementsSection({super.key});
 
-  // Tüm rozet tanımları (statik veri). İleride backend'den dinamik çekilebilir.
+  // All badge definitions (static data). Could be made dynamic from backend later.
   static const List<Achievement> _achievements = [
     Achievement(
-      name: 'İlk Adım',
+      name: 'First Step',
       icon: Icons.flag,
       color: Colors.green,
       earned: true,
-      description: 'İlk mesajını veya ilk dersini tamamla.',
+      description: 'Send your first message or finish your first lesson.',
     ),
     Achievement(
-      name: 'Kararlı',
+      name: 'Consistent',
       icon: Icons.calendar_today,
       color: Colors.teal,
       earned: true,
-      description: '7 gün üst üste giriş yap.',
+      description: 'Log in 7 days in a row.',
     ),
     Achievement(
-      name: '5 Gün Serisi',
+      name: '5 Day Streak',
       icon: Icons.filter_5,
       color: Colors.lightBlue,
       earned: true,
-      description: '5 günlük öğrenme serisi yakala.',
+      description: 'Reach a 5‑day learning streak.',
     ),
     Achievement(
-      name: '30 Gün Serisi',
+      name: '30 Day Streak',
       icon: Icons.calendar_month,
       color: Colors.indigo,
       earned: false,
-      description: '30 gün boyunca her gün aktif ol.',
+      description: 'Be active 30 days consecutively.',
     ),
     Achievement(
-      name: '100 Gün Serisi',
+      name: '100 Day Streak',
       icon: Icons.timelapse,
       color: Colors.deepPurple,
       earned: false,
-      description: '100 günlük kesintisiz seri yap.',
+      description: 'Achieve a 100‑day uninterrupted streak.',
     ),
     Achievement(
-      name: 'Konuşkan',
+      name: 'Chatty',
       icon: Icons.chat_bubble,
       color: Colors.blue,
       earned: true,
-      description: 'Toplam 100 mesaj gönder.',
+      description: 'Send a total of 100 messages.',
     ),
     Achievement(
-      name: 'Sohbet Ustası',
+      name: 'Conversation Master',
       icon: Icons.forum,
       color: Colors.blueGrey,
       earned: false,
-      description: 'Toplam 1000 mesaj gönder.',
+      description: 'Send a total of 1000 messages.',
     ),
     Achievement(
-      name: 'Gece Kuşu',
+      name: 'Night Owl',
       icon: Icons.nights_stay,
       color: Colors.deepOrange,
       earned: false,
-      description: '3 farklı gece (00:00-03:00) aktiflik göster.',
+      description: 'Be active on 3 different nights (00:00–03:00).',
     ),
     Achievement(
-      name: 'Erken Kuş',
+      name: 'Early Bird',
       icon: Icons.wb_sunny,
       color: Colors.orange,
       earned: false,
-      description: '5 sabah (06:00-08:00) çalışma seansı yap.',
+      description: 'Complete 5 morning (06:00–08:00) sessions.',
     ),
     Achievement(
-      name: 'Gezgin',
+      name: 'Explorer',
       icon: Icons.language,
       color: Colors.orangeAccent,
       earned: true,
-      description: 'En az 3 farklı dil sohbet odasına katıl.',
+      description: 'Join at least 3 different language rooms.',
     ),
     Achievement(
-      name: 'Dilbilimci',
+      name: 'Linguist',
       icon: Icons.menu_book,
       color: Colors.purple,
       earned: false,
-      description: '500 farklı kelime öğren.',
+      description: 'Learn 500 distinct words.',
     ),
     Achievement(
-      name: 'Söz Ustası',
+      name: 'Word Sage',
       icon: Icons.library_books,
       color: Colors.purpleAccent,
       earned: false,
-      description: '1000 farklı kelime öğren.',
+      description: 'Learn 1000 distinct words.',
     ),
     Achievement(
-      name: 'Çeviri Ustası',
+      name: 'Translation Pro',
       icon: Icons.translate,
       color: Colors.redAccent,
       earned: false,
-      description: '200 cümleyi başarıyla çevir.',
+      description: 'Successfully translate 200 sentences.',
     ),
     Achievement(
-      name: 'Gramersavar',
+      name: 'Grammar Slayer',
       icon: Icons.rule,
       color: Colors.brown,
       earned: false,
-      description: '100 gramer alıştırmasını doğru tamamla.',
+      description: 'Complete 100 grammar exercises correctly.',
     ),
     Achievement(
       name: 'Polyglot',
       icon: Icons.public,
       color: Colors.cyan,
       earned: false,
-      description: '3 farklı dili öğrenme listene ekle.',
+      description: 'Add 3 different languages to your learning list.',
     ),
     Achievement(
-      name: 'Fenomen',
+      name: 'Popular',
       icon: Icons.whatshot,
       color: Colors.red,
       earned: false,
-      description: 'Gönderilerin 500 beğeni / etkileşim alsın.',
+      description: 'Reach 500 likes / interactions on your posts.',
     ),
     Achievement(
-      name: 'İlerleme Takibi',
+      name: 'Progress Tracker',
       icon: Icons.trending_up,
       color: Colors.greenAccent,
       earned: false,
-      description: 'Seviyeni 10 kademe yükselt.',
+      description: 'Level up 10 times.',
     ),
     Achievement(
-      name: 'Maratoncu',
+      name: 'Marathoner',
       icon: Icons.directions_run,
       color: Colors.lightGreen,
       earned: false,
-      description: '7 gün toplam 300+ dakika pratik yap.',
+      description: 'Accumulate 300+ minutes practice over 7 days.',
     ),
     Achievement(
-      name: 'Usta',
+      name: 'Expert',
       icon: Icons.star,
       color: Colors.amber,
       earned: false,
-      description: 'İleri seviye yeterlilik rozetini kazan.',
+      description: 'Earn the advanced proficiency badge.',
     ),
     Achievement(
-      name: 'Efsane',
+      name: 'Legend',
       icon: Icons.emoji_events,
       color: Colors.deepOrangeAccent,
       earned: false,
-      description: 'Tüm ana rozetleri tamamla ve en zor hedeflere ulaş.',
+      description: 'Complete all core badges and toughest goals.',
     ),
   ];
 
@@ -187,7 +187,7 @@ class _AchievementBadge extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'achievement',
-      barrierColor: Colors.transparent, // Karanlık arka plan kaldırıldı
+      barrierColor: Colors.transparent, // Removed darkened background
       transitionDuration: const Duration(milliseconds: 380),
       pageBuilder: (_, __, ___) => _AchievementDialog(achievement: achievement),
       transitionBuilder: (ctx, anim, sec, child) {
@@ -285,16 +285,15 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
     final a = widget.achievement;
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
-    const double avatarSize = 100; // küçültüldü (110 -> 100)
-    const double avatarVerticalOffset = -12; // hafif yukarı
-    final double topCardPadding = avatarSize / 2 + 44; // avatar küçülünce ayarlandı
+    const double avatarSize = 100; // reduced (110 -> 100)
+    const double avatarVerticalOffset = -12; // slightly up
+    final double topCardPadding = avatarSize / 2 + 44; // adjusted after size change
 
     return Material(
       type: MaterialType.transparency,
       child: Stack(
         children: [
-          // Arka plan karartması kaldırıldı (önceden Positioned.fill + gradient vardı)
-          // İçerik
+          // Content
           Center(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -303,7 +302,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                   alignment: Alignment.topCenter,
                   clipBehavior: Clip.none,
                   children: [
-                    // Neon kart (blur yok, yarı saydam cam hissi degrade ile simüle)
+                    // Neon card (no blur, glass feel simulated with gradient)
                     Container(
                       width: width,
                       padding: EdgeInsets.fromLTRB(26, topCardPadding, 26, 30),
@@ -353,7 +352,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                                     Icon(a.earned ? Icons.check_circle : Icons.lock_clock, size: 18, color: a.earned ? Colors.green : Colors.orange),
                                     const SizedBox(width: 7),
                                     Text(
-                                      a.earned ? 'Kazanıldı' : 'Henüz kazanılmadı',
+                                      a.earned ? 'Earned' : 'Not earned yet',
                                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: a.earned ? Colors.green : Colors.orange),
                                     ),
                                   ],
@@ -362,15 +361,14 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                               const Spacer(),
                               TextButton(
                                 onPressed: () => Navigator.of(context).maybePop(),
-                                child: const Text('Kapat'),
+                                child: const Text('Close'),
                               ),
                             ],
                           ),
                         ],
                       ),
                     ),
-
-                    // Üst avatar + animasyon
+                    // Top avatar + animation
                     Positioned(
                       top: avatarVerticalOffset,
                       child: Hero(
@@ -402,7 +400,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                               ),
                               child: CircleAvatar(
                                 backgroundColor: a.color,
-                                child: Icon(a.icon, size: 40, color: Colors.white), // ikon küçültüldü (46 -> 40)
+                                child: Icon(a.icon, size: 40, color: Colors.white), // icon reduced (46 -> 40)
                               ),
                             ),
                             if (a.earned)

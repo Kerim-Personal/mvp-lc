@@ -28,13 +28,13 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
 
   // Seçilebilir konu başlıkları (genel)
   static const List<String> _subjectOptions = [
-    'Ödeme / Abonelik',
-    'Eşleşme / Partner Bulma',
-    'Uygulama Hata Raporu',
-    'Hesap / Giriş',
-    'Performans / Hız',
-    'Öneri / Geri Bildirim',
-    'Diğer',
+    'Payment / Subscription',
+    'Matching / Partner Finding',
+    'App Bug Report',
+    'Account / Login',
+    'Performance / Speed',
+    'Suggestion / Feedback',
+    'Other',
   ];
 
   // Fotoğraf ekleri
@@ -61,26 +61,26 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
     final valid = _formKey.currentState!.validate();
     if (!valid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen konu seçin ve mesajınızı yeterli detayla girin.')),
+        const SnackBar(content: Text('Please select a subject and provide enough detail.')),
       );
       return;
     }
     if (_uploading) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fotoğraf yükleniyor, lütfen bekleyin.')),
+        const SnackBar(content: Text('Photo is uploading, please wait.')),
       );
       return;
     }
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Devam etmek için giriş yapın.')),
+        const SnackBar(content: Text('Please sign in to continue.')),
       );
       return;
     }
     if (!isPremium) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu özellik sadece Lingua Pro kullanıcılarına açıktır.')),
+        const SnackBar(content: Text('This feature is only available to Lingua Pro users.')),
       );
       return;
     }
@@ -109,13 +109,13 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Talebin alındı! Destek ekibi en kısa sürede dönüş yapacak.')),
+        const SnackBar(content: Text('Your request has been received! Support will get back to you soon.')),
       );
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gönderilemedi: $e')),
+        SnackBar(content: Text('Failed to send: $e')),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -138,7 +138,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text('Konu Seç', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: cs.onSurface)),
+                child: Text('Select Subject', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: cs.onSurface)),
               ),
               Flexible(
                 child: ListView.builder(
@@ -182,18 +182,18 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
           children: [
             ListTile(
               leading: Icon(Icons.photo_library, color: cs.onSurface.withValues(alpha: 0.85)),
-              title: Text('Galeriden Seç', style: TextStyle(color: cs.onSurface)),
+              title: Text('Choose from Gallery', style: TextStyle(color: cs.onSurface)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
               leading: Icon(Icons.photo_camera, color: cs.onSurface.withValues(alpha: 0.85)),
-              title: Text('Kameradan Çek', style: TextStyle(color: cs.onSurface)),
+              title: Text('Take Photo', style: TextStyle(color: cs.onSurface)),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             if (_attachmentUrl != null)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Ekli Fotoğrafı Kaldır', style: TextStyle(color: Colors.red)),
+                title: const Text('Remove Attached Photo', style: TextStyle(color: Colors.red)),
                 onTap: () => Navigator.pop(context, null),
               ),
           ],
@@ -213,7 +213,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
 
       setState(() => _uploading = true);
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw 'Oturum bulunamadı';
+      if (user == null) throw 'No active session';
 
       final fileName = 'support_${DateTime.now().millisecondsSinceEpoch}_${picked.name}';
       final ref = FirebaseStorage.instance.ref().child('support').child(user.uid).child(fileName);
@@ -229,7 +229,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
       if (!mounted) return;
       setState(() => _uploading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fotoğraf yüklenemedi: $e')),
+        SnackBar(content: Text('Photo could not be uploaded: $e')),
       );
     }
   }
@@ -239,8 +239,8 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Destek')),
-        body: const Center(child: Text('Destek göndermek için giriş yapın.')),
+        appBar: AppBar(title: const Text('Support')),
+        body: const Center(child: Text('Sign in to send support requests.')),
       );
     }
 
@@ -251,7 +251,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
 
         if (!isPremium) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Destek')),
+            appBar: AppBar(title: const Text('Support')),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -260,7 +260,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                   children: const [
                     Icon(Icons.lock, size: 48, color: Colors.grey),
                     SizedBox(height: 12),
-                    Text('Bu özellik sadece Lingua Pro kullanıcılarına açıktır.',
+                    Text('This feature is only available to Lingua Pro users.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ],
@@ -307,7 +307,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                     stops: stops,
                                   ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
                                   child: const Text(
-                                    'Lingua Pro Destek',
+                                    'Lingua Pro Support',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 28,
@@ -332,7 +332,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                 children: const [
                                   Icon(Icons.workspace_premium, color: Colors.amber, size: 18),
                                   SizedBox(width: 6),
-                                  Text('Sadece Pro', style: TextStyle(fontWeight: FontWeight.w700)),
+                                  Text('Pro Only', style: TextStyle(fontWeight: FontWeight.w700)),
                                 ],
                               ),
                             ),
@@ -378,7 +378,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                 Icon(Icons.inbox_outlined, color: Colors.white),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Taleplerim',
+                                  'My Requests',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
@@ -419,12 +419,12 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                   readOnly: true,
                                   onTap: _pickSubject,
                                   decoration: const InputDecoration(
-                                    labelText: 'Konu',
-                                    hintText: 'Konu seçin',
+                                    labelText: 'Subject',
+                                    hintText: 'Select a subject',
                                     border: OutlineInputBorder(),
                                     suffixIcon: Icon(Icons.expand_more),
                                   ),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Lütfen bir konu seçin' : null,
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Please choose a subject' : null,
                                 ),
                                 const SizedBox(height: 12),
                                 TextFormField(
@@ -432,11 +432,11 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                   minLines: 6,
                                   maxLines: 12,
                                   decoration: const InputDecoration(
-                                    labelText: 'Sorununuzu detaylandırın',
-                                    hintText: 'Adımlar, ekran, cihaz bilgisi vb.',
+                                    labelText: 'Describe your issue',
+                                    hintText: 'Steps, screen, device info etc.',
                                     border: OutlineInputBorder(),
                                   ),
-                                  validator: (v) => (v == null || v.trim().length < 10) ? 'Daha fazla detay ekleyin' : null,
+                                  validator: (v) => (v == null || v.trim().length < 10) ? 'Add more detail' : null,
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
@@ -445,7 +445,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                       child: OutlinedButton.icon(
                                         onPressed: _uploading ? null : _chooseImageSource,
                                         icon: const Icon(Icons.attachment),
-                                        label: Text(_attachmentUrl == null ? 'Fotoğraf Ekle' : 'Fotoğrafı Değiştir'),
+                                        label: Text(_attachmentUrl == null ? 'Add Photo' : 'Change Photo'),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -493,7 +493,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                     width: double.infinity,
                                     child: ElevatedButton.icon(
                                       icon: const Icon(Icons.send),
-                                      label: Text(_submitting ? 'Gönderiliyor...' : 'Gönder'),
+                                      label: Text(_submitting ? 'Sending...' : 'Send'),
                                       onPressed: _submitting ? null : () => _submit(isPremium: isPremium),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.amber,

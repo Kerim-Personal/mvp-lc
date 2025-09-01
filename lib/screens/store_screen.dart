@@ -195,7 +195,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: Text(
-                    'Tüm premium özelliklere erişerek\npotansiyelini açığa çıkar.',
+                    'Unlock your potential with all premium features.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15.5,
@@ -279,7 +279,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                       children: const [
                         Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
                         SizedBox(width: 8),
-                        Text('Pro Aktif', style: TextStyle(fontWeight: FontWeight.w700)),
+                        Text('Pro Active', style: TextStyle(fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -335,7 +335,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                             const SizedBox(width: 12),
                             const Expanded(
                               child: Text(
-                                'Teşekkürler! Pro ile tüm özelliklerin kilidi açık.',
+                                'Thanks! All Pro features are unlocked.',
                                 style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700),
                               ),
                             ),
@@ -349,13 +349,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildPremiumFeature('Sohbet içi anlık çeviri', Icons.translate),
-                                _buildPremiumFeature('Seviyeye/cinsiyete göre partner arama', Icons.filter_alt_outlined),
-                                _buildPremiumFeature('Reklamsız deneyim', Icons.ads_click),
-                                _buildPremiumFeature("LinguaBot'a pro erişim", Icons.smart_toy_outlined),
-                                _buildPremiumFeature('Öncelikli destek', Icons.support_agent),
-                                _buildPremiumFeature('Gelişmiş gramer analizi', Icons.spellcheck),
-                                _buildPremiumFeature('Kişiselleştirme temaları', Icons.palette_outlined),
+                                _buildPremiumFeature('In‑chat instant translation', Icons.translate),
+                                _buildPremiumFeature('Partner filtering by level/gender', Icons.filter_alt_outlined),
+                                _buildPremiumFeature('Ad‑free experience', Icons.ads_click),
+                                _buildPremiumFeature('Full LinguaBot Pro access', Icons.smart_toy_outlined),
+                                _buildPremiumFeature('Priority support', Icons.support_agent),
+                                _buildPremiumFeature('Advanced grammar analysis', Icons.spellcheck),
+                                _buildPremiumFeature('Custom theme personalization', Icons.palette_outlined),
                               ],
                             ),
                           ),
@@ -384,7 +384,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                                     shadowColor: Colors.amber.withValues(alpha: 0.4),
                                   ),
                                   icon: const Icon(Icons.headset_mic_outlined),
-                                  label: const Text('Destek'),
+                                  label: const Text('Support'),
                                 ),
                               ),
                             ),
@@ -472,8 +472,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       ),
       child: Row(
         children: [
-          Expanded(child: _buildToggleChild('Aylık', !_isYearlySelected)),
-          Expanded(child: _buildToggleChild('Yıllık', _isYearlySelected, isDiscounted: true)),
+          Expanded(child: _buildToggleChild('Monthly', !_isYearlySelected)),
+          Expanded(child: _buildToggleChild('Yearly', _isYearlySelected, isDiscounted: true)),
         ],
       ),
     );
@@ -483,7 +483,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     return GestureDetector(
       onTap: () {
         setState(() {
-          _isYearlySelected = text == 'Yıllık';
+          _isYearlySelected = text == 'Yearly';
         });
       },
       child: AnimatedContainer(
@@ -508,7 +508,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
               ),
               if (isDiscounted)
                 Text(
-                  '2 Ay Ücretsiz',
+                  '2 Months Free',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
@@ -524,15 +524,15 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   Widget _buildFeatureList() {
     final features = [
-      {'icon': Icons.translate, 'text': 'Çeviri Desteği'},
-      {'icon': Icons.hourglass_bottom_outlined, 'text': 'Sohbet Uzatma Jetonu'},
-      {'icon': Icons.wc, 'text': 'Cinsiyete Göre Partner Arama'},
-      {'icon': Icons.bar_chart_rounded, 'text': 'Seviyeye Göre Partner Arama'},
-      {'icon': Icons.support_agent, 'text': 'Öncelikli Destek'},
-      {'icon': Icons.ads_click, 'text': 'Reklamsız Deneyim'},
-      {'icon': Icons.smart_toy_outlined, 'text': "LinguaBot'a Pro Erişim"},
-      {'icon': Icons.spellcheck, 'text': "Gelişmiş Gramer Analizi"},
-      {'icon': Icons.palette_outlined, 'text': "Premium'a Özel Kişiselleştirmeler"},
+      {'icon': Icons.translate, 'text': 'Translation Support'},
+      {'icon': Icons.hourglass_bottom_outlined, 'text': 'Chat Extension Token'},
+      {'icon': Icons.wc, 'text': 'Partner Search by Gender'},
+      {'icon': Icons.bar_chart_rounded, 'text': 'Partner Search by Level'},
+      {'icon': Icons.support_agent, 'text': 'Priority Support'},
+      {'icon': Icons.ads_click, 'text': 'Ad-Free Experience'},
+      {'icon': Icons.smart_toy_outlined, 'text': 'LinguaBot Pro Access'},
+      {'icon': Icons.spellcheck, 'text': 'Advanced Grammar Analysis'},
+      {'icon': Icons.palette_outlined, 'text': 'Premium Exclusive Personalization'},
     ];
 
     return Flexible(
@@ -581,7 +581,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             shadowColor: const Color.fromARGB(128, 156, 39, 176),
             minimumSize: const Size(double.infinity, 50),
           ),
-          child: const Text('Hemen Başla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          child: const Text('Get Started Now', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
       ],
     );

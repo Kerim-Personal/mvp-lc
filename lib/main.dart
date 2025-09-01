@@ -43,7 +43,8 @@ Future<void> _postAppInit() async {
     await Future.wait([
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
-      initializeDateFormatting('tr_TR', null)
+      // Türkçe tarih formatı yerine sadece İngilizce
+      initializeDateFormatting('en_US', null)
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
       AudioService.instance.init()
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
@@ -103,7 +104,6 @@ class MyApp extends StatelessWidget {
           ],
           supportedLocales: const [
             Locale('en', ''),
-            Locale('tr', ''),
           ],
           routes: {
             '/help': (_) => HelpAndSupportScreen(),

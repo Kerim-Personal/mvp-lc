@@ -16,9 +16,9 @@ class _MySupportRequestsScreenState extends State<MySupportRequestsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Taleplerim')),
+      appBar: AppBar(title: const Text('My Requests')),
       body: _uid == null
-          ? const Center(child: Text('Giriş gerekli.'))
+          ? const Center(child: Text('Sign-in required.'))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: FirebaseFirestore.instance
                   .collection('support')
@@ -30,11 +30,11 @@ class _MySupportRequestsScreenState extends State<MySupportRequestsScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snap.hasError) {
-                  return Center(child: Text('Hata: ${snap.error}'));
+                  return Center(child: Text('Error: ${snap.error}'));
                 }
                 final docs = snap.data?.docs ?? [];
                 if (docs.isEmpty) {
-                  return const Center(child: Text('Henüz talebiniz yok.'));
+                  return const Center(child: Text('You have no requests yet.'));
                 }
                 return ListView.separated(
                   itemCount: docs.length,

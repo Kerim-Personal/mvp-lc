@@ -7,7 +7,7 @@ class StatsGrid extends StatelessWidget {
   final int streak;
   final int totalPracticeTime;
   final int partnerCount;
-  // TODO: Gelecekte eklenecek istatistikler için alanlar
+  // TODO: Placeholder fields for future statistics.
   final int newWords;
   final int highestStreak;
 
@@ -17,8 +17,8 @@ class StatsGrid extends StatelessWidget {
     required this.streak,
     required this.totalPracticeTime,
     required this.partnerCount,
-    this.newWords = 0, // varsayılan 0
-    this.highestStreak = 0, // varsayılan 0
+    this.newWords = 0, // default 0
+    this.highestStreak = 0, // default 0
   });
 
   @override
@@ -31,12 +31,12 @@ class StatsGrid extends StatelessWidget {
       mainAxisSpacing: 12,
       childAspectRatio: 1,
       children: [
-        _buildStatCard(Icons.local_fire_department, "$streak Gün", "Seri", Colors.orange),
-        _buildStatCard(Icons.timer, "$totalPracticeTime dk", "Pratik Süresi", Colors.blue),
-        _buildStatCard(Icons.people, "$partnerCount", "Partner", Colors.green),
-        _buildStatCard(Icons.bar_chart_rounded, level, "Seviye", Colors.purple),
-        _buildStatCard(Icons.translate, "$newWords", "Yeni Kelime", Colors.redAccent),
-        _buildStatCard(Icons.military_tech, "$highestStreak Gün", "En Yüksek Seri", Colors.amber.shade700),
+        _buildStatCard(Icons.local_fire_department, "$streak d", "Streak", Colors.orange),
+        _buildStatCard(Icons.timer, "$totalPracticeTime min", "Practice Time", Colors.blue),
+        _buildStatCard(Icons.people, "$partnerCount", "Partners", Colors.green),
+        _buildStatCard(Icons.bar_chart_rounded, level, "Level", Colors.purple),
+        _buildStatCard(Icons.translate, "$newWords", "New Words", Colors.redAccent),
+        _buildStatCard(Icons.military_tech, "$highestStreak d", "Best Streak", Colors.amber.shade700),
       ],
     );
   }

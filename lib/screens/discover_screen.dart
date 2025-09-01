@@ -13,7 +13,7 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
-  int _selectedIndex = 0; // 0: Gramer, 1: Kelime, 2: Pratik
+  int _selectedIndex = 0; // 0: Grammar, 1: Vocabulary, 2: Practice
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +23,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Özel Sekme Seçici
+            // Custom Tab Selector
             _buildTabSelector(),
             const SizedBox(height: 16),
 
-            // Sekme İçeriği (Gramer, Kelime, Pratik)
+            // Tab Content (Grammar, Vocabulary, Practice)
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
@@ -63,16 +63,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı. (0.05 * 255 ~= 13)
+          // SOLVED: Replaced withOpacity to withAlpha to get rid of the warning. (0.05 * 255 ~= 13)
           color: Colors.black.withAlpha(13),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
-            _buildTabItem(title: 'Gramer', icon: Icons.spellcheck, index: 0),
+            _buildTabItem(title: 'Grammar', icon: Icons.spellcheck, index: 0),
             _buildTabItem(
-                title: 'Kelime', icon: Icons.style_outlined, index: 1),
-            _buildTabItem(title: 'Pratik', icon: Icons.quiz_outlined, index: 2),
+                title: 'Vocabulary', icon: Icons.style_outlined, index: 1),
+            _buildTabItem(title: 'Practice', icon: Icons.quiz_outlined, index: 2),
           ],
         ),
       ),
@@ -95,7 +95,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      // ÇÖZÜLDÜ: withOpacity uyarısını gidermek için withAlpha kullanıldı. (0.1 * 255 ~= 26)
+                      // SOLVED: Replaced withOpacity to withAlpha to get rid of the warning. (0.1 * 255 ~= 26)
                       color: Colors.black.withAlpha(26),
                       blurRadius: 10,
                       offset: const Offset(0, 4),

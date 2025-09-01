@@ -111,12 +111,12 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     ];
 
     final List<GButton> tabs = [
-      const GButton(icon: Icons.store_mall_directory_outlined, text: 'Mağaza'),
-      const GButton(icon: Icons.explore_outlined, text: 'Keşfet'),
-      const GButton(icon: Icons.home_rounded, text: 'Ana Sayfa'),
-      const GButton(icon: Icons.groups_outlined, text: 'Topluluk'),
+      const GButton(icon: Icons.store_mall_directory_outlined, text: 'Store'),
+      const GButton(icon: Icons.explore_outlined, text: 'Discover'),
+      const GButton(icon: Icons.home_rounded, text: 'Home'),
+      const GButton(icon: Icons.groups_outlined, text: 'Community'),
       if (currentUser != null)
-        const GButton(icon: Icons.person_rounded, text: 'Profil'),
+        const GButton(icon: Icons.person_rounded, text: 'Profile'),
     ];
 
     return Scaffold(

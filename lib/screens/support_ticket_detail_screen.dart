@@ -56,7 +56,7 @@ class _SupportTicketDetailScreenState extends State<SupportTicketDetailScreen> {
       });
     } catch (e) {
       setState(() => _pendingUploads.remove('uploading'));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Yükleme başarısız: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
     }
   }
 
@@ -71,7 +71,7 @@ class _SupportTicketDetailScreenState extends State<SupportTicketDetailScreen> {
       _msgCtrl.clear();
       setState(() => _pendingUploads.clear());
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gönderilemedi: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to send: $e')));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -88,7 +88,7 @@ class _SupportTicketDetailScreenState extends State<SupportTicketDetailScreen> {
     final status = (widget.ticketData['status'] as String?) ?? 'open';
     final closed = status == 'closed';
     return Scaffold(
-      appBar: AppBar(title: Text(widget.ticketData['subject'] ?? 'Talep')),
+      appBar: AppBar(title: Text(widget.ticketData['subject'] ?? 'Request')),
       body: Column(
         children: [
           _buildHeader(status),
@@ -123,7 +123,7 @@ class _SupportTicketDetailScreenState extends State<SupportTicketDetailScreen> {
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return const Center(child: Text('Mesaj yok.'));
+          return const Center(child: Text('No messages.'));
         }
         return ListView.builder(
           reverse: true,
@@ -259,7 +259,7 @@ class _SupportTicketDetailScreenState extends State<SupportTicketDetailScreen> {
                   controller: _msgCtrl,
                   minLines: 1,
                   maxLines: 5,
-                  decoration: const InputDecoration(hintText: 'Mesaj yaz...'),
+                  decoration: const InputDecoration(hintText: 'Type a message...'),
                 ),
               ),
               IconButton(
@@ -278,7 +278,7 @@ class _SupportTicketDetailScreenState extends State<SupportTicketDetailScreen> {
     color: Colors.grey.shade200,
     child: const SafeArea(
       top: false,
-      child: Text('Talep kapatılmış, yeni mesaj göndermek mümkün değil.', textAlign: TextAlign.center),
+      child: Text('Request is closed; new messages cannot be sent.', textAlign: TextAlign.center),
     ),
   );
 

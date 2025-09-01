@@ -59,7 +59,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
 
   Future<void> _deleteAccount() async {
     final formOk = _formKey.currentState?.validate() ?? false;
-    if (!formOk || !_acknowledged || _confirmController.text.trim().toUpperCase() != 'SİL') {
+    if (!formOk || !_acknowledged || _confirmController.text.trim().toUpperCase() != 'DELETE') {
       return;
     }
 
@@ -71,10 +71,10 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception('Kullanıcı bulunamadı.');
+        throw Exception('User not found.');
       }
 
-      // 1) Sağlayıcıya göre yeniden kimlik doğrulama
+      // 1) Re-authenticate depending on provider
       if (_isPasswordProvider && _passwordController.text.isNotEmpty) {
         final cred = EmailAuthProvider.credential(
           email: user.email!,
@@ -86,7 +86,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
         var gAccount = await googleSignIn.signInSilently();
         gAccount ??= await googleSignIn.signIn();
         if (gAccount == null) {
-          setState(() => _error = 'Google doğrulama iptal edildi.');
+          setState(() => _error = 'Google re-authentication cancelled.');
           return;
         }
         final gAuth = await gAccount.authentication;
@@ -96,38 +96,38 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
         );
         await user.reauthenticateWithCredential(gCred);
       } else {
-        setState(() => _error = 'Bu işlemi tamamlamak için uygun bir doğrulama yöntemi bulunamadı.');
+        setState(() => _error = 'No suitable authentication method available to complete this action.');
         return;
       }
 
-      // 2) Sunucu: hesabı ve ilişkili verileri kalıcı olarak siler (admin yetkisiyle)
+      // 2) Server: permanently delete user & related data (privileged function)
       final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('deleteUserAccount');
       await callable.call();
 
-      // 3) İstemci: oturumu kapat (token/cache temizliği). Hata verirse yut.
+      // 3) Client: sign out (ignore errors)
       try { await FirebaseAuth.instance.signOut(); } catch (_) {}
 
-      // 4) Navigasyon: rootNavigator ile tüm yığını temizleyip Login'e git (sheet otomatik kapanır)
+      // 4) Navigation: clear stack and go to Login (sheet closes automatically)
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (_) => false,
+            (_) => false,
         );
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        setState(() => _error = 'Girilen şifre yanlış.');
+        setState(() => _error = 'Incorrect password.');
       } else if (e.code == 'requires-recent-login') {
-        setState(() => _error = 'Lütfen yeniden doğrulama yapın ve tekrar deneyin.');
+        setState(() => _error = 'Please reauthenticate and try again.');
       } else if (e.code == 'user-mismatch') {
-        setState(() => _error = 'Seçtiğiniz Google hesabı mevcut oturumla eşleşmiyor. Lütfen aynı hesapla doğrulayın.');
+        setState(() => _error = 'Selected Google account does not match current session. Please use the same account.');
       } else {
-        setState(() => _error = 'Kimlik doğrulama hatası: ${e.message}');
+        setState(() => _error = 'Authentication error: ${e.message}');
       }
     } on FirebaseFunctionsException catch (e) {
-      setState(() => _error = 'Sunucu hatası: ${e.message}');
+      setState(() => _error = 'Server error: ${e.message}');
     } catch (e) {
-      setState(() => _error = 'Beklenmedik hata: $e');
+      setState(() => _error = 'Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -185,13 +185,13 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
               const SizedBox(height: 16),
 
               Text(
-                'Hesabı kalıcı olarak sil',
+                'Permanently delete account',
                 textAlign: TextAlign.center,
                 style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'Bu işlem geri alınamaz. Hesabınız ve ilişkili veriler kalıcı olarak silinecek.',
+                'This action cannot be undone. Your account and associated data will be permanently deleted.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
                   color: textTheme.bodyMedium?.color?.withOpacity(0.9),
@@ -199,23 +199,22 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
               ),
               const SizedBox(height: 20),
 
-              // Password field (yalnızca password sağlayıcısı varsa)
+              // Password field (only if password provider)
               if (_isPasswordProvider)
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
                   autofillHints: const [AutofillHints.password],
                   decoration: const InputDecoration(
-                    labelText: 'Şifre (yalnızca e-posta/şifre hesabı için)',
+                    labelText: 'Password (email/password accounts only)',
                     border: OutlineInputBorder(),
                   ),
-                  // Şifreyi zorunlu yapmıyoruz; Google doğrulama da mümkün olabilir.
                   validator: (v) => null,
                 ),
 
               if (_isPasswordProvider) const SizedBox(height: 12),
 
-              // Google provider bilgisi
+              // Google provider info
               if (_isGoogleProvider)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -229,7 +228,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Devam ettiğinizde Google hesabınızla doğrulamanız istenecek.',
+                          'You will be asked to verify with your Google account.',
                           maxLines: 3,
                         ),
                       ),
@@ -244,11 +243,11 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 controller: _confirmController,
                 textCapitalization: TextCapitalization.characters,
                 decoration: const InputDecoration(
-                  labelText: 'Onay için "SİL" yazın',
+                  labelText: 'Type "DELETE" to confirm',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().toUpperCase() != 'SİL')
-                    ? 'Devam etmek için SİL yazmalısınız.'
+                validator: (v) => (v == null || v.trim().toUpperCase() != 'DELETE')
+                    ? 'You must type DELETE to proceed.'
                     : null,
               ),
               const SizedBox(height: 8),
@@ -262,7 +261,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                   ),
                   const Expanded(
                     child: Text(
-                      'Bu işlemin geri alınamayacağını anladım.',
+                      'I understand this action cannot be undone.',
                       maxLines: 2,
                     ),
                   ),
@@ -286,7 +285,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('İptal'),
+                      child: const Text('Cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -296,7 +295,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                           ? null
                           : () {
                               final ok = _formKey.currentState?.validate() ?? false;
-                              if (ok && _acknowledged && _confirmController.text.trim().toUpperCase() == 'SİL') {
+                              if (ok && _acknowledged && _confirmController.text.trim().toUpperCase() == 'DELETE') {
                                 _deleteAccount();
                               } else {
                                 _formKey.currentState?.validate();
@@ -314,7 +313,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Hesabı Sil'),
+                          : const Text('Delete Account'),
                     ),
                   ),
                 ],

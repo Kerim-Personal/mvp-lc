@@ -1,6 +1,6 @@
 // lib/widgets/profile_screen/app_settings_card.dart
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/services/audio_service.dart'; // Müzik servisini import ediyoruz
+import 'package:lingua_chat/services/audio_service.dart'; // Import music service
 import 'package:lingua_chat/screens/blocked_users_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,23 +9,22 @@ import 'package:lingua_chat/services/theme_service.dart';
 
 class AppSettingsCard extends StatefulWidget {
   const AppSettingsCard({super.key});
-
   @override
   State<AppSettingsCard> createState() => _AppSettingsCardState();
 }
 
 class _AppSettingsCardState extends State<AppSettingsCard> {
   late bool _isMusicEnabled;
-  late bool _isClickSoundEnabled; // yeni: tuş sesi
-  bool _autoTranslate = false; // yeni
+  late bool _isClickSoundEnabled; // new: key click sound
+  bool _autoTranslate = false; // new
   String _nativeLanguage = 'en';
 
   @override
   void initState() {
     super.initState();
-    // Widget ilk oluşturulduğunda müziğin mevcut durumunu servisten alıyoruz
+    // Load current music state from service when widget initializes
     _isMusicEnabled = AudioService.instance.isMusicEnabled;
-    _isClickSoundEnabled = AudioService.instance.isClickSoundEnabled; // yeni
+    _isClickSoundEnabled = AudioService.instance.isClickSoundEnabled; // new
     _loadUserPrefs();
   }
 
@@ -33,15 +32,14 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     try {
-      final snap =
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final data = snap.data();
       if (data != null) {
         setState(() {
           _autoTranslate = (data['autoTranslate'] as bool?) ?? false;
-          _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
+            _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
         });
-        // Otomatik çeviri açıksa modelleri önceden indir
+        // If auto-translation enabled, pre-download models
         if (_autoTranslate && _nativeLanguage != 'en') {
           TranslationService.instance.preDownloadModels(_nativeLanguage);
         }
@@ -53,24 +51,20 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     setState(() => _autoTranslate = value);
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .update({'autoTranslate': value});
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'autoTranslate': value});
     if (value) {
       TranslationService.instance.preDownloadModels(_nativeLanguage);
     }
   }
 
-  // GÜNCELLEME: Dil kodunu dil adına çeviren yardımcı metot
+  // UPDATE: helper to convert language code to readable name
   String _getLanguageName(String code) {
-    // Bu haritayı uygulamanızdaki desteklenen dillerle genişletebilirsiniz.
     const languageMap = {
-      'tr': 'Türkçe',
+      'tr': 'Turkish',
       'en': 'English',
-      'es': 'Español',
-      'de': 'Deutsch',
-      'fr': 'Français',
+      'es': 'Spanish',
+      'de': 'German',
+      'fr': 'French',
     };
     return languageMap[code] ?? code.toUpperCase();
   }
@@ -79,18 +73,15 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
     return ValueListenableBuilder<TranslationModelDownloadState>(
       valueListenable: TranslationService.instance.downloadState,
       builder: (context, state, _) {
-        final showProgress =
-            state.inProgress && state.targetCode == _nativeLanguage;
+        final showProgress = state.inProgress && state.targetCode == _nativeLanguage;
         final completed = state.completed && state.targetCode == _nativeLanguage;
-        // GÜNCELLEME: Dil adını alıyoruz
+        // UPDATE: resolve language name
         final languageName = _getLanguageName(_nativeLanguage);
-
         return Column(
           children: [
             SwitchListTile(
-              title: const Text('Otomatik Çeviri',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(_autoTranslate ? 'Açık' : 'Kapalı'),
+              title: const Text('Auto Translation', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(_autoTranslate ? 'On' : 'Off'),
               value: _autoTranslate,
               onChanged: (v) => _updateAutoTranslate(v),
               secondary: const Icon(Icons.translate, color: Colors.teal),
@@ -98,76 +89,64 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
             ),
             if (_autoTranslate)
               Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (showProgress) ...[
-                      Row(
-                        children: [
-                          const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child:
-                              CircularProgressIndicator(strokeWidth: 2)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: Text(
-                                  '$languageName çeviri modeli indiriliyor... (${state.downloaded}/${state.total})',
-                                  style: const TextStyle(fontSize: 12))),
-                        ],
-                      ),
+                      Row(children: [
+                        const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '$languageName model downloading... (${state.downloaded}/${state.total})',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ]),
                       const SizedBox(height: 6),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: LinearProgressIndicator(
-                          value: state.total == 0
-                              ? null
-                              : (state.downloaded / state.total)
-                              .clamp(0.0, 1.0),
+                          value: state.total == 0 ? null : (state.downloaded / state.total).clamp(0.0, 1.0),
                           minHeight: 6,
                         ),
                       ),
-                    ] else if (state.error != null &&
-                        state.targetCode == _nativeLanguage) ...[
+                    ] else if (state.error != null && state.targetCode == _nativeLanguage) ...[
                       Row(children: [
-                        const Icon(Icons.error_outline,
-                            color: Colors.red, size: 18),
+                        const Icon(Icons.error_outline, color: Colors.red, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
-                            child: Text('Model indirme hatası: ${state.error}',
-                                style: const TextStyle(
-                                    fontSize: 12, color: Colors.red)))
+                          child: Text(
+                            'Model download error: ${state.error}',
+                            style: const TextStyle(fontSize: 12, color: Colors.red),
+                          ),
+                        )
                       ]),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: TextButton(
-                          onPressed: () => TranslationService.instance
-                              .preDownloadModels(_nativeLanguage),
-                          child: const Text('Tekrar Dene'),
+                          onPressed: () => TranslationService.instance.preDownloadModels(_nativeLanguage),
+                          child: const Text('Retry'),
                         ),
                       )
                     ] else if (completed) ...[
-                      // GÜNCELLEME: Metin, dil adını içerecek şekilde değiştirildi.
+                      // UPDATE: message includes language name
                       Row(children: [
-                        const Icon(Icons.check_circle,
-                            color: Colors.green, size: 18),
+                        const Icon(Icons.check_circle, color: Colors.green, size: 18),
                         const SizedBox(width: 8),
-                        Text('$languageName çeviri modeli hazır',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.green))
+                        Text('$languageName model ready', style: const TextStyle(fontSize: 12, color: Colors.green))
                       ]),
                     ] else ...[
                       Row(children: [
-                        const Icon(Icons.info_outline,
-                            size: 18, color: Colors.grey),
+                        const Icon(Icons.info_outline, size: 18, color: Colors.grey),
                         const SizedBox(width: 8),
                         Expanded(
-                            child: Text(
-                                'İlk çeviri öncesi $languageName modeli indirilecek.',
-                                style: const TextStyle(
-                                    fontSize: 12, color: Colors.grey)))
+                          child: Text(
+                            '$languageName model will download before first translation.',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        )
                       ])
                     ]
                   ],
@@ -188,9 +167,8 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
       child: Column(
         children: [
           SwitchListTile(
-            title: const Text('Müzik',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(_isMusicEnabled ? 'Açık' : 'Kapalı'),
+            title: const Text('Music', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(_isMusicEnabled ? 'On' : 'Off'),
             value: _isMusicEnabled,
             onChanged: (bool value) {
               setState(() => _isMusicEnabled = value);
@@ -198,16 +176,14 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
               AudioService.instance.playClick();
             },
             secondary: Icon(
-              _isMusicEnabled
-                  ? Icons.volume_up_rounded
-                  : Icons.volume_off_rounded,
+              _isMusicEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
               color: Colors.orange,
             ),
             activeColor: Colors.teal,
           ),
           SwitchListTile(
-            title: const Text('Tuş Sesi', style: TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(_isClickSoundEnabled ? 'Açık' : 'Kapalı'),
+            title: const Text('Key Click Sound', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(_isClickSoundEnabled ? 'On' : 'Off'),
             value: _isClickSoundEnabled,
             onChanged: (bool value) {
               setState(() => _isClickSoundEnabled = value);
@@ -225,22 +201,20 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
           const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
             leading: const Icon(Icons.palette_outlined, color: Colors.purple),
-            title: const Text('Görünüm',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            title: const Text('Appearance', style: TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(() {
               final mode = ThemeService.instance.themeMode;
-              if (mode == ThemeMode.dark) return 'Karanlık';
-              if (mode == ThemeMode.system) return 'Sistem';
-              return 'Aydınlık';
+              if (mode == ThemeMode.dark) return 'Dark';
+              if (mode == ThemeMode.system) return 'System';
+              return 'Light';
             }()),
-            trailing: const Icon(Icons.arrow_forward_ios,
-                size: 16, color: Colors.grey),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             onTap: () {
               AudioService.instance.playClick();
               showModalBottomSheet(
                 context: context,
                 showDragHandle: true,
-                // Önceden yarı saydamdı; opak yüzey kullanıyoruz ki alttaki içerik konstrastı bozmasın
+                // Previously semi-transparent; using opaque surface for better contrast
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -248,10 +222,9 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                 builder: (ctx) {
                   final current = ThemeService.instance.themeMode;
                   final cs = Theme.of(context).colorScheme;
-                  final selectedColor = cs.primary; // Daha dengeli vurgu
+                  final selectedColor = cs.primary; // Balanced highlight
                   Color? inactiveIconColor = Theme.of(context).iconTheme.color;
                   Color subtleText = cs.onSurface.withValues(alpha: 0.75);
-
                   Widget buildOption(ThemeMode mode, String title, IconData icon) {
                     final selected = current == mode;
                     return ListTile(
@@ -274,7 +247,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                       },
                     );
                   }
-
                   return SafeArea(
                     child: AnimatedBuilder(
                       animation: ThemeService.instance,
@@ -285,7 +257,7 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                           children: [
                             const SizedBox(height: 4),
                             Text(
-                              'Tema Seçimi',
+                              'Theme Mode',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -294,9 +266,9 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                             ),
                             const SizedBox(height: 4),
                             Divider(height: 1, thickness: 0.6, color: cs.onSurface.withValues(alpha: 0.08)),
-                            buildOption(ThemeMode.light, 'Aydınlık', Icons.wb_sunny_outlined),
-                            buildOption(ThemeMode.dark, 'Karanlık', Icons.nights_stay_outlined),
-                            buildOption(ThemeMode.system, 'Sistem', Icons.settings_suggest_outlined),
+                            buildOption(ThemeMode.light, 'Light', Icons.wb_sunny_outlined),
+                            buildOption(ThemeMode.dark, 'Dark', Icons.nights_stay_outlined),
+                            buildOption(ThemeMode.system, 'System', Icons.settings_suggest_outlined),
                           ],
                         ),
                       ),
@@ -309,10 +281,8 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
           const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
             leading: const Icon(Icons.block, color: Colors.redAccent),
-            title: const Text('Engellenenler',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            trailing: const Icon(Icons.arrow_forward_ios,
-                size: 16, color: Colors.grey),
+            title: const Text('Blocked Users', style: TextStyle(fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const BlockedUsersScreen()),
