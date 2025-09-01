@@ -11,7 +11,7 @@ Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
     isScrollControlled: false,
     showDragHandle: false,
     backgroundColor: theme.colorScheme.surface,
-    barrierColor: Colors.black.withValues(alpha: 0.35),
+    barrierColor: Colors.black.withOpacity(0.35),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -33,7 +33,7 @@ Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                    color: colorScheme.outlineVariant.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -68,7 +68,7 @@ Future<bool?> showLogoutConfirmationSheet(BuildContext context) {
                 'Bu cihazdaki oturum kapanacak. Hesabınız silinmez.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
-                  color: textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                  color: textTheme.bodyMedium?.color?.withOpacity(0.8),
                 ),
               ),
               const SizedBox(height: 20),

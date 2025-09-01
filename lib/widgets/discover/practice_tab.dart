@@ -5,16 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/screens/practice_writing_screen.dart';
 import 'package:lingua_chat/screens/practice_reading_screen.dart';
 import 'package:lingua_chat/screens/practice_listening_screen.dart';
+import 'package:lingua_chat/screens/practice_speaking_screen.dart';
 
 // --- VERİ MODELLERİ ---
-class _ModeData {
+// Sınıf, "private type in a public API" hatasını çözmek için herkese açık hale getirildi.
+class ModeData {
   final String title;
   final String tagline;
   final String description;
   final List<Color> colors;
   final IconData icon;
-  final String backgroundImage; // eklendi
-  const _ModeData({
+  final String backgroundImage;
+  const ModeData({
     required this.title,
     required this.tagline,
     required this.description,
@@ -28,8 +30,8 @@ class _ModeData {
 class PracticeTab extends StatelessWidget {
   const PracticeTab({super.key});
 
-  static final List<_ModeData> practiceModes = [
-    _ModeData(
+  static final List<ModeData> practiceModes = [
+    ModeData(
       title: 'Writing',
       tagline: 'Düşün – Yaz – Parla',
       description: 'Mini yazma görevleriyle ifade gücünü şımart.',
@@ -37,7 +39,7 @@ class PracticeTab extends StatelessWidget {
       icon: Icons.edit_rounded,
       backgroundImage: 'assets/practice/writing_bg.jpg',
     ),
-    _ModeData(
+    ModeData(
       title: 'Reading',
       tagline: 'Oku – Keşfet',
       description: 'Tatlı kısa pasajlarla anlam avına çık.',
@@ -45,13 +47,21 @@ class PracticeTab extends StatelessWidget {
       icon: Icons.menu_book_rounded,
       backgroundImage: 'assets/practice/reading_bg.jpg',
     ),
-    _ModeData(
+    ModeData(
       title: 'Listening',
       tagline: 'Dinle – Yakala',
       description: 'Sevimli seslerle pratik yap, kulağın alışsın.',
       colors: const [Color(0xFF2BC0E4), Color(0xFF84FAB0)],
       icon: Icons.headphones_rounded,
       backgroundImage: 'assets/practice/listening_bg.jpg',
+    ),
+    ModeData(
+      title: 'Speaking',
+      tagline: 'Konuş – Akıcı Ol',
+      description: 'Sesli tekrarlarla konuşma pratiği.',
+      colors: const [Color(0xFFFFCF71), Color(0xFF2376DD)],
+      icon: Icons.mic_rounded,
+      backgroundImage: 'assets/practice/speaking_bg.jpg',
     ),
   ];
 
@@ -67,8 +77,7 @@ class PracticeTab extends StatelessWidget {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  const _PracticeHeader(),
-                  const SizedBox(height: 16),
+                  // Header kaldırıldı
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -77,31 +86,29 @@ class PracticeTab extends StatelessWidget {
                           return Row(
                             children: practiceModes
                                 .map((mode) => Expanded(
-                                      child: _PracticeModeCard(data: mode, compact: false),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                        child: _PracticeModeCard(data: mode, compact: false),
+                                      ),
                                     ))
                                 .toList(),
                           );
                         } else {
-                          // Dikey alanı 3 karta böl
-                          const spacing = 10.0;
-                          final totalSpacing = spacing * 2; // 3 kart arası 2 boşluk
-                          final cardHeight = (constraints.maxHeight - totalSpacing).clamp(140.0, 1000.0) / 3;
+                          const spacing = 12.0;
+                          final count = practiceModes.length;
+                          final totalSpacing = spacing * (count - 1);
+                          final cardHeight = (constraints.maxHeight - totalSpacing).clamp(140.0, 2000.0) / count;
                           return Column(
                             children: [
-                              SizedBox(
-                                height: cardHeight,
-                                child: _PracticeModeCard(data: practiceModes[0], compact: cardHeight < 200),
-                              ),
-                              const SizedBox(height: spacing),
-                              SizedBox(
-                                height: cardHeight,
-                                child: _PracticeModeCard(data: practiceModes[1], compact: cardHeight < 200),
-                              ),
-                              const SizedBox(height: spacing),
-                              SizedBox(
-                                height: cardHeight,
-                                child: _PracticeModeCard(data: practiceModes[2], compact: cardHeight < 200),
-                              ),
+                              for (int i = 0; i < practiceModes.length; i++) ...[
+                                Expanded(
+                                  child: _PracticeModeCard(
+                                    data: practiceModes[i],
+                                    compact: cardHeight < 200,
+                                  ),
+                                ),
+                                if (i != practiceModes.length - 1) const SizedBox(height: spacing),
+                              ]
                             ],
                           );
                         }
@@ -120,7 +127,7 @@ class PracticeTab extends StatelessWidget {
 
 // --- KART WIDGET'I ---
 class _PracticeModeCard extends StatelessWidget {
-  final _ModeData data;
+  final ModeData data;
   final bool compact;
   const _PracticeModeCard({required this.data, this.compact = false});
 
@@ -136,10 +143,14 @@ class _PracticeModeCard extends StatelessWidget {
       case 'Listening':
         target = const PracticeListeningScreen();
         break;
+      case 'Speaking':
+        target = const PracticeSpeakingScreen();
+        break;
     }
     if (target != null) {
+      final screen = target; // null değil, local değişkene al
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => target!),
+        MaterialPageRoute(builder: (_) => screen),
       );
     }
   }
@@ -149,15 +160,8 @@ class _PracticeModeCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => _open(context),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-        // Padding içerik üstüne taşındı (Stack ile resim altında kalacak)
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(compact ? 22 : 28),
-          gradient: LinearGradient(
-            colors: data.colors.map((c) => c.withValues(alpha: 0.65)).toList(),
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
           boxShadow: [
             BoxShadow(
               color: data.colors.last.withValues(alpha: 0.38),
@@ -171,15 +175,21 @@ class _PracticeModeCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Arka plan resmi (hata durumunda degrade görünür)
               Image.asset(
                 data.backgroundImage,
                 fit: BoxFit.cover,
-                errorBuilder: (ctx, err, stack) => const SizedBox.shrink(),
+                errorBuilder: (ctx, err, stack) => Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: data.colors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
               ),
-              // Koyulaştırıcı filtre
+              // Düzeltme: Linter kurallarına uymak için .withValues() kullanılıyor.
               Container(color: Colors.black.withValues(alpha: 0.42)),
-              // Üst gradient okunabilirlik
               Positioned.fill(
                 child: IgnorePointer(
                   child: Container(
@@ -189,18 +199,17 @@ class _PracticeModeCard extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.black.withValues(alpha: 0.30),
-                          Colors.black.withValues(alpha: 0.15),
+                          Colors.transparent,
                           Colors.black.withValues(alpha: 0.40),
                         ],
-                        stops: const [0, 0.55, 1],
+                        stops: const [0, 0.5, 1],
                       ),
                     ),
                   ),
                 ),
               ),
-              // İçerik
               Padding(
-                padding: EdgeInsets.all(compact ? 14 : 18),
+                padding: EdgeInsets.all(compact ? 16 : 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -209,49 +218,25 @@ class _PracticeModeCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white.withValues(alpha: 0.22),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                       ),
                       child: Icon(data.icon, color: Colors.white, size: compact ? 22 : 28),
                     ),
-                    SizedBox(height: compact ? 8 : 12),
+                    SizedBox(height: compact ? 10 : 16),
                     Text(
                       data.title,
                       style: TextStyle(
-                        fontSize: compact ? 18 : 22,
+                        fontSize: compact ? 20 : 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
-                        height: 1.05,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: compact ? 4 : 6),
-                    Text(
-                      data.tagline,
-                      style: TextStyle(
-                        fontSize: compact ? 12 : 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.9),
-                        height: 1.1,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: compact ? 8 : 12),
-                    Expanded(
-                      child: Text(
-                        data.description,
-                        style: TextStyle(
-                          fontSize: compact ? 11.5 : 13,
-                          color: Colors.white.withValues(alpha: 0.95),
-                          height: 1.25,
-                        ),
-                        maxLines: compact ? 3 : 4,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    const Spacer(),
                     Align(
                       alignment: Alignment.bottomRight,
-                      child: Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.95), size: compact ? 20 : 22),
+                      child: Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.95), size: compact ? 22 : 24),
                     ),
                   ],
                 ),
@@ -264,63 +249,6 @@ class _PracticeModeCard extends StatelessWidget {
   }
 }
 
-// --- HEADER WIDGET'I ---
-class _PracticeHeader extends StatelessWidget {
-  const _PracticeHeader();
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0ED2F7), Color(0xFFB2FEFA)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0ED2F7).withValues(alpha: 0.3),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pratik Yap',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Günde 10 dakika, düzenli ilerleme. Hadi başlayalım!',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // --- ARKA PLAN ANİMASYONU ---
 class _AnimatedBackdrop extends StatefulWidget {

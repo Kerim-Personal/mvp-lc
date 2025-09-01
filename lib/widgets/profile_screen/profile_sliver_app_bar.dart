@@ -316,7 +316,7 @@ class _CosmicBackground extends StatelessWidget {
         ),
       ),
       child: Container(
-        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.1)),
+        decoration: BoxDecoration(color: Colors.black.withOpacity(0.1)),
       ),
     );
   }

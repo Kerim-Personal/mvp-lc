@@ -12,7 +12,7 @@ Future<void> showDeleteAccountSheet(BuildContext context) async {
     isScrollControlled: true,
     useRootNavigator: true,
     backgroundColor: theme.colorScheme.surface,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: Colors.black.withOpacity(0.45),
     showDragHandle: false,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -159,7 +159,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                    color: colorScheme.outlineVariant.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -194,7 +194,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 'Bu işlem geri alınamaz. Hesabınız ve ilişkili veriler kalıcı olarak silinecek.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
-                  color: textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
+                  color: textTheme.bodyMedium?.color?.withOpacity(0.9),
                 ),
               ),
               const SizedBox(height: 20),
@@ -220,7 +220,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    color: colorScheme.primaryContainer.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(

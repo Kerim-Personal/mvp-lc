@@ -43,7 +43,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           topLeft: Radius.circular(25.0),
           topRight: Radius.circular(25.0),
         ),
-        border: Border(top: BorderSide(color: theme.dividerColor.withValues(alpha: 0.25))),
+        border: Border(top: BorderSide(color: theme.dividerColor.withOpacity(0.25))),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -58,7 +58,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           ...widget.options.map((option) {
             final isSelected = _currentSelection == option;
             final displayLabel = widget.displayLabels?[option] ?? option;
-            final baseColor = onSurface.withValues(alpha: 0.85);
+            final baseColor = onSurface.withOpacity(0.85);
             return ListTile(
               title: Text(
                 displayLabel,
@@ -69,7 +69,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               ),
               trailing: Icon(
                 isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                color: isSelected ? cs.primary : theme.iconTheme.color?.withValues(alpha: 0.6),
+                color: isSelected ? cs.primary : theme.iconTheme.color?.withOpacity(0.6),
               ),
               onTap: () {
                 setState(() {
@@ -78,7 +78,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               },
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               tileColor: isSelected
-                  ? cs.primary.withValues(alpha: 0.12)
+                  ? cs.primary.withOpacity(0.12)
                   : Colors.transparent,
             );
           }).toList(),
@@ -89,8 +89,8 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context, null),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: onSurface.withValues(alpha: 0.8),
-                    side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.4)),
+                    foregroundColor: onSurface.withOpacity(0.8),
+                    side: BorderSide(color: theme.dividerColor.withOpacity(0.4)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),

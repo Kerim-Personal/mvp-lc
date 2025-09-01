@@ -997,15 +997,17 @@ class _MessageComposerState extends State<_MessageComposer> {
   bool _listening = false;
   String _speechBaseText = '';
 
+  String? _enLocaleId; // İngilizce locale sabitleme
+
   final List<String> _textEmoticons = const [
     ':)', ':(', ';)', ':D', ':P', ':O', ':/', ':|', 'XD', 'T_T', '^^', '^^;', '>_<', '^_^', 'o_O', 'O_o', '-_-', '=_=',
     ':3', '>:(', ':-)', ':-(', ':-D', ':-P', ':-O', ':-|', ':-/', ';-)', '(^_^)', '(>_<)', '(T_T)', '(._.)', '(o_O)',
-    '(^o^)/', '(¬_¬)', '(•_•)', '(•‿•)', '(☞ﾟ∀ﾟ)☞', '(づ｡◕‿‿◕｡)づ', '(╯°□°）��︵ ┻━┻', '┬─��� ノ( ゜-゜ノ)', '(ಥ﹏ಥ)', '(づ￣ ³￣)づ',
+    '(^o^)/', '(¬_¬)', '(•_•)', '(•‿•)', '(☞ﾟ∀ﾟ)☞', '(づ｡◕‿‿◕｡)づ', '(╯°□°）��︵ ��━┻', '┬─��� ノ( ゜-゜ノ)', '(ಥ﹏ಥ)', '(づ￣ ³￣)づ',
     '¯\\_(ツ)_/¯', '(ง •̀_•́)ง', '(*_*)', '(✿◠‿◠)', '(◕‿◕)', '(ᵔᴥᵔ)', '（＾ｖ＾）', '(ʘ‿ʘ)', '(ง’̀-’́)ง', '(✧ω✧)', '(◔_◔)', '(◕‿↼)',
     '(≧▽≦)', '(￣ー￣)', '(>‿◠)', '(✿╹◡╹)', '(��ᴗ◕✿)', '(*≧ω≦)', '(｡◕‿‿◕｡)', '(｀・ω・´)', '(；一_一)', '(●´ω｀●)', '(ノಠ益ಠ)ノ彡┻━┻',
     '(☞ ͡° ͜ʖ ͡°)☞', '( ͡° ͜ʖ ͡°)', '(⌐■_■)', '(●__●)', '(>_<)', '(^人^)', '(◡‿◡*)', '(✿´‿`)', '(●´∀｀●)', '(•̀ᴗ•́)و ̑̑',
     '(ᕗ ͠° ਊ ͠° )ᕗ', '(ノ´∀`)ノ', '(๑˃̵ᴗ˂̵)و', '(๑•̀ㅂ•́)و✧', '(´･_･`)', '(´；ω；`)', '(￣^￣)ゞ', '(-‿◦☀)', '(｡•̀ᴗ-)✧', '(~_^)', '(*￣▽￣)b',
-    '(づᴗ_ᴗ)づ', 'ヽ(•‿•)ノ', '(งツ)���', 'ヽ(´ー｀)ノ', 'ಠ_ಠ', 'ʕ•ᴥ•ʔ', '(•ө•)♡', '(ง •̀ω•́)ง✧', '(✿◕‿◕)', '(~˘▾˘)~', '(•̀▁•́ )', '(*￣3￣)╭',
+    '(づᴗ_ᴗ)づ', 'ヽ(•‿•)ノ', '(งツ)���', 'ヽ(´ー｀)ノ', 'ಠ_ಠ', 'ʕ•ᴥ•ʔ', '(•��•)♡', '(ง •̀ω•́)ง✧', '(✿◕‿◕)', '(~˘▾˘)~', '(•̀▁•́ )', '(*￣3￣)╭',
     'ヾ(＾-＾)ノ', '(〃＾▽＾〃)', '(￣ω￣;)', '(๑•́ ₃ •̀๑)', '(๑˘︶˘๑)', '(๑ᵕ⌓ᵕ๑)', '(´∀｀)♡', '(*^▽^*)', '(￣▽￣)ノ', 'ヽ(〃＾▽＾〃)ﾉ',
   ];
 
@@ -1031,6 +1033,14 @@ class _MessageComposerState extends State<_MessageComposer> {
     }, onError: (e) {
       if (mounted) setState(() => _listening = false);
     });
+    if (_speechReady) {
+      try {
+        final locales = await _speech.locales();
+        _enLocaleId = locales.firstWhere((l) => l.localeId == 'en_US', orElse: () => locales.firstWhere((l)=> l.localeId.startsWith('en'))).localeId;
+      } catch (_) {
+        _enLocaleId = 'en_US';
+      }
+    }
     if (mounted) setState(() {});
   }
 
@@ -1054,7 +1064,7 @@ class _MessageComposerState extends State<_MessageComposer> {
       final recognized = res.recognizedWords;
       final newText = (_speechBaseText.isEmpty ? recognized : (_speechBaseText + (recognized.isEmpty ? '' : ' ' + recognized)));
       _messageController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: newText.length));
-    });
+    }, localeId: _enLocaleId ?? 'en_US');
   }
 
   void _insertEmoticon(String emo) {

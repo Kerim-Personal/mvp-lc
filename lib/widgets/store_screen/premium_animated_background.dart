@@ -72,7 +72,7 @@ class _AuroraPainter extends CustomPainter {
     for (int i = 0; i < centers.length; i++) {
       final rect = Rect.fromCircle(center: centers[i], radius: radii[i]);
       final gradient = RadialGradient(
-        colors: [colors[i][1].withValues(alpha: 0.55), colors[i][0].withValues(alpha: 0.0)],
+        colors: [colors[i][1].withOpacity(0.55), colors[i][0].withOpacity(0.0)],
       );
       final paint = Paint()
         ..shader = gradient.createShader(rect)
@@ -118,7 +118,7 @@ class _AuroraPainter extends CustomPainter {
       final twinkle = 0.5 + 0.5 * math.sin(t * (1.0 + rnd.nextDouble() * 2.0) + i);
       final alpha = (0.10 + 0.35 * twinkle).clamp(0.0, 1.0);
       final r = 0.6 + 1.6 * twinkle;
-      final paint = Paint()..color = Colors.white.withValues(alpha: alpha);
+      final paint = Paint()..color = Colors.white.withOpacity(alpha);
       canvas.drawCircle(Offset(px, py), r, paint);
     }
   }
@@ -128,9 +128,9 @@ class _AuroraPainter extends CustomPainter {
     final overlayPaint = Paint()
       ..shader = LinearGradient(
         colors: [
-          Colors.white.withValues(alpha: 0.06),
+          Colors.white.withOpacity(0.06),
           Colors.transparent,
-          Colors.white.withValues(alpha: 0.04),
+          Colors.white.withOpacity(0.04),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
@@ -141,4 +141,3 @@ class _AuroraPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _AuroraPainter oldDelegate) => oldDelegate.time != time;
 }
-

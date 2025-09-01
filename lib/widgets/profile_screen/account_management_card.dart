@@ -26,7 +26,7 @@ class AccountManagementCard extends StatelessWidget {
     final formattedDate = memberSince != null ? DateFormat('dd MMMM yyyy', 'tr_TR').format(memberSince!) : 'Bilinmiyor';
     return Card(
       elevation: 4,
-      shadowColor: Colors.black.withValues(alpha: 0.1),
+      shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
