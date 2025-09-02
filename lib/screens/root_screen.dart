@@ -3,13 +3,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:lingua_chat/screens/home_screen.dart';
 import 'package:lingua_chat/screens/profile_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
 import 'package:lingua_chat/screens/discover_screen.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:lingua_chat/widgets/shared/animated_background.dart';
+import 'dart:ui' show lerpDouble;
 
 // Bu fonksiyon veritabanı kurulumu için, dokunulmasına gerek yok.
 Future<void> _createDefaultChatRooms() async {
@@ -45,25 +45,16 @@ class RootScreen extends StatefulWidget {
 class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   bool _isSearching = false; // partner arama tam ekran durumu
-  late AnimationController _navIconAnimationController;
-  late Animation<double> _scaleAnimation;
   late PageController _pageController;
+  late AnimationController _navIconAnimationController; // geri eklendi
+  late Animation<double> _scaleAnimation; // geri eklendi
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _selectedIndex);
-
-    _navIconAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
-      CurvedAnimation(
-        parent: _navIconAnimationController,
-        curve: Curves.easeOut,
-      ),
-    );
+    _navIconAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+    _scaleAnimation = CurvedAnimation(parent: _navIconAnimationController, curve: Curves.easeOutCubic);
     _createDefaultChatRooms();
   }
 
@@ -85,13 +76,12 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     setState(() {
       _selectedIndex = index;
     });
-    // Sayfayı animasyonlu olarak değiştir
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 10),
+      duration: const Duration(milliseconds: 150),
       curve: Curves.easeInOut,
     );
-    _navIconAnimationController.forward().then((_) => _navIconAnimationController.reverse());
+    _navIconAnimationController.forward(from: 0); // animasyon tetikleme
   }
 
   @override
@@ -110,15 +100,6 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       if (currentUser != null) ProfileScreen(userId: currentUser.uid),
     ];
 
-    final List<GButton> tabs = [
-      const GButton(icon: Icons.store_mall_directory_outlined, text: 'Store'),
-      const GButton(icon: Icons.explore_outlined, text: 'Discover'),
-      const GButton(icon: Icons.home_rounded, text: 'Home'),
-      const GButton(icon: Icons.groups_outlined, text: 'Community'),
-      if (currentUser != null)
-        const GButton(icon: Icons.person_rounded, text: 'Profile'),
-    ];
-
     return Scaffold(
       body: Stack(
         children: [
@@ -130,21 +111,28 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
-      bottomNavigationBar: _isSearching ? null : _buildBottomNav(tabs),
+      bottomNavigationBar: _isSearching ? null : _buildBottomNav(currentUser),
     );
   }
 
-  Widget _buildBottomNav(List<GButton> tabs) {
+  Widget _buildBottomNav(User? currentUser) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    // Arka plan ile daha uyumlu, hafif saydam yüzey rengi
-    final Color backgroundColor = (isDark ? cs.surface : Colors.white).withValues(alpha: isDark ? 0.92 : 0.96);
-    final Color shadowColor = isDark ? Colors.black.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.05);
-    final Color inactiveColor = isDark ? cs.onSurface.withValues(alpha: 0.65) : Colors.black54;
-    final Color activeTabColor = cs.primary; // sekme arka planı
-    final Color activeIconColor = cs.onPrimary; // aktif ikon + yazı
+    final Color backgroundColor = (isDark ? cs.surface : Colors.white).withValues(alpha: isDark ? 0.94 : 0.97);
+    final Color shadowColor = isDark ? Colors.black.withValues(alpha: 0.45) : Colors.black.withValues(alpha: 0.06);
+    final Color inactiveColor = isDark ? cs.onSurface.withValues(alpha: 0.65) : Colors.black87;
+    final Color activeColor = cs.primary;
+    final Color activeIconColor = cs.onPrimary;
+
+    final items = <_NavItemData>[
+      _NavItemData(icon: Icons.store_mall_directory_outlined, label: 'Store'),
+      _NavItemData(icon: Icons.explore_outlined, label: 'Discover'),
+      _NavItemData(icon: Icons.home_rounded, label: 'Home'),
+      _NavItemData(icon: Icons.groups_outlined, label: 'Community'),
+      if (currentUser != null) _NavItemData(icon: Icons.person_rounded, label: 'Profile'),
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -152,59 +140,168 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
         border: Border(
           top: BorderSide(
             color: isDark
-                ? Colors.white.withValues(alpha: 0.05)
-                : Colors.black.withValues(alpha: 0.04),
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.05),
             width: 0.6,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            blurRadius: 18,
-            offset: const Offset(0, -2),
+            blurRadius: 22,
+            offset: const Offset(0, -4),
             color: shadowColor,
           ),
         ],
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
-          child: GNav(
-            rippleColor: activeTabColor.withValues(alpha: 0.18),
-            hoverColor: activeTabColor.withValues(alpha: 0.10),
-            gap: 8,
-            activeColor: activeIconColor,
-            iconSize: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            duration: const Duration(milliseconds: 140),
-            tabBackgroundColor: activeTabColor,
-            color: inactiveColor,
-            tabs: tabs.asMap().entries.map((entry) {
-              int idx = entry.key;
-              GButton tab = entry.value;
-              final bool selected = _selectedIndex == idx;
-              return GButton(
-                icon: tab.icon,
-                text: tab.text,
-                leading: selected
-                    ? ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: Icon(
-                          tab.icon,
-                          color: activeIconColor,
-                        ),
-                      )
-                    : Icon(
-                        tab.icon,
-                        color: inactiveColor,
-                      ),
+        child: SizedBox(
+          height: 72, // kompaktlaştırıldı (önce: 86)
+          child: Row(
+            children: List.generate(items.length, (index) {
+              final data = items[index];
+              final selected = _selectedIndex == index;
+              return Expanded(
+                child: _NavBarItem(
+                  data: data,
+                  selected: selected,
+                  activeColor: activeColor,
+                  activeIconColor: activeIconColor,
+                  inactiveColor: inactiveColor,
+                  animation: _scaleAnimation,
+                  onTap: () => _onItemTapped(index),
+                ),
               );
-            }).toList(),
-            selectedIndex: _selectedIndex,
-            onTabChange: _onItemTapped,
+            }),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NavItemData {
+  final IconData icon;
+  final String label;
+  const _NavItemData({required this.icon, required this.label});
+}
+
+class _NavBarItem extends StatelessWidget {
+  final _NavItemData data;
+  final bool selected;
+  final Color activeColor;
+  final Color activeIconColor;
+  final Color inactiveColor;
+  final Animation<double> animation;
+  final VoidCallback onTap;
+  const _NavBarItem({
+    required this.data,
+    required this.selected,
+    required this.activeColor,
+    required this.activeIconColor,
+    required this.inactiveColor,
+    required this.animation,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final highlightColor = activeColor;
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: data.label,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: highlightColor.withValues(alpha: 0.15),
+        highlightColor: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: selected ? highlightColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _AnimatedNavIcon(
+                  icon: data.icon,
+                  selected: selected,
+                  activeColor: activeIconColor,
+                  inactiveColor: inactiveColor,
+                  animation: animation,
+                ),
+                const SizedBox(height: 2),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.1,
+                    color: selected ? activeIconColor : inactiveColor.withValues(alpha: 0.85),
+                  ),
+                  child: Text(
+                    data.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedNavIcon extends StatelessWidget {
+  final IconData icon;
+  final bool selected;
+  final Color activeColor;
+  final Color inactiveColor;
+  final Animation<double> animation;
+  const _AnimatedNavIcon({
+    required this.icon,
+    required this.selected,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.animation,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        double scale;
+        if (selected) {
+          if (animation.value < 0.55) { // büyüme fazı
+            final t = animation.value / 0.55;
+            scale = lerpDouble(1.0, 1.25, t)!;
+          } else { // geri dönme fazı
+            final t = (animation.value - 0.55) / 0.45;
+            scale = lerpDouble(1.25, 1.0, t)!;
+          }
+        } else {
+          scale = 1.0;
+        }
+        return SizedBox(
+          width: 30,
+          height: 30,
+          child: Transform.scale(
+            scale: scale,
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              color: selected ? activeColor : inactiveColor,
+              size: 24,
+            ),
+          ),
+        );
+      },
     );
   }
 }

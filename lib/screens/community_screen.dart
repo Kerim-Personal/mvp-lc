@@ -356,11 +356,18 @@ class _CommunityScreenState extends State<CommunityScreen>
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.teal : Colors.grey.shade700,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.teal : Colors.grey.shade700,
+                    ),
+                  ),
                 ),
               ),
             ],

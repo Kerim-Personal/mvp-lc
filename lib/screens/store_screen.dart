@@ -32,7 +32,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 500),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(

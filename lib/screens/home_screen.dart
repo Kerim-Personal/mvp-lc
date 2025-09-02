@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _setupAnimations() {
     _entryAnimationController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1000));
+        vsync: this, duration: const Duration(milliseconds: 500)); // Hızlandırıldı (1000 -> 500)
     _pulseAnimationController =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat(reverse: true);
@@ -398,7 +398,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: _buildAnimatedUI(
-                  interval: const Interval(0.2, 0.8),
+                  interval: const Interval(0.0, 0.6), // Daha erken başlasın
                   child: _buildHeaderSection(),
                 ),
               ),
@@ -406,13 +406,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: _buildAnimatedUI(
-                  interval: const Interval(0.4, 1.0),
+                  interval: const Interval(0.1, 0.7), // Gecikme azaltıldı
                   child: _buildStatsSection(),
                 ),
               ),
               const SizedBox(height: 24),
               _buildAnimatedUI(
-                interval: const Interval(0.6, 1.0),
+                interval: const Interval(0.2, 0.8), // Çok geç görünmesin
                 child: PartnerFinderSection(
                   onFindPartner: _findPracticePartner,
                   onShowGenderFilter: _showGenderFilter,
