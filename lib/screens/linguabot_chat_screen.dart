@@ -1,6 +1,6 @@
 // lib/screens/linguabot_chat_screen.dart
-// Bu bir sohbet ekranı değil, bir dil evreni simülatörüdür.
-// v2.4.0: Yıldız animasyonları sakinleştirildi ve doğallaştırıldı. Ortam artık otantik ve dikkat dağıtıcı değil.
+// This is not a chat screen, it's a language universe simulator.
+// v2.4.0: Star animations have been calmed and naturalized. The environment is now authentic and not distracting.
 
 import 'dart:async';
 import 'dart:math';
@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/services/linguabot_service.dart';
 import 'package:lingua_chat/models/grammar_analysis.dart';
 
-// --- DEVRİM 1: VERİ MODELLERİNİN YENİDEN DOĞUŞU ---
+// --- REVOLUTION 1: THE REBIRTH OF DATA MODELS ---
 
 enum MessageSender { user, bot }
 
@@ -18,7 +18,7 @@ class MessageUnit {
   String text;
   final MessageSender sender;
   final DateTime timestamp;
-  GrammarAnalysis? grammarAnalysis; // artık mutable ve nullable
+  GrammarAnalysis? grammarAnalysis; // now mutable and nullable
   final double vocabularyRichness;
   final Duration? botResponseTime;
 
@@ -32,7 +32,7 @@ class MessageUnit {
         timestamp = DateTime.now();
 }
 
-// --- ANA EKRAN: SİMÜLATÖRÜN KALBİ ---
+// --- MAIN SCREEN: THE HEART OF THE SIMULATOR ---
 
 class LinguaBotChatScreen extends StatefulWidget {
   final bool isPremium;
@@ -60,7 +60,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     _blurAnimation = Tween<double>(begin: 20.0, end: 0.0).animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOut));
 
     _messages.add(MessageUnit(
-      text: "Dil evrenine yeniden hoş geldin. Sınırları zorlamaya hazır mısın?",
+      text: "Welcome back to the language universe. Ready to push your limits?",
       sender: MessageSender.bot,
       grammarAnalysis: GrammarAnalysis(tense: "Present Simple", verbCount: 1, nounCount: 2, complexity: 0.3, sentiment: 0.7),
     ));
@@ -79,7 +79,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   Future<void> _sendMessage(String text) async {
     if (text.isEmpty) return;
 
-    // Premium ise gramer analizi isteğini şimdiden başlat (eşzamanlı çalışsın)
+    // If premium, start the grammar analysis request immediately (to run concurrently)
     Future<GrammarAnalysis?> analysisFuture = widget.isPremium
         ? _botService.analyzeGrammar(text)
         : Future.value(null);
@@ -94,7 +94,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     final userMessage = MessageUnit(
       text: text,
       sender: MessageSender.user,
-      grammarAnalysis: null, // premium değilse null kalacak, premiumsa sonra doldurulacak
+      grammarAnalysis: null, // will remain null if not premium, will be filled later if premium
       vocabularyRichness: _computeVocabRichness(text),
     );
 
@@ -104,7 +104,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     });
     _scrollToBottom();
 
-    // Analiz hazır olduğunda mesajı güncelle
+    // Update the message when the analysis is ready
     analysisFuture.then((analysis) {
       if (!mounted) return;
       if (analysis != null) {
@@ -127,7 +127,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
       text: botResponseText,
       sender: MessageSender.bot,
       botResponseTime: botResponseTime,
-      grammarAnalysis: null, // Bot mesajları analiz edilmez (gereksinim: sadece kullanıcının kendi mesajı)
+      grammarAnalysis: null, // Bot messages are not analyzed (requirement: only the user's own message)
       vocabularyRichness: _computeVocabRichness(botResponseText),
     );
 
@@ -172,7 +172,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
               filter: ImageFilter.blur(sigmaX: _blurAnimation.value, sigmaY: _blurAnimation.value),
               child: child,
             ),
-            // İYİLEŞTİRME: Efektin daha belirgin olması için hafif bir overlay eklendi.
+            // IMPROVEMENT: A slight overlay has been added for the effect to be more pronounced.
             child: Container(color: Colors.black.withAlpha(26)),
           ),
           SafeArea(
@@ -208,7 +208,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   }
 }
 
-// --- DEVRİMSEL WIDGET'LAR ---
+// --- REVOLUTIONARY WIDGETS ---
 
 class HolographicHeader extends StatefulWidget {
   final bool isBotThinking;
@@ -281,7 +281,7 @@ class MessageBubble extends StatelessWidget {
 
   TextSpan _buildAnalyzedSpan(String text, GrammarAnalysis ga) {
     final List<InlineSpan> spans = [];
-    // Tokenları (kelime/punkt + whitespace) koru
+    // Preserve tokens (word/punct + whitespace)
     final regex = RegExp(r'(\s+)');
     int last = 0;
     final matches = regex.allMatches(text);
@@ -369,7 +369,7 @@ class MessageBubble extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.cyanAccent.withAlpha((255*0.4).round())),
                         ),
-                        child: Text('Skor ${(ga.grammarScore*100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                        child: Text('Score ${(ga.grammarScore*100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.w600)),
                       ),
                       const SizedBox(width: 6),
                       Container(
@@ -399,69 +399,69 @@ class MessageInsightDialog extends StatelessWidget {
   const MessageInsightDialog({super.key, required this.message, required this.onCorrect});
 
   String _scoreLabel(double v){
-    if(v>=0.9) return 'Neredeyse kusursuz';
-    if(v>=0.75) return 'Çok iyi';
-    if(v>=0.6) return 'İyi';
-    if(v>=0.45) return 'Gelişiyor';
-    if(v>=0.3) return 'Temel';
-    return 'Başlangıç';
+    if(v>=0.9) return 'Near flawless';
+    if(v>=0.75) return 'Very good';
+    if(v>=0.6) return 'Good';
+    if(v>=0.45) return 'Improving';
+    if(v>=0.3) return 'Basic';
+    return 'Beginner';
   }
   String _cefrExplain(String c){
     switch(c){
-      case 'A1': return 'Temel başlangıç';
-      case 'A2': return 'Genişleyen temel';
-      case 'B1': return 'Orta seviye';
-      case 'B2': return 'Üst orta';
-      case 'C1': return 'İleri';
-      case 'C2': return 'Yetkin';
+      case 'A1': return 'Basic beginner';
+      case 'A2': return 'Expanding foundation';
+      case 'B1': return 'Intermediate';
+      case 'B2': return 'Upper intermediate';
+      case 'C1': return 'Advanced';
+      case 'C2': return 'Proficient';
       default: return c; }
   }
   String _formalityToString(Formality f){
     switch(f){
-      case Formality.informal: return 'Gündelik';
-      case Formality.neutral: return 'Nötr';
-      case Formality.formal: return 'Resmi';
+      case Formality.informal: return 'Informal';
+      case Formality.neutral: return 'Neutral';
+      case Formality.formal: return 'Formal';
     }
   }
   String _sentimentLabel(double s){
-    if(s>0.35) return 'olumlu';
-    if(s<-0.35) return 'olumsuz';
-    return 'nötr';
+    if(s>0.35) return 'positive';
+    if(s<-0.35) return 'negative';
+    return 'neutral';
   }
-  // Eklenen fonksiyon: Zaman (tense) açıklaması
+  // Added function: Tense explanation
   String _tenseExplain(String t){
     final l = t.toLowerCase();
-    // En uzun / bileşik yapıları önce kontrol et
-    if(l.contains('present perfect continuous')) return 'Şimdiki zamana kadar süregelen geçmişten beri devam eden';
-    if(l.contains('past perfect continuous')) return 'Geçmişte bir ana kadar süregelen uzun eylem';
-    if(l.contains('future perfect continuous')) return 'Gelecekte belirli bir ana kadar devam ediyor olacak';
-    if(l.contains('present perfect')) return 'Geçmişte başladı; sonucu/etkisi şimdi';
-    if(l.contains('past perfect')) return 'Geçmişte başka bir eylemden önce tamamlandı';
-    if(l.contains('future perfect')) return 'Gelecekte belirli bir ana kadar tamamlanmış olacak';
-    if(l.contains('present continuous') || l.contains('present progressive')) return 'Şu anda devam eden';
-    if(l.contains('past continuous') || l.contains('past progressive')) return 'Geçmişte belirli bir anda devam eden';
-    if(l.contains('future continuous') || l.contains('future progressive')) return 'Gelecekte belirli bir anda devam ediyor olacak';
-    if(l.contains('simple present') || l== 'present simple' || (l.contains('present') && l.contains('simple'))) return 'Genel gerçek / alışkanlık';
-    if(l.contains('simple past') || l== 'past simple' || (l.contains('past') && l.contains('simple'))) return 'Geçmişte tamamlandı';
-    if(l.contains('simple future') || l== 'future simple' || (l.contains('future') && l.contains('simple'))) return 'Gelecekte gerçekleşecek';
-    if(l.contains('infinitive')) return 'Mastar form';
-    if(l.contains('imperative')) return 'Emir kipi';
-    if(l.contains('conditional')) return 'Koşula bağlı yapı';
-    // Varsayılan
-    return t; // Bilinmeyen ise olduğu gibi döndür
+    // Check the longest / compound structures first
+    if(l.contains('present perfect continuous')) return 'Continuous action from the past up to now';
+    if(l.contains('past perfect continuous')) return 'Long action continuing until a point in the past';
+    if(l.contains('future perfect continuous')) return 'Will be continuing until a point in the future';
+    if(l.contains('present perfect')) return 'Started in the past; result/effect now';
+    if(l.contains('past perfect')) return 'Completed before another past action';
+    if(l.contains('future perfect')) return 'Will be completed by a future time';
+    if(l.contains('present continuous') || l.contains('present progressive')) return 'Happening right now';
+    if(l.contains('past continuous') || l.contains('past progressive')) return 'Ongoing at a specific moment in the past';
+    if(l.contains('future continuous') || l.contains('future progressive')) return 'Ongoing at a specific moment in the future';
+    if(l.contains('simple present') || l== 'present simple' || (l.contains('present') && l.contains('simple'))) return 'General fact / habit';
+    if(l.contains('simple past') || l== 'past simple' || (l.contains('past') && l.contains('simple'))) return 'Completed in the past';
+    if(l.contains('simple future') || l== 'future simple' || (l.contains('future') && l.contains('simple'))) return 'Will occur in the future';
+    if(l.contains('infinitive')) return 'Infinitive form';
+    if(l.contains('imperative')) return 'Imperative mood';
+    if(l.contains('conditional')) return 'Conditional structure';
+    // Default
+    return t; // Return as is if unknown
   }
   String _summaryText(GrammarAnalysis a){
     final percent = (a.grammarScore*100).round();
     final errorCount = a.errors.length;
-    final errorPart = errorCount==0? 'Hata yok.' : errorCount==1? '1 hata.' : '$errorCount hata.';
+    final errorPart = errorCount==0? 'No errors.' : errorCount==1? '1 error.' : '$errorCount errors.';
     final complexityPct = (a.complexity*100).round();
     final tenseShort = _tenseExplain(a.tense);
     final form = _formalityToString(a.formality);
     final cefrExp = _cefrExplain(a.cefr);
     final sentiment = _sentimentLabel(a.sentiment);
-    // İlk cümle: Seviye + doğruluk + hata
-    // İkinci cümle: Zaman, formallik, yapı, duygu
-    return 'Seviye ${a.cefr} (${cefrExp}), gramer doğruluğu %$percent. $errorPart\nZaman: $tenseShort; form: $form; yapı karmaşıklığı %$complexityPct; duygu: $sentiment.';
+    // First sentence: Level + accuracy + error
+    // Second sentence: Tense, formality, structure, sentiment
+    return 'Level ${a.cefr} ($cefrExp), grammar accuracy $percent%. $errorPart\nTense: $tenseShort; form: $form; structural complexity $complexityPct%; sentiment: $sentiment.';
   }
   Widget _statLine({required IconData icon, required Color color, required String title, required String value, String? subtitle}){
     return Container(
@@ -501,11 +501,11 @@ class MessageInsightDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final analysis = message.grammarAnalysis;
     final maxHeight = MediaQuery.of(context).size.height * 0.7;
-    // errorLabel kaldırıldı (kullanılmıyor)
+    // errorLabel removed (not used)
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
-        // İYİLEŞTİRME: Diyalog arkaplanı ve kenarlığı estetik olarak güncellendi.
+        // IMPROVEMENT: Dialog background and border have been aesthetically updated.
         backgroundColor: Colors.black.withAlpha(191),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -524,7 +524,7 @@ class MessageInsightDialog extends StatelessWidget {
                     children: [
                       Icon(Icons.science_outlined, color: Colors.cyanAccent),
                       SizedBox(width: 10),
-                      Text("Mesaj DNA'sı", style: TextStyle(color: Colors.cyanAccent, fontSize: 22)),
+                      Text("Message DNA", style: TextStyle(color: Colors.cyanAccent, fontSize: 22)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -532,7 +532,7 @@ class MessageInsightDialog extends StatelessWidget {
                   const Divider(color: Colors.cyan, height: 20),
 
                   if (analysis != null) ...[
-                    // ÖZET BLOKU
+                    // SUMMARY BLOCK
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -543,7 +543,7 @@ class MessageInsightDialog extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Genel Değerlendirme', style: TextStyle(color: Colors.cyanAccent.shade100, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('Overall Evaluation', style: TextStyle(color: Colors.cyanAccent.shade100, fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(height:6),
                           Text(
                             _summaryText(analysis),
@@ -553,7 +553,7 @@ class MessageInsightDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height:14),
-                    // METRİK SATIRLARI
+                    // METRIC LINES
                     StatsSection(
                       analysis: analysis,
                       vocabRichness: message.vocabularyRichness,
@@ -564,16 +564,16 @@ class MessageInsightDialog extends StatelessWidget {
                       statLineBuilder: ({required icon, required color, required title, required value, subtitle}) => _statLine(icon: icon, color: color, title: title, value: value, subtitle: subtitle),
                     ),
                     const SizedBox(height:18),
-                    // TEMEL METRİK GÖSTERGELERİ
+                    // BASIC METRIC INDICATORS
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: MetricGauge(label: "Kelime Çeşitliliği", value: message.vocabularyRichness, color: Colors.amber)),
+                        Expanded(child: MetricGauge(label: "Vocabulary Variety", value: message.vocabularyRichness, color: Colors.amber)),
                         const SizedBox(width:12),
-                        Expanded(child: MetricGauge(label: "Duygu Tonu", value: (analysis.sentiment + 1) / 2, color: Colors.green)),
+                        Expanded(child: MetricGauge(label: "Sentiment Tone", value: (analysis.sentiment + 1) / 2, color: Colors.green)),
                         const SizedBox(width:12),
-                        Expanded(child: MetricGauge(label: "Yapı Karmaşıklığı", value: analysis.complexity, color: Colors.purpleAccent)),
+                        Expanded(child: MetricGauge(label: "Structural Complexity", value: analysis.complexity, color: Colors.purpleAccent)),
                       ],
                     ),
                     const SizedBox(height:16),
@@ -586,7 +586,7 @@ class MessageInsightDialog extends StatelessWidget {
                           tilePadding: EdgeInsets.zero,
                           iconColor: Colors.orangeAccent,
                           collapsedIconColor: Colors.orangeAccent,
-                          title: const Text("Hata Detayları", style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                          title: const Text("Error Details", style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
                           children: analysis.errors.take(6).map((e) => ListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
@@ -613,7 +613,7 @@ class MessageInsightDialog extends StatelessWidget {
                           tilePadding: EdgeInsets.zero,
                           iconColor: Colors.lightBlueAccent,
                           collapsedIconColor: Colors.lightBlueAccent,
-                          title: const Text("Öneriler", style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold)),
+                          title: const Text("Suggestions", style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold)),
                           children: analysis.suggestions.take(6).map((s) => ListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
@@ -625,7 +625,7 @@ class MessageInsightDialog extends StatelessWidget {
                   ],
 
                   const SizedBox(height: 10),
-                  Center(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("Kapat"))),
+                  Center(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))),
                 ],
               ),
             ),
@@ -653,7 +653,7 @@ class MessageInsightDialog extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 15),
                 children: [
                   TextSpan(text: "${correction.key} ", style: const TextStyle(decoration: TextDecoration.lineThrough)),
-                  const TextSpan(text: " yerine "),
+                  const TextSpan(text: " instead of "),
                   TextSpan(text: correction.value, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orangeAccent))
                 ]
             ))),
@@ -667,7 +667,7 @@ class MessageInsightDialog extends StatelessWidget {
                 onCorrect(newText);
                 Navigator.pop(context);
               },
-              tooltip: "Uygula",
+              tooltip: "Apply",
             )
         ],
       ),
@@ -720,7 +720,7 @@ class _MetricGaugeState extends State<MetricGauge> with SingleTickerProviderStat
                     value: _animation.value,
                     strokeWidth: 5,
                     color: widget.color,
-                    // İYİLEŞTİRME: Arkaplan renginin opaklığı ayarlandı.
+                    // IMPROVEMENT: The opacity of the background color has been adjusted.
                     backgroundColor: widget.color.withAlpha(51),
                   ),
                   Center(child: Text("${(_animation.value * 100).toInt()}%", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
@@ -754,7 +754,7 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        // İYİLEŞTİRME: Yazma alanının opaklığı ayarlandı.
+        // IMPROVEMENT: The opacity of the writing area has been adjusted.
           color: Colors.black.withAlpha(77),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: Colors.purpleAccent.withAlpha(128))
@@ -766,8 +766,8 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
               controller: _controller,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                  hintText: "Mesajını buraya yaz...",
-                  // İYİLEŞTİRME: İpucu metninin opaklığı ayarlandı.
+                  hintText: "Type your message...",
+                  // IMPROVEMENT: The opacity of the hint text has been adjusted.
                   hintStyle: TextStyle(color: Colors.white.withAlpha(128)),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10)
@@ -830,7 +830,7 @@ class _MessageEntranceAnimatorState extends State<MessageEntranceAnimator> with 
   }
 }
 
-// --- KOZMİK ARKA PLAN (NİHAİ SÜRÜM) ---
+// --- COSMIC BACKGROUND (FINAL VERSION) ---
 
 class CelestialBackground extends StatefulWidget {
   final Animation<double> controller;
@@ -923,7 +923,7 @@ class CelestialPainter extends CustomPainter {
         currentRadius += 0.5;
       }
 
-      // İYİLEŞTİRME: withAlpha kullanarak opaklık ayarlandı.
+      // IMPROVEMENT: Opacity adjusted using withAlpha.
       starPaint.color = Colors.white.withAlpha((currentOpacity.clamp(0.0, 1.0) * 255).round());
       canvas.drawCircle(star.position, currentRadius, starPaint);
     }
@@ -962,7 +962,7 @@ class _StatsSectionState extends State<StatsSection> {
               children: [
                 Icon(_expanded? Icons.expand_less : Icons.expand_more, color: Colors.cyanAccent, size:20),
                 const SizedBox(width:6),
-                Text(_expanded? 'Metrikleri Gizle' : 'Metrikleri Göster', style: const TextStyle(color: Colors.cyanAccent, fontSize:12, fontWeight: FontWeight.w600)),
+                Text(_expanded? 'Hide Metrics' : 'Show Metrics', style: const TextStyle(color: Colors.cyanAccent, fontSize:12, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -971,11 +971,11 @@ class _StatsSectionState extends State<StatsSection> {
             secondChild: Column(
               children: [
                 const SizedBox(height:6),
-                widget.statLineBuilder(icon: Icons.score, color: Colors.cyanAccent, title:'Gramer Skoru', value:'${(a.grammarScore*100).toStringAsFixed(0)}%', subtitle: widget.scoreLabel(a.grammarScore)),
+                widget.statLineBuilder(icon: Icons.score, color: Colors.cyanAccent, title:'Grammar Score', value:'${(a.grammarScore*100).toStringAsFixed(0)}%', subtitle: widget.scoreLabel(a.grammarScore)),
                 widget.statLineBuilder(icon: Icons.school, color: Colors.amber, title:'CEFR', value: a.cefr, subtitle: widget.cefrExplain(a.cefr)),
-                widget.statLineBuilder(icon: Icons.access_time, color: Colors.lightBlueAccent, title:'Zaman', value: a.tense, subtitle: widget.tenseExplain(a.tense)),
-                widget.statLineBuilder(icon: Icons.theater_comedy, color: Colors.purpleAccent, title:'Formallik', value: widget.formalityToString(a.formality)),
-                widget.statLineBuilder(icon: Icons.article_outlined, color: Colors.greenAccent, title:'Kelime Türleri', value:'${a.nounCount}/${a.verbCount}/${a.adjectiveCount}', subtitle: 'İsim / Fiil / Sıfat'),
+                widget.statLineBuilder(icon: Icons.access_time, color: Colors.lightBlueAccent, title:'Tense', value: a.tense, subtitle: widget.tenseExplain(a.tense)),
+                widget.statLineBuilder(icon: Icons.theater_comedy, color: Colors.purpleAccent, title:'Formality', value: widget.formalityToString(a.formality)),
+                widget.statLineBuilder(icon: Icons.article_outlined, color: Colors.greenAccent, title:'Word Types', value:'${a.nounCount}/${a.verbCount}/${a.adjectiveCount}', subtitle: 'Noun / Verb / Adjective'),
               ],
             ),
             crossFadeState: _expanded? CrossFadeState.showSecond : CrossFadeState.showFirst,

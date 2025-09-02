@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
-// Yorum veri modeli
+// Comment data model
 class Comment {
   final String text;
   final String userId;
@@ -27,7 +27,7 @@ class Comment {
     return Comment(
       text: data['text'] ?? '',
       userId: data['userId'] ?? '',
-      userName: data['userName'] ?? 'Bilinmeyen',
+      userName: data['userName'] ?? 'Unknown',
       userAvatarUrl: data['userAvatarUrl'] ?? '',
       timestamp: data['timestamp'] ?? Timestamp.now(),
     );
@@ -81,28 +81,28 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
 
     final postRef = FirebaseFirestore.instance.collection('posts').doc(widget.postId);
 
-    // Yorumu 'comments' alt koleksiyonuna ekle
+    // Add comment to 'comments' subcollection
     await postRef.collection('comments').add({
       'text': _commentController.text.trim(),
       'userId': currentUser!.uid,
-      'userName': userData?['displayName'] ?? 'Bilinmeyen Kullanıcı',
+      'userName': userData?['displayName'] ?? 'Unknown User',
       'userAvatarUrl': userData?['avatarUrl'] ?? '',
       'timestamp': FieldValue.serverTimestamp(),
     });
 
-    // Gönderideki yorum sayısını artır
+    // Increment comment count in the post
     await postRef.update({'commentCount': FieldValue.increment(1)});
 
     if (!mounted) return;
     _commentController.clear();
-    FocusScope.of(context).unfocus(); // Klavyeyi kapat
+    FocusScope.of(context).unfocus(); // Dismiss the keyboard
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Yorumlar'),
+        title: const Text('Comments'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 1,
@@ -122,7 +122,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('İlk yorumu sen yap!'));
+                  return const Center(child: Text('Be the first to comment!'));
                 }
                 final comments = snapshot.data!.docs;
                 return ListView.builder(
@@ -232,7 +232,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
                   Text(comment.text),
                   const SizedBox(height: 8),
                   Text(
-                    DateFormat('dd MMM yyyy, HH:mm', 'tr_TR').format(comment.timestamp.toDate()),
+                    DateFormat('dd MMM yyyy, HH:mm', 'en_US').format(comment.timestamp.toDate()),
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
                   ),
                 ],
@@ -265,7 +265,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
                 controller: _commentController,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: 'Yorumunu yaz...',
+                  hintText: 'Write your comment...',
                   filled: true,
                   fillColor: Colors.grey.withAlpha(50),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),

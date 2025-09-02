@@ -73,7 +73,7 @@ class _PartnerFinderSectionState extends State<PartnerFinderSection> {
                       Icon(Icons.language_sharp,
                           color: Colors.white, size: 70),
                       SizedBox(height: 8),
-                      Text('Partner Bul',
+                      Text('Find Partner',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -92,18 +92,18 @@ class _PartnerFinderSectionState extends State<PartnerFinderSection> {
           children: [
             _buildFilterButton(
               icon: Icons.wc,
-              label: 'Cinsiyet',
+              label: 'Gender',
               onTap: widget.onShowGenderFilter,
               value: widget.selectedGenderFilter == 'Male'
-                  ? 'Erkek'
+                  ? 'Male'
                   : widget.selectedGenderFilter == 'Female'
-                  ? 'Kadın'
+                  ? 'Female'
                   : null,
             ),
             const SizedBox(width: 20),
             _buildFilterButton(
               icon: Icons.bar_chart_rounded,
-              label: 'Seviye',
+              label: 'Level',
               onTap: widget.onShowLevelFilter,
               value: widget.selectedLevelGroupFilter,
             ),

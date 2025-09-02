@@ -61,7 +61,7 @@ class _PartnerFoundScreenState extends State<PartnerFoundScreen> with TickerProv
       final data = partnerDoc.data() as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
-        _partnerName = (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Bilinmeyen';
+        _partnerName = (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown';
         _partnerAvatarUrl = (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : null;
         _loadingPartner = false;
       });
@@ -139,7 +139,7 @@ class _PartnerFoundScreenState extends State<PartnerFoundScreen> with TickerProv
                       children: [
                         _buildHandshake(progress),
                         const SizedBox(height: 30),
-                        Text('Partner Bulundu', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -.5, color: Colors.white)),
+                        Text('Partner Found', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -.5, color: Colors.white)),
                         const SizedBox(height: 18),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 350),
@@ -148,7 +148,7 @@ class _PartnerFoundScreenState extends State<PartnerFoundScreen> with TickerProv
                         const SizedBox(height: 32),
                         Opacity(
                           opacity: .85,
-                          child: Text('Hazırlanıyoruz... Sohbet başlamak üzere', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70, fontSize: 14)),
+                          child: Text('Preparing... Chat is about to start', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70, fontSize: 14)),
                         ),
                         const SizedBox(height: 32),
                         _progressBar(progress),
@@ -222,7 +222,8 @@ class _PartnerFoundScreenState extends State<PartnerFoundScreen> with TickerProv
           ),
         ],
       ),
-    );
+      );
+
   }
 
   Widget _progressBar(double progress) => ClipRRect(
@@ -310,7 +311,7 @@ class _PartnerFoundScreenState extends State<PartnerFoundScreen> with TickerProv
   }
 
   Widget _partnerInfoCard() {
-    final name = _partnerName ?? 'Bilinmeyen';
+    final name = _partnerName ?? 'Unknown';
     final avatarUrl = _partnerAvatarUrl;
     final avatar = _buildAvatar(avatarUrl, name);
     return Container(
@@ -336,7 +337,7 @@ class _PartnerFoundScreenState extends State<PartnerFoundScreen> with TickerProv
               Row(children: [
                 Icon(Icons.check_circle, size: 14, color: Colors.teal.shade300),
                 const SizedBox(width: 4),
-                Text('Bağlanıyor', style: TextStyle(fontSize: 12, color: Colors.teal.shade200, letterSpacing: .4)),
+                Text('Connecting', style: TextStyle(fontSize: 12, color: Colors.teal.shade200, letterSpacing: .4)),
               ])
             ],
           )

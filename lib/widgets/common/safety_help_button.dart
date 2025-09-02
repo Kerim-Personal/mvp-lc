@@ -26,7 +26,7 @@ class _SafetyHelpButtonState extends State<SafetyHelpButton> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Güvenlik rehberini aç',
+      label: 'Open safety guide',
       button: true,
       child: GestureDetector(
         onTap: () => _showSafetyDialog(context),
@@ -79,49 +79,49 @@ class _SafetyHelpButtonState extends State<SafetyHelpButton> with SingleTickerPr
   }
 }
 
-// Güvenlik uyarısı dialog fonksiyonu
+// Safety warning dialog function
 void _showSafetyDialog(BuildContext context) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
   final accent = colorScheme.secondary;
 
   final principles = [
-    'Şikayet Et & Engelle: Huzurunuzu koruyun.',
-    'Mahremiyet: Kişisel bilgilerinizi açıklamayın.',
-    'Finansal Güvenlik: Para transferi taleplerini reddedin.',
-    'Gerçek Hayatta Buluşmayın: Güvenliğiniz önce gelir.'
+    'Report & Block: Protect your peace.',
+    'Privacy: Do not disclose personal information.',
+    'Financial Safety: Decline requests for money transfers.',
+    'Do Not Meet Offline: Your safety comes first.'
   ];
 
   final sections = [
     (
       icon: Icons.report_gmailerrorred_outlined,
-      title: 'Raporlama ve Engelleme',
+      title: 'Reporting & Blocking',
       body:
-          'Sizi rahatsız eden, topluluk kurallarını ihlal eden (taciz, nefret söylemi, dolandırıcılık vb.) davranışlarla karşılaştığınızda, ilgili kişiyi tereddüt etmeden raporlayın, ardından engelleyin.'
+          'If you encounter behavior that bothers you or violates community guidelines (harassment, hate speech, fraud, etc.), report the person without hesitation and then block them.'
     ),
     (
       icon: Icons.privacy_tip_outlined,
-      title: 'Veri Gizliliği ve Mahremiyet',
+      title: 'Data Privacy & Confidentiality',
       body:
-          'Tam adınız, telefon numaranız, ev/iş/okul adresiniz, kimlik numaranız gibi sizi tanımlayabilecek bilgileri paylaşmaktan kaçının.'
+          'Avoid sharing personally identifying information like your full name, phone number, home/work/school address, ID/passport number, or anything similar.'
     ),
     (
       icon: Icons.savings_outlined,
-      title: 'Finansal Güvenlik',
+      title: 'Financial Safety',
       body:
-          'Ne sebeple olursa olsun, sizden para, hediye kartı, kripto para veya benzeri finansal talepte bulunan kişilere karşı son derece şüpheci olun. Bu tür taleplerin neredeyse tamamı dolandırıcılık amacı taşır.'
+          'Be extremely skeptical of anyone asking you for money, gift cards, crypto, or any financial transfer for any reason. Almost all such requests are scams.'
     ),
     (
       icon: Icons.person_pin_circle_outlined,
-      title: 'Gerçek Hayatta Buluşma',
+      title: 'Meeting in Real Life',
       body:
-          'Bu konuda taviz yoktur: Buluşmayın. İnternette kötü niyetli kişiler kimliklerini saklayabilir. Samimiyet, sizi manipüle etmek için kullanılan bir maske olabilir; bir anlık boşluk telafisi imkânsız sonuçlar doğurabilir.'
+          'Non‑negotiable: Do not meet. Malicious people online can hide their identities. Warmth can be a mask to manipulate you; one careless moment can have irreversible consequences.'
     ),
     (
       icon: Icons.psychology_alt_outlined,
-      title: 'Sosyal Mühendislik / Manipülasyon',
+      title: 'Social Engineering / Manipulation',
       body:
-          'Manipülasyon duygularınızı aklınıza karşı kullanma sanatıdır. Sahte aciliyet (kriz, fırsat, özel sır) yaratırlar. En güçlü savunma ZAMAN’dır. Duygusal baskı hissederseniz hemen karar vermeyin; “Bunu bir düşüneyim” ya da “Yakınımla paylaşacağım” demek oyunu bozar. Planları anında karar vermenize bağlıdır. Siz değerlisiniz; hiçbir karar huzur ve özgürlüğünüzden önemli değildir.'
+          'Manipulation exploits your emotions against your logic. They create fake urgency (crisis, opportunity, secret). Your strongest defense is TIME. If you feel emotional pressure, pause; saying “Let me think” or “I will share this with someone I trust” breaks the script. Their plan depends on instant compliance. You are valuable; no decision outranks your peace and safety.'
     ),
   ];
 
@@ -170,7 +170,7 @@ void _showSafetyDialog(BuildContext context) {
                           const SizedBox(width: 14),
                           Expanded(
                             child: Text(
-                              'Dijital Güvenlik Rehberi',
+                              'Digital Safety Guide',
                               style: theme.textTheme.titleLarge?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
@@ -179,7 +179,7 @@ void _showSafetyDialog(BuildContext context) {
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Kapat',
+                            tooltip: 'Close',
                             onPressed: () => Navigator.of(context).pop(),
                             icon: const Icon(Icons.close_rounded, color: Colors.white70),
                           )
@@ -187,7 +187,7 @@ void _showSafetyDialog(BuildContext context) {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Güvenli ve pozitif bir deneyim yaşamanız esastır. Aşağıdaki rehber kararlarınızda destek olur.',
+                        'A safe and positive experience is essential. The guide below supports your decisions.',
                         style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.92), height: 1.3),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
@@ -204,7 +204,7 @@ void _showSafetyDialog(BuildContext context) {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Temel İlkeler', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          Text('Core Principles', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                           const SizedBox(height: 10),
                           ...principles.map((p) => _BulletLine(text: p, color: accent)),
                           const SizedBox(height: 22),
@@ -212,9 +212,9 @@ void _showSafetyDialog(BuildContext context) {
                           const SizedBox(height: 4),
                           _HighlightBox(
                             icon: Icons.lightbulb_outline,
-                            title: 'Unutmayın',
+                            title: 'Remember',
                             message:
-                                'Bilinçli ve tedbirli olmak dijital dünyada özgürce ve güvenle var olmanın anahtarıdır. Yardım ikonuna tıklayarak bu rehbere dilediğiniz zaman tekrar ulaşabilirsiniz.',
+                                'Being informed and cautious is the key to existing freely and safely in the digital world. You can always reopen this guide by tapping the help icon.',
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -235,7 +235,7 @@ void _showSafetyDialog(BuildContext context) {
                         child: FilledButton.icon(
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.check_circle_outline, size: 20),
-                          label: const Text('Anladım'),
+                          label: const Text('Got it'),
                         ),
                       ),
                     ],
