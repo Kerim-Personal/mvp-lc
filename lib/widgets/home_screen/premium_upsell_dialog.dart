@@ -78,7 +78,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Potansiyelini Açığa Çıkar',
+                    'Unlock Your Potential',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 24,
@@ -89,7 +89,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Lingua Pro ile filtreleme gibi özel yeteneklerin kilidini aç ve öğrenme deneyimini zirveye taşı.',
+                    'Unlock special features like filtering with Lingua Pro and take your learning experience to the next level.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
@@ -97,9 +97,9 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _buildFeatureRow(Icons.filter_alt_outlined, 'İdeal Partner Filtreleme'),
-                  _buildFeatureRow(Icons.translate, 'Sohbet İçi Anlık Çeviri'),
-                  _buildFeatureRow(Icons.ads_click, 'Tamamen Reklamsız Deneyim'),
+                  _buildFeatureRow(Icons.filter_alt_outlined, 'Ideal Partner Filtering'),
+                  _buildFeatureRow(Icons.translate, 'In-Chat Instant Translation'),
+                  _buildFeatureRow(Icons.ads_click, 'Completely Ad-Free Experience'),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
@@ -114,11 +114,11 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                       Navigator.of(context).pop();
                       rootScreenKey.currentState?.changeTab(0);
                     },
-                    child: const Text('Lingua Pro\'yu Keşfet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: const Text('Discover Lingua Pro', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Şimdi Değil', style: TextStyle(color: Colors.white70)),
+                    child: const Text('Not Now', style: TextStyle(color: Colors.white70)),
                   )
                 ],
               ),

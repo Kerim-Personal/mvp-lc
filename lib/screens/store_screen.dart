@@ -20,7 +20,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  // Konfeti, shimmer ve pulse animasyonları
+  // Confetti, shimmer, and pulse animations
   late final AnimationController _confettiController;
   late final AnimationController _premiumShimmerController;
   late final AnimationController _pulseController;
@@ -83,7 +83,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  // Premium durumunu dinler, uygun arka plan + içerik ile Stack döndürür.
+  // Listens to the premium status, returns a Stack with the appropriate background + content.
   Widget _buildBodyWithBackground() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -99,7 +99,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         final data = snapshot.data?.data();
         final bool isPremium = (data?['isPremium'] as bool?) ?? false;
 
-        // Premiuma ilk geçişte konfeti oynat
+        // Play confetti on the first transition to premium
         if (isPremium && !_lastIsPremium && !_confettiPlayedOnce) {
           _confettiPlayedOnce = true;
           _confettiController
@@ -110,11 +110,11 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
         return Stack(
           children: [
-            // Arka plan seçimi
+            // Background selection
             if (isPremium) const PremiumAnimatedBackground() else const AnimatedBackground(),
-            // İçerik
+            // Content
             isPremium ? _buildPremiumContent() : _buildNonPremiumContent(),
-            // Konfeti overlay
+            // Confetti overlay
             if (_confettiController.isAnimating || _confettiController.value > 0)
               Positioned.fill(
                 child: IgnorePointer(
@@ -132,11 +132,11 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  // DEĞİŞİKLİK: Premium durumunu dinleyip uygun içerik döndür.
+  // CHANGE: Listen to premium status and return the appropriate content.
   Widget _buildStoreContent() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Oturum yoksa, non-premium ekran göster.
+      // If not logged in, show the non-premium screen.
       return _buildNonPremiumContent();
     }
 
@@ -153,7 +153,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  // Mevcut mağaza içeriği (satın alma ekranı) buraya taşındı.
+  // The current store content (purchase screen) has been moved here.
   Widget _buildNonPremiumContent() {
     return SafeArea(
       child: Padding(
@@ -199,7 +199,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15.5,
-                      color: Colors.black.withValues(alpha: 0.7),
+                      color: Colors.black.withOpacity(0.7),
                       fontWeight: FontWeight.w400,
                       height: 1.4,
                     ),
@@ -222,7 +222,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  // PREMIUM: Abonelik aktif görünümü
+  // PREMIUM: Active subscription view
   Widget _buildPremiumContent() {
     return SafeArea(
       child: Padding(
@@ -230,13 +230,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Başlık + rozet
+            // Title + badge
             FadeTransition(
               opacity: _fadeAnimation,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Shimmer'lı başlık
+                  // Shimmering title
                   AnimatedBuilder(
                     animation: _premiumShimmerController,
                     builder: (context, _) {
@@ -270,7 +270,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.15),
+                      color: Colors.amber.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: Colors.amber.shade300, width: 1.2),
                     ),
@@ -288,7 +288,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             ),
             const SizedBox(height: 20),
 
-            // Teşekkür + avantajlar kartı
+            // "Thank you" + benefits card
             Expanded(
               child: SlideTransition(
                 position: _slideAnimation,
@@ -296,13 +296,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   width: double.infinity,
                   borderRadius: 28,
                   blur: 18,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.4),
+                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.4),
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color.fromARGB(170, 255, 255, 255),
-                      Color.fromARGB(80, 255, 255, 255),
+                      Color.fromRGBO(255, 255, 255, 0.67),
+                      Color.fromRGBO(255, 255, 255, 0.31),
                     ],
                   ),
                   child: Padding(
@@ -324,7 +324,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.orange.shade200.withValues(alpha: 0.4),
+                                    color: Colors.orange.shade200.withOpacity(0.4),
                                     blurRadius: 16,
                                     offset: const Offset(0, 8),
                                   )
@@ -342,7 +342,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Divider(color: Colors.black.withValues(alpha: 0.06), height: 1),
+                        Divider(color: Colors.black.withOpacity(0.06), height: 1),
                         const SizedBox(height: 16),
                         Expanded(
                           child: SingleChildScrollView(
@@ -363,7 +363,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            // KALDIRILDI: 'Aboneliği Yönet' butonu
+                            // REMOVED: 'Manage Subscription' button
                             Expanded(
                               // Pulse micro-interaction
                               child: AnimatedBuilder(
@@ -381,7 +381,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                     elevation: 10,
-                                    shadowColor: Colors.amber.withValues(alpha: 0.4),
+                                    shadowColor: Colors.amber.withOpacity(0.4),
                                   ),
                                   icon: const Icon(Icons.headset_mic_outlined),
                                   label: const Text('Support'),
@@ -412,7 +412,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             height: 24,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.amber.withValues(alpha: 0.2),
+              color: Colors.amber.withOpacity(0.2),
               border: Border.all(color: Colors.amber.shade400, width: 1),
             ),
             child: Icon(icon, size: 14, color: Colors.orange.shade700),
@@ -431,7 +431,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   void _goToSupport() {
-    // Kullanıcıyı öncelikli destek formuna yönlendir.
+    // Redirect the user to the priority support form.
     Navigator.of(context).pushNamed('/support');
   }
 
@@ -445,8 +445,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Color.fromARGB(138, 255, 255, 255),
-          Color.fromARGB(61, 255, 255, 255),
+          Color.fromRGBO(255, 255, 255, 0.54),
+          Color.fromRGBO(255, 255, 255, 0.24),
         ],
       ),
       child: Padding(
@@ -467,7 +467,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   Widget _buildSubscriptionToggle() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color.fromARGB(13, 0, 0, 0),
+        color: const Color.fromRGBO(0, 0, 0, 0.05),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -491,7 +491,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         curve: Curves.easeInOut,
         height: 52,
         decoration: BoxDecoration(
-          color: isSelected ? const Color.fromARGB(230, 156, 39, 176) : Colors.transparent,
+          color: isSelected ? const Color.fromRGBO(156, 39, 176, 0.9) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Center(
@@ -551,7 +551,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         children: [
           Icon(icon, color: Colors.purple, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 14.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87)))),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 14.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.87)))),
         ],
       ),
     );
@@ -564,9 +564,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
           child: Text(
-            _isYearlySelected ? '899.99 TL/yıl' : '89.99 TL/ay',
+            _isYearlySelected ? '899.99 TRY/year' : '89.99 TRY/month',
             key: ValueKey<bool>(_isYearlySelected),
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9)),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9)),
           ),
         ),
         const SizedBox(height: 16),
@@ -578,7 +578,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 10,
-            shadowColor: const Color.fromARGB(128, 156, 39, 176),
+            shadowColor: const Color.fromRGBO(156, 39, 176, 0.5),
             minimumSize: const Size(double.infinity, 50),
           ),
           child: const Text('Get Started Now', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -588,7 +588,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 }
 
-// Basit konfeti ressamı: üst merkezden farklı açılarla parçacıklar saçar.
+// Simple confetti painter: scatters particles from the top center at different angles.
 class _ConfettiPainter extends CustomPainter {
   final double progress; // 0..1
   _ConfettiPainter({required this.progress});
@@ -610,16 +610,16 @@ class _ConfettiPainter extends CustomPainter {
 
     for (int i = 0; i < count; i++) {
       final angle = (i / count) * 2 * math.pi + (progress * 1.2);
-      final spread = 40 + 260 * progress; // yarıçap artışı
+      final spread = 40 + 260 * progress; // radius increase
       final gravity = 0.6 * progress * progress * size.height * 0.25;
       final radius = spread + rnd.nextDouble() * 30;
       final x = center.dx + math.cos(angle) * radius + rnd.nextDouble() * 6 * (1 - progress);
       final y = center.dy + math.sin(angle) * radius + gravity;
 
       final color = _palette[i % _palette.length];
-      final paint = Paint()..color = color.withValues(alpha: (1.0 - progress).clamp(0.0, 1.0));
+      final paint = Paint()..color = color.withOpacity((1.0 - progress).clamp(0.0, 1.0));
 
-      // Konfeti parçacığı: küçük dönen dikdörtgenler
+      // Confetti particle: small rotating rectangles
       final sizeFactor = 2.0 + (i % 3) * 0.8 + rnd.nextDouble();
       final rectSize = Size(sizeFactor + 2, sizeFactor + 5);
       final rect = Rect.fromCenter(center: Offset(x, y), width: rectSize.width, height: rectSize.height);

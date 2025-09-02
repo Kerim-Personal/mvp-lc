@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/screens/register_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
-import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Lokalizasyon importu
+import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Localization import
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,13 +39,13 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    // Giriş animasyonları
+    // Entry animations
     _entryAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     );
 
-    // Arka plan animasyonu
+    // Background animation
     _backgroundAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 25),
@@ -120,12 +120,12 @@ class _LoginScreenState extends State<LoginScreen>
       } else if (e.code == 'user-not-found' ||
           e.code == 'wrong-password' ||
           e.code == 'invalid-credential') {
-        errorMessage = 'Geçersiz e-posta veya şifre.';
+        errorMessage = 'Invalid email or password.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       } else {
-        errorMessage = 'Beklenmedik bir hata oluştu: ${e.message}';
+        errorMessage = 'An unexpected error occurred: ${e.message}';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bir hata oluştu: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(content: Text('An error occurred: ${e.toString()}'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -148,40 +148,36 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() { _isLoading = true; });
     try {
       final cred = await _authService.signInWithGoogle();
-       if (cred == null) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Google girişi iptal edildi'), backgroundColor: Colors.orange),
-           );
-         }
-       }
-     } on FirebaseAuthException catch (e) {
-       if (!mounted) return;
-       if (e.code == 'account-exists-with-different-credential' || e.code == 'credential-already-in-use') {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(
-             content: Text('Bu e-posta başka bir yöntemle kayıtlı. Lütfen önce e-posta/şifre ile giriş yapın ve Profil > Hesap Yönetimi > Google\'ı Bağla üzerinden bağlayın.'),
-             backgroundColor: Colors.orange,
-           ),
-         );
-         return;
-       }
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text('Google Giriş Hatası: ${e.message}'), backgroundColor: Colors.red),
-       );
-     } catch (e) {
-       if (!mounted) return;
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text('Beklenmedik hata: $e'), backgroundColor: Colors.red),
-       );
-     } finally {
-       if (mounted) setState(() { _isLoading = false; });
-     }
-   }
-
-  // lib/screens/login_screen.dart dosyanıza ekleyin
-
-  // lib/screens/login_screen.dart dosyanıza bu fonksiyonu ekleyin
+      if (cred == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Google sign-in was cancelled'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'account-exists-with-different-credential' || e.code == 'credential-already-in-use') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This email is registered with a different method. Please sign in with email/password first and link your Google account via Profile > Account Management > Link Google.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google Sign-In Error: ${e.message}'), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unexpected error: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() { _isLoading = false; });
+    }
+  }
 
   void _showPasswordResetDialog() {
     final resetEmailController = TextEditingController();
@@ -189,13 +185,13 @@ class _LoginScreenState extends State<LoginScreen>
 
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: Colors.black.withOpacity(0.6),
       builder: (context) {
         bool isSending = false;
         String? dialogError;
 
-        // StatefulBuilder, sadece diyalog içindeki state'i yönetir,
-        // böylece tüm ekran yeniden çizilmez.
+        // StatefulBuilder manages the state only within the dialog,
+        // so the entire screen is not redrawn.
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return BackdropFilter(
@@ -204,13 +200,13 @@ class _LoginScreenState extends State<LoginScreen>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28.0),
                 ),
-                backgroundColor: Colors.white.withValues(alpha: 0.9),
+                backgroundColor: Colors.white.withOpacity(0.9),
                 elevation: 0,
-                // Kenar boşluklarını kendimiz yöneterek tam kontrol sağlıyoruz.
+                // We manage the insets ourselves for full control.
                 insetPadding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-                // contentPadding'i sıfırlayıp kendi padding'imizi SingleChildScrollView içine koyuyoruz.
+                // Reset contentPadding and put our own padding inside the SingleChildScrollView.
                 contentPadding: EdgeInsets.zero,
-                content: SingleChildScrollView( // <-- HATA ÇÖZÜMÜ BURADA!
+                content: SingleChildScrollView( // <-- FIX IS HERE!
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Form(
@@ -221,13 +217,13 @@ class _LoginScreenState extends State<LoginScreen>
                           Icon(Icons.lock_open_rounded, color: Theme.of(context).primaryColor, size: 48),
                           const SizedBox(height: 16),
                           Text(
-                            "Şifreni Sıfırla",
+                            "Reset Your Password",
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "Kayıtlı e-posta adresini gir, sana şifreni sıfırlaman için bir bağlantı gönderelim.",
+                            "Enter your registered email address, and we'll send you a link to reset your password.",
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
                           ),
@@ -236,18 +232,18 @@ class _LoginScreenState extends State<LoginScreen>
                             controller: resetEmailController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              labelText: "E-posta Adresi",
+                              labelText: "Email Address",
                               prefixIcon: const Icon(Icons.email_outlined),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16.0),
                                 borderSide: BorderSide.none,
                               ),
                               filled: true,
-                              fillColor: Colors.black.withValues(alpha: 0.05),
+                              fillColor: Colors.black.withOpacity(0.05),
                             ),
                             validator: (value) {
                               if (value == null || !RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(value)) {
-                                return 'Lütfen geçerli bir e-posta adresi girin.';
+                                return 'Please enter a valid email address.';
                               }
                               return null;
                             },
@@ -269,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen>
                 actionsAlignment: MainAxisAlignment.center,
                 actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 actions: [
-                  // Butonları da Column içine alarak dikey simetriyi pekiştiriyoruz.
+                  // We also put the buttons in a Column to reinforce vertical symmetry.
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -295,14 +291,14 @@ class _LoginScreenState extends State<LoginScreen>
                               Navigator.of(context).pop();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: const Text("Şifre sıfırlama linki e-postana gönderildi!"),
+                                  content: const Text("A password reset link has been sent to your email!"),
                                   backgroundColor: Colors.green.shade600,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             } catch (e) {
                               setDialogState(() {
-                                dialogError = "Bir hata oluştu. Lütfen adresini kontrol et.";
+                                dialogError = "An error occurred. Please check your address.";
                               });
                             } finally {
                               if (mounted) {
@@ -317,13 +313,13 @@ class _LoginScreenState extends State<LoginScreen>
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                         )
-                            : const Text("Sıfırlama Linki Gönder", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            : const Text("Send Reset Link", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(
-                          "İptal",
+                          "Cancel",
                           style: TextStyle(color: Colors.grey.shade700),
                         ),
                       ),
@@ -398,7 +394,7 @@ class _LoginScreenState extends State<LoginScreen>
                             child: TextButton(
                               onPressed: _showPasswordResetDialog,
                               child: const Text(
-                                "Şifremi Unuttum",
+                                "Forgot Password?",
                                 style: TextStyle(color: Colors.white70),
                               ),
                             ),
@@ -472,7 +468,7 @@ class _LoginScreenState extends State<LoginScreen>
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.white.withValues(alpha: 0.8),
+                color: Colors.white.withOpacity(0.8),
                 fontWeight: FontWeight.w300,
               ),
             ),
@@ -502,10 +498,10 @@ class _LoginScreenState extends State<LoginScreen>
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
             prefixIcon: Icon(icon, color: Colors.white),
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.1),
+            fillColor: Colors.white.withOpacity(0.1),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16.0),
               borderSide: BorderSide.none,
@@ -513,7 +509,7 @@ class _LoginScreenState extends State<LoginScreen>
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16.0),
               borderSide:
-              BorderSide(color: Colors.white.withValues(alpha: 0.3), width: 1),
+              BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16.0),
@@ -546,7 +542,7 @@ class _LoginScreenState extends State<LoginScreen>
                     borderRadius: BorderRadius.circular(_isLoading ? 28.0 : 16.0),
                   ),
                   elevation: 8,
-                  shadowColor: Colors.black.withValues(alpha: 0.5),
+                  shadowColor: Colors.black.withOpacity(0.5),
                 ),
                 onPressed: _isLoading ? null : _login,
                 child: AnimatedSwitcher(
@@ -556,19 +552,19 @@ class _LoginScreenState extends State<LoginScreen>
                   },
                   child: _isLoading
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.teal,
-                          ),
-                        )
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.teal,
+                    ),
+                  )
                       : Text(
-                          AppLocalizations.of(context)!.login,
-                          key: const ValueKey('loginText'),
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
+                    AppLocalizations.of(context)!.login,
+                    key: const ValueKey('loginText'),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             );
@@ -586,7 +582,7 @@ class _LoginScreenState extends State<LoginScreen>
         child: TextButton(
           child: Text(
             AppLocalizations.of(context)!.dontHaveAnAccount,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.9)),
+            style: TextStyle(color: Colors.white.withOpacity(0.9)),
           ),
           onPressed: () {
             Navigator.push(
@@ -616,7 +612,7 @@ class _LoginScreenState extends State<LoginScreen>
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
+              side: BorderSide(color: Colors.white.withOpacity(0.6)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
@@ -625,7 +621,7 @@ class _LoginScreenState extends State<LoginScreen>
               height: 20,
               errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata),
             ),
-            label: const Text('Google ile Giriş'),
+            label: const Text('Sign in with Google'),
             onPressed: _isLoading ? null : _loginGoogle,
           ),
         ),
@@ -688,7 +684,7 @@ class Particle {
     radius = random.nextDouble() * 2 + 1;
     speed = random.nextDouble() * 0.001;
     angle = random.nextDouble() * 2 * pi;
-    color = Colors.white.withValues(alpha: random.nextDouble() * 0.5);
+    color = Colors.white.withOpacity(random.nextDouble() * 0.5);
   }
 
   update() {

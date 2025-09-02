@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lingua_chat/models/challenge_model.dart';
-import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart'; // HATA ÇÖZÜMÜ: Eksik import eklendi
+import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart'; // FIX: Added missing import
 
 class ChallengeScreen extends StatefulWidget {
   final Challenge challenge;
@@ -37,10 +37,10 @@ class _ChallengeScreenState extends State<ChallengeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xff2a2a2a), // Koyu ve modern bir arka plan
+      backgroundColor: const Color(0xff2a2a2a), // A dark and modern background
       body: Stack(
         children: [
-          // Arka plan efektleri
+          // Background effects
           const _GlowyBackground(),
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -51,7 +51,7 @@ class _ChallengeScreenState extends State<ChallengeScreen>
                 elevation: 0,
                 stretch: true,
                 pinned: true,
-                automaticallyImplyLeading: false, // Otomatik geri tuşunu kaldır
+                automaticallyImplyLeading: false, // Remove automatic back button
                 flexibleSpace: FlexibleSpaceBar(
                   background: _buildHeader(),
                   stretchModes: const [StretchMode.zoomBackground],
@@ -65,7 +65,7 @@ class _ChallengeScreenState extends State<ChallengeScreen>
                       animationController: _animationController,
                       interval: const Interval(0.4, 1.0),
                       child: const Text(
-                        'Örnek Cümleler',
+                        'Example Sentences',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontSize: 22,
@@ -89,7 +89,7 @@ class _ChallengeScreenState extends State<ChallengeScreen>
               ),
             ],
           ),
-          // Özel Geri Butonu
+          // Custom Back Button
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
@@ -177,13 +177,13 @@ class _ChallengeScreenState extends State<ChallengeScreen>
               IconButton(
                 icon: Icon(Icons.copy_all_outlined,
                     color: Colors.white.withAlpha(179)),
-                tooltip: 'Kopyala',
+                tooltip: 'Copy',
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: sentence));
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: Colors.teal,
-                      content: const Text('Cümle panoya kopyalandı!'),
+                      content: const Text('Sentence copied to clipboard!'),
                       behavior: SnackBarBehavior.floating,
                       duration: const Duration(seconds: 2),
                     ),
@@ -198,7 +198,7 @@ class _ChallengeScreenState extends State<ChallengeScreen>
   }
 }
 
-// Arka plan için yardımcı Widget
+// Helper widget for the background
 class _GlowyBackground extends StatelessWidget {
   const _GlowyBackground();
 
@@ -227,7 +227,7 @@ class _GlowyBackground extends StatelessWidget {
   }
 }
 
-// Animasyon için yardımcı Widget
+// Helper widget for animations
 class _AnimatedContent extends StatelessWidget {
   final AnimationController animationController;
   final Interval interval;

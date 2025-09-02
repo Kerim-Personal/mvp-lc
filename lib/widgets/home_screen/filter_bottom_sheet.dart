@@ -6,7 +6,7 @@ class FilterBottomSheet extends StatefulWidget {
   final String title;
   final List<String> options;
   final String? selectedOption;
-  final Map<String, String>? displayLabels; // For mapping keys to display names e.g., 'Male' -> 'Erkek'
+  final Map<String, String>? displayLabels; // For mapping keys to display names e.g., 'male_key' -> 'Male'
 
   const FilterBottomSheet({
     super.key,
@@ -94,7 +94,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Filtreyi Temizle'),
+                  child: const Text('Clear Filter'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -108,7 +108,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: isDark ? 0 : 5,
                   ),
-                  child: const Text('Uygula', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],

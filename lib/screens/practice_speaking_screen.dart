@@ -37,76 +37,76 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Speaking Pratiği'),
+        title: const Text('Speaking Practice'),
         actions: [
           PopupMenuButton<SpeakingMode?>(
             icon: const Icon(Icons.filter_list),
             onSelected: (v)=> setState(()=> _modeFilter = v),
             itemBuilder: (c)=> [
-              const PopupMenuItem(value:null, child: Text('Tümü')),
+              const PopupMenuItem(value:null, child: Text('All')),
               ...SpeakingMode.values.map((m)=> PopupMenuItem(value:m, child: Text(m.label)))
             ],
           )
         ],
       ),
       body: Stack(
-        children:[
-          const _SpeakingBackdrop(),
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16,12,16,4),
-                child: TextField(
-                  controller: _searchCtrl,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: 'Ara (başlık / bağlam)',
-                    filled: true,
-                    fillColor: Colors.orange.withValues(alpha: .05),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+          children:[
+            const _SpeakingBackdrop(),
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16,12,16,4),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search),
+                      hintText: 'Search (title / context)',
+                      filled: true,
+                      fillColor: Colors.orange.withAlpha(12), // Equivalent to withValues(alpha: .05)
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(
-                height: 46,
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal:12),
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    FilterChip(
-                      label: const Text('Tümü'),
-                      selected: _modeFilter==null,
-                      onSelected: (_)=> setState(()=> _modeFilter=null),
-                    ),
-                    const SizedBox(width:8),
-                    ...SpeakingMode.values.map((m)=> Padding(
-                      padding: const EdgeInsets.only(right:8),
-                      child: FilterChip(
-                        label: Text(m.label),
-                        selected: _modeFilter==m,
-                        onSelected: (_)=> setState(()=> _modeFilter = m),
+                SizedBox(
+                  height: 46,
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal:12),
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      FilterChip(
+                        label: const Text('All'),
+                        selected: _modeFilter==null,
+                        onSelected: (_)=> setState(()=> _modeFilter=null),
                       ),
-                    ))
-                  ],
+                      const SizedBox(width:8),
+                      ...SpeakingMode.values.map((m)=> Padding(
+                        padding: const EdgeInsets.only(right:8),
+                        child: FilterChip(
+                          label: Text(m.label),
+                          selected: _modeFilter==m,
+                          onSelected: (_)=> setState(()=> _modeFilter = m),
+                        ),
+                      ))
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16,8,16,16),
-                  itemCount: list.length,
-                  itemBuilder: (c,i){
-                    final p = list[i];
-                    return _SpeakingPromptCard(prompt: p, onTap: (){
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_)=> PracticeSpeakingDetailScreen(promptId: p.id))
-                      );
-                    });
-                  },
-                ),
-              )
-            ],
-          ),
-        ]
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16,8,16,16),
+                    itemCount: list.length,
+                    itemBuilder: (c,i){
+                      final p = list[i];
+                      return _SpeakingPromptCard(prompt: p, onTap: (){
+                        Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_)=> PracticeSpeakingDetailScreen(promptId: p.id))
+                        );
+                      });
+                    },
+                  ),
+                )
+              ],
+            ),
+          ]
       ),
     );
   }
@@ -140,7 +140,7 @@ class _SpeakingPromptCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal:10, vertical:4),
                   decoration: BoxDecoration(
-                    color: _modeColor(prompt.mode).withValues(alpha: .16),
+                    color: _modeColor(prompt.mode).withAlpha(40), // Equivalent to withValues(alpha: .16)
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(prompt.mode.label, style: TextStyle(color:_modeColor(prompt.mode), fontWeight: FontWeight.w600)),
@@ -167,7 +167,7 @@ class _SpeakingPromptCard extends StatelessWidget {
   }
 }
 
-// Profesyonel, akıcı hissiyat için hafif animasyonlu arka plan
+// Lightly animated background for a professional, fluid feel
 class _SpeakingBackdrop extends StatefulWidget { const _SpeakingBackdrop(); @override State<_SpeakingBackdrop> createState()=> _SpeakingBackdropState(); }
 class _SpeakingBackdropState extends State<_SpeakingBackdrop> with SingleTickerProviderStateMixin {
   late final AnimationController _c;@override void initState(){super.initState();_c= AnimationController(vsync:this, duration: const Duration(seconds:18))..repeat();}
@@ -181,10 +181,10 @@ class _SpeakingBackdropState extends State<_SpeakingBackdrop> with SingleTickerP
             painter: _WavePainter(_c.value),
             child: Container(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors:[Color(0xFF101522), Color(0xFF182235)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight
-                )
+                  gradient: LinearGradient(
+                      colors:[Color(0xFF101522), Color(0xFF182235)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight
+                  )
               ),
             ),
           );
@@ -203,15 +203,15 @@ class _WavePainter extends CustomPainter {
       for(double x=0;x<=size.width;x+=8){
         final y = yBase + math.sin((x/size.width*4*math.pi)+ t*2*math.pi + i)*amp * (1 - (i/lines)*.35);
         if(x==0){ path.moveTo(x,y);} else { path.lineTo(x,y);} }
-        final lineColor = const LinearGradient(colors:[Color(0xFF3FB9FF), Color(0xFF7C4DFF)])
+      final lineColor = const LinearGradient(colors:[Color(0xFF3FB9FF), Color(0xFF7C4DFF)])
           .createShader(Rect.fromLTWH(0,0,size.width,size.height));
-        final p = Paint()
-          ..style=PaintingStyle.stroke
-          ..strokeWidth=1.4
-          ..shader=lineColor
-          ..color=Colors.white.withValues(alpha: .28 - i*0.03);
-        canvas.drawPath(path, p);
-      }
+      final p = Paint()
+        ..style=PaintingStyle.stroke
+        ..strokeWidth=1.4
+        ..shader=lineColor
+        ..color=Colors.white.withAlpha(71 - (i*8)); // Equivalent to withValues(alpha: .28 - i*0.03)
+      canvas.drawPath(path, p);
+    }
   }
   @override bool shouldRepaint(_WavePainter old)=> old.t!=t;
 }

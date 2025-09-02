@@ -31,10 +31,10 @@ class _PracticeReadingScreenState extends State<PracticeReadingScreen> {
   }
 
   Color _levelColor(ReadingLevel l) => switch (l) {
-        ReadingLevel.beginner => Colors.green,
-        ReadingLevel.intermediate => Colors.orange,
-        ReadingLevel.advanced => Colors.red,
-      };
+    ReadingLevel.beginner => Colors.green,
+    ReadingLevel.intermediate => Colors.orange,
+    ReadingLevel.advanced => Colors.red,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -45,13 +45,13 @@ class _PracticeReadingScreenState extends State<PracticeReadingScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reading Hikayeleri'),
+        title: const Text('Reading Stories'),
         actions: [
           PopupMenuButton<ReadingLevel?>(
             icon: const Icon(Icons.filter_list),
             onSelected: (v) => setState(() => _levelFilter = v),
             itemBuilder: (c) => [
-              const PopupMenuItem(value: null, child: Text('Tümü')),
+              const PopupMenuItem(value: null, child: Text('All')),
               ...ReadingLevel.values.map((l) => PopupMenuItem(value: l, child: Text(l.label))),
             ],
           ),
@@ -65,9 +65,9 @@ class _PracticeReadingScreenState extends State<PracticeReadingScreen> {
               controller: _searchCtrl,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Ara (başlık / kategori)',
+                hintText: 'Search (title / category)',
                 filled: true,
-                fillColor: Colors.purple.withValues(alpha: .05),
+                fillColor: Colors.purple.withOpacity(0.05),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
             ),
@@ -99,7 +99,7 @@ class _PracticeReadingScreenState extends State<PracticeReadingScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: _levelColor(story.level).withValues(alpha: .15),
+                                  color: _levelColor(story.level).withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(story.level.label, style: TextStyle(color: _levelColor(story.level), fontWeight: FontWeight.w600)),
@@ -118,7 +118,7 @@ class _PracticeReadingScreenState extends State<PracticeReadingScreen> {
                           Row(children: [
                             Icon(Icons.text_snippet, size: 16, color: Colors.deepPurple.shade300),
                             const SizedBox(width: 4),
-                            Text('${story.sentences.length} cümle'),
+                            Text('${story.sentences.length} sentences'),
                           ])
                         ],
                       ),

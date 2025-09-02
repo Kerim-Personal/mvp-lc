@@ -65,7 +65,7 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
                   Icon(Icons.military_tech_outlined, color: Colors.amber.shade700, size: 120),
                   const SizedBox(height: 24),
                   const Text(
-                    'Test Tamamlandı!',
+                    'Test Completed!',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 32,
@@ -75,7 +75,7 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Skorun: ${widget.score} / ${widget.totalQuestions}',
+                    'Your Score: ${widget.score} / ${widget.totalQuestions}',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 20,
@@ -92,7 +92,7 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
                     child: Column(
                       children: [
                         Text(
-                          'Tahmini İngilizce Seviyen:',
+                          'Your Estimated English Level:',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 18,
@@ -130,7 +130,7 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
                       );
                     },
                     child: const Text(
-                      'Harika, Maceraya Başla!',
+                      'Great, Start the Journey!',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),

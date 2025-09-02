@@ -21,22 +21,23 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
   String _nativeLanguageCode = 'en';
   final FlutterTts _tts = FlutterTts();
   bool _playingFull = false;
-  int _currentSentenceIndex = 0; // full playback ilerlemesi
-  bool _speakingSingle = false; // tek cümle modu
+  int _currentSentenceIndex = 0; // full playback progress
+  bool _speakingSingle = false; // single sentence mode
   bool _initializingTts = true;
-  double _speed = 1.0; // varsayılan görünür hız
+  double _speed = 1.0; // default visible speed
   final List<double> _speedOptions = const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-  Timer? _progressTimer; // cümle süresi tahmini için (fallback)
+  Timer? _progressTimer;
 
-  final Map<int, String> _translated = {}; // cümle index -> çeviri
-  final Set<int> _showTranslation = {}; // görüntülenen çeviri cümle index seti
-  final Set<int> _loadingTranslation = {}; // çeviri yükleniyor
+  final Map<int, String> _translated = {}; // sentence index -> translation
+  final Set<int> _showTranslation = {}; // set of sentence indices with visible translation
+  final Set<int> _loadingTranslation = {}; // translation in progress
 
-  double _fontSize = 16; // kitap font boyutu
+  // Reader settings
+  double _fontSize = 16;
   bool _serif = true;
   _ReaderTheme _readerTheme = _ReaderTheme.sepia;
-  double _lineHeight = 1.55; // yeni: satır aralığı
-  double _pageWidthFactor = 0.85; // yeni: sayfa genişliği 0.6 - 1.0
+  double _lineHeight = 1.55;
+  double _pageWidthFactor = 0.85;
 
   @override
   void initState() {
@@ -57,7 +58,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
         }
       }
     } catch (_) {
-      // yoksay
+      // ignore
     }
   }
 
@@ -69,16 +70,16 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
     setState(() => _initializingTts = false);
   }
 
+  // Map user speeds to more natural TTS speeds.
+  // The ceiling is 0.9 to prevent overly robotic reading even at high speeds.
   double _mapSpeedToTts(double v) {
-    // Kullanıcı hızlarını daha doğal TTS hızlarına eşle.
-    // Büyük hızlarda bile aşırı robotik okunmayı engellemek için tavan 0.9.
-    if (v <= 0.50) return 0.30;   // 0.5x: Çok yavaş
-    if (v <= 0.75) return 0.40;   // 0.75x: Yavaş
-    if (v <= 1.00) return 0.50;   // 1.0x: Doğal
-    if (v <= 1.25) return 0.60;   // 1.25x: Orta hızlı
-    if (v <= 1.50) return 0.70;   // 1.5x: Hızlı
-    if (v <= 1.75) return 0.80;   // 1.75x: Çok hızlı
-    return 0.90;                  // 2.0x: Maks (kısıtlı)
+    if (v <= 0.50) return 0.30;   // 0.5x: Very slow
+    if (v <= 0.75) return 0.40;   // 0.75x: Slow
+    if (v <= 1.00) return 0.50;   // 1.0x: Natural
+    if (v <= 1.25) return 0.60;   // 1.25x: Medium-fast
+    if (v <= 1.50) return 0.70;   // 1.5x: Fast
+    if (v <= 1.75) return 0.80;   // 1.75x: Very fast
+    return 0.90;                  // 2.0x: Max (capped)
   }
 
   void _onTtsComplete() {
@@ -124,7 +125,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
   Future<void> _changeSpeed(double newSpeed) async {
     _speed = newSpeed;
     await _tts.setSpeechRate(_mapSpeedToTts(_speed));
-    // devam eden oynatma yeniden başlat
+    // restart ongoing playback
     if (_playingFull) {
       await _tts.stop();
       _speakCurrentSentenceInSequence();
@@ -139,7 +140,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: _readerTheme.pageColor,
-      barrierColor: Colors.black.withValues(alpha: .35),
+      barrierColor: Colors.black.withOpacity(0.35),
       showDragHandle: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
@@ -150,7 +151,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 4),
-                Text('Okuma Hızı', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _readerTheme.foreground)),
+                Text('Reading Speed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _readerTheme.foreground)),
                 const SizedBox(height: 4),
                 Flexible(
                   child: ListView.builder(
@@ -160,7 +161,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                       final s = _speedOptions[i];
                       final selected = s == _speed;
                       return ListTile(
-                        leading: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: selected ? _readerTheme.accent : _readerTheme.foreground.withValues(alpha: .6)),
+                        leading: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: selected ? _readerTheme.accent : _readerTheme.foreground.withOpacity(0.6)),
                         title: Text('${s}x', style: TextStyle(color: _readerTheme.foreground)),
                         onTap: () async {
                           Navigator.pop(context);
@@ -209,10 +210,10 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
   }
 
   Color _levelColor(ReadingLevel l) => switch (l) {
-        ReadingLevel.beginner => Colors.green,
-        ReadingLevel.intermediate => Colors.orange,
-        ReadingLevel.advanced => Colors.red,
-      };
+    ReadingLevel.beginner => Colors.green,
+    ReadingLevel.intermediate => Colors.orange,
+    ReadingLevel.advanced => Colors.red,
+  };
 
   TextStyle _sentenceTextStyle(bool highlight) {
     final baseFamily = _serif ? 'Georgia' : null;
@@ -220,10 +221,10 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
       fontSize: _fontSize,
       height: _lineHeight,
       fontFamily: baseFamily,
-      fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
+      fontWeight: highlight ? FontWeight.w600 : FontWeight.normal,
       color: _readerTheme.foreground,
       decoration: highlight ? TextDecoration.underline : TextDecoration.none,
-      decorationColor: _readerTheme.accent.withValues(alpha: .7),
+      decorationColor: _readerTheme.accent.withOpacity(0.7),
       decorationThickness: 2,
     );
   }
@@ -231,15 +232,16 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
     fontSize: (_fontSize - 2).clamp(10, 40),
     height: 1.4,
     fontStyle: FontStyle.italic,
-    color: _readerTheme.accent.withValues(alpha: .9),
+    color: _readerTheme.accent.withOpacity(0.9),
     fontFamily: _serif ? 'Georgia' : null,
   );
 
   void _openReaderSettings() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: _readerTheme.pageColor,
-      barrierColor: Colors.black.withValues(alpha: .35),
+      backgroundColor: _readerTheme.background,
+      barrierColor: Colors.black.withOpacity(0.35),
+      isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) {
@@ -248,143 +250,111 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
           child: StatefulBuilder(builder: (ctx, setSheet) {
             void refresh(VoidCallback fn){ setSheet(fn); setState(fn); }
             Widget sectionTitle(String txt) => Padding(
-              padding: const EdgeInsets.fromLTRB(4, 18, 4, 6),
-              child: Text(txt, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: .4, color: _readerTheme.accent)),
+              padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+              child: Text(txt.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: _readerTheme.foreground.withOpacity(0.6))),
             );
             return SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                child: LayoutBuilder(builder: (ctx, cons) {
-                  final themeBoxWidth = (cons.maxWidth - 20) / 4; // 4 sütun
-                  return SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
                       children: [
-                        Row(
+                        Icon(Icons.tune_rounded, color: _readerTheme.accent),
+                        const SizedBox(width: 12),
+                        Text('Reader Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _readerTheme.foreground)),
+                        const Spacer(),
+                        IconButton(onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, color: _readerTheme.foreground.withOpacity(0.7))),
+                      ],
+                    ),
+
+                    // Theme selection
+                    sectionTitle('Theme'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: _ReaderTheme.values.map((t) {
+                        final sel = t == _readerTheme;
+                        return GestureDetector(
+                          onTap: () => refresh(() => _readerTheme = t),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeInOut,
+                            width: 64,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: t.pageColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: sel ? t.accent : t.borderColor, width: sel ? 2.5 : 1),
+                            ),
+                            child: Center(child: Text(t.label, style: TextStyle(color: t.foreground, fontSize: 12, fontWeight: FontWeight.w600))),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    // Typography Section
+                    sectionTitle('Typography'),
+                    Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                            color: _readerTheme.pageColor,
+                            borderRadius: BorderRadius.circular(16)
+                        ),
+                        child: Column(
                           children: [
-                            Icon(Icons.menu_book_outlined, color: _readerTheme.accent),
-                            const SizedBox(width: 8),
-                            Text('Okuyucu Ayarları', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _readerTheme.foreground)),
-                            const Spacer(),
-                            IconButton(onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, color: _readerTheme.foreground)),
-                          ],
-                        ),
-                        sectionTitle('TEMA'),
-                        Wrap(
-                          spacing: 5,
-                          runSpacing: 8,
-                          children: _ReaderTheme.values.map((t){
-                            final sel = t == _readerTheme;
-                            return AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              width: themeBoxWidth.clamp(72, 120),
-                              height: 70,
-                              decoration: BoxDecoration(
-                                color: t.background,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: sel ? t.accent : Colors.grey.withValues(alpha:.35), width: sel?2:1),
-                                boxShadow: [if(sel) BoxShadow(color: t.accent.withValues(alpha:.25), blurRadius: 10, offset: const Offset(0,4))],
+                            _SettingRow(
+                              label: 'Font',
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  _FontChip(label: 'Serif', isSelected: _serif, onTap: () => refresh(()=> _serif = true)),
+                                  const SizedBox(width: 8),
+                                  _FontChip(label: 'Sans', isSelected: !_serif, onTap: () => refresh(()=> _serif = false)),
+                                ],
                               ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(14),
-                                  onTap: ()=>refresh(()=>_readerTheme = t),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children:[
-                                        CircleAvatar(radius: 6, backgroundColor: t.accent),
-                                        const SizedBox(height:6),
-                                        FittedBox(child: Text(t.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: t.foreground))),
-                                        if(sel) const Icon(Icons.check_circle, size: 14)
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        sectionTitle('YAZI TİPİ'),
-                        ToggleButtons(
-                          isSelected: [_serif, !_serif],
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: (i)=>refresh(()=>_serif = (i==0)),
-                          children: const [
-                            Padding(padding: EdgeInsets.symmetric(horizontal:16, vertical:8), child: Text('Serif')),
-                            Padding(padding: EdgeInsets.symmetric(horizontal:16, vertical:8), child: Text('Sans')),
-                          ],
-                        ),
-                        sectionTitle('BOYUT'),
-                        Row(
-                          children: [
-                            Text('${_fontSize.toStringAsFixed(0)} pt', style: TextStyle(color:_readerTheme.foreground,fontWeight: FontWeight.w600)),
-                            Expanded(
+                            ),
+                            _SettingRow(
+                              label: 'Size',
+                              icon: Icons.format_size,
                               child: Slider(
-                                value: _fontSize,
-                                min: 12,
-                                max: 26,
-                                divisions: 14,
-                                label: _fontSize.toStringAsFixed(0),
+                                value: _fontSize, min: 12, max: 26, divisions: 14,
                                 onChanged: (v)=>refresh(()=>_fontSize = v),
                               ),
                             ),
-                          ],
-                        ),
-                        sectionTitle('SATIR ARALIĞI'),
-                        Row(
-                          children: [
-                            Text(_lineHeight.toStringAsFixed(2), style: TextStyle(color:_readerTheme.foreground,fontWeight: FontWeight.w600)),
-                            Expanded(
+                            _SettingRow(
+                              label: 'Line Spacing',
+                              icon: Icons.format_line_spacing,
                               child: Slider(
-                                value: _lineHeight,
-                                min: 1.25,
-                                max: 2.0,
-                                divisions: 15,
-                                label: _lineHeight.toStringAsFixed(2),
+                                value: _lineHeight, min: 1.25, max: 2.0, divisions: 15,
                                 onChanged: (v)=>refresh(()=>_lineHeight = double.parse(v.toStringAsFixed(2))),
                               ),
                             ),
                           ],
-                        ),
-                        sectionTitle('SAYFA GENİŞLİĞİ'),
-                        Row(
-                          children: [
-                            Text('${(_pageWidthFactor*100).round()}%', style: TextStyle(color:_readerTheme.foreground,fontWeight: FontWeight.w600)),
-                            Expanded(
-                              child: Slider(
-                                value: _pageWidthFactor,
-                                min: 0.6,
-                                max: 1.0,
-                                divisions: 8,
-                                label: '${(_pageWidthFactor*100).round()}%',
-                                onChanged: (v)=>refresh(()=>_pageWidthFactor = double.parse(v.toStringAsFixed(2))),
-                              ),
-                            ),
-                          ],
-                        ),
-                        sectionTitle('ÖNİZLEME'),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: _readerTheme.pageColor,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _readerTheme.borderColor),
-                          ),
-                          child: Text(
-                            'The morning light filtered softly through the curtains, painting quiet golden shapes across the wooden floor. Long basılı tut: çeviri.',
-                            style: _sentenceTextStyle(false),
-                            textAlign: TextAlign.justify,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                        )
                     ),
-                  );
-                }),
+
+                    // Layout Section
+                    sectionTitle('Layout'),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                          color: _readerTheme.pageColor,
+                          borderRadius: BorderRadius.circular(16)
+                      ),
+                      child: _SettingRow(
+                        label: 'Page Width',
+                        icon: Icons.width_normal,
+                        child: Slider(
+                          value: _pageWidthFactor, min: 0.6, max: 1.0, divisions: 8,
+                          onChanged: (v)=>refresh(()=>_pageWidthFactor = double.parse(v.toStringAsFixed(2))),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }),
@@ -422,7 +392,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
       sliderTheme: base.sliderTheme.copyWith(
         activeTrackColor: accent,
         thumbColor: accent,
-        inactiveTrackColor: accent.withValues(alpha: .25),
+        inactiveTrackColor: accent.withOpacity(0.25),
       ),
       iconTheme: base.iconTheme.copyWith(color: fg),
       textTheme: base.textTheme.apply(
@@ -435,19 +405,18 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
   @override
   Widget build(BuildContext context) {
     final totalSentences = story.sentences.length;
-    final progress = totalSentences <= 1 ? 0.0 : _currentSentenceIndex / (totalSentences - 1);
     return Theme(
       data: _buildReaderTheme(context),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(story.title),
+          title: Text(story.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: [
-            IconButton(onPressed: _openReaderSettings, icon: const Icon(Icons.tune)),
+            IconButton(onPressed: _openReaderSettings, icon: const Icon(Icons.tune_rounded)),
             Container(
-              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _levelColor(story.level).withValues(alpha: .18),
+                color: _levelColor(story.level).withOpacity(0.18),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
@@ -464,7 +433,8 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
             if (story.description != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: Text(story.description!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: Colors.grey.shade700)),
+                // FIX: Use theme-aware color for readability in all themes.
+                child: Text(story.description!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: _readerTheme.foreground.withOpacity(0.7))),
               ),
             Expanded(
               child: _BookView(
@@ -484,12 +454,12 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
             ),
           ],
         ),
-        bottomSheet: _buildBottomBar(progress, totalSentences),
+        bottomSheet: _buildBottomBar(totalSentences),
       ),
     );
   }
 
-  Widget _buildBottomBar(double progress, int totalSentences) {
+  Widget _buildBottomBar(int totalSentences) {
     return SafeArea(
       top: false,
       child: Container(
@@ -497,7 +467,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: .08), blurRadius: 12, offset: const Offset(0, -2)),
+            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -2)),
           ],
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -511,7 +481,8 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                   icon: Icon(
                     _playingFull ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
                     size: 40,
-                    color: Colors.deepPurple,
+                    // FIX: Use the theme's accent color for visibility in all themes.
+                    color: _readerTheme.accent,
                   ),
                 ),
                 Expanded(
@@ -523,7 +494,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                         min: 0,
                         max: (totalSentences - 1).toDouble().clamp(0, double.infinity),
                         divisions: totalSentences > 1 ? totalSentences - 1 : null,
-                        label: 'Cümle ${_currentSentenceIndex + 1}/$totalSentences',
+                        label: 'Sentence ${_currentSentenceIndex + 1}/$totalSentences',
                         onChanged: totalSentences <= 1 ? null : (v) {
                           setState(() { _currentSentenceIndex = v.round(); });
                         },
@@ -534,7 +505,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                           }
                         },
                       ),
-                      Text('Cümle ${_currentSentenceIndex + 1} / $totalSentences', style: Theme.of(context).textTheme.bodySmall),
+                      Text('Sentence ${_currentSentenceIndex + 1} / $totalSentences', style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -551,10 +522,10 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.touch_app, size: 16),
-                const SizedBox(width: 4),
+                Icon(Icons.touch_app, size: 16, color: _readerTheme.foreground.withOpacity(0.6)),
+                const SizedBox(width: 6),
                 Expanded(
-                  child: Text('Tek dokun: Sesli oku  •  Uzun bas: Çeviri (${_nativeLanguageCode.toUpperCase()})',
+                  child: Text('Tap: Read aloud  •  Long press: Translate (${_nativeLanguageCode.toUpperCase()})',
                       style: Theme.of(context).textTheme.bodySmall),
                 ),
               ],
@@ -578,7 +549,7 @@ class _BookView extends StatelessWidget {
   final TextStyle Function(bool highlight) sentenceStyleBuilder;
   final TextStyle translationStyle;
   final _ReaderTheme readerTheme;
-  final double pageWidthFactor; // yeni
+  final double pageWidthFactor;
   const _BookView({
     required this.story,
     required this.playingFull,
@@ -633,7 +604,7 @@ class _BookView extends StatelessWidget {
             baseline: TextBaseline.alphabetic,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 6, left: 18),
-              child: Text('… (çeviri)', style: translationStyle),
+              child: Text('… (translating)', style: translationStyle),
             ),
           ));
         } else if (showTranslation.contains(globalIndex)) {
@@ -664,7 +635,7 @@ class _BookView extends StatelessWidget {
         image: readerTheme == _ReaderTheme.paper ? const DecorationImage(
           image: AssetImage('assets/practice/reading_bg.jpg'),
           fit: BoxFit.cover,
-          opacity: .04,
+          opacity: 0.04,
         ) : null,
       ),
       child: Center(
@@ -677,8 +648,8 @@ class _BookView extends StatelessWidget {
                 color: readerTheme.pageColor,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: .08), blurRadius: 24, offset: const Offset(0,8)),
-                  BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 4, offset: const Offset(0,1)),
+                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 24, offset: const Offset(0,8)),
+                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0,1)),
                 ],
                 border: Border.all(color: readerTheme.borderColor, width: 1),
               ),
@@ -697,13 +668,61 @@ class _BookView extends StatelessWidget {
   }
 }
 
+// Helper widgets for Reader Settings
+class _SettingRow extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Widget child;
+  const _SettingRow({required this.label, this.icon, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+          const SizedBox(width: 8)
+        ],
+        Text(label),
+        Expanded(child: child),
+      ],
+    );
+  }
+}
+
+class _FontChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _FontChip({required this.label, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+            color: isSelected ? theme.colorScheme.primary.withOpacity(0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: isSelected ? theme.colorScheme.primary : theme.dividerColor.withOpacity(0.5))
+        ),
+        child: Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+      ),
+    );
+  }
+}
+
 enum _ReaderTheme { light, sepia, dark, paper }
 extension _ReaderThemeX on _ReaderTheme {
   String get label => switch (this) {
-    _ReaderTheme.light => 'Açık',
-    _ReaderTheme.sepia => 'Sepya',
-    _ReaderTheme.dark => 'Koyu',
-    _ReaderTheme.paper => 'Kağıt',
+    _ReaderTheme.light => 'Light',
+    _ReaderTheme.sepia => 'Sepia',
+    _ReaderTheme.dark => 'Dark',
+    _ReaderTheme.paper => 'Paper',
   };
   Color get background => switch (this) {
     _ReaderTheme.light => const Color(0xFFF5F6F8),

@@ -3,8 +3,8 @@ import 'dart:math';
 
 class PasswordStrengthResult {
   final int score; // 0-100
-  final String label; // "Çok Zayıf" ... "Çok Güçlü"
-  final List<String> unmetCriteria; // Türkçe açıklamalar
+  final String label; // "Very Weak" ... "Very Strong"
+  final List<String> unmetCriteria; // English descriptions
   final bool allSatisfied;
 
   const PasswordStrengthResult({
@@ -16,25 +16,25 @@ class PasswordStrengthResult {
 }
 
 class PasswordStrength {
-  // Kriterler için açıklamalar (UI'da göstermek için)
-  static const String minLengthMsg = 'En az 10 karakter';
-  static const String upperMsg = 'Bir büyük harf';
-  static const String lowerMsg = 'Bir küçük harf';
-  static const String digitMsg = 'Bir rakam';
-  static const String specialMsg = 'Bir özel karakter (!@#...)';
-  static const String noSpaceMsg = 'Boşluk içermez';
-  static const String notCommonMsg = '"password" veya email içeriği yok';
-  static const String notSameAsOldMsg = 'Eski şifre ile aynı değil';
+  // Descriptions for criteria (to show in the UI)
+  static const String minLengthMsg = 'At least 10 characters';
+  static const String upperMsg = 'One uppercase letter';
+  static const String lowerMsg = 'One lowercase letter';
+  static const String digitMsg = 'One number';
+  static const String specialMsg = 'One special character (!@#...)';
+  static const String noSpaceMsg = 'No spaces';
+  static const String notCommonMsg = 'Not a common password or part of email';
+  static const String notSameAsOldMsg = 'Not the same as the old password';
 
-  static final RegExp _upper = RegExp(r'[A-ZĞÜŞİÖÇ]');
-  static final RegExp _lower = RegExp(r'[a-zğüşıöç]');
+  static final RegExp _upper = RegExp(r'[A-Z]');
+  static final RegExp _lower = RegExp(r'[a-z]');
   static final RegExp _digit = RegExp(r'[0-9]');
   static final RegExp _special = RegExp(r'[!@#$%^&*(),.?":{}|<>_\-\[\]\\/;+=]');
 
-  /// Şifreyi değerlendirir ve skor + eksik kriterleri döner.
-  /// [emailLocalPart] opsiyonel: şifre email'in local part'ını ( @ öncesi ) içeriyorsa zayıflatılır.
-  /// [oldPassword] opsiyonel: aynıysa kriter eksik sayılır.
-  static PasswordStrengthResult evaluate(String password,{String? emailLocalPart, String? oldPassword}) {
+  /// Evaluates the password and returns a score + unmet criteria.
+  /// [emailLocalPart] optional: the password will be weaker if it contains the local part of the email (before the @).
+  /// [oldPassword] optional: if it's the same, the criterion is considered unmet.
+  static PasswordStrengthResult evaluate(String password, {String? emailLocalPart, String? oldPassword}) {
     final unmet = <String>[];
 
     final lengthOk = password.length >= 10;
@@ -52,7 +52,7 @@ class PasswordStrength {
 
     bool commonOk = true;
     final lowerPwd = password.toLowerCase();
-    if (lowerPwd.contains('password')) commonOk = false; // klasik
+    if (lowerPwd.contains('password')) commonOk = false; // classic
     if (emailLocalPart != null && emailLocalPart.isNotEmpty) {
       final lp = emailLocalPart.toLowerCase();
       if (lp.length >= 3 && lowerPwd.contains(lp)) commonOk = false;
@@ -65,7 +65,7 @@ class PasswordStrength {
       unmet.add(notSameAsOldMsg);
     }
 
-    // Skor hesaplama (her ana kriter ~12 puan, uzunluk fazlası bonus)
+    // Score calculation (each main criterion is ~12 points, extra length is a bonus)
     int baseScore = 0;
     if (lengthOk) baseScore += 12;
     if (upperOk) baseScore += 12;
@@ -75,18 +75,18 @@ class PasswordStrength {
     if (noSpaceOk) baseScore += 8;
     if (commonOk) baseScore += 12;
     if (sameAsOldOk) baseScore += 10;
-    // Ek uzunluk bonusu: 10'dan sonraki her karakter 2 puan (max +20)
+    // Extra length bonus: each character after 10 adds 2 points (max +20)
     if (password.length > 10) {
       baseScore += min(20, (password.length - 10) * 2);
     }
     if (baseScore > 100) baseScore = 100;
 
     String label;
-    if (baseScore < 30) label = 'Çok Zayıf';
-    else if (baseScore < 50) label = 'Zayıf';
-    else if (baseScore < 70) label = 'Orta';
-    else if (baseScore < 85) label = 'Güçlü';
-    else label = 'Çok Güçlü';
+    if (baseScore < 30) label = 'Very Weak';
+    else if (baseScore < 50) label = 'Weak';
+    else if (baseScore < 70) label = 'Medium';
+    else if (baseScore < 85) label = 'Strong';
+    else label = 'Very Strong';
 
     return PasswordStrengthResult(
       score: baseScore,

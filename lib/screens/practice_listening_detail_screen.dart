@@ -30,20 +30,20 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
 
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
-  bool _playing = false; // birleşik state
+  bool _playing = false; // combined state
   double _speed = 1.0;
   final List<double> _speedOptions = const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-  bool _showTranscript = false; // varsayılan artık kapalı
+  bool _showTranscript = false; // now off by default
   final Map<String, String> _answers = {}; // questionId -> answer/optionId
   bool _submitted = false;
   int _score = 0;
 
-  // TTS kelime senkronizasyonu
+  // TTS word synchronization
   List<_WordBoundary> _wordBoundaries = [];
-  int _activeWordIndex = -1; // sadece TTS modunda kullanılır
+  int _activeWordIndex = -1; // only used in TTS mode
   bool _ttsProgressSupported = false;
 
-  // --- VOICE / AKSAN SEÇİMİ ---
+  // --- VOICE / ACCENT SELECTION ---
   List<dynamic> _voices = [];
   Map<String, dynamic>? _selectedVoice;
   String? _selectedLanguage; // fallback
@@ -55,7 +55,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
   void initState() {
     super.initState();
     exercise = ListeningRepository.instance.byId(widget.exerciseId)!;
-    // Arka plan müziğini durdur
+    // Stop background music
     AudioService.instance.pauseMusic();
     _initMedia();
   }
@@ -63,7 +63,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
   Future<void> _initMedia() async {
     _isTts = exercise.audioUrl.startsWith('tts:');
     if (_isTts) {
-      // Süre: timing varsa ondan, yoksa transcript kelime ~0.55sn tahmin
+      // Duration: from timings if available, otherwise estimate ~0.55s per word from transcript
       if (exercise.timings.isNotEmpty) {
         _duration = Duration(milliseconds: exercise.timings.last.endMs + 200);
       } else {
@@ -108,7 +108,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
     _player.dispose();
     _stopTtsTick();
     _tts.stop();
-    // Müzik tekrar başlasın
+    // Let the music start again
     if (AudioService.instance.isMusicEnabled) {
       AudioService.instance.playMusic();
     }
@@ -140,7 +140,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
     setState(() { _ttsPlaying = true; _playing = true; _activeWordIndex = -1; });
     _tts.speak(exercise.transcript);
     if (!_ttsProgressSupported) {
-      // Geriye dönük: progress handler yoksa kabaca zamanlayıcı ile
+      // Fallback: if no progress handler, use a rough timer
       _startTtsTick();
     }
   }
@@ -175,14 +175,14 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
   void _configureProgressHandler() {
     try {
       _tts.setProgressHandler((String text, int start, int end, String word) {
-        // start offset -> kelime indeksini bul
+        // start offset -> find word index
         if (_wordBoundaries.isNotEmpty) {
           int idx = _binarySearchWord(start);
           if (idx != _activeWordIndex) {
             setState(() { _activeWordIndex = idx; });
           }
         }
-        // Yaklaşık konum: karakter oranı
+        // Approximate position: character ratio
         final ratio = text.isEmpty ? 0.0 : start / text.length;
         final posMs = (ratio * _duration.inMilliseconds).clamp(0, _duration.inMilliseconds).toInt();
         setState(() { _position = Duration(milliseconds: posMs); });
@@ -211,7 +211,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
   }
 
   void _seekRelative(int ms) {
-    if (_isTts) return; // şimdilik TTS seek yok
+    if (_isTts) return; // no TTS seek for now
     final target = _position + Duration(milliseconds: ms);
     _player.seek(Duration(milliseconds: target.inMilliseconds.clamp(0, _duration.inMilliseconds)));
   }
@@ -230,7 +230,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
     }
   }
 
-  // --- VOICE / AKSAN SEÇİMİ ---
+  // --- VOICE / ACCENT SELECTION ---
   Future<void> _loadPersistedVoice() async {
     final prefs = await SharedPreferences.getInstance();
     final voiceJson = prefs.getString(_prefsVoiceKey);
@@ -246,7 +246,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
   Future<void> _persistVoice() async {
     final prefs = await SharedPreferences.getInstance();
     if (_selectedVoice != null) {
-      // Basit serialize (query string formu)
+      // Simple serialization (query string form)
       final map = _selectedVoice!;
       final serialized = map.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent('${e.value}')}').join('&');
       await prefs.setString(_prefsVoiceKey, serialized);
@@ -258,7 +258,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
     if (_loadingVoices) return;
     setState(() => _loadingVoices = true);
     try {
-      final voices = await _tts.getVoices; // Tüm platform sesleri
+      final voices = await _tts.getVoices; // All platform voices
       if (!mounted) return;
       voices.sort((a, b) {
         final la = (a['locale'] ?? a['language'] ?? '').toString();
@@ -276,13 +276,13 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
           await _persistVoice();
         } else {
           final selName = (_selectedVoice!['name'] ?? '').toString();
-            final selLocale = (_selectedVoice!['locale'] ?? _selectedVoice!['language'] ?? '').toString();
-            final stillExists = _voices.any((v) => (v['name'] ?? '').toString() == selName && ((v['locale'] ?? v['language'] ?? '').toString() == selLocale));
-            if (!stillExists) {
-              _selectedVoice = Map<String,dynamic>.from(_voices.first.map((k,v)=>MapEntry(k.toString(), v)));
-              _applySelectedVoice();
-              await _persistVoice();
-            }
+          final selLocale = (_selectedVoice!['locale'] ?? _selectedVoice!['language'] ?? '').toString();
+          final stillExists = _voices.any((v) => (v['name'] ?? '').toString() == selName && ((v['locale'] ?? v['language'] ?? '').toString() == selLocale));
+          if (!stillExists) {
+            _selectedVoice = Map<String,dynamic>.from(_voices.first.map((k,v)=>MapEntry(k.toString(), v)));
+            _applySelectedVoice();
+            await _persistVoice();
+          }
         }
       }
     } catch (_) {
@@ -305,7 +305,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
           _tts.setVoice({'name': name, 'locale': _selectedLanguage ?? 'en-US'});
         }
       } catch (_) {}
-      _tts.setPitch(1.0); // varsayılan pitch
+      _tts.setPitch(1.0); // default pitch
     } else if (_selectedLanguage != null) {
       _tts.setLanguage(_selectedLanguage!);
       _tts.setPitch(1.0);
@@ -332,7 +332,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
                   children: [
                     const Icon(Icons.record_voice_over),
                     const SizedBox(width: 8),
-                    const Text('Aksan / Ses Seç'),
+                    const Text('Select Accent / Voice'),
                     const Spacer(),
                     if (_loadingVoices) const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2)),
                   ],
@@ -340,33 +340,33 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
               ),
               Expanded(
                 child: _voices.isEmpty
-                    ? const Center(child: Text('Ses listesi alınamadı.'))
+                    ? const Center(child: Text('Could not retrieve voice list.'))
                     : ListView.builder(
-                        itemCount: _voices.length,
-                        itemBuilder: (c, i) {
-                          final v = _voices[i] as Map;
-                          final name = (v['name'] ?? 'Unknown').toString();
-                          final locale = (v['locale'] ?? v['language'] ?? '').toString();
-                          final selected = name == currentName;
-                          return ListTile(
-                            title: Text(name),
-                            subtitle: Text(locale),
-                            trailing: selected ? const Icon(Icons.check, color: Colors.green) : null,
-                            onTap: () async {
-                              setState(() {
-                                _selectedVoice = Map<String, dynamic>.from(v.map((k, val) => MapEntry(k.toString(), val)));
-                              });
-                              _applySelectedVoice();
-                              await _persistVoice();
-                              Navigator.pop(context);
-                              if (_ttsPlaying) {
-                                await _tts.stop();
-                                _startTts();
-                              }
-                            },
-                          );
-                        },
-                      ),
+                  itemCount: _voices.length,
+                  itemBuilder: (c, i) {
+                    final v = _voices[i] as Map;
+                    final name = (v['name'] ?? 'Unknown').toString();
+                    final locale = (v['locale'] ?? v['language'] ?? '').toString();
+                    final selected = name == currentName;
+                    return ListTile(
+                      title: Text(name),
+                      subtitle: Text(locale),
+                      trailing: selected ? const Icon(Icons.check, color: Colors.green) : null,
+                      onTap: () async {
+                        setState(() {
+                          _selectedVoice = Map<String, dynamic>.from(v.map((k, val) => MapEntry(k.toString(), val)));
+                        });
+                        _applySelectedVoice();
+                        await _persistVoice();
+                        Navigator.pop(context);
+                        if (_ttsPlaying) {
+                          await _tts.stop();
+                          _startTts();
+                        }
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -386,7 +386,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 4),
-              const Text('Dinleme Hızı', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const Text('Playback Speed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Flexible(
                 child: ListView.builder(
@@ -425,7 +425,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
         case ListeningQuestionType.dictation:
           final user = (_answers[q.id] ?? '').trim().toLowerCase();
           final exp = (q.answer ?? '').trim().toLowerCase();
-            if (user == exp) correct++;
+          if (user == exp) correct++;
           break;
       }
     }
@@ -443,10 +443,10 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
   int get _answeredCount => _answers.length;
 
   Color _levelColor(ListeningLevel l) => switch (l) {
-        ListeningLevel.beginner => Colors.green,
-        ListeningLevel.intermediate => Colors.orange,
-        ListeningLevel.advanced => Colors.red,
-      };
+    ListeningLevel.beginner => Colors.green,
+    ListeningLevel.intermediate => Colors.orange,
+    ListeningLevel.advanced => Colors.red,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -464,7 +464,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [theme.colorScheme.primary.withValues(alpha: .25), theme.colorScheme.surface],
+              colors: [theme.colorScheme.primary.withOpacity(0.25), theme.colorScheme.surface],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -481,12 +481,12 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
           ),
           if (_isTts)
             IconButton(
-              tooltip: 'Aksan / Ses',
+              tooltip: 'Accent / Voice',
               onPressed: _openVoicePicker,
               icon: const Icon(Icons.record_voice_over),
             ),
           IconButton(
-            tooltip: _showTranscript ? 'Metni gizle' : 'Metni göster',
+            tooltip: _showTranscript ? 'Hide transcript' : 'Show transcript',
             onPressed: _toggleTranscript,
             icon: Icon(_showTranscript ? Icons.visibility_off : Icons.visibility),
           ),
@@ -500,7 +500,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
               child: LinearProgressIndicator(
                 value: _submitted ? 1.0 : progress,
                 minHeight: 6,
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: .12),
+                backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
                 valueColor: AlwaysStoppedAnimation(_submitted ? Colors.green : theme.colorScheme.primary),
               ),
             ),
@@ -509,14 +509,14 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
       ),
       body: Stack(
         children: [
-          // Arka plan
+          // Background
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
                     theme.colorScheme.surface,
-                    theme.colorScheme.primaryContainer.withValues(alpha: .25),
+                    theme.colorScheme.primaryContainer.withOpacity(0.25),
                     theme.colorScheme.surface,
                   ],
                   begin: Alignment.topLeft,
@@ -556,7 +556,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +566,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _levelColor(exercise.level).withValues(alpha: .15),
+                  color: _levelColor(exercise.level).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(exercise.level.label, style: TextStyle(color: _levelColor(exercise.level), fontWeight: FontWeight.w600)),
@@ -584,7 +584,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
             max: _duration.inMilliseconds.toDouble(),
             value: (_position.inMilliseconds).clamp(0, _duration.inMilliseconds).toDouble(),
             onChanged: (v) {
-              if (_isTts) return; // TTS seek devre dışı
+              if (_isTts) return; // TTS seek disabled
               _player.seek(Duration(milliseconds: v.toInt()));
             },
           ),
@@ -609,19 +609,19 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, -2))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, -2))],
       ),
       child: Row(
         children: [
           Expanded(
             child: _submitted
-                ? Text('Skor: $_score / $total', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))
-                : Text('Sorular: $total', style: theme.textTheme.bodyMedium),
+                ? Text('Score: $_score / $total', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))
+                : Text('Questions: $total', style: theme.textTheme.bodyMedium),
           ),
           ElevatedButton.icon(
             onPressed: _submitted ? null : _submit,
             icon: const Icon(Icons.check),
-            label: const Text('Gönder'),
+            label: const Text('Submit'),
           ),
         ],
       ),
@@ -630,7 +630,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
 
   void _toggleTranscript() => setState(() => _showTranscript = !_showTranscript);
   double _mapSpeedToTts(double s) {
-    // Dinleme TTS için aynı ölçek (0.5–2.0 görünür -> 0.30–0.90 gerçek)
+    // Same scale for listening TTS (0.5–2.0 visible -> 0.30–0.90 actual)
     if (s <= 0.50) return 0.30;
     if (s <= 0.75) return 0.40;
     if (s <= 1.00) return 0.50;
@@ -669,7 +669,7 @@ class _TranscriptAndQuestionsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = exercise.questions.length;
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100), // Adjusted bottom padding
       itemCount: exercise.questions.length + (showTranscript ? 1 : 0) + 1,
       itemBuilder: (c, i) {
         if (i == 0) {
@@ -723,18 +723,18 @@ class _GlassCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: .15), width: 1.2),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.15), width: 1.2),
         gradient: LinearGradient(
           colors: [
-            theme.colorScheme.surface.withValues(alpha: .85),
-            theme.colorScheme.surface.withValues(alpha: .7),
+            theme.colorScheme.surface.withOpacity(0.85),
+            theme.colorScheme.surface.withOpacity(0.7),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .08),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -804,9 +804,9 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: .12),
+        color: c.withOpacity(0.12),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: c.withValues(alpha: .4)),
+        border: Border.all(color: c.withOpacity(0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -849,7 +849,6 @@ class _QuestionCard extends StatelessWidget {
         break;
     }
     Widget content;
-    // ...existing content switch (kept but styled)...
     switch (question.type) {
       case ListeningQuestionType.multipleChoice:
         content = Column(
@@ -863,8 +862,8 @@ class _QuestionCard extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: base.withValues(alpha: selected ? .9 : .3), width: 1.4),
-                color: selected ? base.withValues(alpha: .12) : theme.colorScheme.surface.withValues(alpha: .6),
+                border: Border.all(color: base.withOpacity(selected ? 0.9 : 0.3), width: 1.4),
+                color: selected ? base.withOpacity(0.12) : theme.colorScheme.surface.withOpacity(0.6),
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
@@ -893,8 +892,8 @@ class _QuestionCard extends StatelessWidget {
           enabled: !submitted,
           decoration: InputDecoration(
             filled: true,
-            fillColor: accent.withValues(alpha: .06),
-            labelText: question.type == ListeningQuestionType.gapFill ? 'Cevap' : 'Dikte',
+            fillColor: accent.withOpacity(0.06),
+            labelText: question.type == ListeningQuestionType.gapFill ? 'Answer' : 'Dictation',
             prefixIcon: Icon(typeIcon, color: accent),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
             suffixIcon: submitted
@@ -916,21 +915,21 @@ class _QuestionCard extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [accent.withValues(alpha: .85), accent.withValues(alpha: .55)]),
+                  gradient: LinearGradient(colors: [accent.withOpacity(0.85), accent.withOpacity(0.55)]),
                 ),
                 child: Icon(typeIcon, size: 20, color: Colors.white),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('Soru $qNumber / $total', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                child: Text('Question $qNumber / $total', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: submitted
                     ? Icon(Icons.lock, key: const ValueKey('locked'), color: theme.colorScheme.outline)
                     : answered
-                        ? Icon(Icons.check_circle, key: const ValueKey('done'), color: Colors.green)
-                        : Icon(Icons.circle_outlined, key: const ValueKey('pending'), color: theme.colorScheme.outline),
+                    ? Icon(Icons.check_circle, key: const ValueKey('done'), color: Colors.green)
+                    : Icon(Icons.circle_outlined, key: const ValueKey('pending'), color: theme.colorScheme.outline),
               )
             ],
           ),
@@ -947,11 +946,12 @@ class _QuestionCard extends StatelessWidget {
 class _TranscriptView extends StatelessWidget {
   final ListeningExercise exercise;
   final int position; // ms
-  final int? activeWordIndex; // TTS kelime indeksi
+  final int? activeWordIndex; // TTS word index
   final bool ttsMode;
   const _TranscriptView({required this.exercise, required this.position, this.activeWordIndex, required this.ttsMode});
   @override
   Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.bodyLarge;
     if (ttsMode) {
       final spans = <InlineSpan>[];
       final regex = RegExp(r"[A-Za-z']+|[^A-Za-z']+");
@@ -968,14 +968,14 @@ class _TranscriptView extends StatelessWidget {
           text: segment,
           style: TextStyle(
             fontWeight: active ? FontWeight.bold : FontWeight.normal,
-            color: active ? Theme.of(context).colorScheme.primary : null,
-            backgroundColor: active ? Theme.of(context).colorScheme.primary.withValues(alpha: .08) : null,
+            color: active ? Theme.of(context).colorScheme.primary : textStyle?.color,
+            backgroundColor: active ? Theme.of(context).colorScheme.primary.withOpacity(0.12) : null,
           ),
         ));
       }
       return SingleChildScrollView(
         padding: const EdgeInsets.all(4),
-        child: RichText(text: TextSpan(style: Theme.of(context).textTheme.bodyLarge, children: spans)),
+        child: RichText(text: TextSpan(style: textStyle, children: spans)),
       );
     } else {
       final children = <InlineSpan>[];
@@ -985,13 +985,13 @@ class _TranscriptView extends StatelessWidget {
           text: w.word + ' ',
           style: TextStyle(
             fontWeight: active ? FontWeight.bold : FontWeight.normal,
-            color: active ? Theme.of(context).colorScheme.primary : null,
+            color: active ? Theme.of(context).colorScheme.primary : textStyle?.color,
           ),
         ));
       }
       return SingleChildScrollView(
         padding: const EdgeInsets.all(4),
-        child: RichText(text: TextSpan(style: Theme.of(context).textTheme.bodyLarge, children: children)),
+        child: RichText(text: TextSpan(style: textStyle, children: children)),
       );
     }
   }

@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
-import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Lokalizasyon importu
+import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Localization import
 import 'package:lingua_chat/services/translation_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -27,11 +27,11 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
   final _birthDateController = TextEditingController();
-  final _nativeLanguageController = TextEditingController(); // yeni
+  final _nativeLanguageController = TextEditingController(); // new
 
   DateTime? _selectedBirthDate;
   String? _selectedGender;
-  String? _selectedNativeLanguageCode; // yeni
+  String? _selectedNativeLanguageCode; // new
   bool _isLoading = false;
 
   late AnimationController _entryAnimationController;
@@ -82,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _passwordController.dispose();
     _usernameController.dispose();
     _birthDateController.dispose();
-    _nativeLanguageController.dispose(); // yeni
+    _nativeLanguageController.dispose(); // new
     _pageController.dispose();
     super.dispose();
   }
@@ -112,10 +112,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('İptal',
+                      child: const Text('Cancel',
                           style: TextStyle(color: Colors.grey)),
                     ),
-                    const Text('Doğum Tarihi',
+                    const Text('Birth Date',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     TextButton(
@@ -127,7 +127,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         });
                         Navigator.pop(context);
                       },
-                      child: const Text('Tamam',
+                      child: const Text('Done',
                           style: TextStyle(
                               color: Colors.teal,
                               fontWeight: FontWeight.bold)),
@@ -163,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           child: Column(
             children: [
               const SizedBox(height: 12),
-              const Text('Anadil Seç', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('Select Native Language', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Divider(height: 1),
               Expanded(
                 child: ListView.builder(
@@ -181,7 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           _selectedNativeLanguageCode = code;
                           _nativeLanguageController.text = label;
                         });
-                        // Kayıtta model indirme yapılmayacak (UX için kaldırıldı)
+                        // Model download on register will not be done (removed for UX)
                         Navigator.pop(context);
                       },
                     );
@@ -212,50 +212,50 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   bool _validateCurrentStep() {
-    // Adım bazlı temel kontroller (final doğrulama _register içinde yapılacak)
+    // Basic step-based checks (final validation will be done in _register)
     switch (_currentStep) {
-      case 0: // hesap bilgileri
+      case 0: // account info
         final email = _emailController.text.trim();
         final pass = _passwordController.text;
         if (email.isEmpty || !_isValidEmail(email)) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Geçerli bir e-posta girin.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('Please enter a valid email.'), backgroundColor: Colors.red),
           );
           return false;
         }
         if (pass.length < 6) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Şifre en az 6 karakter olmalı.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('Password must be at least 6 characters.'), backgroundColor: Colors.red),
           );
           return false;
         }
         return true;
-      case 1: // profil bilgileri
+      case 1: // profile info
         final username = _usernameController.text.trim();
         final birth = _birthDateController.text.trim();
         if (username.isEmpty || username.length < 3) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Geçerli bir kullanıcı adı girin.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('Please enter a valid username.'), backgroundColor: Colors.red),
           );
           return false;
         }
         if (birth.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lütfen doğum tarihinizi seçin.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('Please select your birth date.'), backgroundColor: Colors.red),
           );
           return false;
         }
         return true;
-      case 2: // tercihler
+      case 2: // preferences
         if (_selectedNativeLanguageCode == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lütfen anadilinizi seçin.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('Please select your native language.'), backgroundColor: Colors.red),
           );
           return false;
         }
         if (_selectedGender == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lütfen cinsiyetinizi seçin.'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('Please select your gender.'), backgroundColor: Colors.red),
           );
           return false;
         }
@@ -280,14 +280,14 @@ class _RegisterScreenState extends State<RegisterScreen>
       if (_selectedGender == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Lütfen cinsiyetinizi seçin.'),
+              content: Text('Please select your gender.'),
               backgroundColor: Colors.red),
         );
       }
       if (_selectedNativeLanguageCode == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Lütfen anadilinizi seçin.'),
+              content: Text('Please select your native language.'),
               backgroundColor: Colors.red),
         );
       }
@@ -307,7 +307,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       if (!isAvailable) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Bu kullanıcı adı zaten alınmış.'),
+              content: Text('This username is already taken.'),
               backgroundColor: Colors.red),
         );
         setState(() {
@@ -322,7 +322,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _usernameController.text.trim(),
         _selectedBirthDate!,
         _selectedGender!,
-        _selectedNativeLanguageCode!, // yeni
+        _selectedNativeLanguageCode!, // new
       );
 
       if (userCredential != null) {
@@ -340,19 +340,19 @@ class _RegisterScreenState extends State<RegisterScreen>
       if (!mounted) return;
       if (e.code == 'username-taken') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu kullanıcı adı artık alınmış. Lütfen başka bir ad deneyin.'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('This username is now taken. Please try another one.'), backgroundColor: Colors.red),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  'Kayıt Hatası: ${e.message ?? "Bilinmeyen bir hata oluştu"}')),
+                  'Registration Error: ${e.message ?? "An unknown error occurred"}')),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Beklenmedik bir hata oluştu: ${e.toString()}')),
+        SnackBar(content: Text('An unexpected error occurred: ${e.toString()}')),
       );
     } finally {
       if (mounted) {
@@ -426,7 +426,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
-  // Step indicator (3 adım)
+  // Step indicator (3 steps)
   Widget _buildStepIndicator() {
     final steps = 3;
     return Row(
@@ -446,12 +446,12 @@ class _RegisterScreenState extends State<RegisterScreen>
             borderRadius: BorderRadius.circular(999),
             boxShadow: isActive
                 ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    )
-                  ]
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              )
+            ]
                 : [],
           ),
         );
@@ -462,7 +462,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   // Pages container
   Widget _buildStepsPager() {
     final height = MediaQuery.of(context).size.height;
-    final pagerHeight = height.clamp(520, 760) - 360; // responsive yaklaşık yükseklik
+    final pagerHeight = height.clamp(520, 760) - 360; // responsive approximate height
     return SizedBox(
       height: pagerHeight.toDouble(),
       child: PageView(
@@ -506,7 +506,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _stepTitle('Hesap Bilgileri', 'E-posta ve şifreni belirle'),
+        _stepTitle('Account Info', 'Set your email and password'),
         _buildTextField(
           controller: _emailController,
           hintText: AppLocalizations.of(context)!.emailAddress,
@@ -514,10 +514,10 @@ class _RegisterScreenState extends State<RegisterScreen>
           keyboardType: TextInputType.emailAddress,
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Lütfen bir e-posta adresi girin.';
+              return 'Please enter an email address.';
             }
             if (!_isValidEmail(value)) {
-              return 'Lütfen geçerli bir e-posta adresi girin.';
+              return 'Please enter a valid email address.';
             }
             return null;
           },
@@ -529,9 +529,9 @@ class _RegisterScreenState extends State<RegisterScreen>
           icon: Icons.lock_outline,
           obscureText: true,
           validator: (value) =>
-              (value == null || value.length < 6)
-                  ? 'Şifre en az 6 karakter olmalı'
-                  : null,
+          (value == null || value.length < 6)
+              ? 'Password must be at least 6 characters'
+              : null,
         ),
       ],
     );
@@ -541,16 +541,16 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _stepTitle('Profil Bilgileri', 'Kullanıcı adın ve doğum tarihin'),
+        _stepTitle('Profile Info', 'Your username and birth date'),
         _buildTextField(
           controller: _usernameController,
           hintText: AppLocalizations.of(context)!.username,
           icon: Icons.person_outline,
           validator: (value) {
             final v = value?.trim() ?? '';
-            if (v.isEmpty) return 'Lütfen bir kullanıcı adı girin';
-            if (v.length < 3) return 'Kullanıcı adı en az 3 karakter olmalı';
-            if (v.length > 29) return 'Kullanıcı adı en fazla 29 karakter olmalı';
+            if (v.isEmpty) return 'Please enter a username';
+            if (v.length < 3) return 'Username must be at least 3 characters';
+            if (v.length > 29) return 'Username cannot exceed 29 characters';
             return null;
           },
         ),
@@ -562,9 +562,9 @@ class _RegisterScreenState extends State<RegisterScreen>
           icon: Icons.calendar_today_outlined,
           onTap: _showDatePicker,
           validator: (value) =>
-              (value == null || value.isEmpty)
-                  ? 'Lütfen doğum tarihinizi seçin'
-                  : null,
+          (value == null || value.isEmpty)
+              ? 'Please select your birth date'
+              : null,
         ),
       ],
     );
@@ -574,15 +574,15 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _stepTitle('Tercihler', 'Anadilini ve cinsiyetini seç'),
+        _stepTitle('Preferences', 'Select your native language and gender'),
         _buildTextField(
           controller: _nativeLanguageController,
           readOnly: true,
-          hintText: 'Anadil',
+          hintText: 'Native Language',
           icon: Icons.language_outlined,
           onTap: _showLanguagePicker,
           validator: (value) => (value == null || value.isEmpty)
-              ? 'Lütfen anadilinizi seçin'
+              ? 'Please select your native language'
               : null,
         ),
         const SizedBox(height: 20.0),
@@ -623,32 +623,32 @@ class _RegisterScreenState extends State<RegisterScreen>
             onPressed: _isLoading ? null : _handleBack,
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
+              side: BorderSide(color: Colors.white.withOpacity(0.6)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Geri'),
+            child: const Text('Back'),
           ),
         if (_currentStep > 0) const SizedBox(width: 12),
         Expanded(
           child: isLast
               ? _buildRegisterButton()
               : ElevatedButton(
-                  onPressed: _isLoading ? null : _handleNext,
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.teal.shade700,
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    elevation: 8,
-                    shadowColor: Colors.black.withValues(alpha: 0.5),
-                    minimumSize: const Size.fromHeight(56),
-                  ),
-                  child: const Text(
-                    'İleri',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
+            onPressed: _isLoading ? null : _handleNext,
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.teal.shade700,
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              elevation: 8,
+              shadowColor: Colors.black.withOpacity(0.5),
+              minimumSize: const Size.fromHeight(56),
+            ),
+            child: const Text(
+              'Next',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
         ),
       ],
     );
@@ -658,7 +658,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Column(
       children: [
         Text(
-          AppLocalizations.of(context)!.createAccount, // <-- GÜNCELLENDİ
+          AppLocalizations.of(context)!.createAccount, // <-- UPDATED
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 38.0,
@@ -675,7 +675,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          AppLocalizations.of(context)!.joinTheAdventure, // <-- GÜNCELLENDİ
+          AppLocalizations.of(context)!.joinTheAdventure, // <-- UPDATED
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 16,
@@ -691,7 +691,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return AnimatedBuilder(
       animation: _backgroundAnimationController,
       builder: (context, child) {
-        // final animationValue = _backgroundAnimationController.value; // kaldırıldı (kullanılmıyordu)
+        // final animationValue = _backgroundAnimationController.value; // removed (was not used)
         final size = MediaQuery.of(context).size;
         final parallaxX = (_mousePosition.dx / size.width - 0.5) * 40;
         final parallaxY = (_mousePosition.dy / size.height - 0.5) * 40;
@@ -727,17 +727,17 @@ class _RegisterScreenState extends State<RegisterScreen>
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+        hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
         prefixIcon: Icon(icon, color: Colors.white, size: 20),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.1),
+        fillColor: Colors.white.withOpacity(0.1),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.0),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.0),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3), width: 1),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.0),
@@ -773,7 +773,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               borderRadius: BorderRadius.circular(_isLoading ? 28.0 : 16.0),
             ),
             elevation: 8,
-            shadowColor: Colors.black.withValues(alpha: 0.5),
+            shadowColor: Colors.black.withOpacity(0.5),
           ),
           onPressed: _isLoading ? null : _register,
           child: AnimatedSwitcher(
@@ -791,7 +791,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
             )
                 : Text(
-              AppLocalizations.of(context)!.register, // <-- GÜNCELLENDİ
+              AppLocalizations.of(context)!.register, // <-- UPDATED
               key: const ValueKey('registerText'),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
@@ -827,19 +827,19 @@ class GenderSelectionBox extends StatelessWidget {
         height: 110,
         decoration: BoxDecoration(
           color: isSelected
-              ? Colors.white.withValues(alpha: 0.25)
-              : Colors.white.withValues(alpha: 0.1),
+              ? Colors.white.withOpacity(0.25)
+              : Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? Colors.white
-                : Colors.white.withValues(alpha: 0.3),
+                : Colors.white.withOpacity(0.3),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
               ? [
             BoxShadow(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: Colors.white.withOpacity(0.1),
               blurRadius: 10,
               spreadRadius: 2,
             )
@@ -867,7 +867,7 @@ class GenderSelectionBox extends StatelessWidget {
   }
 }
 
-// Parçacık Efekti için Yardımcı Widget'lar
+// Helper Widgets for Particle Effect
 class ParticleWidget extends StatefulWidget {
   const ParticleWidget({super.key});
 
@@ -921,7 +921,7 @@ class Particle {
     radius = random.nextDouble() * 2 + 1;
     speed = random.nextDouble() * 0.001;
     angle = random.nextDouble() * 2 * pi;
-    color = Colors.white.withValues(alpha: random.nextDouble() * 0.5);
+    color = Colors.white.withOpacity(random.nextDouble() * 0.5);
   }
 
   update() {

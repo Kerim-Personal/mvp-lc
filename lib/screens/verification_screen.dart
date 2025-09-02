@@ -16,7 +16,7 @@ class VerificationScreen extends StatefulWidget {
 class _VerificationScreenState extends State<VerificationScreen> {
   bool _isSending = false;
   String? _errorMessage;
-  bool _checking = false; // yeni: doğrulama kontrol state
+  bool _checking = false; // new: verification check state
 
   Future<void> _resendVerificationEmail() async {
     setState(() {
@@ -56,19 +56,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && user.emailVerified) {
         if (!mounted) return;
-        // Kök route'a dön (AuthWrapper yeniden değerlendirilir ve RootScreen açılır)
+        // Go back to the root route (AuthWrapper will re-evaluate and open the RootScreen)
         Navigator.of(context).popUntil((route) => route.isFirst);
         return;
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Henüz doğrulanmamış. Lütfen e-postayı kontrol edin.'), backgroundColor: Colors.orange),
+          const SnackBar(content: Text('Not verified yet. Please check your email.'), backgroundColor: Colors.orange),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Kontrol sırasında hata: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error during check: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -147,13 +147,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ),
                 child: _checking
                     ? const SizedBox(height:20,width:20,child:CircularProgressIndicator(strokeWidth:2))
-                    : const Text('E-postayı Doğruladım'),
+                    : const Text('I Have Verified My Email'),
               ),
               TextButton(
                 child: const Text('Back to Login',
                     style: TextStyle(color: Colors.teal)),
                 onPressed: () async {
-                 try { await FirebaseAuth.instance.signOut(); } catch (_) {}
+                  try { await FirebaseAuth.instance.signOut(); } catch (_) {}
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(

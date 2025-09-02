@@ -36,16 +36,16 @@ class LevelAssessmentCard extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                // GÜNCELLEME: İçeriği dikeyde ortalamak için eklendi.
+                // UPDATE: Added to vertically center the content.
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Seviyeni Keşfet",
+                  const Text("Discover Your Level",
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
                           color: Colors.white)),
                   const SizedBox(height: 4),
-                  Text("Hemen teste başla ve dil seviyeni öğren!",
+                  Text("Start the test now and find your language level!",
                       style: TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
               ),

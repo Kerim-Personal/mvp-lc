@@ -30,10 +30,10 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
   }
 
   Color _levelColor(WritingLevel l) => switch (l) {
-        WritingLevel.beginner => Colors.green,
-        WritingLevel.intermediate => Colors.orange,
-        WritingLevel.advanced => Colors.red,
-      };
+    WritingLevel.beginner => Colors.green,
+    WritingLevel.intermediate => Colors.orange,
+    WritingLevel.advanced => Colors.red,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +46,7 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Writing Görevleri'),
+        title: const Text('Writing Tasks'),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_list),
@@ -58,10 +58,10 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
               }
             },
             itemBuilder: (c) => [
-              const PopupMenuItem(value: 'L_all', child: Text('Seviye: Tümü')),
+              const PopupMenuItem(value: 'L_all', child: Text('Level: All')),
               ...WritingLevel.values.map((l)=> PopupMenuItem(value: 'L_${l.name}', child: Text(l.label))),
               const PopupMenuDivider(),
-              const PopupMenuItem(value: 'T_all', child: Text('Tür: Tümü')),
+              const PopupMenuItem(value: 'T_all', child: Text('Type: All')),
               ...WritingType.values.map((t)=> PopupMenuItem(value: 'T_${t.name}', child: Text(t.label))),
             ],
           ),
@@ -75,9 +75,9 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
               controller: _searchCtrl,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Ara (başlık / kategori)',
+                hintText: 'Search (title / category)',
                 filled: true,
-                fillColor: Colors.pink.withValues(alpha:.06),
+                fillColor: Colors.pink.withOpacity(0.06),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
             ),
@@ -102,7 +102,7 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal:10, vertical:4),
                               decoration: BoxDecoration(
-                                color: _levelColor(p.level).withValues(alpha:.18),
+                                color: _levelColor(p.level).withOpacity(0.18),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(p.level.label, style: TextStyle(color:_levelColor(p.level), fontWeight: FontWeight.w600)),
@@ -110,7 +110,7 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
                             const SizedBox(width:8),
                             Text(p.type.label, style: Theme.of(context).textTheme.bodySmall),
                             const Spacer(),
-                            Text('${p.suggestedMinutes} dk', style: Theme.of(context).textTheme.bodySmall),
+                            Text('${p.suggestedMinutes} min', style: Theme.of(context).textTheme.bodySmall),
                           ]),
                           const SizedBox(height:10),
                           Text(p.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),

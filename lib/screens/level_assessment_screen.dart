@@ -427,7 +427,7 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Seviye kaydedilemedi: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed to save level: $e')));
         setState(() => _isLoading = false);
       }
     }
@@ -507,7 +507,7 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                         ),
                         const SizedBox(height: 24),
                         const Text(
-                          'Dil Seviyeni Keşfet!',
+                          'Discover Your Language Level!',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               fontSize: 28,
@@ -516,11 +516,11 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                         ),
                         const SizedBox(height: 16),
                         _buildFeatureRow(
-                            'Seviyeni Belirle', Icons.bar_chart_rounded),
+                            'Determine Your Level', Icons.bar_chart_rounded),
                         _buildFeatureRow(
-                            'Doğru Partneri Bul', Icons.people_alt_outlined),
+                            'Find the Right Partner', Icons.people_alt_outlined),
                         _buildFeatureRow(
-                            'İlerlemeni Takip Et', Icons.trending_up_rounded),
+                            'Track Your Progress', Icons.trending_up_rounded),
                       ],
                     ),
                   ),
@@ -547,7 +547,7 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                     elevation: 8,
                     shadowColor: Colors.teal.withOpacity(0.5),
                   ),
-                  child: const Text('Teste Başla',
+                  child: const Text('Start the Test',
                       style:
                       TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),

@@ -43,13 +43,13 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Listening Alıştırmaları'),
+        title: const Text('Listening Exercises'),
         actions: [
           PopupMenuButton<ListeningLevel?>(
             icon: const Icon(Icons.filter_list),
             onSelected: (v) => setState(() => _levelFilter = v),
             itemBuilder: (c) => [
-              const PopupMenuItem(value: null, child: Text('Tümü')),
+              const PopupMenuItem(value: null, child: Text('All')),
               ...ListeningLevel.values.map((l) => PopupMenuItem(value: l, child: Text(l.label))),
             ],
           ),
@@ -63,9 +63,9 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
               controller: _searchCtrl,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Ara (başlık / kategori)',
+                hintText: 'Search (title / category)',
                 filled: true,
-                fillColor: Colors.blue.withValues(alpha: .04),
+                fillColor: Colors.blue.withOpacity(0.04),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
             ),
@@ -118,10 +118,10 @@ class _ExerciseCard extends StatelessWidget {
   });
 
   Color _levelColor(ListeningLevel l) => switch (l) {
-        ListeningLevel.beginner => Colors.green,
-        ListeningLevel.intermediate => Colors.orange,
-        ListeningLevel.advanced => Colors.red,
-      };
+    ListeningLevel.beginner => Colors.green,
+    ListeningLevel.intermediate => Colors.orange,
+    ListeningLevel.advanced => Colors.red,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +143,7 @@ class _ExerciseCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _levelColor(exercise.level).withValues(alpha: .15),
+                      color: _levelColor(exercise.level).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(exercise.level.label, style: TextStyle(color: _levelColor(exercise.level), fontWeight: FontWeight.w600)),
@@ -156,7 +156,7 @@ class _ExerciseCard extends StatelessWidget {
                   if (best != null)
                     Chip(
                       visualDensity: VisualDensity.compact,
-                      label: Text('En iyi: $best/${exercise.questions.length}'),
+                      label: Text('Best: $best/${exercise.questions.length}'),
                     ),
                 ],
               ),
@@ -173,10 +173,10 @@ class _ExerciseCard extends StatelessWidget {
                   const SizedBox(width: 14),
                   Icon(Icons.question_answer, size: 16, color: Colors.blueGrey.shade500),
                   const SizedBox(width: 4),
-                  Text('${exercise.questions.length} soru'),
+                  Text('${exercise.questions.length} questions'),
                   const Spacer(),
                   if (attempts > 0)
-                    Text('$attempts deneme', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.blueGrey)),
+                    Text('$attempts attempts', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.blueGrey)),
                 ],
               ),
             ],

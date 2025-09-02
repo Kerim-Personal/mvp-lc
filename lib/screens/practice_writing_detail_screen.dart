@@ -69,7 +69,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
   void _scheduleAutosave() {
     _autosaveTimer?.cancel();
     _autosaveTimer = Timer(const Duration(milliseconds: 900), _saveDraft);
-    setState((){}); // kelime sayısı güncelleme vs.
+    setState((){}); // for updating word count etc.
   }
   Future<void> _saveDraft() async {
     final text = _controller.text.trim();
@@ -100,7 +100,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
     final ev = _evaluation!;
     await _progress.recordSubmission(id: prompt.id, text: _controller.text.trim(), score: ev.completionScore, wordCount: ev.wordCount);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gönderildi ve kaydedildi.')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted and saved.')));
     _loadProgress();
   }
 
@@ -141,8 +141,8 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Chip(
-                label: Text('En iyi: ${bestScore.toStringAsFixed(0)}'),
-                backgroundColor: Colors.blue.withValues(alpha:.15),
+                label: Text('Best: ${bestScore.toStringAsFixed(0)}'),
+                backgroundColor: Colors.blue.withOpacity(0.15),
               ),
             ),
         ],
@@ -171,11 +171,11 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
                   ],
                   if (prompt.sampleOutline != null) ...[
                     const SizedBox(height: 12),
-                    _ExpandableCard(title: 'Önerilen Taslak', child: Text(prompt.sampleOutline!)),
+                    _ExpandableCard(title: 'Suggested Outline', child: Text(prompt.sampleOutline!)),
                   ],
                   if (prompt.sampleAnswer != null) ...[
                     const SizedBox(height: 8),
-                    _ExpandableCard(title: 'Örnek Cevap', child: Text(prompt.sampleAnswer!)),
+                    _ExpandableCard(title: 'Sample Answer', child: Text(prompt.sampleAnswer!)),
                   ],
                   const SizedBox(height: 16),
                   _EditorCard(
@@ -210,7 +210,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
         padding: const EdgeInsets.fromLTRB(16,10,16,12),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:.07), blurRadius: 10, offset: const Offset(0,-2))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 10, offset: const Offset(0,-2))],
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Row(
@@ -219,7 +219,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
               child: ElevatedButton.icon(
                 onPressed: _evaluating ? null : _evaluate,
                 icon: const Icon(Icons.analytics_outlined),
-                label: Text(_evaluation==null? 'Değerlendir' : 'Yeniden Değerlendir'),
+                label: Text(_evaluation==null? 'Evaluate' : 'Re-evaluate'),
               ),
             ),
             const SizedBox(width: 12),
@@ -227,7 +227,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
               child: FilledButton.icon(
                 onPressed: canSubmit ? _submit : null,
                 icon: const Icon(Icons.send_rounded),
-                label: const Text('Gönder'),
+                label: const Text('Submit'),
               ),
             ),
           ],
@@ -260,7 +260,7 @@ class _PromptHeader extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal:12, vertical:6),
                   decoration: BoxDecoration(
-                    color: _levelColor(prompt.level).withValues(alpha:.18),
+                    color: _levelColor(prompt.level).withOpacity(0.18),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(prompt.level.label, style: TextStyle(color: _levelColor(prompt.level), fontWeight: FontWeight.w600)),
@@ -268,7 +268,7 @@ class _PromptHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(prompt.type.label, style: Theme.of(context).textTheme.bodySmall),
                 const Spacer(),
-                Text('Kelime: $wordCount', style: Theme.of(context).textTheme.bodySmall),
+                Text('Words: $wordCount', style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
             const SizedBox(height: 12),
@@ -286,7 +286,7 @@ class _FocusPointsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ExpandableCard(
-      title: 'Dikkat Noktaları',
+      title: 'Focus Points',
       initiallyExpanded: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,10 +326,10 @@ class _TargetVocabSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ExpandableCard(
-      title: 'Hedef Kelimeler',
+      title: 'Target Vocabulary',
       actions: [
         if (loading) const SizedBox(width:18, height:18, child: CircularProgressIndicator(strokeWidth:2))
-        else TextButton(onPressed: onToggle, child: Text(showTranslations? 'Gizle' : (nativeLang=='en'? 'Göster' : 'Çevir'))) ,
+        else TextButton(onPressed: onToggle, child: Text(showTranslations? 'Hide' : (nativeLang=='en'? 'Show' : 'Translate'))) ,
       ],
       child: Wrap(
         spacing: 8,
@@ -340,9 +340,9 @@ class _TargetVocabSection extends StatelessWidget {
               duration: const Duration(milliseconds: 250),
               padding: const EdgeInsets.symmetric(horizontal:12, vertical:8),
               decoration: BoxDecoration(
-                color: Colors.pink.withValues(alpha:.08),
+                color: Colors.pink.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.pink.withValues(alpha:.3)),
+                border: Border.all(color: Colors.pink.withOpacity(0.3)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -386,9 +386,9 @@ class _EditorCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Taslak', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Your Draft', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const Spacer(),
-                Text('$wordCount kelime', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+                Text('$wordCount words', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 12),
@@ -398,10 +398,10 @@ class _EditorCard extends StatelessWidget {
                 controller: controller,
                 maxLines: null,
                 decoration: InputDecoration(
-                  hintText: 'Buraya yaz...',
+                  hintText: 'Write here...',
                   filled: true,
-                  fillColor: Colors.pink.withValues(alpha:.05),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.pink.withValues(alpha:.2))),
+                  fillColor: Colors.pink.withOpacity(0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.pink.withOpacity(0.2))),
                 ),
               ),
             ),
@@ -411,7 +411,7 @@ class _EditorCard extends StatelessWidget {
                 Icon(Icons.info_outline, size: 16, color: color),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text('Hedef: $minWords - $maxWords kelime', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color)),
+                  child: Text('Target: $minWords - $maxWords words', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color)),
                 ),
               ],
             )
@@ -442,7 +442,7 @@ class _EvaluationArea extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Değerlendirme', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Evaluation', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const Spacer(),
                 if (evaluating) const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2))
                 else IconButton(onPressed: onEvaluate, icon: const Icon(Icons.refresh)),
@@ -450,7 +450,7 @@ class _EvaluationArea extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (evaluation == null && !evaluating)
-              Text('Henüz değerlendirilmedi. "Değerlendir" butonu ile analiz al.' , style: Theme.of(context).textTheme.bodyMedium)
+              Text('Not yet evaluated. Get an analysis by clicking the "Evaluate" button.' , style: Theme.of(context).textTheme.bodyMedium)
             else if (evaluation != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,15 +459,15 @@ class _EvaluationArea extends StatelessWidget {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      _MetricChip(label: 'Kelime', value: evaluation!.wordCount.toString()),
-                      _MetricChip(label: 'Leksik Çeşitlilik', value: (evaluation!.lexicalDiversity*100).toStringAsFixed(1)+'%'),
-                      _MetricChip(label: 'Ø Cümle Uz.', value: evaluation!.avgSentenceLength.toStringAsFixed(1)),
+                      _MetricChip(label: 'Words', value: evaluation!.wordCount.toString()),
+                      _MetricChip(label: 'Lexical Diversity', value: (evaluation!.lexicalDiversity*100).toStringAsFixed(1)+'%'),
+                      _MetricChip(label: 'Avg Sent. Len.', value: evaluation!.avgSentenceLength.toStringAsFixed(1)),
                       _MetricChip(label: 'Flesch', value: evaluation!.fleschReadingEase.toStringAsFixed(0)),
-                      _MetricChip(label: 'Skor', value: evaluation!.completionScore.toStringAsFixed(0)),
+                      _MetricChip(label: 'Score', value: evaluation!.completionScore.toStringAsFixed(0)),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Öneriler', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                  Text('Suggestions', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   ...evaluation!.suggestions.map((s)=> Padding(
                     padding: const EdgeInsets.only(bottom:6),
@@ -481,7 +481,7 @@ class _EvaluationArea extends StatelessWidget {
                   )),
                   if (evaluation!.repeatedWords.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    Text('Sık Tekrarlar: '+evaluation!.repeatedWords.take(8).join(', '), style: Theme.of(context).textTheme.bodySmall),
+                    Text('Frequent Repetitions: '+evaluation!.repeatedWords.take(8).join(', '), style: Theme.of(context).textTheme.bodySmall),
                   ]
                 ],
               )
@@ -501,16 +501,16 @@ class _MetricChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.indigo.withValues(alpha:.08),
+        color: Colors.indigo.withOpacity(0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.indigo.withValues(alpha:.35)),
+        border: Border.all(color: Colors.indigo.withOpacity(0.35)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.indigo.shade700)),
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.indigo.shade700)),
         ],
       ),
     );
@@ -522,7 +522,7 @@ class _ExpandableCard extends StatefulWidget {
   final Widget child;
   final List<Widget>? actions;
   final bool initiallyExpanded;
-  const _ExpandableCard({super.key, required this.title, required this.child, this.actions, this.initiallyExpanded=false});
+  const _ExpandableCard({required this.title, required this.child, this.actions, this.initiallyExpanded=false});
   @override
   State<_ExpandableCard> createState() => _ExpandableCardState();
 }
@@ -569,4 +569,3 @@ class _ExpandableCardState extends State<_ExpandableCard> with SingleTickerProvi
     );
   }
 }
-

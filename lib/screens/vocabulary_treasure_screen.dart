@@ -63,7 +63,7 @@ class _VocabularyTreasureScreenState extends State<VocabularyTreasureScreen> wit
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 stretch: true,
-                // ÇÖZÜM: Otomatik geri tuşunu devre dışı bırakıyoruz.
+                // FIX: Disabling the automatic back button.
                 automaticallyImplyLeading: false,
                 flexibleSpace: FlexibleSpaceBar(
                   background: _buildHeader(),
@@ -71,26 +71,16 @@ class _VocabularyTreasureScreenState extends State<VocabularyTreasureScreen> wit
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40), // Adjusted top padding
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    _AnimatedContent(
-                      animationController: _animationController,
-                      interval: const Interval(0.4, 1.0),
-                      child: _buildInfoCard(
-                        icon: Icons.translate_rounded,
-                        title: 'Anlamı',
-                        content: widget.word.meaning,
-                        color: Colors.blueAccent,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    // The "Meaning" card has been removed as per your request.
                     _AnimatedContent(
                       animationController: _animationController,
                       interval: const Interval(0.6, 1.0),
                       child: _buildInfoCard(
                         icon: Icons.format_quote_rounded,
-                        title: 'Örnek Cümle',
+                        title: 'Example Sentence',
                         content: widget.word.exampleSentence,
                         color: Colors.orangeAccent,
                       ),
