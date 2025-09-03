@@ -442,14 +442,19 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+    final surface = theme.colorScheme.surface;
+    final surfaceVariant = theme.colorScheme.surfaceVariant;
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Colors.teal.shade50,
-              Colors.amber.shade50,
-            ],
+            colors: isDark
+                ? [surface, surfaceVariant.withValues(alpha: 0.6)]
+                : [surface, primary.withValues(alpha: 0.08)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -460,14 +465,18 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
             transitionBuilder: (child, animation) {
               return FadeTransition(opacity: animation, child: child);
             },
-            child: _isTestStarted ? _buildQuestionView() : _buildWelcomeView(),
+            child: _isTestStarted ? _buildQuestionView(theme) : _buildWelcomeView(theme, isDark),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildWelcomeView() {
+  Widget _buildWelcomeView(ThemeData theme, bool isDark) {
+    final surface = theme.colorScheme.surface;
+    final onSurface = theme.colorScheme.onSurface;
+    final primary = theme.colorScheme.primary;
+    final surfaceTint = theme.colorScheme.surfaceTint;
     return Container(
       key: const ValueKey('welcome'),
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -486,9 +495,9 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                   child: Container(
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.7),
+                      color: surface.withValues(alpha: isDark ? 0.55 : 0.75),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      border: Border.all(color: onSurface.withValues(alpha: 0.08)),
                     ),
                     child: Column(
                       children: [
@@ -497,30 +506,27 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
-                              colors: [Colors.teal.shade200, Colors.teal.shade400],
+                              colors: [primary.withValues(alpha: 0.65), primary],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                           ),
-                          child: const Icon(Icons.school_outlined,
-                              size: 50, color: Colors.white),
+                          child: Icon(Icons.school_outlined,
+                              size: 50, color: theme.colorScheme.onPrimary),
                         ),
                         const SizedBox(height: 24),
-                        const Text(
+                        Text(
                           'Discover Your Language Level!',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87),
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: onSurface,
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        _buildFeatureRow(
-                            'Determine Your Level', Icons.bar_chart_rounded),
-                        _buildFeatureRow(
-                            'Find the Right Partner', Icons.people_alt_outlined),
-                        _buildFeatureRow(
-                            'Track Your Progress', Icons.trending_up_rounded),
+                        _buildFeatureRow('Determine Your Level', Icons.bar_chart_rounded, theme),
+                        _buildFeatureRow('Find the Right Partner', Icons.people_alt_outlined, theme),
+                        _buildFeatureRow('Track Your Progress', Icons.trending_up_rounded, theme),
                       ],
                     ),
                   ),
@@ -538,18 +544,15 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                 child: ElevatedButton(
                   onPressed: _prepareTest,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 48, vertical: 18),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
+                    backgroundColor: primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     elevation: 8,
-                    shadowColor: Colors.teal.withOpacity(0.5),
+                    shadowColor: primary.withValues(alpha: 0.5),
                   ),
                   child: const Text('Start the Test',
-                      style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -559,32 +562,36 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
     );
   }
 
-  Widget _buildFeatureRow(String text, IconData icon) {
+  Widget _buildFeatureRow(String text, IconData icon, ThemeData theme) {
+    final onSurface = theme.colorScheme.onSurface;
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.grey.shade700, size: 20),
+          Icon(icon, color: onSurface.withValues(alpha: 0.7), size: 20),
           const SizedBox(width: 10),
-          Text(
-            text,
-            style: TextStyle(
+            Text(text,
+              style: theme.textTheme.bodyMedium?.copyWith(
                 fontSize: 16,
-                color: Colors.grey.shade800,
-                fontWeight: FontWeight.w500),
-          ),
+                fontWeight: FontWeight.w500,
+                color: onSurface.withValues(alpha: 0.85),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildQuestionView() {
+  Widget _buildQuestionView(ThemeData theme) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     final currentQuestion = _selectedQuestions[_currentQuestionIndex];
     final progress = (_currentQuestionIndex + 1) / _selectedQuestions.length;
+    final primary = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+    final surfaceVariant = theme.colorScheme.surfaceVariant;
 
     return Container(
       key: const ValueKey('questions'),
@@ -606,15 +613,16 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                       CircularProgressIndicator(
                         value: value,
                         strokeWidth: 8,
-                        backgroundColor: Colors.grey.shade200,
-                        valueColor:
-                        const AlwaysStoppedAnimation<Color>(Colors.teal),
+                        backgroundColor: surfaceVariant.withValues(alpha: 0.3),
+                        valueColor: AlwaysStoppedAnimation<Color>(primary),
                       ),
                       Center(
                         child: Text(
                           '${_currentQuestionIndex + 1}/${_selectedQuestions.length}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: onSurface,
+                          ),
                         ),
                       ),
                     ],
@@ -630,16 +638,16 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                 child: FadeTransition(
                   opacity: _animationController,
                   child: SlideTransition(
-                    position: Tween<Offset>(
-                        begin: const Offset(0, 0.1), end: Offset.zero)
-                        .animate(_animationController),
+                    position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(_animationController),
                     child: Text(
                       currentQuestion.questionText,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          height: 1.4),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                        color: onSurface,
+                      ),
                     ),
                   ),
                 ),
@@ -651,23 +659,21 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
             return FadeTransition(
               opacity: _animationController,
               child: SlideTransition(
-                position: Tween<Offset>(
-                    begin: const Offset(0, 0.3), end: Offset.zero)
-                    .animate(CurvedAnimation(
+                position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+                  CurvedAnimation(
                     parent: _animationController,
-                    curve: Interval(0.2 * index, 1.0,
-                        curve: Curves.easeOut))),
+                    curve: Interval(0.2 * index, 1.0, curve: Curves.easeOut),
+                  ),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      foregroundColor: Colors.teal,
-                      side: const BorderSide(color: Colors.teal, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      textStyle: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
+                      foregroundColor: primary,
+                      side: BorderSide(color: primary, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     onPressed: () => _answerQuestion(index),
                     child: Text(currentQuestion.options[index]),

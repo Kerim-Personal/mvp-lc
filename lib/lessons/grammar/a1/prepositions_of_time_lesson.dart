@@ -2,30 +2,162 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:lingua_chat/services/translation_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// --- ANA DERS EKRANI ---
+// --- MAIN LESSON SCREEN ---
+
 class PrepositionsOfTimeLessonScreen extends StatefulWidget {
   const PrepositionsOfTimeLessonScreen({super.key});
 
   @override
-  State<PrepositionsOfTimeLessonScreen> createState() => _PrepositionsOfTimeLessonScreenState();
+  State<PrepositionsOfTimeLessonScreen> createState() =>
+      _PrepositionsOfTimeLessonScreenState();
 }
 
-class _PrepositionsOfTimeLessonScreenState extends State<PrepositionsOfTimeLessonScreen> with TickerProviderStateMixin {
+class _PrepositionsOfTimeLessonScreenState
+    extends State<PrepositionsOfTimeLessonScreen> with TickerProviderStateMixin {
   late final AnimationController _controller;
+  late FlutterTts flutterTts;
+
+  String? _nativeLangCode; // native language code cache
+  // Simple in-memory translation cache: key => "langCode::source"
+  final Map<String, String> _translationCache = {};
+
+  // Get the user's native language code from Firestore and cache it
+  Future<String> _getTargetLangCode() async {
+    if (_nativeLangCode != null) return _nativeLangCode!;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return _nativeLangCode = 'en';
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
+      if (code == null || code.isEmpty) return _nativeLangCode = 'en';
+      _nativeLangCode = code;
+      return _nativeLangCode!;
+    } catch (_) {
+      return _nativeLangCode = 'en';
+    }
+  }
+
+  Future<String> _translateToNative(String text) async {
+    final target = await _getTargetLangCode();
+    final cacheKey = '$target::$text';
+    // Return from cache if available
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
+    try {
+      await TranslationService.instance.ensureReady(target);
+    } catch (_) {
+      // ignore ensureReady failures, attempt translation anyway
+    }
+    try {
+      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      _translationCache[cacheKey] = translated;
+      return translated;
+    } catch (_) {
+      // Fallback to original text if translation fails
+      return text;
+    }
+  }
+
+  Future<void> _showTranslateSheet(String source) async {
+    if (!mounted) return;
+    // Create the future ONCE; prevents re-triggering translation on rebuilds/gestures
+    final translationFuture = _translateToNative(source);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.translate, color: Colors.teal),
+                      SizedBox(width: 8),
+                      Text('Translation',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Original',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(source, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 12),
+                  const Text('Translation',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  FutureBuilder<String>(
+                    future: translationFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            children: const [
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(width: 8),
+                              Text('Translating...'),
+                            ],
+                          ),
+                        );
+                      }
+                      final translated = snapshot.data ?? source;
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    _initializeTts();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..forward();
   }
 
+  void _initializeTts() {
+    flutterTts = FlutterTts();
+    flutterTts.setLanguage("en-US");
+    flutterTts.setSpeechRate(0.5);
+  }
+
+  Future<void> _speak(String text) async {
+    await flutterTts.speak(text.replaceAll('**', ''));
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    flutterTts.stop();
     super.dispose();
   }
 
@@ -36,103 +168,185 @@ class _PrepositionsOfTimeLessonScreenState extends State<PrepositionsOfTimeLesso
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
-            expandedHeight: 220.0,
+            expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: Colors.indigo.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              title: const Text('Prepositions of Time', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              title: const Text('Prepositions of Time',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 22)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Colors.red.shade500, Colors.orange.shade500],
+                    colors: [
+                      Colors.indigo.shade500,
+                      Colors.purple.shade600,
+                    ],
                   ),
                 ),
-                child: const Center(
-                  child: Icon(Icons.access_time_outlined, size: 80, color: Colors.white24),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.watch_later_outlined,
+                          size: 70, color: Colors.white24),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Talking About When Things Happen',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                const _SpeechHintBox(),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
-                  child: const _LessonBlock(
-                    icon: Icons.hourglass_empty_outlined,
-                    title: 'Zamanı Yönetmek: Zaman Edatları',
+                  child: _LessonBlock(
+                    icon: Icons.lightbulb_outline,
+                    title: 'What are Prepositions of Time?',
                     content:
-                    "Bir olayın 'ne zaman' olduğunu söylemek için 'in', 'on' ve 'at' gibi zaman edatlarını kullanırız. Bu küçük kelimeler, cümlelerimize zaman boyutu katarak olayların sırasını ve zamanlamasını netleştirir. İngilizcenin zaman makinesine hoş geldin!",
+                    "Prepositions of time are small but important words that tell us when an action takes place. Just like with place, the main ones are **in, on,** and **at**. Let's see how they work with time.",
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.2, 0.8),
-                  child: _ExampleCard(
-                    title: 'Genelden Özele Zaman Piramidi',
-                    examples: [
-                      Example(
-                          icon: Icons.calendar_view_month_outlined,
-                          category: 'Geniş Zaman (in):',
-                          sentence: 'My birthday is in July. / I was born in 1990.'),
-                      Example(
-                          icon: Icons.calendar_view_day_outlined,
-                          category: 'Daha Özel (on):',
-                          sentence: 'The meeting is on Monday. / on my birthday.'),
-                      Example(
-                          icon: Icons.timer_outlined,
-                          category: 'En Özel (at):',
-                          sentence: 'The party starts at 8 PM. / at noon.'),
+                  child: _SimplifiedClickableCard(
+                    title: 'The Golden Rule: from general to specific',
+                    headers: const ['Preposition', 'Use', 'Example'],
+                    rows: const [
+                      ['in', 'For general periods (months, seasons, years)', 'I was born in 1995.'],
+                      ['on', 'For specific days or dates', 'The party is on Friday.'],
+                      ['at', 'For a precise moment in time', 'I will meet you at 7 PM.'],
                     ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.3, 0.9),
-                  child: _ExampleTable(
-                    title: 'Detaylı Bakış: in / on / at',
-                    headers: const ['Edat', 'Kullanım Alanı', 'Örnekler'],
-                    rows: const [
-                      ['in', 'Aylar, Yıllar, Mevsimler, Yüzyıllar, Günün bölümleri', 'in August, in 2024, in summer, in the morning'],
-                      ['on', 'Günler, Tarihler, Özel günler', 'on Sunday, on March 5th, on New Year\'s Day'],
-                      ['at', 'Saatler, Belirli anlar, Tatil dönemleri', 'at 10:30, at midnight, at Christmas'],
-                    ],
+                  child: _LessonBlock(
+                    icon: Icons.star_border,
+                    title: '"in" for Periods of Time',
+                    content:
+                    "Use **'in'** for longer periods, such as months, seasons, years, decades, or centuries. It’s also used for parts of the day.",
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.4, 1.0),
-                  child: const _LessonBlock(
-                    icon: Icons.block_outlined,
-                    title: 'Bu Kelimelerle Kullanılmaz!',
+                  child: _ExampleCard(
+                    title: 'Examples for "in"',
+                    examples: const [
+                      Example(
+                          icon: Icons.calendar_today,
+                          category: 'Months:',
+                          sentence: 'We go on holiday **in** July.'),
+                      Example(
+                          icon: Icons.wb_sunny_outlined,
+                          category: 'Seasons:',
+                          sentence: 'It snows **in** winter.'),
+                      Example(
+                          icon: Icons.access_time_outlined,
+                          category: 'Part of day:',
+                          sentence: 'I read the news **in** the morning.'),
+                    ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
+                  ),
+                ),
+                _AnimatedLessonBlock(
+                  controller: _controller,
+                  interval: const Interval(0.5, 1.0),
+                  child: _LessonBlock(
+                    icon: Icons.event,
+                    title: '"on" for Dates and Days',
                     content:
-                    "'last', 'next', 'every', 'this' gibi kelimelerden önce 'in, on, at' kullanmayız.\n\n• Yanlış: I saw him on last Friday. ❌\n• Doğru: I saw him last Friday. ✅\n\n• Yanlış: We will meet in next week. ❌\n• Doğru: We will meet next week. ✅",
+                    "Use **'on'** when you are talking about a specific day of the week or a specific date. You can think of it as being 'on' a calendar day.",
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.6, 1.0),
-                  child: const _TipCard(
-                    title: 'Profesyonel Taktikler',
-                    tips: [
-                      '**"in the morning/afternoon/evening":** Günün bu bölümleri için her zaman "in" kullanırız.',
-                      '**"at night":** Ancak "gece" demek için "at" kullanırız. Bu bir istisnadır!',
-                      '**"on the weekend" (AmE) vs "at the weekend" (BrE):** İkisi de "hafta sonu" demektir. Amerikan İngilizcesinde "on", İngiliz İngilizcesinde "at" daha yaygındır.',
+                  child: _ExampleCard(
+                    title: 'Examples for "on"',
+                    examples: const [
+                      Example(
+                          icon: Icons.access_time_outlined,
+                          category: 'Day of week:',
+                          sentence: 'I will see you **on** Monday.'),
+                      Example(
+                          icon: Icons.cake_outlined,
+                          category: 'Date:',
+                          sentence: 'Her birthday is **on** August 20th.'),
+                      Example(
+                          icon: Icons.holiday_village_outlined,
+                          category: 'Special day:',
+                          sentence: 'We get presents **on** Christmas Day.'),
                     ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
-                const SizedBox(height: 20),
-                const Divider(height: 30, thickness: 1),
                 _AnimatedLessonBlock(
-                    controller: _controller,
-                    interval: const Interval(0.7, 1.0),
-                    child: _QuickQuiz()),
+                  controller: _controller,
+                  interval: const Interval(0.7, 1.0),
+                  child: _LessonBlock(
+                    icon: Icons.schedule_outlined,
+                    title: '"at" for Specific Times',
+                    content:
+                    "Use **'at'** for a very precise or specific point in time, like a clock time or a holiday period.",
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
+                  ),
+                ),
+                _AnimatedLessonBlock(
+                  controller: _controller,
+                  interval: const Interval(0.8, 1.0),
+                  child: _ExampleCard(
+                    title: 'Examples for "at"',
+                    examples: const [
+                      Example(
+                          icon: Icons.alarm,
+                          category: 'Clock time:',
+                          sentence: 'The train leaves **at** 9 AM.'),
+                      Example(
+                          icon: Icons.nightlight_outlined,
+                          category: 'Holiday:',
+                          sentence: 'They sing songs **at** Christmas.'),
+                      Example(
+                          icon: Icons.dark_mode,
+                          category: 'Night:',
+                          sentence: 'She studies **at** night.'),
+                    ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
+                  ),
+                ),
               ]),
             ),
           ),
@@ -142,22 +356,33 @@ class _PrepositionsOfTimeLessonScreenState extends State<PrepositionsOfTimeLesso
   }
 }
 
-// --- YARDIMCI WIDGET'LAR ---
+// --- HELPER WIDGETS ---
 
 class _LessonBlock extends StatelessWidget {
   final IconData icon;
   final String title;
   final String content;
-  const _LessonBlock(
-      {required this.icon, required this.title, required this.content});
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _LessonBlock({
+    required this.icon,
+    required this.title,
+    required this.content,
+    required this.onSpeak,
+    required this.onTranslate,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black12,
-      margin: const EdgeInsets.only(bottom: 20),
+      shadowColor: Colors.black.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -165,15 +390,45 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.red.shade700, size: 28),
-                const SizedBox(width: 12),
+                Icon(icon, color: Colors.indigo.shade700, size: 28),
+                const SizedBox(width: 14),
                 Expanded(
-                  child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onSpeak(title),
+                    onLongPress: () => onTranslate(title),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Text(content, style: TextStyle(fontSize: 16, color: Colors.grey.shade800, height: 1.5)),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => onSpeak(content),
+              onLongPress: () => onTranslate(content),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Text(
+                  content,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -184,33 +439,52 @@ class _LessonBlock extends StatelessWidget {
 class _ExampleCard extends StatelessWidget {
   final String title;
   final List<Example> examples;
-  const _ExampleCard({required this.title, required this.examples});
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _ExampleCard({
+    required this.title,
+    required this.examples,
+    required this.onSpeak,
+    required this.onTranslate,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black12,
-      margin: const EdgeInsets.only(bottom: 20),
+      shadowColor: Colors.black.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => onSpeak(title),
+              onLongPress: () => onTranslate(title),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: onSurface,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: Row(
-                children: [
-                  Icon(e.icon, size: 22, color: Colors.red),
-                  const SizedBox(width: 12),
-                  Text(e.category, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(e.sentence, style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic))),
-                ],
-              ),
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -219,36 +493,147 @@ class _ExampleCard extends StatelessWidget {
   }
 }
 
-class _ExampleTable extends StatelessWidget {
-  final String title;
-  final List<String> headers;
-  final List<List<String>> rows;
-  const _ExampleTable({required this.title, required this.headers, required this.rows});
+class _ExampleListItem extends StatelessWidget {
+  final Example example;
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _ExampleListItem(
+      {required this.example,
+        required this.onSpeak,
+        required this.onTranslate});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: isDark ? Colors.indigo.shade900.withOpacity(0.25) : Colors.indigo.shade50,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => onSpeak('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(example.icon, size: 22, color: Colors.indigo.shade600),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      example.category,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    Text(
+                      example.sentence,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SimplifiedClickableCard extends StatelessWidget {
+  final String title;
+  final List<String> headers;
+  final List<List<String>> rows;
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _SimplifiedClickableCard({
+    required this.title,
+    required this.headers,
+    required this.rows,
+    required this.onSpeak,
+    required this.onTranslate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black12,
-      margin: const EdgeInsets.only(bottom: 20),
+      shadowColor: Colors.black.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: MaterialStateProperty.all(Colors.red.shade50),
-                columns: headers.map((h) => DataColumn(label: Text(h, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
-                rows: rows.map((row) => DataRow(cells: row.map((cell) => DataCell(Text(cell))).toList())).toList(),
+      clipBehavior: Clip.antiAlias,
+      color: isDark ? const Color(0xFF1E1E1E) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => onSpeak(title),
+              onLongPress: () => onTranslate(title),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                child: Text(title,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: onSurface,
+                    )),
               ),
             ),
-          ],
-        ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              headingTextStyle: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark
+                    ? Colors.indigoAccent.shade200
+                    : Colors.indigo.shade800,
+                fontSize: 15,
+              ),
+              dataTextStyle: TextStyle(
+                color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                fontSize: 16,
+              ),
+              columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+              rows: rows.map((row) {
+                final String textJoined = row.join('. ');
+                return DataRow(
+                  onSelectChanged: (isSelected) {
+                    if (isSelected != null) onSpeak(textJoined);
+                  },
+                  cells: row.map((cell) {
+                    return DataCell(
+                      GestureDetector(
+                        onLongPress: () => onTranslate(textJoined),
+                        child: Text(cell),
+                      ),
+                    );
+                  }).toList(),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
       ),
     );
   }
@@ -257,205 +642,107 @@ class _ExampleTable extends StatelessWidget {
 class _TipCard extends StatelessWidget {
   final String title;
   final List<String> tips;
-  const _TipCard({required this.title, required this.tips});
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.lightbulb_outline, color: Colors.amber.shade800, size: 28),
-              const SizedBox(width: 12),
-              Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...tips.map((tip) {
-            final parts = tip.split('**');
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('💡 ', style: TextStyle(fontSize: 16)),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(fontSize: 16, color: Colors.grey.shade800, height: 1.5),
-                        children: [
-                          for (int i = 0; i < parts.length; i++)
-                            TextSpan(
-                              text: parts[i],
-                              style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickQuiz extends StatefulWidget {
-  @override
-  State<_QuickQuiz> createState() => _QuickQuizState();
-}
-
-class _QuickQuizState extends State<_QuickQuiz> {
-  int? _selectedAnswer1;
-  int? _selectedAnswer2;
-  int? _selectedAnswer3;
-  bool _showResult = false;
-
-  void _checkAnswers() {
-    setState(() {
-      _showResult = true;
-    });
-    Timer(const Duration(seconds: 5), () {
-      if (mounted) {
-        setState(() {
-          _selectedAnswer1 = null;
-          _selectedAnswer2 = null;
-          _selectedAnswer3 = null;
-          _showResult = false;
-        });
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isCorrect1 = _selectedAnswer1 == 1;
-    final isCorrect2 = _selectedAnswer2 == 0;
-    final isCorrect3 = _selectedAnswer3 == 2;
-    final canCheck = _selectedAnswer1 != null && _selectedAnswer2 != null && _selectedAnswer3 != null;
-
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            const Text('Hadi Test Edelim!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            _QuizQuestion(
-              question: '1. The concert is ___ Friday.',
-              options: const ['at', 'on', 'in'],
-              selectedAnswer: _selectedAnswer1,
-              correctAnswer: 1,
-              showResult: _showResult,
-              onChanged: (value) => setState(() => _selectedAnswer1 = value),
-            ),
-            _QuizQuestion(
-              question: '2. I will see you ___ 5 PM.',
-              options: const ["at", "on", "in"],
-              selectedAnswer: _selectedAnswer2,
-              correctAnswer: 0,
-              showResult: _showResult,
-              onChanged: (value) => setState(() => _selectedAnswer2 = value),
-            ),
-            _QuizQuestion(
-              question: '3. He was born ___ 2005.',
-              options: const ['at', 'on', 'in'],
-              selectedAnswer: _selectedAnswer3,
-              correctAnswer: 2,
-              showResult: _showResult,
-              onChanged: (value) => setState(() => _selectedAnswer3 = value),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: canCheck && !_showResult ? _checkAnswers : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              ),
-              child: const Text('Kontrol Et', style: TextStyle(fontSize: 16)),
-            ),
-            if(_showResult)
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: Text(
-                  isCorrect1 && isCorrect2 && isCorrect3 ? 'Harika! Hepsi doğru!' : 'Tekrar dene, başarabilirsin!',
-                  style: TextStyle(
-                      color: isCorrect1 && isCorrect2 && isCorrect3 ? Colors.green.shade800 : Colors.red.shade800,
-                      fontWeight: FontWeight.bold
-                  ),
-                ),
-              )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuizQuestion extends StatelessWidget {
-  final String question;
-  final List<String> options;
-  final int? selectedAnswer;
-  final int correctAnswer;
-  final bool showResult;
-  final ValueChanged<int?> onChanged;
-
-  const _QuizQuestion({
-    required this.question,
-    required this.options,
-    required this.selectedAnswer,
-    required this.correctAnswer,
-    required this.showResult,
-    required this.onChanged,
+  const _TipCard({
+    required this.title,
+    required this.tips,
+    required this.onSpeak,
+    required this.onTranslate,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(question, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(options.length, (index) {
-            Color? color;
-            if (showResult) {
-              if (index == correctAnswer) {
-                color = Colors.green.shade100;
-              } else if (index == selectedAnswer) {
-                color = Colors.red.shade100;
-              }
-            }
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: ChoiceChip(
-                label: Text(options[index]),
-                selected: selectedAnswer == index,
-                onSelected: (isSelected) => onChanged(isSelected ? index : null),
-                backgroundColor: color,
-                selectedColor: Colors.red.shade200,
-              ),
-            );
-          }),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.amber.withOpacity(0.1),
+      margin: const EdgeInsets.only(bottom: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? const Color(0xFF1E1E1E) : null,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.lightbulb_outline,
+                    color: Colors.amber, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onSpeak(title),
+                    onLongPress: () => onTranslate(title),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? Colors.amber.shade200
+                              : Colors.amber.shade900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...tips.map((tip) {
+              final parts = tip.split('**');
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => onSpeak(tip),
+                  onLongPress: () => onTranslate(tip),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('💡 ', style: TextStyle(fontSize: 16)),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: baseText,
+                              children: [
+                                for (int i = 0; i < parts.length; i++)
+                                  TextSpan(
+                                    text: parts[i],
+                                    style: i.isOdd
+                                        ? TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                    )
+                                        : null,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -464,13 +751,8 @@ class _AnimatedLessonBlock extends StatelessWidget {
   final AnimationController controller;
   final Interval interval;
   final Widget child;
-
-  const _AnimatedLessonBlock({
-    required this.controller,
-    required this.interval,
-    required this.child,
-  });
-
+  const _AnimatedLessonBlock(
+      {required this.controller, required this.interval, required this.child});
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
@@ -488,5 +770,40 @@ class Example {
   final IconData icon;
   final String category;
   final String sentence;
-  const Example({required this.icon, required this.category, required this.sentence});
+  const Example(
+      {required this.icon, required this.category, required this.sentence});
+}
+
+class _SpeechHintBox extends StatelessWidget {
+  const _SpeechHintBox();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      elevation: 0,
+      color: isDark
+          ? Colors.indigo.shade900.withOpacity(0.3)
+          : Colors.indigo.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Icon(Icons.volume_up_outlined,
+                color: Colors.indigo.shade400, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'You can listen by tapping on the titles and lines, and see the translation by pressing and holding.',
+                style: TextStyle(
+                    fontSize: 14, color: isDark ? Colors.white70 : null),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

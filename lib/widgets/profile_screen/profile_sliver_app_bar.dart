@@ -274,7 +274,14 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
                 ? ClipOval(
               child: SvgPicture.network(
                 widget.avatarUrl!,
-                placeholderBuilder: (context) => const CircularProgressIndicator(strokeWidth: 2),
+                // Önceden: spinner placeholder. Artık statik yarı saydam daire.
+                placeholderBuilder: (context) => Container(
+                  width: 104,
+                  height: 104,
+                  color: Colors.teal.shade200.withAlpha(40),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.person, color: Colors.teal.shade700.withAlpha(180), size: 42),
+                ),
                 width: 104,
                 height: 104,
                 fit: BoxFit.cover,

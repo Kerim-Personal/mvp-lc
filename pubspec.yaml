@@ -32,28 +32,28 @@ dependencies:
 
   url_launcher: ^6.2.6
 
-  showcaseview: ^2.0.3
+  showcaseview: ^4.0.1
 
   flip_card: ^0.7.0 #
 
 
   # Firebase için gerekli paketler
-  firebase_core: ^2.27.0
-  firebase_auth: ^4.17.8
-  cloud_firestore: ^4.15.8
-  firebase_storage: ^11.7.7
+  firebase_core: ^2.31.0
+  firebase_auth: ^4.19.0
+  cloud_firestore: ^4.17.5
+  firebase_storage: ^11.7.0
 
   # Tarih formatlama için
   intl: ^0.20.2
 
-  confetti: ^0.7.0
-  cloud_functions: ^4.7.6
+  confetti: ^0.8.0
+  cloud_functions: ^4.7.5
 
   # Medya
   image_picker: ^1.1.2
 
   # Premium çeviri özelliği için Google ML Kit Translation
-  google_mlkit_translation: ^0.11.0
+  google_mlkit_translation: ^0.13.0
 
   # Google kimlik doğrulama
   google_sign_in: ^6.2.1
@@ -61,6 +61,7 @@ dependencies:
 
   # Konuşmayı yazıya çeviri
   speech_to_text: ^7.3.0
+  firebase_messaging: ^14.9.4
 
 # Mobil hedefte sürüm uyuşmazlığını çözmek için web paketini override ediyoruz
 dependency_overrides:
@@ -70,7 +71,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   flutter_native_splash: ^2.4.0
 
 flutter:

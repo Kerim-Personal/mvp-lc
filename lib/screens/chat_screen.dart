@@ -725,7 +725,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         children: [
                           Icon(Icons.block, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Kullanıcıyı Engelle'),
+                          Text('Block User'),
                         ],
                       ),
                     ),
@@ -735,7 +735,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       children: [
                         Icon(Icons.report, color: Colors.red),
                         SizedBox(width: 8),
-                        Text('Kullanıcıyı Bildir'),
+                        Text('Report User'),
                       ],
                     ),
                   ),
@@ -746,9 +746,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       value: 'ban',
                       child: Row(
                         children: [
-                          Icon(Icons.block, color: Colors.red),
+                          Icon(Icons.gavel, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Hesabı Banla'),
+                          Text('Ban Account'),
                         ],
                       ),
                     ),

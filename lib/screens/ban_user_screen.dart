@@ -1,6 +1,4 @@
 // lib/screens/ban_user_screen.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/services/admin_service.dart';
 
@@ -17,14 +15,15 @@ class _BanUserScreenState extends State<BanUserScreen> {
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _detailsController = TextEditingController();
   bool _isSubmitting = false;
+  String? _selectedReason; // secili sebep
 
   final List<String> _reasons = const [
-    'Taciz, zorbalık veya tehdit',
-    'Nefret söylemi / ayrımcılık',
-    'Şiddet veya tehlikeli davranış',
-    'Cinsel uygunsuzluk',
-    'Spam, dolandırıcılık veya sahtecilik',
-    'Diğer',
+    'Harassment, bullying, or threats',
+    'Hate speech / discrimination',
+    'Violence or dangerous behavior',
+    'Sexual inappropriateness',
+    'Spam, fraud, or impersonation',
+    'Other',
   ];
 
   Future<void> _submit() async {
@@ -38,39 +37,96 @@ class _BanUserScreenState extends State<BanUserScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kullanıcı banlandı.'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('User banned.'), backgroundColor: Colors.red),
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ban başarısız: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Ban failed: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
+  void _showReasonSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                height: 4,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal:16.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Select Ban Reason', style: Theme.of(context).textTheme.titleMedium),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _reasons.length,
+                  itemBuilder: (c, i) {
+                    final reason = _reasons[i];
+                    final selected = reason == _selectedReason;
+                    return ListTile(
+                      title: Text(reason),
+                      trailing: selected ? const Icon(Icons.check, color: Colors.red) : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedReason = reason;
+                          _reasonController.text = reason;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Hesabı Banla')),
+      appBar: AppBar(title: const Text('Ban Account')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Ban Nedeni'),
-                items: _reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                onChanged: (v) => _reasonController.text = v ?? '',
-                validator: (v) => (v == null || v.isEmpty) ? 'Lütfen bir neden seçin' : null,
+              TextFormField(
+                controller: _reasonController,
+                readOnly: true,
+                decoration: const InputDecoration(labelText: 'Ban Reason', suffixIcon: Icon(Icons.arrow_drop_down)),
+                onTap: _showReasonSheet,
+                validator: (v) => (v == null || v.isEmpty) ? 'Please select a reason' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _detailsController,
-                decoration: const InputDecoration(labelText: 'Ayrıntılar (isteğe bağlı)'),
+                decoration: const InputDecoration(labelText: 'Details (optional)'),
                 minLines: 2,
                 maxLines: 5,
               ),
@@ -80,7 +136,7 @@ class _BanUserScreenState extends State<BanUserScreen> {
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48), backgroundColor: Colors.red),
-                  child: _isSubmitting ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Text('Banla', style: TextStyle(color: Colors.white)),
+                  child: _isSubmitting ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Text('Ban', style: TextStyle(color: Colors.white)),
                 ),
               )
             ],
@@ -90,4 +146,3 @@ class _BanUserScreenState extends State<BanUserScreen> {
     );
   }
 }
-

@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/data/lesson_data.dart';
 import 'package:lingua_chat/models/lesson_model.dart';
 import 'package:lingua_chat/navigation/lesson_router.dart';
+import 'package:lingua_chat/services/grammar_progress_service.dart';
 
 // --- GRAMER SEKMESİ ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
 class GrammarTab extends StatefulWidget {
-  const GrammarTab({super.key});
+  const GrammarTab({super.key, this.replayTrigger = 0});
+  final int replayTrigger; // dışarıdan tetikleyici
 
   @override
   State<GrammarTab> createState() => _GrammarTabState();
@@ -58,6 +60,14 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
   void dispose() {
     _entryAnimationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant GrammarTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.replayTrigger != widget.replayTrigger) {
+      _entryAnimationController.forward(from: 0);
+    }
   }
 
   // Patika düğümlerinin pozisyonlarını hesaplayan yardımcı fonksiyon
@@ -238,8 +248,8 @@ class _LevelPathNodeState extends State<_LevelPathNode>
                         if (!widget.isLocked)
                           BoxShadow(
                             color: isCompleted
-                                ? Colors.amber.withOpacity(0.7)
-                                : displayColor.withOpacity(0.5),
+                                ? Colors.amber.withValues(alpha: 0.7)
+                                : displayColor.withValues(alpha: 0.5),
                             blurRadius: isCompleted ? 30 : 20,
                             spreadRadius: isCompleted ? 5 : 2,
                           ),
@@ -266,12 +276,12 @@ class _LevelPathNodeState extends State<_LevelPathNode>
                         end: Alignment.bottomRight,
                       ),
                       border: Border.all(
-                          color: Colors.white.withOpacity(0.2)),
+                          color: Colors.white.withValues(alpha: 0.2)),
                     ),
                     child: Center(
                       child: widget.isLocked
                           ? Icon(Icons.lock,
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           size: 32)
                           : Text(
                         widget.level,
@@ -333,7 +343,7 @@ class _CosmicPathPainter extends CustomPainter {
     final Paint basePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
-      ..color = Colors.white.withOpacity(0.2);
+      ..color = Colors.white.withValues(alpha: 0.2);
     canvas.drawPath(path, basePaint);
 
     // OPTİMİZASYON: Sadece progress 0'dan büyükse çizim yap.
@@ -348,7 +358,7 @@ class _CosmicPathPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8.0
         ..shader = LinearGradient(
-            colors: levelColors.map((c) => c.withOpacity(0.5)).toList())
+            colors: levelColors.map((c) => c.withValues(alpha: 0.5)).toList())
             .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
@@ -370,76 +380,308 @@ class _CosmicPathPainter extends CustomPainter {
 }
 
 // --- GRAMER SEVİYE DETAY SAYFASI (DEĞİŞİKLİK YOK) ---
-class GrammarLevelScreen extends StatelessWidget {
+class GrammarLevelScreen extends StatefulWidget {
   final String level;
   final List<Lesson> lessons;
   final MaterialColor color;
+  const GrammarLevelScreen({super.key, required this.level, required this.lessons, required this.color});
+  @override
+  State<GrammarLevelScreen> createState() => _GrammarLevelScreenState();
+}
 
-  const GrammarLevelScreen({
-    super.key,
-    required this.level,
-    required this.lessons,
-    required this.color,
-  });
+class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
+  Set<String> _completed = {};
+  double _progress = 0;
+  bool _loading = true;
+
+  Future<void> _loadProgress() async {
+    final completed = await GrammarProgressService.instance.getCompleted();
+    final ids = widget.lessons.map((l) => l.contentPath);
+    final progress = await GrammarProgressService.instance.levelProgress(widget.level, ids);
+    if (mounted) {
+      setState(() { _completed = completed; _progress = progress; _loading = false; });
+    }
+  }
+
+  @override
+  void initState() { super.initState(); _loadProgress(); }
+
+  Future<void> _openLesson(Lesson lesson) async {
+    await LessonRouter.navigateToLesson(context, lesson.contentPath, lesson.title);
+    await _loadProgress();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final Set<String> completedLessons = {'Present Continuous'};
+    final base = widget.color;
+    final theme = Theme.of(context);
+    final progressPct = (_progress * 100).round();
     return Scaffold(
       appBar: AppBar(
-        title: Text('$level Grammar Topics'),
-        backgroundColor: color.shade400,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: Text('${widget.level} Grammar Topics'),
+        backgroundColor: base.shade500,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: lessons.length,
-        itemBuilder: (context, index) {
-          final lesson = lessons[index];
-          final isCompleted = completedLessons.contains(lesson.title);
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-            elevation: 2,
-            shadowColor: Colors.black.withAlpha(26),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: isCompleted
-                    ? color.withAlpha(230)
-                    : Colors.grey.shade200,
-                child: Icon(
-                  isCompleted ? Icons.check : lesson.icon,
-                  color:
-                  isCompleted ? Colors.white : lesson.color,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          minHeight: 10,
+                          value: _loading ? 0 : _progress,
+                          backgroundColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                          valueColor: AlwaysStoppedAnimation(base.shade700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      child: Text(
+                        _loading ? '...' : '$progressPct%',
+                        key: ValueKey(progressPct),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
                 ),
-                foregroundColor: Colors.white,
-              ),
-              title: Text(
-                lesson.title,
-                style: TextStyle(
-                  decoration: isCompleted
-                      ? TextDecoration.lineThrough
-                      : TextDecoration.none,
-                  color: isCompleted
-                      ? Colors.grey.shade600
-                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87),
-                  fontWeight: isCompleted
-                      ? FontWeight.normal
-                      : FontWeight.w600,
+                const SizedBox(height: 6),
+                Text(
+                  _loading ? 'Loading progress...' : '${_completed.length}/${widget.lessons.length} topics completed',
+                  style: theme.textTheme.bodySmall,
                 ),
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios,
-                  size: 16, color: Colors.grey),
-              onTap: () {
-                LessonRouter.navigateToLesson(
-                    context, lesson.contentPath, lesson.title);
+              ],
+            ),
+          ),
+          const Divider(height: 24, thickness: 0.6),
+          Expanded(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              itemCount: widget.lessons.length,
+              itemBuilder: (context, index) {
+                final lesson = widget.lessons[index];
+                final isCompleted = _completed.contains(lesson.contentPath);
+                return _LessonTopicTile(
+                  lesson: lesson,
+                  color: widget.color,
+                  isCompleted: isCompleted,
+                  isNew: false,
+                  onTap: () => _openLesson(lesson),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 }
+
+class _BlurCircle extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _BlurCircle({required this.color, required this.size});
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LessonTopicTile extends StatelessWidget {
+  final Lesson lesson;
+  final MaterialColor color;
+  final bool isCompleted;
+  final bool isNew;
+  final VoidCallback onTap;
+  const _LessonTopicTile({
+    required this.lesson,
+    required this.color,
+    required this.isCompleted,
+    required this.isNew,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final bg = dark
+        ? Color.lerp(Colors.grey.shade900, color.shade800, 0.15)!
+        : Color.lerp(Colors.white, color.shade50, 0.7)!;
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [bg, bg.withValues(alpha: 0.85)],
+    );
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: color.shade900.withValues(alpha: dark ? 0.15 : 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          )
+        ],
+        border: Border.all(
+          color: isCompleted
+              ? color.shade400.withValues(alpha: 0.6)
+              : color.shade200.withValues(alpha: dark ? 0.4 : 0.7),
+          width: 1.1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: isCompleted
+                        ? [color.shade600, color.shade800]
+                        : [color.shade300, color.shade600],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.shade900.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(
+                    isCompleted ? Icons.check_rounded : lesson.icon,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            lesson.title,
+                            style: TextStyle(
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w600,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              color: isCompleted
+                                  ? theme.colorScheme.onSurface.withValues(alpha: 0.55)
+                                  : theme.colorScheme.onSurface.withValues(alpha: 0.9),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: -4,
+                      children: [
+                        if (isCompleted)
+                          _StatusChip(
+                            label: 'Completed',
+                            color: color.shade600,
+                            icon: Icons.verified_rounded,
+                          )
+                        else ...[
+                          _StatusChip(
+                            label: 'Topic',
+                            color: color.shade300,
+                            icon: Icons.menu_book_outlined,
+                          )
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData icon;
+  const _StatusChip({required this.label, required this.color, required this.icon});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

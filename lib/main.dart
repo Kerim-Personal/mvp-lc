@@ -21,6 +21,14 @@ import 'package:lingua_chat/screens/profile_completion_screen.dart';
 import 'dart:async';
 import 'package:lingua_chat/screens/verification_screen.dart';
 import 'package:lingua_chat/services/theme_service.dart';
+import 'package:lingua_chat/services/notification_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:lingua_chat/screens/store_screen.dart';
+import 'package:lingua_chat/screens/practice_listening_screen.dart';
+import 'package:lingua_chat/screens/practice_reading_screen.dart';
+import 'package:lingua_chat/screens/practice_speaking_screen.dart';
+import 'package:lingua_chat/screens/practice_writing_screen.dart';
+import 'package:lingua_chat/screens/profile_screen.dart';
 
 // YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
 final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
@@ -30,6 +38,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await ThemeService.instance.init(); // Tema tercihlerini yükle
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
   runApp(const MyApp());
@@ -39,15 +48,15 @@ void main() async {
 
 Future<void> _postAppInit() async {
   try {
-    // 5 sn timeout ile toplu init
     await Future.wait([
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
-      // Türkçe tarih formatı yerine sadece İngilizce
       initializeDateFormatting('en_US', null)
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
       AudioService.instance.init()
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
+      NotificationService.instance.init()
+          .timeout(const Duration(seconds: 8), onTimeout: () => null),
     ]);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -67,7 +76,6 @@ class MyApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: ThemeService.instance,
       builder: (context, _) {
-        // Tema parlaklığını hesapla (system seçiliyse cihaz parlaklığına bak)
         final mode = ThemeService.instance.themeMode;
         final platformBrightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
         final brightness = switch (mode) {
@@ -76,26 +84,19 @@ class MyApp extends StatelessWidget {
           ThemeMode.system => platformBrightness,
         };
         final isDark = brightness == Brightness.dark;
-        // Frame sonrası system UI rengini güncelle (tekrar build tetiklemez)
+        // Parlaklık değişmediği sürece system UI güncellemeyelim
+        // static değişken ile önceki durum cache'lenir
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-            systemNavigationBarColor: (isDark
-                    ? ThemeService.instance.darkTheme.scaffoldBackgroundColor
-                    : ThemeService.instance.lightTheme.scaffoldBackgroundColor)
-                .withOpacity(1),
-            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-            systemNavigationBarDividerColor: Colors.transparent,
-          ));
+          // system ui sync yalnızca değişimde _SystemUiSynchronizer tarafından yapılır
         });
+        _SystemUiSynchronizer.update(isDark);
         return MaterialApp(
           title: 'LinguaChat',
           debugShowCheckedModeBanner: false,
+          navigatorKey: notificationNavigatorKey,
           theme: ThemeService.instance.lightTheme,
-            darkTheme: ThemeService.instance.darkTheme,
-            themeMode: ThemeService.instance.themeMode,
+          darkTheme: ThemeService.instance.darkTheme,
+          themeMode: ThemeService.instance.themeMode,
           localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -108,11 +109,40 @@ class MyApp extends StatelessWidget {
           routes: {
             '/help': (_) => HelpAndSupportScreen(),
             '/support': (_) => const SupportRequestScreen(),
+            '/store': (_) => const StoreScreen(),
+            '/practice-listening': (_) => const PracticeListeningScreen(),
+            '/practice-reading': (_) => const PracticeReadingScreen(),
+            '/practice-speaking': (_) => const PracticeSpeakingScreen(),
+            '/practice-writing': (_) => const PracticeWritingScreen(),
+            '/profile': (_) {
+              final uid = FirebaseAuth.instance.currentUser?.uid;
+              if (uid == null) return const LoginScreen();
+              return ProfileScreen(userId: uid);
+            },
           },
           home: const AuthWrapper(),
         );
       },
     );
+  }
+}
+
+class _SystemUiSynchronizer {
+  static bool? _lastIsDark;
+  static void update(bool isDark) {
+    if (_lastIsDark == isDark) return; // sadece değişince uygula
+    _lastIsDark = isDark;
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: (isDark
+              ? ThemeService.instance.darkTheme.scaffoldBackgroundColor
+              : ThemeService.instance.lightTheme.scaffoldBackgroundColor)
+          .withValues(alpha: 1),
+      systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+    ));
   }
 }
 
@@ -125,30 +155,26 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          // Önceden spinner vardı: artık nötr boş şeffaf placeholder.
+          return const Scaffold(body: SizedBox());
         }
         if (snapshot.hasData && snapshot.data != null) {
           final user = snapshot.data!;
           final uid = user.uid;
-          // Kullanıcı belge akışını dinleyelim; doc henüz yoksa bekleyelim
           return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>> (
             stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
             builder: (context, userSnap) {
               if (userSnap.connectionState == ConnectionState.waiting) {
-                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                return const Scaffold(body: SizedBox());
               }
               if (!userSnap.hasData || !userSnap.data!.exists) {
-                // Doc henüz oluşmamış olabilir (özellikle Google giriş sonrası). Biraz bekleyelim.
-                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                return const Scaffold(body: SizedBox());
               }
               final data = userSnap.data!.data();
               if (data != null) {
                 if ((data['status'] as String?) == 'banned') {
                   return const BannedScreen();
                 }
-                // E-posta doğrulanmadıysa doğrulama ekranına yönlendir
                 if (!(user.emailVerified)) {
                   return VerificationScreen(email: user.email ?? '');
                 }

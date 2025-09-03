@@ -35,13 +35,13 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
 
   // Eksik olan rapor nedenleri listesi geri eklendi
   final List<String> _reportReasons = const [
-    'Spam veya aldatıcı içerik',
-    'Taciz veya zorbalık',
-    'Nefret söylemi veya sembolleri',
-    'Yanlış bilgi',
-    'Şiddet veya tehlikeli organizasyonlar',
-    'Uygunsuz içerik',
-    'Diğer',
+    'Spam or misleading content',
+    'Harassment or bullying',
+    'Hate speech or symbols',
+    'Misinformation',
+    'Violence or dangerous organizations',
+    'Inappropriate content',
+    'Other',
   ];
 
   @override
@@ -68,7 +68,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
   Future<void> _submitReport() async {
     if (_alreadyReported) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bu içeriği zaten raporladınız.')),
+        const SnackBar(content: Text('You have already reported this content.')),
       );
       return;
     }
@@ -79,7 +79,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
     if (_currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Rapor göndermek için giriş yapmalısınız.'),
+            content: Text('You must be signed in to submit a report.'),
             backgroundColor: Colors.red),
       );
       return;
@@ -94,7 +94,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
         if (existing.exists) {
           setState(() => _alreadyReported = true);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bu içeriği zaten raporladınız.')),
+            const SnackBar(content: Text('You have already reported this content.')),
           );
           return;
         }
@@ -140,7 +140,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Raporunuz incelenmek üzere gönderildi.'),
+              content: Text('Your report has been submitted for review.'),
               backgroundColor: Colors.green),
         );
         Navigator.pop(context);
@@ -149,7 +149,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Rapor gönderilirken bir hata oluştu: $e'),
+              content: Text('An error occurred while submitting the report: $e'),
               backgroundColor: Colors.red),
         );
       }
@@ -175,7 +175,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'Bildirme Nedenini Seçin',
+                'Select a Report Reason',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
@@ -215,12 +215,16 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textMuted = theme.colorScheme.onSurface.withOpacity(0.65);
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      // backgroundColor sabit açık renkten tema varsayılana bırakıldı
+      // backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Kullanıcıyı Bildir'),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        title: const Text('Report User'),
+        // backgroundColor ve foregroundColor sabit zorlamalardan arındırıldı, tema kendi uygular
+        // backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
+        // foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 1,
       ),
       body: Form(
@@ -236,34 +240,30 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: .15),
-                        border: Border.all(color: Colors.orangeAccent.withValues(alpha: .6)),
+                        color: Colors.orange.withOpacity(.12),
+                        border: Border.all(color: Colors.orangeAccent.withOpacity(.5)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Row(
                         children: [
                           Icon(Icons.info_outline, color: Colors.orangeAccent),
                           SizedBox(width: 8),
-                          Expanded(child: Text('Bu içeriği zaten raporladınız. Tekrar göndermenize gerek yok.')),
+                          Expanded(child: Text('You already reported this content. No need to submit again.')),
                         ],
                       ),
                     ),
-                  const Icon(Icons.report_problem_outlined,
-                      color: Colors.red, size: 60),
+                  Icon(Icons.report_problem_outlined, color: theme.colorScheme.error, size: 60),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Topluluk Kuralları İhlali Bildir',
+                  Text(
+                    'Report Community Guidelines Violation',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Lütfen bildirme nedeninizi seçin. Bu işlem geri alınamaz.',
+                    'Please choose the reason. This action cannot be undone.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: textMuted),
                   ),
                   const SizedBox(height: 32),
                   TextFormField(
@@ -271,22 +271,18 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                     readOnly: true,
                     onTap: _showReportReasonsModal,
                     decoration: InputDecoration(
-                      labelText: 'Bildirme Nedeni',
+                      labelText: 'Report Reason',
                       suffixIcon: const Icon(Icons.arrow_drop_down),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? 'Lütfen bir neden seçin.'
-                        : null,
+                    validator: (value) => (value == null || value.isEmpty) ? 'Please select a reason.' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _detailsController,
                     decoration: InputDecoration(
-                      labelText: 'Ek Açıklama (İsteğe Bağlı)',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                      labelText: 'Additional Details (Optional)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ],
@@ -297,28 +293,25 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
               child: ElevatedButton(
                 onPressed: (_isSubmitting || _alreadyReported) ? null : _submitReport,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
                   minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 5,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 3,
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
-                )
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
                     : const Text(
-                  'Raporu Gönder',
-                  style:
-                  TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                        'Submit Report',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],

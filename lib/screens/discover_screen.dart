@@ -6,7 +6,8 @@ import 'package:lingua_chat/widgets/discover/vocabulary_tab.dart';
 import '../widgets/discover/practice_tab.dart';
 
 class DiscoverScreen extends StatefulWidget {
-  const DiscoverScreen({super.key});
+  const DiscoverScreen({super.key, this.activationTrigger = 0});
+  final int activationTrigger; // RootScreen sekmeye her dönüşte artırır
 
   @override
   State<DiscoverScreen> createState() => _DiscoverScreenState();
@@ -14,6 +15,28 @@ class DiscoverScreen extends StatefulWidget {
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
   int _selectedIndex = 0; // 0: Grammar, 1: Vocabulary, 2: Practice
+  int _grammarReplay = 0;
+
+  @override
+  void didUpdateWidget(covariant DiscoverScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activationTrigger != widget.activationTrigger) {
+      if (_selectedIndex == 0) {
+        setState(() => _grammarReplay++);
+      }
+    }
+  }
+
+  void _selectTab(int idx) {
+    if (_selectedIndex == idx) {
+      if (idx == 0) setState(() => _grammarReplay++); // aynı sekmeye tekrar basınca replay
+      return;
+    }
+    setState(() {
+      _selectedIndex = idx;
+      if (idx == 0) _grammarReplay++; // Grammar'a geçerken tetikle
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +46,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Custom Tab Selector
             _buildTabSelector(),
-            const SizedBox(height: 16),
-
-            // Tab Content (Grammar, Vocabulary, Practice)
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
@@ -45,7 +64,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   );
                 },
                 child: _selectedIndex == 0
-                    ? GrammarTab(key: const ValueKey('grammar'))
+                    ? GrammarTab(key: ValueKey('grammar_$_grammarReplay'), replayTrigger: _grammarReplay)
                     : _selectedIndex == 1
                         ? VocabularyTab(key: const ValueKey('vocabulary'))
                         : PracticeTab(key: const ValueKey('practice')),
@@ -59,19 +78,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   Widget _buildTabSelector() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20), // Community ile hizalı
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          // SOLVED: Replaced withOpacity to withAlpha to get rid of the warning. (0.05 * 255 ~= 13)
           color: Colors.black.withAlpha(13),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20), // Community: 20
         ),
         child: Row(
           children: [
             _buildTabItem(title: 'Grammar', icon: Icons.spellcheck, index: 0),
-            _buildTabItem(
-                title: 'Vocabulary', icon: Icons.style_outlined, index: 1),
+            _buildTabItem(title: 'Vocabulary', icon: Icons.style_outlined, index: 1),
             _buildTabItem(title: 'Practice', icon: Icons.quiz_outlined, index: 2),
           ],
         ),
@@ -79,23 +96,21 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     );
   }
 
-  Widget _buildTabItem(
-      {required String title, required IconData icon, required int index}) {
+  Widget _buildTabItem({required String title, required IconData icon, required int index}) {
     final bool isSelected = _selectedIndex == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedIndex = index),
+        onTap: () => _selectTab(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+            curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 12), // Community ile uyumlu
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16), // Community: 16
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      // SOLVED: Replaced withOpacity to withAlpha to get rid of the warning. (0.1 * 255 ~= 26)
                       color: Colors.black.withAlpha(26),
                       blurRadius: 10,
                       offset: const Offset(0, 4),

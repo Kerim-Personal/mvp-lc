@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (_currentUser != null) {
       _userStream = FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser!.uid)
+          .doc(_currentUser.uid)
           .snapshots();
     }
 
@@ -132,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _matchListener?.cancel();
     _matchListener = FirebaseFirestore.instance
         .collection('waiting_pool')
-        .doc(_currentUser!.uid)
+        .doc(_currentUser.uid)
         .snapshots()
         .listen((snapshot) async {
       if (mounted && snapshot.exists && snapshot.data()?['matchedChatRoomId'] != null) {
@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     setState(() => _isSearching = true);
     widget.onSearchingChanged?.call(true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final myId = _currentUser!.uid;
+    final myId = _currentUser.uid;
 
     try {
       final myUserDoc =
@@ -276,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (_currentUser != null) {
       FirebaseFirestore.instance
           .collection('waiting_pool')
-          .doc(_currentUser!.uid)
+          .doc(_currentUser.uid)
           .delete()
           .catchError((_) {});
     }
@@ -383,63 +383,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHomeUI() {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 400),
-      opacity: _isSearching ? 0 : 1,
-      child: IgnorePointer(
-        ignoring: _isSearching,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: _buildAnimatedUI(
-                  interval: const Interval(0.0, 0.6), // Daha erken başlasın
-                  child: _buildHeaderSection(),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: _buildAnimatedUI(
-                  interval: const Interval(0.1, 0.7), // Gecikme azaltıldı
-                  child: _buildStatsSection(),
-                ),
-              ),
-              const SizedBox(height: 24),
-              _buildAnimatedUI(
-                interval: const Interval(0.2, 0.8), // Çok geç görünmesin
-                child: PartnerFinderSection(
-                  onFindPartner: _findPracticePartner,
-                  onShowGenderFilter: _showGenderFilter,
-                  onShowLevelFilter: _showLevelGroupFilter,
-                  selectedGenderFilter: _selectedGenderFilter,
-                  selectedLevelGroupFilter: _selectedLevelGroupFilter,
-                  pulseAnimationController: _pulseAnimationController,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Listener(
-                onPointerDown: (_) => _cardScrollTimer?.cancel(),
-                onPointerUp: (_) => _startCardScrollTimer(),
-                child: HomeCardsSection(
-                  pageController: _pageController,
-                  pageOffset: _pageOffset,
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderSection() {
+  Widget _buildHeaderSection(DocumentSnapshot<Map<String, dynamic>>? snap) {
     if (_currentUser == null) {
       return HomeHeader(
           userName: 'Traveler',
@@ -449,66 +393,109 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           currentUser: _currentUser,
           role: 'user');
     }
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _userStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data?.data() == null) {
-          return HomeHeader(
-              userName: 'Loading...',
-              avatarUrl: null,
-              streak: 0,
-              isPremium: false,
-              currentUser: _currentUser,
-              role: 'user');
-        }
-        var userData = snapshot.data!.data()!;
-        final userName = userData['displayName'] ?? 'Traveler';
-        final avatarUrl = userData['avatarUrl'] as String?;
-        final isPremium = userData['isPremium'] as bool? ?? false;
-        final streak = userData['streak'] as int? ?? 0;
-        final role = (userData['role'] as String?) ?? 'user';
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _isProUser != isPremium) {
-            setState(() {
-              _isProUser = isPremium;
-            });
-          }
-        });
-
-        return HomeHeader(
-          userName: userName,
-          avatarUrl: avatarUrl,
-          isPremium: isPremium,
-          streak: streak,
+    if (snap == null || !snap.exists || snap.data() == null) {
+      return HomeHeader(
+          userName: 'Loading...',
+          avatarUrl: null,
+          streak: 0,
+          isPremium: false,
           currentUser: _currentUser,
-          role: role,
-        );
-      },
+          role: 'user');
+    }
+    final userData = snap.data()!;
+    final userName = userData['displayName'] ?? 'Traveler';
+    final avatarUrl = userData['avatarUrl'] as String?;
+    final isPremium = userData['isPremium'] as bool? ?? false;
+    final streak = userData['streak'] as int? ?? 0;
+    final role = (userData['role'] as String?) ?? 'user';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isProUser != isPremium) {
+        setState(() => _isProUser = isPremium);
+      }
+    });
+
+    return HomeHeader(
+      userName: userName,
+      avatarUrl: avatarUrl,
+      isPremium: isPremium,
+      streak: streak,
+      currentUser: _currentUser,
+      role: role,
     );
   }
 
-  Widget _buildStatsSection() {
+  Widget _buildStatsSection(DocumentSnapshot<Map<String, dynamic>>? snap) {
     if (_currentUser == null) {
       return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
     }
-    return StreamBuilder<DocumentSnapshot>(
+    if (snap == null || !snap.exists || snap.data() == null) {
+      return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
+    }
+    final data = snap.data()!;
+    final int streak = data['streak'] ?? 0;
+    final int totalTime = data['totalPracticeTime'] ?? 0;
+    final int partnerCount = data['partnerCount'] ?? 0;
+    return StatsRow(streak: streak, totalTime: totalTime, partnerCount: partnerCount);
+  }
+
+  Widget _buildHomeUI() {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _userStream,
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data?.data() == null) {
-          return const StatsRow(streak: 0, totalTime: 0, partnerCount: 0);
-        }
-
-        var userData = snapshot.data!.data() as Map<String, dynamic>;
-
-        final int streak = userData['streak'] ?? 0;
-        final int totalTime = userData['totalPracticeTime'] ?? 0;
-        final int partnerCount = userData['partnerCount'] ?? 0;
-
-        return StatsRow(
-          streak: streak,
-          totalTime: totalTime,
-          partnerCount: partnerCount,
+        final userSnap = snapshot.data;
+        return AnimatedOpacity(
+          duration: const Duration(milliseconds: 400),
+            opacity: _isSearching ? 0 : 1,
+          child: IgnorePointer(
+            ignoring: _isSearching,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: _buildAnimatedUI(
+                      interval: const Interval(0.0, 0.6),
+                      child: _buildHeaderSection(userSnap),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: _buildAnimatedUI(
+                      interval: const Interval(0.1, 0.7),
+                      child: _buildStatsSection(userSnap),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildAnimatedUI(
+                    interval: const Interval(0.2, 0.8),
+                    child: PartnerFinderSection(
+                      onFindPartner: _findPracticePartner,
+                      onShowGenderFilter: _showGenderFilter,
+                      onShowLevelFilter: _showLevelGroupFilter,
+                      selectedGenderFilter: _selectedGenderFilter,
+                      selectedLevelGroupFilter: _selectedLevelGroupFilter,
+                      pulseAnimationController: _pulseAnimationController,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Listener(
+                    onPointerDown: (_) => _cardScrollTimer?.cancel(),
+                    onPointerUp: (_) => _startCardScrollTimer(),
+                    child: HomeCardsSection(
+                      pageController: _pageController,
+                      pageOffset: _pageOffset,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );

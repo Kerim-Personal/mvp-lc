@@ -21,9 +21,11 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen>
   late final AnimationController _controller;
   late FlutterTts flutterTts;
 
-  String? _nativeLangCode; // kullanıcı anadil kodu önbellek
+  String? _nativeLangCode; // native language code cache
+  // Simple in-memory translation cache: key => "langCode::source"
+  final Map<String, String> _translationCache = {};
 
-  // Kullanıcının anadil kodunu Firestore'dan al ve önbelleğe koy
+  // Get the user's native language code from Firestore and cache it
   Future<String> _getTargetLangCode() async {
     if (_nativeLangCode != null) return _nativeLangCode!;
     try {
@@ -41,22 +43,33 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen>
 
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
+    final cacheKey = '$target::$text';
+    // Return from cache if available
+    if (_translationCache.containsKey(cacheKey)) return _translationCache[cacheKey]!;
     try {
       await TranslationService.instance.ensureReady(target);
     } catch (_) {
-      // model indirilemese de translate dene
+      // ignore ensureReady failures, attempt translation anyway
     }
-    return await TranslationService.instance.translateFromEnglish(text, target);
+    try {
+      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      _translationCache[cacheKey] = translated;
+      return translated;
+    } catch (_) {
+      // Fallback to original text if translation fails
+      return text;
+    }
   }
 
   Future<void> _showTranslateSheet(String source) async {
     if (!mounted) return;
+    // Create the future ONCE; prevents re-triggering translation on rebuilds/gestures
+    final translationFuture = _translateToNative(source);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (ctx) {
-        final future = _translateToNative(source);
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.only(
@@ -72,16 +85,16 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen>
                     children: const [
                       Icon(Icons.translate, color: Colors.teal),
                       SizedBox(width: 8),
-                      Text('Çeviri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Translation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text('Orijinal', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text('Original', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   Text(source, style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
-                  const Text('Çeviri', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text('Translation', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   FutureBuilder<String>(
-                    future: future,
+                    future: translationFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Padding(
@@ -90,7 +103,7 @@ class _VerbToBeLessonScreenState extends State<VerbToBeLessonScreen>
                             children: const [
                               SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
-                              Text('Çevriliyor...'),
+                              Text('Translating...'),
                             ],
                           ),
                         );
@@ -711,7 +724,7 @@ class _SpeechHintBox extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Başlık ve satırlara dokunarak dinleyebilir, basılı tutarak çevirisini görebilirsiniz.',
+                'You can listen by tapping on the titles and lines, and see the translation by pressing and holding.',
                 style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : null),
               ),
             ),

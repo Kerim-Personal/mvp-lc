@@ -116,6 +116,15 @@ class _CommunityScreenState extends State<CommunityScreen>
   List<DocumentSnapshot>? _feedPostsCache;
   List<DocumentSnapshot>? _roomsDocsCache;
 
+  // Kullanıcı rolü ve yetkileri için değişkenler
+  bool _isPrivileged = false; // admin veya moderator mu
+  bool _canBanOthers = false; // ban yetkisi
+  bool _privilegeResolved = false;
+
+  // Kullanıcı adı ve avatarı için cache
+  String? _currentUserName;
+  String? _currentUserAvatar;
+
   @override
   void initState() {
     super.initState();
@@ -124,6 +133,48 @@ class _CommunityScreenState extends State<CommunityScreen>
     _feedFuture = _fetchFeedData();
     _roomsFuture = _fetchRoomsData();
     _loadLeaderboard(initial: true);
+    _resolvePrivilege();
+    _prefetchCurrentUserMeta();
+  }
+
+  Future<void> _prefetchCurrentUserMeta() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!snap.exists) return;
+      final data = snap.data() ?? {};
+      if (!mounted) return;
+      setState(() {
+        _currentUserName = (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown User';
+        _currentUserAvatar = (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : '';
+      });
+    } catch (_) {/* sessiz */}
+  }
+
+  Future<void> _resolvePrivilege() async {
+    try {
+      final roleSnap = await FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser?.uid).get();
+      String? role;
+      if (roleSnap.exists) {
+        role = (roleSnap.data()?['role'] as String?);
+      }
+      final isPriv = role == 'admin' || role == 'moderator';
+      bool canBan = false;
+      if (isPriv) {
+        // basit politika: admin her kesi banlayabilir, moderator admin dışı
+        canBan = true;
+      }
+      if (!mounted) return;
+      setState(() {
+        _isPrivileged = isPriv;
+        _canBanOthers = canBan;
+        _privilegeResolved = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() { _privilegeResolved = true; });
+    }
   }
 
   Future<void> _loadLeaderboard({bool force = false, bool initial = false}) async {
@@ -184,85 +235,22 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   void _showCreatePostModal(BuildContext context) {
-    final TextEditingController postController = TextEditingController();
-    final currentUser = FirebaseAuth.instance.currentUser;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              top: 20,
-              left: 20,
-              right: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Create New Post',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: postController,
-                autofocus: true,
-                maxLines: 5,
-                maxLength: 280,
-                decoration: InputDecoration(
-                  hintText: 'What are you thinking?',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () async {
-                  if (postController.text.trim().isEmpty ||
-                      currentUser == null) {
-                    return;
-                  }
-
-                  final userDoc = await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(currentUser.uid)
-                      .get();
-                  if (!mounted) return; // widget dispose edilmişse devam etme
-                  final userData = userDoc.data();
-
-                  await FirebaseFirestore.instance.collection('posts').add({
-                    'postText': postController.text.trim(),
-                    'userId': currentUser.uid,
-                    'userName':
-                    userData?['displayName'] ?? 'Unknown User',
-                    'userAvatarUrl': userData?['avatarUrl'] ?? '',
-                    'timestamp': FieldValue.serverTimestamp(),
-                    'likes': [],
-                    'commentCount': 0,
-                  });
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                  _refreshFeed();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Post'),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
+      builder: (context) => _CreatePostSheet(
+        cachedName: _currentUserName,
+        cachedAvatar: _currentUserAvatar,
+        onPosted: () {
+          Navigator.pop(context);
+          _refreshFeed();
+        },
+      ),
     );
   }
 
@@ -482,6 +470,9 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Widget _buildFeedListFromDocs(List<DocumentSnapshot> posts) {
+    if (!_privilegeResolved) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final me = FirebaseAuth.instance.currentUser;
     if (me == null) {
       return RefreshIndicator(
@@ -491,13 +482,12 @@ class _CommunityScreenState extends State<CommunityScreen>
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = FeedPost.fromFirestore(posts[index]);
-            return FeedPostCard(post: post);
+            return FeedPostCard(post: post, isPrivileged: _isPrivileged, canBanAccount: _canBanOthers);
           },
         ),
       );
     }
 
-    // Alt koleksiyon: users/{uid}/blockedUsers
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('users')
@@ -508,8 +498,8 @@ class _CommunityScreenState extends State<CommunityScreen>
         final blocked = (userSnap.data?.docs.map((d) => d.id).toList() ?? const <String>[]);
         final filtered = posts.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          final authorId = (data['userId'] as String?) ?? '';
-          return !blocked.contains(authorId);
+            final authorId = (data['userId'] as String?) ?? '';
+            return !blocked.contains(authorId);
         }).toList();
 
         if (filtered.isEmpty) {
@@ -525,7 +515,7 @@ class _CommunityScreenState extends State<CommunityScreen>
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final post = FeedPost.fromFirestore(filtered[index]);
-              return FeedPostCard(post: post);
+              return FeedPostCard(post: post, isPrivileged: _isPrivileged, canBanAccount: _canBanOthers);
             },
           ),
         );
@@ -599,6 +589,175 @@ class _CommunityScreenState extends State<CommunityScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreatePostSheet extends StatefulWidget {
+  final String? cachedName;
+  final String? cachedAvatar;
+  final VoidCallback onPosted;
+  const _CreatePostSheet({required this.cachedName, required this.cachedAvatar, required this.onPosted});
+
+  @override
+  State<_CreatePostSheet> createState() => _CreatePostSheetState();
+}
+
+class _CreatePostSheetState extends State<_CreatePostSheet> {
+  final TextEditingController _controller = TextEditingController();
+  final ValueNotifier<int> _length = ValueNotifier<int>(0);
+  bool _posting = false;
+  final int _maxLen = 280;
+  FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => _length.value = _controller.text.characters.length);
+    // Immediate focus (single combined animation with keyboard)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _length.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final text = _controller.text.trim();
+    if (text.isEmpty || _posting) return;
+    setState(() => _posting = true);
+    try {
+      // Mümkünse cache, yoksa minimal fetch
+      String userName = widget.cachedName ?? 'Unknown User';
+      String avatar = widget.cachedAvatar ?? '';
+      if (widget.cachedName == null) {
+        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final data = snap.data();
+        if (data != null) {
+          userName = (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : userName;
+          avatar = (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : avatar;
+        }
+      }
+      await FirebaseFirestore.instance.collection('posts').add({
+        'postText': text,
+        'userId': user.uid,
+        'userName': userName,
+        'userAvatarUrl': avatar,
+        'timestamp': FieldValue.serverTimestamp(),
+        'likes': [],
+        'commentCount': 0,
+      });
+      if (!mounted) return;
+      widget.onPosted();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create post: $e')),
+      );
+      setState(() => _posting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final viewInsets = MediaQuery.of(context).viewInsets; // keyboard inset
+    // Remove AnimatedPadding + heightFactor to prevent multi-phase vertical jumps.
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            // Cap max height so content feels like a sheet, but allow shrink when keyboard appears.
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: onSurface.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                Text('Create New Post', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                // Expanded only if remaining vertical space > threshold; else flexible scroll.
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: RepaintBoundary(
+                    child: SingleChildScrollView(
+                      // Ensures content scrollable when keyboard reduces space.
+                      padding: EdgeInsets.zero,
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        maxLines: null,
+                        minLines: 5,
+                        maxLength: _maxLen,
+                        keyboardType: TextInputType.multiline,
+                        decoration: InputDecoration(
+                          hintText: 'What are you thinking?',
+                          counterText: '',
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.all(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ValueListenableBuilder<int>(
+                      valueListenable: _length,
+                      builder: (context, len, _) {
+                        return Text('$len/$_maxLen', style: theme.textTheme.bodySmall);
+                      },
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: _posting ? null : () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: _posting ? null : _submit,
+                      child: _posting
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Post'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

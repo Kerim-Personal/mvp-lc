@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Public readable JSON (example), write disabled
+    match /questions.json {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Support namespace grouped for specificity ordering
+    match /support {
+      // Staff (admin / moderator) reply uploads first (so it is not shadowed by user folder rule)
+      match /staff_uploads/{path=**} {
+        allow write: if request.auth != null
+                      && request.resource != null
+                      && request.resource.size < 10 * 1024 * 1024
+                      && request.resource.contentType.matches('image/.*')
+                      && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin','moderator'];
+        allow read: if request.auth != null
+                     && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin','moderator'];
+      }
+      // User owned support attachments (images <10MB)
+      match /{userId}/{filePath=**} {
+        allow write: if request.auth != null
+                      && request.auth.uid == userId
+                      && request.resource != null
+                      && request.resource.size < 10 * 1024 * 1024
+                      && request.resource.contentType.matches('image/.*');
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Fallback deny for all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

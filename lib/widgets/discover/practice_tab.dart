@@ -33,32 +33,32 @@ class PracticeTab extends StatelessWidget {
   static final List<ModeData> practiceModes = [
     ModeData(
       title: 'Writing',
-      tagline: 'Düşün – Yaz – Parla',
-      description: 'Mini yazma görevleriyle ifade gücünü şımart.',
+      tagline: 'Think • Write • Shine',
+      description: 'Boost expression with mini writing tasks.',
       colors: const [Color(0xFFFF9A9E), Color(0xFFF76D84)],
       icon: Icons.edit_rounded,
       backgroundImage: 'assets/practice/writing_bg.jpg',
     ),
     ModeData(
       title: 'Reading',
-      tagline: 'Oku – Keşfet',
-      description: 'Tatlı kısa pasajlarla anlam avına çık.',
+      tagline: 'Read • Explore',
+      description: 'Short passages to build comprehension.',
       colors: const [Color(0xFFA18CD1), Color(0xFF915ADB)],
       icon: Icons.menu_book_rounded,
       backgroundImage: 'assets/practice/reading_bg.jpg',
     ),
     ModeData(
       title: 'Listening',
-      tagline: 'Dinle – Yakala',
-      description: 'Sevimli seslerle pratik yap, kulağın alışsın.',
+      tagline: 'Listen • Catch',
+      description: 'Friendly audio to train your ear.',
       colors: const [Color(0xFF2BC0E4), Color(0xFF84FAB0)],
       icon: Icons.headphones_rounded,
       backgroundImage: 'assets/practice/listening_bg.jpg',
     ),
     ModeData(
       title: 'Speaking',
-      tagline: 'Konuş – Akıcı Ol',
-      description: 'Sesli tekrarlarla konuşma pratiği.',
+      tagline: 'Speak • Be Fluent',
+      description: 'Voice repetitions to improve speaking.',
       colors: const [Color(0xFFFFCF71), Color(0xFF2376DD)],
       icon: Icons.mic_rounded,
       backgroundImage: 'assets/practice/speaking_bg.jpg',
@@ -159,89 +159,93 @@ class _PracticeModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => _open(context),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(compact ? 22 : 28),
-          boxShadow: [
-            BoxShadow(
-              color: data.colors.last.withValues(alpha: 0.38),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(compact ? 22 : 28),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                data.backgroundImage,
-                fit: BoxFit.cover,
-                errorBuilder: (ctx, err, stack) => Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: data.colors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-              ),
-              // Düzeltme: Linter kurallarına uymak için .withValues() kullanılıyor.
-              Container(color: Colors.black.withValues(alpha: 0.42)),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.30),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.40),
-                        ],
-                        stops: const [0, 0.5, 1],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(compact ? 16 : 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(compact ? 8 : 10),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.22),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                      ),
-                      child: Icon(data.icon, color: Colors.white, size: compact ? 22 : 28),
-                    ),
-                    SizedBox(height: compact ? 10 : 16),
-                    Text(
-                      data.title,
-                      style: TextStyle(
-                        fontSize: compact ? 20 : 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Spacer(),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.95), size: compact ? 22 : 24),
-                    ),
-                  ],
-                ),
+      child: Semantics(
+        button: true,
+        label: 'Open ${data.title} mode',
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(compact ? 22 : 28),
+            boxShadow: [
+              BoxShadow(
+                color: data.colors.last.withValues(alpha: 0.38),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(compact ? 22 : 28),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  data.backgroundImage,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stack) => Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: data.colors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+                // Düzeltme: Linter kurallarına uymak için .withValues() kullanılıyor.
+                Container(color: Colors.black.withValues(alpha: 0.42)),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.30),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.40),
+                          ],
+                          stops: const [0, 0.5, 1],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(compact ? 16 : 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(compact ? 8 : 10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.22),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                        ),
+                        child: Icon(data.icon, color: Colors.white, size: compact ? 22 : 28),
+                      ),
+                      SizedBox(height: compact ? 10 : 16),
+                      Text(
+                        data.title,
+                        style: TextStyle(
+                          fontSize: compact ? 20 : 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Spacer(),
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.95), size: compact ? 22 : 24),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

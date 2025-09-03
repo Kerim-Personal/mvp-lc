@@ -13,99 +13,60 @@ import 'package:lingua_chat/lessons/grammar/a1/can_for_ability_lesson.dart';
 import 'package:lingua_chat/lessons/grammar/a1/past_simple_to_be_lesson.dart';
 import 'package:lingua_chat/lessons/grammar/a1/past_simple_regular_verbs_lesson.dart';
 import 'package:lingua_chat/lessons/grammar/a1/question_words_lesson.dart'; // <-- YENİ: Bu satırı ekle
+import 'package:lingua_chat/widgets/grammar/grammar_lesson_wrapper.dart';
 
 class LessonRouter {
-  static void navigateToLesson(BuildContext context, String contentPath, String lessonTitle) {
+  static Future<void> navigateToLesson(BuildContext context, String contentPath, String lessonTitle) async {
+    Widget? screen;
     switch (contentPath) {
       case 'a1_verb_to_be':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const VerbToBeLessonScreen()),
-        );
+        screen = const VerbToBeLessonScreen();
         break;
-
       case 'a1_present_simple':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PresentSimpleLessonScreen()),
-        );
+        screen = const PresentSimpleLessonScreen();
         break;
-
       case 'a1_articles':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ArticlesLessonScreen()),
-        );
+        screen = const ArticlesLessonScreen();
         break;
-
       case 'a1_plural_nouns':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PluralNounsLessonScreen()),
-        );
+        screen = const PluralNounsLessonScreen();
         break;
-
       case 'a1_possessive_adjectives':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PossessiveAdjectivesLessonScreen()),
-        );
+        screen = const PossessiveAdjectivesLessonScreen();
         break;
-
       case 'a1_demonstratives':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const DemonstrativesLessonScreen()),
-        );
+        screen = const DemonstrativesLessonScreen();
         break;
-
       case 'a1_prepositions_place':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PrepositionsOfPlaceLessonScreen()),
-        );
+        screen = const PrepositionsOfPlaceLessonScreen();
         break;
-
       case 'a1_prepositions_time':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PrepositionsOfTimeLessonScreen()),
-        );
+        screen = const PrepositionsOfTimeLessonScreen();
         break;
-
       case 'a1_can_for_ability':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const CanForAbilityLessonScreen()),
-        );
+        screen = const CanForAbilityLessonScreen();
         break;
-
       case 'a1_past_simple_to_be':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PastSimpleToBeLessonScreen()),
-        );
+        screen = const PastSimpleToBeLessonScreen();
         break;
-
       case 'a1_past_simple_regular':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PastSimpleRegularVerbsLessonScreen()),
-        );
+        screen = const PastSimpleRegularVerbsLessonScreen();
         break;
-
-    // YENİ: Bu case bloğunu ekle
       case 'a1_question_words':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const QuestionWordsLessonScreen()),
-        );
+        screen = const QuestionWordsLessonScreen();
         break;
-
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$lessonTitle dersi yakında gelecek!')),
         );
+    }
+    if (screen != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GrammarLessonWrapper(contentPath: contentPath, child: screen!),
+        ),
+      );
     }
   }
 }

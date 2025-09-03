@@ -9,7 +9,9 @@ import 'package:lingua_chat/widgets/store_screen/premium_animated_background.dar
 import 'dart:math' as math;
 
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({super.key});
+  const StoreScreen({super.key, this.embedded = false, this.replayTrigger = 0});
+  final bool embedded;
+  final int replayTrigger; // sekme yeniden seçildiğinde artar
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
@@ -50,6 +52,17 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   @override
+  void didUpdateWidget(covariant StoreScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.replayTrigger != widget.replayTrigger) {
+      // Giriş animasyonunu tekrar oynat
+      if (mounted) {
+        _animationController.forward(from: 0);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _animationController.dispose();
     _confettiController.dispose();
@@ -61,6 +74,14 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final bool isPushedAsSeparatePage = Navigator.of(context).canPop();
+
+    // embedded tab modunda yalnızca içerik (arka plan RootScreen'de zaten var)
+    if (widget.embedded && !isPushedAsSeparatePage) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: _buildEmbeddedBody(),
+      );
+    }
 
     if (isPushedAsSeparatePage) {
       return Scaffold(
@@ -80,6 +101,21 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: _buildBodyWithBackground(),
+    );
+  }
+
+  Widget _buildEmbeddedBody() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return _buildNonPremiumContent();
+    }
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final bool isPremium = (data?['isPremium'] as bool?) ?? false;
+        return isPremium ? _buildPremiumContent() : _buildNonPremiumContent();
+      },
     );
   }
 
@@ -132,27 +168,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  // CHANGE: Listen to premium status and return the appropriate content.
-  Widget _buildStoreContent() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      // If not logged in, show the non-premium screen.
-      return _buildNonPremiumContent();
-    }
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final data = snapshot.data?.data();
-        final bool isPremium = (data?['isPremium'] as bool?) ?? false;
-        return isPremium ? _buildPremiumContent() : _buildNonPremiumContent();
-      },
-    );
-  }
-
   // The current store content (purchase screen) has been moved here.
   Widget _buildNonPremiumContent() {
     return SafeArea(
@@ -199,7 +214,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15.5,
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w400,
                       height: 1.4,
                     ),
@@ -270,7 +285,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.15),
+                      color: Colors.amber.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: Colors.amber.shade300, width: 1.2),
                     ),
@@ -296,7 +311,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   width: double.infinity,
                   borderRadius: 28,
                   blur: 18,
-                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.4),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.4),
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -324,7 +339,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.orange.shade200.withOpacity(0.4),
+                                    color: Colors.orange.shade200.withValues(alpha: 0.4),
                                     blurRadius: 16,
                                     offset: const Offset(0, 8),
                                   )
@@ -342,7 +357,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Divider(color: Colors.black.withOpacity(0.06), height: 1),
+                        Divider(color: Colors.black.withValues(alpha: 0.06), height: 1),
                         const SizedBox(height: 16),
                         Expanded(
                           child: SingleChildScrollView(
@@ -363,9 +378,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            // REMOVED: 'Manage Subscription' button
                             Expanded(
-                              // Pulse micro-interaction
                               child: AnimatedBuilder(
                                 animation: _pulseController,
                                 builder: (context, child) {
@@ -381,7 +394,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                     elevation: 10,
-                                    shadowColor: Colors.amber.withOpacity(0.4),
+                                    shadowColor: Colors.amber.withValues(alpha: 0.4),
                                   ),
                                   icon: const Icon(Icons.headset_mic_outlined),
                                   label: const Text('Support'),
@@ -412,7 +425,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             height: 24,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.amber.withOpacity(0.2),
+              color: Colors.amber.withValues(alpha: 0.2),
               border: Border.all(color: Colors.amber.shade400, width: 1),
             ),
             child: Icon(icon, size: 14, color: Colors.orange.shade700),
@@ -551,7 +564,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         children: [
           Icon(icon, color: Colors.purple, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 14.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.87)))),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 14.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87)))),
         ],
       ),
     );
@@ -566,7 +579,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           child: Text(
             _isYearlySelected ? '899.99 TRY/year' : '89.99 TRY/month',
             key: ValueKey<bool>(_isYearlySelected),
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9)),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9)),
           ),
         ),
         const SizedBox(height: 16),
@@ -617,7 +630,7 @@ class _ConfettiPainter extends CustomPainter {
       final y = center.dy + math.sin(angle) * radius + gravity;
 
       final color = _palette[i % _palette.length];
-      final paint = Paint()..color = color.withOpacity((1.0 - progress).clamp(0.0, 1.0));
+      final paint = Paint()..color = color.withValues(alpha: (1.0 - progress).clamp(0.0, 1.0));
 
       // Confetti particle: small rotating rectangles
       final sizeFactor = 2.0 + (i % 3) * 0.8 + rnd.nextDouble();

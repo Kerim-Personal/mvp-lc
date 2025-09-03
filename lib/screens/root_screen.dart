@@ -45,69 +45,128 @@ class RootScreen extends StatefulWidget {
 class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   bool _isSearching = false; // partner arama tam ekran durumu
-  late PageController _pageController;
-  late AnimationController _navIconAnimationController; // geri eklendi
-  late Animation<double> _scaleAnimation; // geri eklendi
+  late AnimationController _navIconAnimationController;
+  late Animation<double> _scaleAnimation;
+
+  // Lazy sekme widget cache (yalnızca sürekli state koruması gerekenler için)
+  Widget? _homeTab;
+  Widget? _communityTab;
+
+  // Animasyon tekrar sayaçları
+  int _storeReplay = 0;
+  int _discoverReplay = 0;
+  int _profileReplay = 0;
+
+  static bool _defaultRoomsCreated = false; // createDefaultChatRooms guard
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _selectedIndex);
     _navIconAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
     _scaleAnimation = CurvedAnimation(parent: _navIconAnimationController, curve: Curves.easeOutCubic);
-    _createDefaultChatRooms();
+    _maybeCreateDefaultChatRooms();
+  }
+
+  Future<void> _maybeCreateDefaultChatRooms() async {
+    if (_defaultRoomsCreated) return;
+    try {
+      await _createDefaultChatRooms();
+    } catch (_) {
+      // sessiz
+    }
+    _defaultRoomsCreated = true;
+  }
+
+  Widget _buildTab(int index) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    switch (index) {
+      case 0: // Store – her açılışta animasyon tazelensin
+        return StoreScreen(
+          key: ValueKey('store_$_storeReplay'),
+          embedded: true,
+          replayTrigger: _storeReplay,
+        );
+      case 1: // Discover (Grammar alt sekmesi açıldığında tetiklenecek)
+        return DiscoverScreen(
+          key: ValueKey('discover_$_discoverReplay'),
+          activationTrigger: _discoverReplay,
+        );
+      case 2: // Home – state korunmalı
+        _homeTab ??= HomeScreen(
+          onSearchingChanged: (val) {
+            if (mounted) setState(() => _isSearching = val);
+          },
+        );
+        return _homeTab!;
+      case 3: // Community – state korunmalı
+        _communityTab ??= const CommunityScreen();
+        return _communityTab!;
+      case 4: // Profile – animasyon tekrar tetiklenecek
+        if (currentUser != null) {
+          return ProfileScreen(
+            key: ValueKey('profile_$_profileReplay'),
+            userId: currentUser.uid,
+            replayTrigger: _profileReplay,
+          );
+        }
+        return const SizedBox.shrink();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  void _incrementReplayCounter(int index) {
+    setState(() {
+      if (index == 0) _storeReplay++;
+      else if (index == 1) _discoverReplay++;
+      else if (index == 4) _profileReplay++;
+    });
   }
 
   @override
   void dispose() {
     _navIconAnimationController.dispose();
-    _pageController.dispose(); // Controller'ı dispose etmeyi unutma
     super.dispose();
   }
 
   void changeTab(int index) {
-    if (index >= 0 && index < 5) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final total = currentUser != null ? 5 : 4;
+    if (index >= 0 && index < total) {
       _onItemTapped(index);
     }
   }
 
   void _onItemTapped(int index) {
-    if (_selectedIndex == index) return;
+    if (_selectedIndex == index) {
+      // Aynı sekmeye tekrar tıklamada sayfayı yeniden başlatma; sadece icon animasyonunu tazele
+      _navIconAnimationController.forward(from: 0);
+      return;
+    }
     setState(() {
       _selectedIndex = index;
     });
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 150),
-      curve: Curves.easeInOut,
-    );
-    _navIconAnimationController.forward(from: 0); // animasyon tetikleme
+    // Sekme değiştirirken ilgili replay counter artır (gereken ekranlar animasyon/refresh alır)
+    _incrementReplayCounter(index);
+    _navIconAnimationController.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
 
-    final List<Widget> pages = [
-      const StoreScreen(),
-      const DiscoverScreen(),
-      HomeScreen( // const kaldırıldı callback için
-        onSearchingChanged: (val) {
-          if (mounted) setState(() => _isSearching = val);
-        },
-      ),
-      const CommunityScreen(),
-      if (currentUser != null) ProfileScreen(userId: currentUser.uid),
-    ];
+    final totalTabs = currentUser != null ? 5 : 4;
+    if (_selectedIndex >= totalTabs) {
+      _selectedIndex = totalTabs - 1;
+    }
 
     return Scaffold(
       body: Stack(
         children: [
           const AnimatedBackground(),
-          PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: pages,
+          IndexedStack(
+            index: _selectedIndex,
+            children: List.generate(totalTabs, (i) => _buildTab(i)),
           ),
         ],
       ),
@@ -127,11 +186,11 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     final Color activeIconColor = cs.onPrimary;
 
     final items = <_NavItemData>[
-      _NavItemData(icon: Icons.store_mall_directory_outlined, label: 'Store'),
-      _NavItemData(icon: Icons.explore_outlined, label: 'Discover'),
-      _NavItemData(icon: Icons.home_rounded, label: 'Home'),
-      _NavItemData(icon: Icons.groups_outlined, label: 'Community'),
-      if (currentUser != null) _NavItemData(icon: Icons.person_rounded, label: 'Profile'),
+      const _NavItemData(icon: Icons.store_mall_directory_outlined, label: 'Store'),
+      const _NavItemData(icon: Icons.explore_outlined, label: 'Discover'),
+      const _NavItemData(icon: Icons.home_rounded, label: 'Home'),
+      const _NavItemData(icon: Icons.groups_outlined, label: 'Community'),
+      if (currentUser != null) const _NavItemData(icon: Icons.person_rounded, label: 'Profile'),
     ];
 
     return Container(
@@ -156,7 +215,7 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 72, // kompaktlaştırıldı (önce: 86)
+          height: 72, // kompakt
           child: Row(
             children: List.generate(items.length, (index) {
               final data = items[index];

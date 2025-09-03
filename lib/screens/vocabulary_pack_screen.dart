@@ -8,9 +8,10 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/discover/vocabulary_tab.dart';
-import '../data/vocabulary_data.dart';
+import '../data/vocabulary_data_clean.dart';
 import '../models/word_model.dart';
 import '../services/translation_service.dart';
+import '../repositories/vocabulary_progress_repository.dart';
 
 // Main Screen Widget
 class VocabularyPackScreen extends StatefulWidget {
@@ -37,11 +38,12 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
   @override
   void initState() {
     super.initState();
-    _words = vocabularyData[widget.pack.title] ?? [];
+    _words = vocabularyDataClean[widget.pack.title] ?? [];
     _cardKeys = List.generate(_words.length, (_) => GlobalKey<FlipCardState>());
     _pageController = PageController();
 
     _initializeTts();
+    _restoreProgress();
 
     _pageController.addListener(() {
       final newIndex = _pageController.page?.round() ?? 0;
@@ -89,6 +91,18 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
     if (mounted) setState(() { _loadingUserLang = false; });
   }
 
+  Future<void> _restoreProgress() async {
+    final learnedSet = await VocabularyProgressRepository.instance.fetchLearnedWords(widget.pack.title);
+    if (learnedSet.isEmpty) return;
+    final indexSet = <int>{};
+    for (int i = 0; i < _words.length; i++) {
+      if (learnedSet.contains(_words[i].word)) indexSet.add(i);
+    }
+    if (mounted) {
+      setState(() { _learnedWords.addAll(indexSet); });
+    }
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -96,9 +110,15 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
     super.dispose();
   }
 
-  void _onWordLearned(int index) {
+  void _toggleWordLearned(int index) async {
+    if (index < 0 || index >= _words.length) return;
+    final now = await VocabularyProgressRepository.instance.toggleLearned(widget.pack.title, _words[index].word);
     setState(() {
-      _learnedWords.add(index);
+      if (now) {
+        _learnedWords.add(index);
+      } else {
+        _learnedWords.remove(index);
+      }
     });
   }
 
@@ -193,23 +213,39 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
   }
 
   Widget _buildProgressIndicator() {
-    final double targetProgress = _words.isEmpty ? 0 : (_currentIndex + 1) / _words.length;
+    final learned = _learnedWords.length;
+    final total = _words.length;
+    final progress = total == 0 ? 0.0 : learned / total;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: targetProgress),
-        duration: const Duration(milliseconds: 300),
-        builder: (context, value, child) {
-          return ClipRRect(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Learned: $learned / $total',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              if (progress > 0)
+                Text(
+                  '${(progress * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
-              value: value,
-              backgroundColor: Colors.white.withOpacity(0.2),
+              value: progress,
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               minHeight: 8,
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -218,6 +254,7 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final onSurface = theme.colorScheme.onSurface;
+
     return ListView.builder(
       key: const ValueKey('wordList'),
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -225,16 +262,20 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
       itemBuilder: (context, index) {
         final word = _words[index];
         final isCurrent = index == _currentIndex;
+        final isLearned = _learnedWords.contains(index);
         final baseBg = isDark ? Colors.black : Colors.white;
         final bgColor = isCurrent
             ? baseBg
             : isDark
-                ? Colors.black.withOpacity(0.7)
-                : Colors.white.withOpacity(0.7);
-        final borderColor = isCurrent ? (isDark ? Colors.white70 : widget.pack.color2) : null;
+            ? Colors.black.withValues(alpha: 0.7)
+            : Colors.white.withValues(alpha: 0.7);
+
         return GestureDetector(
           onTap: () {
-            setState(() { _isGridView = false; });
+            setState(() {
+              _currentIndex = index; // Yeni tıklanan kelimenin indeksini set et
+              _isGridView = false;
+            });
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_pageController.hasClients) {
                 _pageController.jumpToPage(index);
@@ -247,29 +288,48 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(12),
-              border: borderColor != null ? Border.all(color: borderColor, width: 2.5) : null,
+              border: isLearned
+                  ? Border.all(color: isDark ? Colors.tealAccent : Colors.teal.shade700, width: 2.5)
+                  : null,
               boxShadow: isCurrent
                   ? [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      )
-                    ]
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                )
+              ]
                   : [],
             ),
-            child: Text(
-              word.word,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isCurrent
-                    ? (isDark ? Colors.white : widget.pack.color1)
-                    : (isDark ? Colors.white70 : onSurface.withValues(alpha: 0.87)),
-              ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Center(
+                  child: Text(
+                    word.word,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isCurrent
+                          ? (isDark ? Colors.white : widget.pack.color1)
+                          : (isDark ? Colors.white70 : onSurface.withValues(alpha: 0.87)),
+                    ),
+                  ),
+                ),
+                if (isLearned)
+                  Positioned(
+                    bottom: -8,
+                    right: -8,
+                    child: Icon(
+                      Icons.check_circle_outlined,
+                      color: isDark ? Colors.tealAccent : Colors.teal.shade700,
+                      size: 24,
+                    ),
+                  ),
+              ],
             ),
           ),
         );
@@ -297,7 +357,7 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
             flipCardKey: _cardKeys[index],
             word: _words[index],
             isLearned: _learnedWords.contains(index),
-            onLearned: () => _onWordLearned(index),
+            onToggleLearned: () => _toggleWordLearned(index),
             onFlip: () {},
             onSpeakWord: () => _speak(_words[index].word),
             onSpeakExample: () => _speak(_words[index].example),
@@ -331,11 +391,11 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
 
   Widget _buildNavButton(IconData icon, VoidCallback? onPressed, bool isEnabled) {
     return IconButton(
-      icon: Icon(icon, color: Colors.white.withOpacity(isEnabled ? 1.0 : 0.3)),
+      icon: Icon(icon, color: Colors.white.withValues(alpha: isEnabled ? 1.0 : 0.3)),
       iconSize: 28,
       onPressed: isEnabled ? onPressed : null,
       style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withOpacity(0.15),
+        backgroundColor: Colors.white.withValues(alpha: 0.15),
         shape: const CircleBorder(),
         padding: const EdgeInsets.all(12),
       ),
@@ -374,7 +434,7 @@ class WordCard extends StatefulWidget {
   final GlobalKey<FlipCardState> flipCardKey;
   final Word word;
   final bool isLearned;
-  final VoidCallback onLearned;
+  final VoidCallback onToggleLearned; // değiştirildi
   final VoidCallback onFlip;
   final VoidCallback onSpeakWord;
   final VoidCallback onSpeakExample;
@@ -384,7 +444,7 @@ class WordCard extends StatefulWidget {
     required this.flipCardKey,
     required this.word,
     required this.isLearned,
-    required this.onLearned,
+    required this.onToggleLearned,
     required this.onFlip,
     required this.onSpeakWord,
     required this.onSpeakExample,
@@ -501,12 +561,13 @@ class _WordCardState extends State<WordCard> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 24,
             spreadRadius: -6,
             offset: const Offset(0, 10),
           )
         ],
+        border: widget.isLearned ? Border.all(color: Colors.tealAccent, width: 3) : null,
       ),
       child: Stack(
         children: [
@@ -533,26 +594,54 @@ class _WordCardState extends State<WordCard> {
                 ],
               ),
             ),
+          // Çeviri ikonu (Sol üst)
           Positioned(
             top: 8,
             left: 4,
             child: IconButton(
-              tooltip: 'Çevir',
+              tooltip: 'Translate',
               icon: Icon(Icons.translate, color: isDark ? Colors.tealAccent.shade200 : Colors.teal),
               onPressed: _toggleTranslation,
             ),
           ),
+          // Ses ikonu (Sağ üst)
           Positioned(
             top: 8,
             right: 4,
             child: IconButton(
+              tooltip: 'Speak',
               icon: Icon(
                 Icons.volume_up,
                 color: isFront
-                    ? (isDark ? Colors.white70 : Colors.grey.shade500)
+                    ? (isDark ? Colors.white70 : Colors.grey.shade200)
                     : (isDark ? Colors.white70 : Colors.blue.shade700),
               ),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.15),
+                shape: const CircleBorder(),
+              ),
               onPressed: isFront ? widget.onSpeakWord : widget.onSpeakExample,
+            ),
+          ),
+          // Tik ikonu (Sağ alt)
+          Positioned(
+            bottom: 8,
+            right: 4,
+            child: IconButton(
+              tooltip: widget.isLearned ? 'Unmark learned' : 'Mark learned',
+              icon: Icon(
+                widget.isLearned ? Icons.check_circle : Icons.circle_outlined,
+                color: widget.isLearned
+                    ? (isDark ? Colors.greenAccent : Colors.lightGreenAccent.shade700)
+                    : (isDark ? Colors.white70 : Colors.white.withValues(alpha: 0.85)),
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: widget.isLearned
+                    ? (isDark ? Colors.green.withValues(alpha: 0.25) : Colors.green.withValues(alpha: 0.25))
+                    : Colors.black.withValues(alpha: 0.15),
+                shape: const CircleBorder(),
+              ),
+              onPressed: widget.onToggleLearned,
             ),
           ),
           AnimatedPositioned(
@@ -566,47 +655,47 @@ class _WordCardState extends State<WordCard> {
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.05),
+                color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
                 child: loading
                     ? const Center(child: CircularProgressIndicator())
                     : SingleChildScrollView(
-                        child: isFront
-                            ? Text(
-                                _translatedFront ?? '',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              )
-                            : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_translatedDefinition != null)
-                                    Text(
-                                      _translatedDefinition!,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                  const SizedBox(height: 8),
-                                  if (_translatedExample != null)
-                                    Text(
-                                      _translatedExample!,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontStyle: FontStyle.italic,
-                                        color: isDark ? Colors.white70 : Colors.black87,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                      ),
+                  child: isFront
+                      ? Text(
+                    _translatedFront ?? '',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  )
+                      : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_translatedDefinition != null)
+                        Text(
+                          _translatedDefinition!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      if (_translatedExample != null)
+                        Text(
+                          _translatedExample!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontStyle: FontStyle.italic,
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

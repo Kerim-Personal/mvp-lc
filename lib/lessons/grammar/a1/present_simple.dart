@@ -2,30 +2,163 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:lingua_chat/services/translation_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// --- ANA DERS EKRANI ---
+// --- MAIN LESSON SCREEN ---
+
 class PresentSimpleLessonScreen extends StatefulWidget {
   const PresentSimpleLessonScreen({super.key});
 
   @override
-  State<PresentSimpleLessonScreen> createState() => _PresentSimpleLessonScreenState();
+  State<PresentSimpleLessonScreen> createState() =>
+      _PresentSimpleLessonScreenState();
 }
 
-class _PresentSimpleLessonScreenState extends State<PresentSimpleLessonScreen> with TickerProviderStateMixin {
+class _PresentSimpleLessonScreenState extends State<PresentSimpleLessonScreen>
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
+  late FlutterTts flutterTts;
+
+  String? _nativeLangCode; // native language code cache
+  // Simple in-memory translation cache: key => "langCode::source"
+  final Map<String, String> _translationCache = {};
+
+  // Get the user's native language code from Firestore and cache it
+  Future<String> _getTargetLangCode() async {
+    if (_nativeLangCode != null) return _nativeLangCode!;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return _nativeLangCode = 'en';
+      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
+      if (code == null || code.isEmpty) return _nativeLangCode = 'en';
+      _nativeLangCode = code;
+      return _nativeLangCode!;
+    } catch (_) {
+      return _nativeLangCode = 'en';
+    }
+  }
+
+  Future<String> _translateToNative(String text) async {
+    final target = await _getTargetLangCode();
+    final cacheKey = '$target::$text';
+    // Return from cache if available
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
+    try {
+      await TranslationService.instance.ensureReady(target);
+    } catch (_) {
+      // ignore ensureReady failures, attempt translation anyway
+    }
+    try {
+      final translated =
+      await TranslationService.instance.translateFromEnglish(text, target);
+      _translationCache[cacheKey] = translated;
+      return translated;
+    } catch (_) {
+      // Fallback to original text if translation fails
+      return text;
+    }
+  }
+
+  Future<void> _showTranslateSheet(String source) async {
+    if (!mounted) return;
+    // Create the future ONCE; prevents re-triggering translation on rebuilds/gestures
+    final translationFuture = _translateToNative(source);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.translate, color: Colors.teal),
+                      SizedBox(width: 8),
+                      Text('Translation',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Original',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(source, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 12),
+                  const Text('Translation',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  FutureBuilder<String>(
+                    future: translationFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            children: const [
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(width: 8),
+                              Text('Translating...'),
+                            ],
+                          ),
+                        );
+                      }
+                      final translated = snapshot.data ?? source;
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    _initializeTts();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..forward();
   }
 
+  void _initializeTts() {
+    flutterTts = FlutterTts();
+    flutterTts.setLanguage("en-US");
+    flutterTts.setSpeechRate(0.5);
+  }
+
+  Future<void> _speak(String text) async {
+    await flutterTts.speak(text.replaceAll('**', ''));
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    flutterTts.stop();
     super.dispose();
   }
 
@@ -36,117 +169,145 @@ class _PresentSimpleLessonScreenState extends State<PresentSimpleLessonScreen> w
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
-            expandedHeight: 220.0,
+            expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.blue.shade700,
+            backgroundColor: Colors.indigo.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              title: const Text('Present Simple Tense', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              title: const Text('Present Simple',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 22)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Colors.blue.shade500, Colors.lightBlue.shade500],
+                    colors: [
+                      Colors.indigo.shade500,
+                      Colors.blue.shade600,
+                    ],
                   ),
                 ),
-                child: const Center(
-                  child: Icon(Icons.watch_later_outlined, size: 80, color: Colors.white24),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.refresh_outlined,
+                          size: 70, color: Colors.white24),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Talking About Your Daily Life',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                const _SpeechHintBox(),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
-                  child: const _LessonBlock(
-                    icon: Icons.sync_outlined,
-                    title: 'Rutinler ve Gerçekler: Present Simple',
+                  child: _LessonBlock(
+                    icon: Icons.access_time_outlined,
+                    title: 'What is the Present Simple?',
                     content:
-                    "Present Simple (Geniş Zaman), İngilizcedeki en yaygın zamanlardan biridir. Alışkanlıklarımızı, her zaman doğru olan genel gerçekleri ve planlanmış olayları anlatmak için kullanırız. Günlük hayatın ritmini bu zamanla ifade ederiz!",
+                    "The Present Simple tense helps us talk about things that happen regularly, or are generally true. It's how you describe your daily habits, permanent situations, and facts about the world. Think of it as your 'daily routine' tense!",
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
-                    title: 'Nerelerde Kullanılır?',
-                    examples: [
+                    title: 'Habits, Facts, and Routines',
+                    examples: const [
                       Example(
-                          icon: Icons.coffee_outlined,
-                          category: 'Alışkanlık:',
+                          icon: Icons.repeat,
+                          category: 'Daily Habit:',
                           sentence: 'I drink coffee every morning.'),
                       Example(
-                          icon: Icons.public_outlined,
-                          category: 'Genel Gerçek:',
-                          sentence: 'The Earth revolves around the Sun.'),
+                          icon: Icons.check_circle_outline,
+                          category: 'General Truth:',
+                          sentence: 'Water boils at 100 degrees Celsius.'),
                       Example(
-                          icon: Icons.train_outlined,
-                          category: 'Planlı Eylem:',
-                          sentence: 'The train leaves at 8 PM.'),
+                          icon: Icons.location_city,
+                          category: 'Permanent Situation:',
+                          sentence: 'He lives in New York.'),
                     ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.3, 0.9),
-                  child: _ExampleTable(
-                    title: 'Olumlu Cümle Kuralı',
-                    headers: const ['Özne', 'Fiil', 'Örnek Cümle'],
+                  child: _SimplifiedClickableCard(
+                    title: 'Positive Sentences',
+                    headers: const ['Subject', 'Verb', 'Example Sentence'],
                     rows: const [
-                      ['I / You / We / They', 'Fiil (yalın)', 'We play football.'],
-                      ['He / She / It', 'Fiil + s/es/ies', 'She plays tennis.'],
+                      ['I / You / We / They', 'work', 'We work in an office.'],
+                      ['He / She / It', 'works', 'She works very hard.'],
                     ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.4, 1.0),
-                  child: _ExampleTable(
-                    title: 'Olumsuz Cümleler: "do/does + not"',
-                    headers: const ['Örnek', 'Kısaltma', 'Anlamı'],
+                  child: _SimplifiedClickableCard(
+                    title: 'Negative Sentences: Use "don\'t" or "doesn\'t"',
+                    headers: const ['Full Form', 'Contraction'],
                     rows: const [
-                      ['I do not like tea.', "I don't like tea.", 'Çay sevmem.'],
-                      ['He does not live here.', "He doesn't live here.", 'Burada yaşamıyor.'],
-                      ['They do not work.', "They don't work.", 'Çalışmazlar.'],
+                      ['I do not play.', "I don't play."],
+                      ['He does not watch.', "He doesn't watch."],
+                      ['They do not like.', "They don't like."],
                     ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.5, 1.0),
-                  child: _ExampleTable(
-                    title: 'Soru Cümleleri: "do/does" Başa Gelir',
-                    headers: const ['Soru', 'Anlamı'],
+                  child: _SimplifiedClickableCard(
+                    title: 'Question Sentences: Use "Do" or "Does"',
+                    headers: const ['Question', 'Short Answer'],
                     rows: const [
-                      ['Do you speak English?', 'İngilizce konuşur musun?'],
-                      ['Does he work in a bank?', 'Bankada mı çalışıyor?'],
-                      ['Where do they live?', 'Nerede yaşıyorlar?'],
+                      ['Do you speak English?', 'Yes, I do.'],
+                      ['Does he play sports?', 'No, he doesn\'t.'],
+                      ['Do they live here?', 'Yes, they do.'],
                     ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.6, 1.0),
-                  child: const _TipCard(
-                    title: 'Profesyonel Taktikler',
-                    tips: [
-                      '**Üçüncü Tekil Şahıs Kuralı:** "He, She, It" özneleriyle fiilin sonuna "-s" takısı getirmeyi asla unutma. En yaygın hatalardan biridir!',
-                      '**Sıklık Zarfları:** "Always, usually, sometimes, never" gibi sıklık zarfları genellikle özneden sonra, fiilden önce gelir. (Örn: "I always wake up early.")',
+                  child: _TipCard(
+                    title: 'Pro Tips & Tricks',
+                    tips: const [
+                      '**Third-person singular is special!** For **he, she, it**, we add **-s** or **-es** to the end of the verb. For example: He watch**es** TV. She go**es** to school.',
+                      "**'Do' and 'Does' are for questions and negatives.** Remember that the main verb doesn't change when you use 'do' or 'does'. For example: Does he **work**? (NOT 'works').",
                     ],
+                    onSpeak: _speak,
+                    onTranslate: _showTranslateSheet,
                   ),
                 ),
-                const SizedBox(height: 20),
-                const Divider(height: 30, thickness: 1),
-                _AnimatedLessonBlock(
-                    controller: _controller,
-                    interval: const Interval(0.7, 1.0),
-                    child: _QuickQuiz()),
               ]),
             ),
           ),
@@ -156,23 +317,33 @@ class _PresentSimpleLessonScreenState extends State<PresentSimpleLessonScreen> w
   }
 }
 
-// --- YARDIMCI WIDGET'LAR ---
+// --- HELPER WIDGETS ---
 
-// Ders Blokları
 class _LessonBlock extends StatelessWidget {
   final IconData icon;
   final String title;
   final String content;
-  const _LessonBlock(
-      {required this.icon, required this.title, required this.content});
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _LessonBlock({
+    required this.icon,
+    required this.title,
+    required this.content,
+    required this.onSpeak,
+    required this.onTranslate,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black12,
-      margin: const EdgeInsets.only(bottom: 20),
+      shadowColor: Colors.black.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -180,15 +351,45 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.blue.shade700, size: 28),
-                const SizedBox(width: 12),
+                Icon(icon, color: Colors.indigo.shade700, size: 28),
+                const SizedBox(width: 14),
                 Expanded(
-                  child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onSpeak(title),
+                    onLongPress: () => onTranslate(title),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Text(content, style: TextStyle(fontSize: 16, color: Colors.grey.shade800, height: 1.5)),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => onSpeak(content),
+              onLongPress: () => onTranslate(content),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Text(
+                  content,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -196,37 +397,55 @@ class _LessonBlock extends StatelessWidget {
   }
 }
 
-// Örnek Kartı
 class _ExampleCard extends StatelessWidget {
   final String title;
   final List<Example> examples;
-  const _ExampleCard({required this.title, required this.examples});
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _ExampleCard({
+    required this.title,
+    required this.examples,
+    required this.onSpeak,
+    required this.onTranslate,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black12,
-      margin: const EdgeInsets.only(bottom: 20),
+      shadowColor: Colors.black.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => onSpeak(title),
+              onLongPress: () => onTranslate(title),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: onSurface,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: Row(
-                children: [
-                  Icon(e.icon, size: 22, color: Colors.blue.shade800),
-                  const SizedBox(width: 12),
-                  Text(e.category, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(e.sentence, style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic))),
-                ],
-              ),
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -235,193 +454,243 @@ class _ExampleCard extends StatelessWidget {
   }
 }
 
-// Tablo Widget'ı
-class _ExampleTable extends StatelessWidget {
-  final String title;
-  final List<String> headers;
-  final List<List<String>> rows;
-  const _ExampleTable({required this.title, required this.headers, required this.rows});
+class _ExampleListItem extends StatelessWidget {
+  final Example example;
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _ExampleListItem(
+      {required this.example,
+        required this.onSpeak,
+        required this.onTranslate});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black12,
-      margin: const EdgeInsets.only(bottom: 20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: MaterialStateProperty.all(Colors.blue.shade50),
-                columns: headers.map((h) => DataColumn(label: Text(h, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
-                rows: rows.map((row) => DataRow(cells: row.map((cell) => DataCell(Text(cell))).toList())).toList(),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: isDark ? Colors.indigo.shade900.withOpacity(0.25) : Colors.indigo.shade50,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => onSpeak('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(example.icon, size: 22, color: Colors.indigo.shade600),
+              const SizedBox(width: 12),
+              Text(
+                example.category,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  example.sentence,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Taktik Kartı
-class _TipCard extends StatelessWidget {
+class _SimplifiedClickableCard extends StatelessWidget {
   final String title;
-  final List<String> tips;
-  const _TipCard({required this.title, required this.tips});
+  final List<String> headers;
+  final List<List<String>> rows;
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
+
+  const _SimplifiedClickableCard({
+    required this.title,
+    required this.headers,
+    required this.rows,
+    required this.onSpeak,
+    required this.onTranslate,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade200),
-      ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.lightbulb_outline, color: Colors.amber.shade800, size: 28),
-              const SizedBox(width: 12),
-              Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...tips.map((tip) {
-            // Markdown benzeri bir yapi için RichText kullanıyoruz
-            final parts = tip.split('**');
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('💡 ', style: TextStyle(fontSize: 16)),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(fontSize: 16, color: Colors.grey.shade800, height: 1.5),
-                        children: [
-                          for (int i = 0; i < parts.length; i++)
-                            TextSpan(
-                              text: parts[i],
-                              style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => onSpeak(title),
+              onLongPress: () => onTranslate(title),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                child: Text(title,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: onSurface,
+                    )),
               ),
-            );
-          }),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              headingTextStyle: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.indigoAccent.shade200 : Colors.indigo.shade800,
+                fontSize: 15,
+              ),
+              dataTextStyle: TextStyle(
+                color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                fontSize: 16,
+              ),
+              columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+              rows: rows.map((row) {
+                final String textJoined = row.join('. ');
+                return DataRow(
+                  onSelectChanged: (isSelected) {
+                    if (isSelected != null) onSpeak(textJoined);
+                  },
+                  cells: row.map((cell) {
+                    return DataCell(
+                      GestureDetector(
+                        onLongPress: () => onTranslate(textJoined),
+                        child: Text(cell),
+                      ),
+                    );
+                  }).toList(),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 10),
         ],
       ),
     );
   }
 }
 
-// Quiz Bölümü
-class _QuickQuiz extends StatefulWidget {
-  @override
-  State<_QuickQuiz> createState() => _QuickQuizState();
-}
+class _TipCard extends StatelessWidget {
+  final String title;
+  final List<String> tips;
+  final Function(String) onSpeak;
+  final Function(String) onTranslate;
 
-class _QuickQuizState extends State<_QuickQuiz> {
-  int? _selectedAnswer1;
-  int? _selectedAnswer2;
-  int? _selectedAnswer3;
-  bool _showResult = false;
-
-  void _checkAnswers() {
-    setState(() {
-      _showResult = true;
-    });
-    Timer(const Duration(seconds: 5), () {
-      if (mounted) {
-        setState(() {
-          _selectedAnswer1 = null;
-          _selectedAnswer2 = null;
-          _selectedAnswer3 = null;
-          _showResult = false;
-        });
-      }
-    });
-  }
+  const _TipCard({
+    required this.title,
+    required this.tips,
+    required this.onSpeak,
+    required this.onTranslate,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isCorrect1 = _selectedAnswer1 == 1;
-    final isCorrect2 = _selectedAnswer2 == 0;
-    final isCorrect3 = _selectedAnswer3 == 2;
-    final canCheck = _selectedAnswer1 != null && _selectedAnswer2 != null && _selectedAnswer3 != null;
-
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
     return Card(
       elevation: 2,
-      shadowColor: Colors.black12,
+      shadowColor: Colors.amber.withOpacity(0.1),
+      margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Hadi Test Edelim!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            _QuizQuestion(
-              question: '1. My brother ___ football.',
-              options: const ['play', 'plays', 'playing'],
-              selectedAnswer: _selectedAnswer1,
-              correctAnswer: 1,
-              showResult: _showResult,
-              onChanged: (value) => setState(() => _selectedAnswer1 = value),
-            ),
-            _QuizQuestion(
-              question: '2. We ___ like horror movies.',
-              options: const ["don't", "doesn't", "isn't"],
-              selectedAnswer: _selectedAnswer2,
-              correctAnswer: 0,
-              showResult: _showResult,
-              onChanged: (value) => setState(() => _selectedAnswer2 = value),
-            ),
-            _QuizQuestion(
-              question: '3. ___ she work at the hospital?',
-              options: const ['Do', 'Is', 'Does'],
-              selectedAnswer: _selectedAnswer3,
-              correctAnswer: 2,
-              showResult: _showResult,
-              onChanged: (value) => setState(() => _selectedAnswer3 = value),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: canCheck && !_showResult ? _checkAnswers : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-              ),
-              child: const Text('Kontrol Et', style: TextStyle(fontSize: 16)),
-            ),
-            if(_showResult)
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: Text(
-                  isCorrect1 && isCorrect2 && isCorrect3 ? 'Harika! Hepsi doğru!' : 'Tekrar dene, başarabilirsin!',
-                  style: TextStyle(
-                      color: isCorrect1 && isCorrect2 && isCorrect3 ? Colors.green.shade800 : Colors.red.shade800,
-                      fontWeight: FontWeight.bold
+            Row(
+              children: [
+                const Icon(Icons.lightbulb_outline,
+                    color: Colors.amber, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onSpeak(title),
+                    onLongPress: () => onTranslate(title),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              )
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...tips.map((tip) {
+              final parts = tip.split('**');
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => onSpeak(tip),
+                  onLongPress: () => onTranslate(tip),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('💡 ', style: TextStyle(fontSize: 16)),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: baseText,
+                              children: [
+                                for (int i = 0; i < parts.length; i++)
+                                  TextSpan(
+                                    text: parts[i],
+                                    style: i.isOdd
+                                        ? TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    )
+                                        : null,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
           ],
         ),
       ),
@@ -429,70 +698,12 @@ class _QuickQuizState extends State<_QuickQuiz> {
   }
 }
 
-// Quiz Soru Widget'ı
-class _QuizQuestion extends StatelessWidget {
-  final String question;
-  final List<String> options;
-  final int? selectedAnswer;
-  final int correctAnswer;
-  final bool showResult;
-  final ValueChanged<int?> onChanged;
-
-  const _QuizQuestion({
-    required this.question,
-    required this.options,
-    required this.selectedAnswer,
-    required this.correctAnswer,
-    required this.showResult,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(question, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(options.length, (index) {
-            Color? color;
-            if (showResult) {
-              if (index == correctAnswer) {
-                color = Colors.green.shade100;
-              } else if (index == selectedAnswer) {
-                color = Colors.red.shade100;
-              }
-            }
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: ChoiceChip(
-                label: Text(options[index]),
-                selected: selectedAnswer == index,
-                onSelected: (isSelected) => onChanged(isSelected ? index : null),
-                backgroundColor: color,
-                selectedColor: Colors.blue.shade200,
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-}
-
-// Animasyonlu Blok
 class _AnimatedLessonBlock extends StatelessWidget {
   final AnimationController controller;
   final Interval interval;
   final Widget child;
-
-  const _AnimatedLessonBlock({
-    required this.controller,
-    required this.interval,
-    required this.child,
-  });
-
+  const _AnimatedLessonBlock(
+      {required this.controller, required this.interval, required this.child});
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
@@ -506,10 +717,40 @@ class _AnimatedLessonBlock extends StatelessWidget {
   }
 }
 
-// Veri Modelleri
 class Example {
   final IconData icon;
   final String category;
   final String sentence;
-  const Example({required this.icon, required this.category, required this.sentence});
+  const Example(
+      {required this.icon, required this.category, required this.sentence});
+}
+
+class _SpeechHintBox extends StatelessWidget {
+  const _SpeechHintBox();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      elevation: 0,
+      color: isDark ? Colors.indigo.shade900.withOpacity(0.3) : Colors.indigo.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Icon(Icons.volume_up_outlined, color: Colors.indigo.shade400, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'You can listen by tapping on the titles and lines, and see the translation by pressing and holding.',
+                style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : null),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

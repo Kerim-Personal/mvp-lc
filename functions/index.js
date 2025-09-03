@@ -430,3 +430,132 @@ exports.createReport = functions
       throw new functions.https.HttpsError('internal','Rapor hatası');
     }
   });
+/**
+ * Admin bildirim gönderimi
+ * Admin panelinden belirli kullanıcılara veya tüm kullanıcılara bildirim gönderir.
+ */
+exports.sendAdminNotification = functions
+  .region('us-central1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Auth gerekli');
+    }
+    const uid = context.auth.uid;
+    try {
+      const userDoc = await db.collection('users').doc(uid).get();
+      const role = (userDoc.data() && userDoc.data().role) || userDoc.get('role') || 'user';
+      if (role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Sadece admin');
+      }
+    } catch (e) {
+      if (e instanceof functions.https.HttpsError) throw e;
+      throw new functions.https.HttpsError('internal', 'Rol doğrulanamadı');
+    }
+
+    function take(key, maxLen) {
+      const v = data && data[key];
+      if (!v || typeof v !== 'string') return '';
+      const trimmed = v.trim();
+      if (trimmed.length > maxLen) return trimmed.slice(0, maxLen);
+      return trimmed;
+    }
+    const title = take('title', 100);
+    const body = take('body', 500);
+    const segment = take('segment', 40) || 'all';
+    const targetUid = take('targetUid', 200); // segment == 'user'
+    const targetRoute = take('targetRoute', 120); // optional in-app navigation route
+    if (!title || !body) {
+      throw new functions.https.HttpsError('invalid-argument', 'Başlık ve içerik zorunlu');
+    }
+
+    let userQuery = db.collection('users').where('status','==','active');
+    if (segment === 'premium') userQuery = userQuery.where('isPremium','==', true);
+    else if (segment === 'non_premium') userQuery = userQuery.where('isPremium','==', false);
+    else if (segment === 'user' && targetUid) userQuery = db.collection('users').where(admin.firestore.FieldPath.documentId(), '==', targetUid);
+
+    const tokens = [];
+    const snap = await userQuery.select('fcmTokens').get();
+    snap.forEach(d => {
+      const t = d.get('fcmTokens');
+      if (Array.isArray(t)) {
+        t.forEach(v => { if (typeof v === 'string' && v.length > 20) tokens.push(v); });
+      }
+    });
+    if (!tokens.length) return { success: true, sent: 0, failed: 0, totalTokens: 0 };
+
+    const messaging = admin.messaging();
+    const BATCH = 500;
+    let sentCount = 0;
+    let failCount = 0;
+    for (let i = 0; i < tokens.length; i += BATCH) {
+      const slice = tokens.slice(i, i + BATCH);
+      const res = await messaging.sendEachForMulticast({
+        tokens: slice,
+        notification: { title, body },
+        data: {
+          click_action: 'FLUTTER_NOTIFICATION_CLICK',
+          segment,
+          kind: 'admin_broadcast',
+          targetRoute: targetRoute || ''
+        },
+      });
+      sentCount += res.successCount;
+      failCount += res.failureCount;
+    }
+
+    try {
+      await db.collection('admin_notifications_log').add({
+        title, body, segment, targetUid: segment==='user'? targetUid : null,
+        targetRoute: targetRoute || null,
+        sent: sentCount, failed: failCount, totalTokens: tokens.length,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: uid
+      });
+    } catch (_) {}
+
+    return { success: true, sent: sentCount, failed: failCount, totalTokens: tokens.length };
+  });
+/**
+ * Sets a custom user claim to identify an admin.
+ * Can only be called by an already authenticated admin.
+ */
+exports.setAdminClaim = functions
+  .region("us-central1")
+  .https.onCall(async (data, context) => {
+    // Check if the caller is an admin.
+    // Note: The first admin must be set manually via the gcloud CLI.
+    if (context.auth.token.admin !== true) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only admins can set other admins."
+      );
+    }
+
+    const targetUid = data.uid;
+    if (!targetUid || typeof targetUid !== 'string') {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "The function must be called with a 'uid' argument."
+        );
+    }
+
+    try {
+      // Set custom user claims on the target user.
+      await admin.auth().setCustomUserClaims(targetUid, { admin: true });
+
+      // Update the user's role in Firestore for client-side UI checks.
+      await db.collection("users").doc(targetUid).set({
+        role: 'admin'
+      }, { merge: true });
+
+      return {
+        message: `Success! ${targetUid} has been made an admin.`,
+      };
+    } catch (error) {
+      console.error("Error setting admin claim:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "An error occurred while setting the admin claim."
+      );
+    }
+  });

@@ -317,7 +317,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             children: [
               ListTile(
                 leading: const Icon(Icons.report, color: Colors.red),
-                title: const Text('Kullanıcıyı Bildir'),
+                title: const Text('Report User'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -325,7 +325,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                     MaterialPageRoute(
                       builder: (context) => ReportUserScreen(
                         reportedUserId: message.senderId,
-                        reportedContent: '"${message.text}" (Grup Sohbeti Mesajı)',
+                        reportedContent: '"${message.text}" (Group Chat Message)',
                         reportedContentId: message.id, // yeni: mesaj id
                       ),
                     ),
@@ -335,7 +335,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
               if (!isBlocked)
                 ListTile(
                   leading: const Icon(Icons.block, color: Colors.red),
-                  title: const Text('Kullanıcıyı Engelle'),
+                  title: const Text('Block User'),
                   onTap: () async {
                     Navigator.pop(context);
                     final me = currentUser;
@@ -343,19 +343,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                     try {
                       await BlockService().blockUser(currentUserId: me.uid, targetUserId: message.senderId);
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kullanıcı engellendi.')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User blocked.')));
                       }
                     } catch (e) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: ${e.toString()}')));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
                       }
                     }
                   },
                 ),
               if (canBan)
                 ListTile(
-                  leading: const Icon(Icons.block, color: Colors.red),
-                  title: const Text('Hesabı Banla'),
+                  leading: const Icon(Icons.gavel, color: Colors.red),
+                  title: const Text('Ban Account'),
                   onTap: () async {
                     Navigator.pop(context);
                     await Navigator.push(

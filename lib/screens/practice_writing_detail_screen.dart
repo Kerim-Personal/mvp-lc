@@ -31,6 +31,8 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
   bool _showVocabTranslations = false;
   final Map<String,String> _vocabTranslations = {};
   bool _translatingVocab = false;
+  DateTime? _lastAutosave;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -74,6 +76,8 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
   Future<void> _saveDraft() async {
     final text = _controller.text.trim();
     await _progress.saveDraft(prompt.id, text);
+    _lastAutosave = DateTime.now();
+    if (mounted) setState((){});
   }
 
   int get _wordCount => _controller.text.trim().isEmpty ? 0 : _controller.text.trim().split(RegExp(r'\s+')).where((w)=>w.trim().isNotEmpty).length;
@@ -94,14 +98,35 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
 
   Future<void> _submit() async {
     if (_controller.text.trim().isEmpty) return;
+    if (_wordCount < prompt.level.minWords) {
+      final ok = await _confirmDialog('Kelime sayısı minimumdan az (${_wordCount}/${prompt.level.minWords}). Yine de göndermek istiyor musun?');
+      if (ok != true) return;
+    }
+    if (_wordCount > prompt.level.maxWords) {
+      final ok = await _confirmDialog('Kelime sayısı önerilen üst sınırı aşıyor (${_wordCount}/${prompt.level.maxWords}). Yine de gönder?');
+      if (ok != true) return;
+    }
     if (_evaluation == null) {
       await _evaluate();
     }
+    setState(()=> _submitting = true);
     final ev = _evaluation!;
     await _progress.recordSubmission(id: prompt.id, text: _controller.text.trim(), score: ev.completionScore, wordCount: ev.wordCount);
+    setState(()=> _submitting = false);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted and saved.')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gönderildi ve kaydedildi.')));
     _loadProgress();
+  }
+
+  Future<bool?> _confirmDialog(String msg) {
+    return showDialog<bool>(context: context, builder: (c)=> AlertDialog(
+      title: const Text('Onay'),
+      content: Text(msg),
+      actions: [
+        TextButton(onPressed: ()=> Navigator.pop(c,false), child: const Text('Vazgeç')),
+        FilledButton(onPressed: ()=> Navigator.pop(c,true), child: const Text('Devam')),
+      ],
+    ));
   }
 
   Future<void> _toggleVocabTranslations() async {
@@ -120,6 +145,15 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
       }
       setState(()=> _showVocabTranslations = true);
     } catch(_) {} finally { if (mounted) setState(()=> _translatingVocab = false); }
+  }
+
+  String _autosaveLabel() {
+    if (_lastAutosave == null) return 'Henüz kaydedilmedi';
+    final diff = DateTime.now().difference(_lastAutosave!);
+    if (diff.inSeconds < 5) return 'Kaydedildi';
+    if (diff.inMinutes < 1) return '${diff.inSeconds}s önce kaydedildi';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
+    return 'Kaydedildi';
   }
 
   @override
@@ -142,7 +176,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Chip(
                 label: Text('Best: ${bestScore.toStringAsFixed(0)}'),
-                backgroundColor: Colors.blue.withOpacity(0.15),
+                backgroundColor: Colors.blue.withValues(alpha: 0.15),
               ),
             ),
         ],
@@ -184,6 +218,11 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
                     maxWords: prompt.level.maxWords,
                     wordCount: _wordCount,
                     color: _wordCountColor(),
+                    onClear: () async {
+                      final ok = await _confirmDialog('Taslak temizlensin mi?');
+                      if (ok==true) { _controller.clear(); await _saveDraft(); }
+                    },
+                    autosaveLabel: _autosaveLabel(),
                   ),
                   const SizedBox(height: 16),
                   _EvaluationArea(
@@ -203,31 +242,31 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
   }
 
   Widget _buildBottomBar() {
-    final canSubmit = _controller.text.trim().isNotEmpty;
+    final canSubmit = _controller.text.trim().isNotEmpty && !_submitting;
     return SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16,10,16,12),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 10, offset: const Offset(0,-2))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 10, offset: const Offset(0,-2))],
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Row(
           children: [
             Expanded(
-              child: ElevatedButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: _evaluating ? null : _evaluate,
                 icon: const Icon(Icons.analytics_outlined),
-                label: Text(_evaluation==null? 'Evaluate' : 'Re-evaluate'),
+                label: Text(_evaluation==null? 'Analiz' : 'Yenile'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton.icon(
                 onPressed: canSubmit ? _submit : null,
-                icon: const Icon(Icons.send_rounded),
-                label: const Text('Submit'),
+                icon: _submitting ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2,color: Colors.white)) : const Icon(Icons.send_rounded),
+                label: const Text('Gönder'),
               ),
             ),
           ],
@@ -260,7 +299,7 @@ class _PromptHeader extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal:12, vertical:6),
                   decoration: BoxDecoration(
-                    color: _levelColor(prompt.level).withOpacity(0.18),
+                    color: _levelColor(prompt.level).withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(prompt.level.label, style: TextStyle(color: _levelColor(prompt.level), fontWeight: FontWeight.w600)),
@@ -340,9 +379,8 @@ class _TargetVocabSection extends StatelessWidget {
               duration: const Duration(milliseconds: 250),
               padding: const EdgeInsets.symmetric(horizontal:12, vertical:8),
               decoration: BoxDecoration(
-                color: Colors.pink.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.pink.withOpacity(0.3)),
+                color: Colors.pink.withValues(alpha: 0.08),
+                border: Border.all(color: Colors.pink.withValues(alpha: 0.3)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -368,12 +406,16 @@ class _EditorCard extends StatelessWidget {
   final int maxWords;
   final int wordCount;
   final Color color;
+  final VoidCallback onClear;
+  final String autosaveLabel;
   const _EditorCard({
     required this.controller,
     required this.minWords,
     required this.maxWords,
     required this.wordCount,
     required this.color,
+    required this.onClear,
+    required this.autosaveLabel,
   });
   @override
   Widget build(BuildContext context) {
@@ -386,9 +428,10 @@ class _EditorCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Your Draft', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Taslak', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const Spacer(),
-                Text('$wordCount words', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+                Text(autosaveLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                IconButton(onPressed: onClear, tooltip: 'Temizle', icon: const Icon(Icons.delete_outline)),
               ],
             ),
             const SizedBox(height: 12),
@@ -398,26 +441,54 @@ class _EditorCard extends StatelessWidget {
                 controller: controller,
                 maxLines: null,
                 decoration: InputDecoration(
-                  hintText: 'Write here...',
+                  hintText: 'Buraya yaz...',
                   filled: true,
-                  fillColor: Colors.pink.withOpacity(0.05),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.pink.withOpacity(0.2))),
+                  fillColor: Colors.pink.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.pink.withValues(alpha: 0.2))),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.info_outline, size: 16, color: color),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text('Target: $minWords - $maxWords words', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color)),
-                ),
-              ],
-            )
+            const SizedBox(height: 12),
+            _WordProgress(minWords: minWords, maxWords: maxWords, count: wordCount, color: color),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WordProgress extends StatelessWidget {
+  final int minWords; final int maxWords; final int count; final Color color;
+  const _WordProgress({required this.minWords, required this.maxWords, required this.count, required this.color});
+  @override
+  Widget build(BuildContext context) {
+    final pct = (count / maxWords).clamp(0.0, 1.0).toDouble();
+    final below = count < minWords;
+    final over = count > maxWords;
+    String msg;
+    if (count==0) msg = 'Hedef: $minWords - $maxWords kelime';
+    else if (below) msg = 'Min için kalan: ${minWords-count}';
+    else if (over) msg = 'Fazla: ${count-maxWords} kelime';
+    else msg = 'Aralıkta ✔';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 8,
+            backgroundColor: Colors.grey.withValues(alpha: 0.15),
+            valueColor: AlwaysStoppedAnimation(over? Colors.orange : (below? Colors.redAccent : color)),
+          ),
+        ),
+        const SizedBox(height:6),
+        Row(children:[
+          Icon(over? Icons.warning_amber : Icons.info_outline, size:14, color: over? Colors.orange : color),
+          const SizedBox(width:4),
+          Text('$count kelime • $msg', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: over? Colors.orange : color)),
+        ])
+      ],
     );
   }
 }
@@ -501,9 +572,9 @@ class _MetricChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.indigo.withOpacity(0.08),
+        color: Colors.indigo.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.indigo.withOpacity(0.35)),
+        border: Border.all(color: Colors.indigo.withValues(alpha: 0.35)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

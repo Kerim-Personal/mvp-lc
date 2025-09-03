@@ -1,9 +1,11 @@
 // lib/screens/practice_listening_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lingua_chat/models/listening_models.dart';
 import 'package:lingua_chat/repositories/listening_repository.dart';
 import 'package:lingua_chat/services/listening_progress_service.dart';
 import 'package:lingua_chat/screens/practice_listening_detail_screen.dart';
+import 'package:lingua_chat/widgets/practice/practice_headers.dart';
 
 class PracticeListeningScreen extends StatefulWidget {
   const PracticeListeningScreen({super.key});
@@ -16,88 +18,132 @@ class PracticeListeningScreen extends StatefulWidget {
 class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
   final _repo = ListeningRepository.instance;
   final _progress = ListeningProgressService.instance;
-  final TextEditingController _searchCtrl = TextEditingController();
   ListeningLevel? _levelFilter;
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _searchCtrl.addListener(() {
-      setState(() => _query = _searchCtrl.text.trim().toLowerCase());
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final all = _repo.all();
-    var filtered = all.where((e) => _query.isEmpty || e.title.toLowerCase().contains(_query) || e.category.toLowerCase().contains(_query)).toList();
+    var filtered = all;
     if (_levelFilter != null) {
       filtered = filtered.where((e) => e.level == _levelFilter).toList();
     }
+    final topMargin = EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + kToolbarHeight + 12, 16, 12);
+
+    Widget circleWrapper(Widget child) => Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.38),
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4)],
+      ),
+      width: 44,
+      height: 44,
+      child: child,
+    );
+    final canPop = Navigator.of(context).canPop();
+    // Artık AppBar arkası da görüntü altında: safe area boşluğu
+
+    // AppBar transparan olacak.
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Listening Exercises'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        title: const Text('Listening'),
+        leading: canPop ? GestureDetector(
+          onTap: () => Navigator.of(context).maybePop(),
+          child: circleWrapper(const Icon(Icons.arrow_back, color: Colors.white)),
+        ) : null,
+        leadingWidth: canPop ? 60 : null,
         actions: [
-          PopupMenuButton<ListeningLevel?>(
-            icon: const Icon(Icons.filter_list),
-            onSelected: (v) => setState(() => _levelFilter = v),
-            itemBuilder: (c) => [
-              const PopupMenuItem(value: null, child: Text('All')),
-              ...ListeningLevel.values.map((l) => PopupMenuItem(value: l, child: Text(l.label))),
-            ],
+          circleWrapper(
+            PopupMenuButton<ListeningLevel?>(
+              icon: const Icon(Icons.filter_list, color: Colors.white),
+              onSelected: (v) => setState(() => _levelFilter = v),
+              itemBuilder: (c) => [
+                const PopupMenuItem(value: null, child: Text('All')),
+                ...ListeningLevel.values.map((l) => PopupMenuItem(value: l, child: Text(l.label))),
+              ],
+            ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search (title / category)',
-                filled: true,
-                fillColor: Colors.blue.withOpacity(0.04),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      body: Stack(
+        children:[
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                image: const DecorationImage(
+                  image: AssetImage('assets/practice/listening_bg.jpg'),
+                  fit: BoxFit.cover,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.50),
+                    Colors.black.withValues(alpha: 0.40),
+                  ],
+                ),
               ),
             ),
           ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              itemCount: filtered.length,
-              itemBuilder: (c, i) {
-                final ex = filtered[i];
-                return FutureBuilder<Map<String, dynamic>>(
-                  future: _progress.getExercise(ex.id),
-                  builder: (c, snap) {
-                    final p = snap.data;
-                    final attempts = p?['attempts'] ?? 0;
-                    final best = p?['best'];
-                    return _ExerciseCard(
-                      exercise: ex,
-                      attempts: attempts,
-                      best: best,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => PracticeListeningDetailScreen(exerciseId: ex.id),
-                          ),
-                        ).then((_) => setState(() {}));
-                      },
+          Column(
+            children: [
+              ModeHeroHeader(
+                tag: 'mode-Listening',
+                title: 'Listening Practice',
+                subtitle: 'Listen • Understand • Answer',
+                image: 'assets/practice/listening_bg.jpg',
+                colors: const [Color(0xFF2BC0E4), Color(0xFF84FAB0)],
+                icon: Icons.headphones_rounded,
+                margin: topMargin,
+                hero: false,
+              ),
+              Expanded(
+                child: filtered.isEmpty ? const EmptyState(message: 'No listening exercises found.') : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  itemCount: filtered.length,
+                  itemBuilder: (c, i) {
+                    final ex = filtered[i];
+                    return AnimatedSlide(
+                      duration: const Duration(milliseconds: 300),
+                      offset: Offset(0, 0.02 * (1 - (i / (filtered.length.clamp(1, 99))))),
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 400),
+                        opacity: 1,
+                        child: FutureBuilder<Map<String, dynamic>>(
+                          future: _progress.getExercise(ex.id),
+                          builder: (c, snap) {
+                            final p = snap.data;
+                            final attempts = p?['attempts'] ?? 0;
+                            final best = p?['best'];
+                            return _ExerciseCard(
+                              exercise: ex,
+                              attempts: attempts,
+                              best: best,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => PracticeListeningDetailScreen(exerciseId: ex.id),
+                                  ),
+                                ).then((_) => setState(() {}));
+                              },
+                            );
+                          },
+                        ),
+                      ),
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -143,7 +189,7 @@ class _ExerciseCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _levelColor(exercise.level).withOpacity(0.15),
+                      color: _levelColor(exercise.level).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(exercise.level.label, style: TextStyle(color: _levelColor(exercise.level), fontWeight: FontWeight.w600)),

@@ -103,8 +103,9 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
     return Scaffold(
       appBar: AppBar(
         title: const Text('Comments'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        // Sabit beyaz arka plan ve siyah foreground kaldırıldı, tema otomatik uygular.
+        // backgroundColor: Colors.white,
+        // foregroundColor: Colors.black87,
         elevation: 1,
       ),
       body: Column(
@@ -245,10 +246,13 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
   }
 
   Widget _buildCommentComposer() {
+    final theme = Theme.of(context);
+    // Deprecated alanlar güncellendi
+    final baseFill = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3);
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: theme.cardColor,
         boxShadow: [
           BoxShadow(
             offset: const Offset(0, -2),
@@ -267,7 +271,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
                 decoration: InputDecoration(
                   hintText: 'Write your comment...',
                   filled: true,
-                  fillColor: Colors.grey.withAlpha(50),
+                  fillColor: baseFill,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(25.0),
