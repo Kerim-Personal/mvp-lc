@@ -15,16 +15,6 @@ class GrammarTab extends StatefulWidget {
 }
 
 class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
-  // Kullanıcı ilerlemesi (Bu veri normalde bir servisten veya veritabanından gelir)
-  final Map<String, double> userProgress = const {
-    'A1': 1.0,
-    'A2': 0.75,
-    'B1': 0.33,
-    'B2': 0.0,
-    'C1': 0.0,
-    'C2': 0.0,
-  };
-
   // OPTİMİZASYON: Patika çizim animasyonu için tek seferlik bir controller.
   late final AnimationController _entryAnimationController;
   late final Animation<double> _pathAnimation;
@@ -38,6 +28,10 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     Colors.red,
     Colors.purple
   ];
+
+  // Dinamik ilerleme
+  Map<String, double> _levelProgress = {};
+  bool _progressLoading = true;
 
   @override
   void initState() {
@@ -54,6 +48,27 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     );
 
     _entryAnimationController.forward();
+    _computeProgress();
+  }
+
+  Future<void> _computeProgress() async {
+    final completed = await GrammarProgressService.instance.getCompleted();
+    // Grupla
+    final Map<String, List<Lesson>> grouped = {};
+    for (final l in grammarLessons) {
+      grouped.putIfAbsent(l.level, () => []).add(l);
+    }
+    final Map<String, double> result = {};
+    for (final level in levels) {
+      final list = grouped[level] ?? [];
+      if (list.isEmpty) {
+        result[level] = 0;
+        continue;
+      }
+      final done = list.where((l) => completed.contains(l.contentPath)).length;
+      result[level] = done / list.length;
+    }
+    if (mounted) setState(() { _levelProgress = result; _progressLoading = false; });
   }
 
   @override
@@ -67,6 +82,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.replayTrigger != widget.replayTrigger) {
       _entryAnimationController.forward(from: 0);
+      _computeProgress();
     }
   }
 
@@ -117,10 +133,8 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
             ...List.generate(levels.length, (index) {
               final level = levels[index];
               final lessonsInLevel = lessonsByLevel[level] ?? [];
-              final progress = userProgress[level] ?? 0.0;
-              final isLocked = false; // Tüm seviyeler açık (kilit kaldırıldı)
-              final position = _calculateNodePosition(
-                  index, MediaQuery.of(context).size.width);
+              final progress = _progressLoading ? 0.0 : (_levelProgress[level] ?? 0.0);
+              final position = _calculateNodePosition(index, MediaQuery.of(context).size.width);
 
               return Positioned(
                 top: position.dy,
@@ -130,22 +144,23 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                   lessonCount: lessonsInLevel.length,
                   color: levelColors[index],
                   progress: progress,
-                  isLocked: isLocked,
-                  // OPTİMİZASYON: Giriş animasyonunu ana controller'a bağla
+                  // isLocked konsepti şimdilik yok edildi
+                  isLocked: false,
                   entryAnimation: _entryAnimationController,
-                  animationDelay: index * 0.15, // Gecikmeyi biraz artırarak daha hoş bir sıralama sağla
-                  onTap: isLocked
-                      ? null
-                      : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => GrammarLevelScreen(
-                        level: level,
-                        lessons: lessonsInLevel,
-                        color: levelColors[index],
+                  animationDelay: index * 0.15,
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => GrammarLevelScreen(
+                          level: level,
+                          lessons: lessonsInLevel,
+                          color: levelColors[index],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                    await _computeProgress();
+                  },
                 ),
               );
             }),
@@ -390,16 +405,23 @@ class GrammarLevelScreen extends StatefulWidget {
 }
 
 class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
-  Set<String> _completed = {};
+  Set<String> _completedGlobal = {}; // tüm dersler
+  Set<String> _completedLevel = {};  // sadece bu seviye dersleri
   double _progress = 0;
   bool _loading = true;
 
   Future<void> _loadProgress() async {
     final completed = await GrammarProgressService.instance.getCompleted();
-    final ids = widget.lessons.map((l) => l.contentPath);
+    final ids = widget.lessons.map((l) => l.contentPath).toList();
     final progress = await GrammarProgressService.instance.levelProgress(widget.level, ids);
+    final levelSet = ids.where(completed.contains).toSet();
     if (mounted) {
-      setState(() { _completed = completed; _progress = progress; _loading = false; });
+      setState(() {
+        _completedGlobal = completed;
+        _completedLevel = levelSet;
+        _progress = progress;
+        _loading = false;
+      });
     }
   }
 
@@ -416,6 +438,8 @@ class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
     final base = widget.color;
     final theme = Theme.of(context);
     final progressPct = (_progress * 100).round();
+    final levelCompletedCount = _completedLevel.length;
+    final levelTotal = widget.lessons.length;
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.level} Grammar Topics'),
@@ -436,7 +460,7 @@ class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
                         child: LinearProgressIndicator(
                           minHeight: 10,
                           value: _loading ? 0 : _progress,
-                          backgroundColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                          backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                           valueColor: AlwaysStoppedAnimation(base.shade700),
                         ),
                       ),
@@ -454,7 +478,7 @@ class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _loading ? 'Loading progress...' : '${_completed.length}/${widget.lessons.length} topics completed',
+                  _loading ? 'Loading progress...' : '$levelCompletedCount/$levelTotal topics completed',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -468,7 +492,7 @@ class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
               itemCount: widget.lessons.length,
               itemBuilder: (context, index) {
                 final lesson = widget.lessons[index];
-                final isCompleted = _completed.contains(lesson.contentPath);
+                final isCompleted = _completedGlobal.contains(lesson.contentPath);
                 return _LessonTopicTile(
                   lesson: lesson,
                   color: widget.color,
@@ -480,28 +504,6 @@ class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BlurCircle extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _BlurCircle({required this.color, required this.size});
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-          ),
-        ),
       ),
     );
   }
@@ -684,4 +686,3 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
-

@@ -66,10 +66,26 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
     _flutterTts.setLanguage("en-US");
     _flutterTts.setSpeechRate(0.5);
     _flutterTts.setPitch(1.0);
+    // Tanım ve örneği sırayla okuması için konuşma tamamlanmasını bekle
+    _flutterTts.awaitSpeakCompletion(true);
   }
 
   Future<void> _speak(String text) async {
     await _flutterTts.speak(text);
+  }
+
+  Future<void> _speakDefinitionAndExample(Word w) async {
+    try {
+      await _flutterTts.stop();
+      final def = w.definition.trim();
+      final ex = w.example.trim();
+      if (def.isNotEmpty) {
+        await _flutterTts.speak(def);
+      }
+      if (ex.isNotEmpty && ex.toLowerCase() != def.toLowerCase()) {
+        await _flutterTts.speak(ex);
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchUserNativeLanguage() async {
@@ -361,6 +377,7 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
             onFlip: () {},
             onSpeakWord: () => _speak(_words[index].word),
             onSpeakExample: () => _speak(_words[index].example),
+            onSpeakDefinitionAndExample: () => _speakDefinitionAndExample(_words[index]),
             nativeLanguageCode: _nativeLanguageCode ?? 'en',
           ),
         );
@@ -438,6 +455,7 @@ class WordCard extends StatefulWidget {
   final VoidCallback onFlip;
   final VoidCallback onSpeakWord;
   final VoidCallback onSpeakExample;
+  final VoidCallback? onSpeakDefinitionAndExample; // yeni parametre
   final String nativeLanguageCode;
   const WordCard({
     super.key,
@@ -448,6 +466,7 @@ class WordCard extends StatefulWidget {
     required this.onFlip,
     required this.onSpeakWord,
     required this.onSpeakExample,
+    this.onSpeakDefinitionAndExample,
     required this.nativeLanguageCode,
   });
 
@@ -549,15 +568,11 @@ class _WordCardState extends State<WordCard> {
   Widget _buildCardFace({required BuildContext context, required Widget content, required bool isFront, required bool isDark}) {
     final show = isFront ? _showTranslationFront : _showTranslationBack;
     final loading = isFront ? _loadingFront : _loadingBack;
-    final frontBgLight = Colors.white;
-    final backBgLight = const Color(0xFFF0F4F8);
-    final frontBgDark = const Color(0xFF111111);
-    final backBgDark = const Color(0xFF1C1C1C);
-    final cardColor = isFront ? (isDark ? frontBgDark : frontBgLight) : (isDark ? backBgDark : backBgLight);
+    const double iconSize = 30; // küçültüldü (önce 36 idi)
 
     return Container(
       decoration: BoxDecoration(
-        color: cardColor,
+        color: isFront ? (isDark ? const Color(0xFF111111) : Colors.white) : (isDark ? const Color(0xFF1C1C1C) : const Color(0xFFF0F4F8)),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -577,6 +592,73 @@ class _WordCardState extends State<WordCard> {
               child: content,
             ),
           ),
+          // Panel ÖNCE konuluyor ki ikonlar üstte kalsın ve tıklanabilsin
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: show ? 100 : 0,
+                  maxHeight: show ? 160 : 0,
+                ),
+                child: show
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+                          child: loading
+                              ? const Center(child: SizedBox(height: 40, width: 40, child: CircularProgressIndicator()))
+                              : SingleChildScrollView(
+                                  child: isFront
+                                      ? Text(
+                                          _translatedFront ?? '',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark ? Colors.white : Colors.black,
+                                          ),
+                                        )
+                                      : Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (_translatedDefinition != null)
+                                              Text(
+                                                _translatedDefinition!,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isDark ? Colors.white : Colors.black,
+                                                ),
+                                              ),
+                                            const SizedBox(height: 8),
+                                            if (_translatedExample != null)
+                                              Text(
+                                                _translatedExample!,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontStyle: FontStyle.italic,
+                                                  color: isDark ? Colors.white70 : Colors.black87,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
+          ),
           if (isFront && !_showTranslationFront)
             Positioned(
               bottom: 20,
@@ -594,111 +676,76 @@ class _WordCardState extends State<WordCard> {
                 ],
               ),
             ),
-          // Çeviri ikonu (Sol üst)
           Positioned(
-            top: 8,
-            left: 4,
+            top: 6,
+            left: 2,
             child: IconButton(
               tooltip: 'Translate',
-              icon: Icon(Icons.translate, color: isDark ? Colors.tealAccent.shade200 : Colors.teal),
+              iconSize: iconSize,
+              padding: const EdgeInsets.all(6),
+              icon: Icon(Icons.translate, size: iconSize, color: isDark ? Colors.tealAccent.shade200 : Colors.tealAccent.shade700),
               onPressed: _toggleTranslation,
             ),
           ),
-          // Ses ikonu (Sağ üst)
           Positioned(
-            top: 8,
-            right: 4,
+            top: 6,
+            right: 2,
             child: IconButton(
               tooltip: 'Speak',
+              iconSize: iconSize,
+              padding: const EdgeInsets.all(6),
               icon: Icon(
                 Icons.volume_up,
+                size: iconSize,
                 color: isFront
-                    ? (isDark ? Colors.white70 : Colors.grey.shade200)
-                    : (isDark ? Colors.white70 : Colors.blue.shade700),
+                    ? (isDark ? Colors.white : Colors.grey.shade700)
+                    : (isDark ? Colors.white : Colors.blue.shade700),
               ),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.black.withValues(alpha: 0.15),
+                backgroundColor: Colors.black.withValues(alpha: 0.20),
                 shape: const CircleBorder(),
               ),
-              onPressed: isFront ? widget.onSpeakWord : widget.onSpeakExample,
+              onPressed: isFront
+                  ? widget.onSpeakWord
+                  : (widget.onSpeakDefinitionAndExample ?? widget.onSpeakExample),
             ),
           ),
-          // Tik ikonu (Sağ alt)
           Positioned(
-            bottom: 8,
-            right: 4,
+            bottom: 6,
+            right: 2,
             child: IconButton(
               tooltip: widget.isLearned ? 'Unmark learned' : 'Mark learned',
+              iconSize: iconSize + 2,
+              padding: const EdgeInsets.all(6),
               icon: Icon(
                 widget.isLearned ? Icons.check_circle : Icons.circle_outlined,
+                size: iconSize + 2,
                 color: widget.isLearned
                     ? (isDark ? Colors.greenAccent : Colors.lightGreenAccent.shade700)
-                    : (isDark ? Colors.white70 : Colors.white.withValues(alpha: 0.85)),
+                    : (isDark ? Colors.white70 : Colors.white),
               ),
               style: IconButton.styleFrom(
                 backgroundColor: widget.isLearned
-                    ? (isDark ? Colors.green.withValues(alpha: 0.25) : Colors.green.withValues(alpha: 0.25))
-                    : Colors.black.withValues(alpha: 0.15),
+                    ? (isDark ? Colors.green.withValues(alpha: 0.28) : Colors.green.withValues(alpha: 0.3))
+                    : Colors.black.withValues(alpha: 0.25),
                 shape: const CircleBorder(),
               ),
               onPressed: widget.onToggleLearned,
             ),
           ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: show ? 120 : 0,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
-                child: loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                  child: isFront
-                      ? Text(
-                    _translatedFront ?? '',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  )
-                      : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_translatedDefinition != null)
-                        Text(
-                          _translatedDefinition!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      const SizedBox(height: 8),
-                      if (_translatedExample != null)
-                        Text(
-                          _translatedExample!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontStyle: FontStyle.italic,
-                            color: isDark ? Colors.white70 : Colors.black87,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+          // Ön yüzde tüm kartı kaplayan GestureDetector kaldırıldı; sadece orta alanı kaplayan ve ikonları engellemeyen bir alan eklendi
+          if (isFront && !_showTranslationFront)
+            Positioned(
+              // İkonlar (üst 56px ve alt learned ikonu ~60px) dışında orta alan
+              top: 56,
+              left: 16,
+              right: 16,
+              bottom: 70,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _toggleTranslation,
               ),
             ),
-          ),
         ],
       ),
     );

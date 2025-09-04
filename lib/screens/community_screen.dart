@@ -213,7 +213,8 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<QuerySnapshot> _fetchRoomsData() {
-    return FirebaseFirestore.instance.collection('group_chats').orderBy('isFeatured', descending: true).get();
+    // Sadece 4 oda getir (ekrana sığacak modern set)
+    return FirebaseFirestore.instance.collection('group_chats').limit(4).get();
   }
 
   Future<void> _refreshFeed() async {
@@ -231,6 +232,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    // KALDIRILAN controller yok
     super.dispose();
   }
 
@@ -374,16 +376,24 @@ class _CommunityScreenState extends State<CommunityScreen>
         }
         if (snapshot.hasError) {
           if (_roomsDocsCache != null) {
-            // Önceki veri ile listeyi yine göster
             return _buildRoomsListFromDocs(_roomsDocsCache!);
           }
-          return const Center(child: Text('Failed to load rooms.'));
+          return const Center(child: Text('Rooms yüklenemedi.'));
         }
         if (snapshot.hasData) {
-          _roomsDocsCache = snapshot.data!.docs; // cache güncelle
+          _roomsDocsCache = snapshot.data!.docs;
         }
         if (_roomsDocsCache == null || _roomsDocsCache!.isEmpty) {
-          return const Center(child: Text('No rooms yet.'));
+          return RefreshIndicator(
+            onRefresh: _refreshRooms,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 160),
+                Center(child: Text('Henüz oda yok.')),
+              ],
+            ),
+          );
         }
         return RefreshIndicator(
           onRefresh: _refreshRooms,
@@ -394,9 +404,8 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Widget _buildRoomsListFromDocs(List<DocumentSnapshot> roomDocs) {
-    final List<GroupChatRoomInfo> rooms = roomDocs.map((doc) {
+    final rooms = roomDocs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
-
       IconData getIconData(String iconName) {
         switch (iconName) {
           case 'music_note_outlined': return Icons.music_note_outlined;
@@ -407,33 +416,34 @@ class _CommunityScreenState extends State<CommunityScreen>
           default: return Icons.chat_bubble_outline_rounded;
         }
       }
-
       return GroupChatRoomInfo(
         id: doc.id,
         name: data['name'] ?? 'Unknown Room',
         description: data['description'] ?? '',
         icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
-        color1: Color(_parseColor(data['color1'], 0xFFFF8A80)),
-        color2: Color(_parseColor(data['color2'], 0xFFFF5252)),
-        isFeatured: data['isFeatured'] ?? false,
+        color1: Color(_parseColor(data['color1'], 0xFF4E54C8)),
+        color2: Color(_parseColor(data['color2'], 0xFF8F94FB)),
+        isFeatured: false, // Artık kullanılmıyor
         memberCount: data['memberCount'] is int ? data['memberCount'] : null,
         avatarsPreview: (data['avatarsPreview'] is List)
-            ? (data['avatarsPreview'] as List)
-                .whereType<String>()
-                .take(3)
-                .toList()
+            ? (data['avatarsPreview'] as List).whereType<String>().take(3).toList()
             : null,
       );
     }).toList();
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-      itemCount: rooms.length,
-      itemBuilder: (context, index) {
-        final roomInfo = rooms[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: GroupChatCard(roomInfo: roomInfo),
+    // 4 kartı tam ekrana modern şekilde yerleştir: Column + Expanded
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          children: [
+            for (int i = 0; i < rooms.length; i++)
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, i == 0 ? 8 : 6, 16, i == rooms.length - 1 ? 16 : 6),
+                  child: GroupChatCard(roomInfo: rooms[i], compact: true),
+                ),
+              ),
+          ],
         );
       },
     );

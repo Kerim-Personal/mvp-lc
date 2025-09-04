@@ -15,6 +15,22 @@ import 'package:lingua_chat/lessons/grammar/a1/past_simple_regular_verbs_lesson.
 import 'package:lingua_chat/lessons/grammar/a1/question_words_lesson.dart'; // <-- YENİ: Bu satırı ekle
 import 'package:lingua_chat/widgets/grammar/grammar_lesson_wrapper.dart';
 
+// Ders AppBar renk eşlemesi
+const Map<String, Color> _lessonAppBarColors = {
+  'a1_verb_to_be': Color(0xFF00695C), // Colors.teal.shade700
+  'a1_present_simple': Color(0xFF303F9F), // indigo 700
+  'a1_articles': Color(0xFF7B1FA2), // purple 700
+  'a1_plural_nouns': Color(0xFFF57C00), // orange 700
+  'a1_possessive_adjectives': Color(0xFF455A64), // blueGrey 700
+  'a1_demonstratives': Color(0xFFAFB42B), // lime 700
+  'a1_prepositions_place': Color(0xFF5D4037), // brown 700
+  'a1_prepositions_time': Color(0xFF303F9F), // indigo 700
+  'a1_can_for_ability': Color(0xFF00695C), // teal 700
+  'a1_past_simple_to_be': Color(0xFF1976D2), // blue 700
+  'a1_past_simple_regular': Color(0xFF7B1FA2), // purple 700
+  'a1_question_words': Color(0xFF558B2F), // lightGreen 700
+};
+
 class LessonRouter {
   static Future<void> navigateToLesson(BuildContext context, String contentPath, String lessonTitle) async {
     Widget? screen;
@@ -61,10 +77,15 @@ class LessonRouter {
         );
     }
     if (screen != null) {
+      final color = _lessonAppBarColors[contentPath];
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => GrammarLessonWrapper(contentPath: contentPath, child: screen!),
+          builder: (_) => GrammarLessonWrapper(
+            contentPath: contentPath,
+            child: screen!,
+            appBarColor: color,
+          ),
         ),
       );
     }
