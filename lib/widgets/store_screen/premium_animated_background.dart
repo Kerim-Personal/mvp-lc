@@ -1,7 +1,4 @@
-// lib/widgets/store_screen/premium_animated_background.dart
-
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 /// Premium users' rich aurora / particle effect background.
@@ -71,8 +68,12 @@ class _AuroraPainter extends CustomPainter {
 
     for (int i = 0; i < centers.length; i++) {
       final rect = Rect.fromCircle(center: centers[i], radius: radii[i]);
+      // Replaced deprecated `withOpacity` with `withAlpha`.
       final gradient = RadialGradient(
-        colors: [colors[i][1].withOpacity(0.55), colors[i][0].withOpacity(0.0)],
+        colors: [
+          colors[i][1].withAlpha((0.55 * 255).round()),
+          colors[i][0].withAlpha((0.0 * 255).round())
+        ],
       );
       final paint = Paint()
         ..shader = gradient.createShader(rect)
@@ -118,7 +119,8 @@ class _AuroraPainter extends CustomPainter {
       final twinkle = 0.5 + 0.5 * math.sin(t * (1.0 + rnd.nextDouble() * 2.0) + i);
       final alpha = (0.10 + 0.35 * twinkle).clamp(0.0, 1.0);
       final r = 0.6 + 1.6 * twinkle;
-      final paint = Paint()..color = Colors.white.withOpacity(alpha);
+      // Replaced deprecated `withOpacity` with `withAlpha`.
+      final paint = Paint()..color = Colors.white.withAlpha((alpha * 255).round());
       canvas.drawCircle(Offset(px, py), r, paint);
     }
   }
@@ -128,9 +130,10 @@ class _AuroraPainter extends CustomPainter {
     final overlayPaint = Paint()
       ..shader = LinearGradient(
         colors: [
-          Colors.white.withOpacity(0.06),
+          // Replaced deprecated `withOpacity` with `withAlpha`.
+          Colors.white.withAlpha((0.06 * 255).round()),
           Colors.transparent,
-          Colors.white.withOpacity(0.04),
+          Colors.white.withAlpha((0.04 * 255).round()),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,

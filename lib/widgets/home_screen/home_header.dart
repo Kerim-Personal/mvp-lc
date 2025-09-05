@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'dart:async'; // Timer için eklendi
-import 'dart:math' as math; // sin dalgası için
+import 'dart:async';
+import 'dart:math' as math;
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({
@@ -28,10 +28,47 @@ class HomeHeader extends StatefulWidget {
   State<HomeHeader> createState() => _HomeHeaderState();
 }
 
-class _HomeHeaderState extends State<HomeHeader>
-    with TickerProviderStateMixin {
-  late AnimationController _shimmerController;
-  late AnimationController _bgController; // arka plan animasyonu
+class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
+  late final AnimationController _shimmerController;
+  late final AnimationController _bgController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 16),
+    )..repeat();
+
+    _shimmerController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Timer(const Duration(seconds: 1), () {
+          if (mounted) _shimmerController.forward(from: 0);
+        });
+      }
+    });
+
+    if (widget.isPremium) _shimmerController.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isPremium && widget.isPremium) _shimmerController.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    _bgController.dispose();
+    super.dispose();
+  }
 
   Color _roleColor(String? role) {
     switch (role) {
@@ -45,83 +82,42 @@ class _HomeHeaderState extends State<HomeHeader>
   }
 
   @override
-  void initState() {
-    super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    );
-    _bgController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 16),
-    )..repeat();
-
-    _shimmerController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        Timer(const Duration(seconds: 1), () {
-          if (mounted) {
-            _shimmerController.forward(from: 0.0);
-          }
-        });
-      }
-    });
-
-    if (widget.isPremium) {
-      _shimmerController.forward();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant HomeHeader oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isPremium && widget.isPremium) {
-      // Premium’a geçildiyse shimmer’ı başlat
-      _shimmerController.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _shimmerController.dispose();
-    _bgController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final baseColor = _roleColor(widget.role);
     final now = DateTime.now();
     final palette = _selectAdaptivePalette(now, widget.isPremium, widget.role);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28.0),
+      borderRadius: BorderRadius.circular(28),
       child: Stack(
         children: [
-          // Arka plan gradient (animasyonlu)
+          // Animasyonlu arka plan
           AnimatedBuilder(
             animation: _bgController,
-            builder: (context, _) {
-              // Kesintisiz döngü için sinüs tabanlı kaydırma
-              final phase = _bgController.value; // 0..1
-              final wave1 = math.sin(phase * 2 * math.pi); // -1..1
+            builder: (_, __) {
+              final phase = _bgController.value;
+              final wave1 = math.sin(phase * 2 * math.pi);
               final wave2 = math.sin(phase * 2 * math.pi + math.pi / 2);
-              final tLight = (wave1 * 0.5 + 0.5); // 0..1
+              final tLight = (wave1 * 0.5 + 0.5);
               final modulated = _modulatePalette(palette, tLight);
-              final begin = Alignment(-0.65 + 0.35 * wave1, -0.75 + 0.30 * wave2);
+
+              final begin = Alignment(-0.65 + 0.35 * wave1, -0.75 + 0.3 * wave2);
               final end = Alignment(0.65 + 0.25 * wave2, 0.75 - 0.35 * wave1);
-              final gradient = LinearGradient(
-                colors: modulated,
-                begin: begin,
-                end: end,
-              );
+
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                decoration: BoxDecoration(gradient: gradient),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: modulated,
+                    begin: begin,
+                    end: end,
+                  ),
+                ),
                 child: _buildContent(baseColor),
               );
             },
           ),
-          // Gloss overlay (üst kısımda hafif parlaklık)
+          // Hafif parlaklık (gloss)
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
@@ -181,7 +177,7 @@ class _HomeHeaderState extends State<HomeHeader>
   }
 
   Widget _buildAvatar() {
-    final bool premium = widget.isPremium;
+    final premium = widget.isPremium;
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -215,10 +211,8 @@ class _HomeHeaderState extends State<HomeHeader>
             widget.avatarUrl!,
             width: 56,
             height: 56,
-            placeholderBuilder: (context) => const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            placeholderBuilder: (_) =>
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
           ),
         )
             : Text(
@@ -237,31 +231,30 @@ class _HomeHeaderState extends State<HomeHeader>
         overflow: TextOverflow.ellipsis,
       );
     }
-    final bool isSpecialRole = (widget.role == 'admin' || widget.role == 'moderator');
-    final Color shimmerBase = isSpecialRole ? baseColor : const Color(0xFFE5B53A);
+
+    final isSpecialRole = (widget.role == 'admin' || widget.role == 'moderator');
+    final shimmerBase = isSpecialRole ? baseColor : const Color(0xFFE5B53A);
+
     return AnimatedBuilder(
       animation: _shimmerController,
       builder: (context, child) {
-        final highlightColor = Colors.white;
         final value = _shimmerController.value;
         final start = value * 1.5 - 0.5;
         final end = value * 1.5;
         return ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [shimmerBase, highlightColor, shimmerBase],
-            stops: [start, (start + end) / 2, end].map((e) => e.clamp(0.0, 1.0)).toList(),
-          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              colors: [shimmerBase, Colors.white, shimmerBase],
+              stops: [start, (start + end) / 2, end].map((e) => e.clamp(0.0, 1.0)).toList(),
+            ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height));
+          },
           child: child,
         );
       },
       child: Text(
         widget.userName,
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: shimmerBase,
-        ),
+        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: shimmerBase),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -269,7 +262,8 @@ class _HomeHeaderState extends State<HomeHeader>
 
   Widget _buildStreakChip() {
     if (widget.streak <= 0) return const SizedBox.shrink();
-    final bool hot = widget.streak >= 7;
+    final hot = widget.streak >= 7;
+
     return AnimatedScale(
       duration: const Duration(milliseconds: 400),
       scale: 1.0 + (hot ? 0.03 : 0.0),
@@ -282,19 +276,12 @@ class _HomeHeaderState extends State<HomeHeader>
                 ? const [Color(0xFFFFB347), Color(0xFFFF7050)]
                 : const [Color(0xFFBBBEC1), Color(0xFF9DA0A3)],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(hot ? Icons.local_fire_department : Icons.whatshot_outlined,
-                size: 16, color: Colors.white),
+            Icon(hot ? Icons.local_fire_department : Icons.whatshot_outlined, size: 16, color: Colors.white),
             const SizedBox(width: 4),
             Text(
               '${widget.streak}',
@@ -312,6 +299,7 @@ class _HomeHeaderState extends State<HomeHeader>
       if (role == 'moderator') return [const Color(0xFF4E2E00), const Color(0xFFCC7A00), const Color(0xFFFFC773)];
       return [const Color(0xFF3B2A00), const Color(0xFF8B6300), const Color(0xFFE5B53A)];
     }
+
     final hour = now.hour;
     if (hour >= 5 && hour < 12) return [const Color(0xFFFFECD2), const Color(0xFFFCCF8A), const Color(0xFFEFA45C)];
     if (hour >= 12 && hour < 18) return [const Color(0xFF0093E9), const Color(0xFF38B2AC), const Color(0xFF006F7A)];
@@ -324,9 +312,8 @@ class _HomeHeaderState extends State<HomeHeader>
     return List<Color>.generate(base.length, (i) {
       final c = base[i];
       final wave = math.sin((t + i * 0.33) * math.pi * 2) * 0.09;
-      final Color target = wave >= 0 ? Colors.white : Colors.black;
-      final factor = wave.abs();
-      return Color.lerp(c, target, factor) ?? c;
+      final target = wave >= 0 ? Colors.white : Colors.black;
+      return Color.lerp(c, target, wave.abs()) ?? c;
     });
   }
 }

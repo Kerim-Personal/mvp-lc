@@ -20,7 +20,7 @@ class SectionTitle extends StatelessWidget {
             width: 4,
             decoration: BoxDecoration(
               // OPTIMIZATION: Using withOpacity instead of withAlpha for performance.
-              color: Colors.teal.withOpacity(0.8),
+              color: Colors.teal.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

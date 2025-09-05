@@ -12,6 +12,7 @@ import 'package:lingua_chat/services/block_service.dart';
 import 'package:lingua_chat/services/translation_service.dart';
 import 'package:lingua_chat/services/linguabot_service.dart';
 import 'package:lingua_chat/models/grammar_analysis.dart';
+import 'package:characters/characters.dart';
 
 // Mesaj veri modeli
 class GroupMessage {
@@ -90,6 +91,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   bool _isLoadingMore = false; // yeniden tetiklemeyi engelle
   bool _hasMore = true; // daha fazla kayıt olabilir
 
+  bool _showScrollToBottom = false; // aşağı in butonu
+  bool _didInitialScroll = false; // ilk yüklemede alta kaydırıldı mı
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +115,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     _nameShimmerController.forward();
 
     _scrollController.addListener(_onScrollLoadMore);
+    _scrollController.addListener(_updateScrollToBottomVisibility);
   }
 
   void _onScrollLoadMore() {
@@ -122,6 +127,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         _isLoadingMore = true;
         _messageLimit += _messageIncrement;
       });
+    }
+  }
+
+  void _updateScrollToBottomVisibility() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = (pos.maxScrollExtent - pos.pixels) < 120; // eşik
+    final shouldShow = !atBottom;
+    if (shouldShow != _showScrollToBottom) {
+      if (mounted) setState(() => _showScrollToBottom = shouldShow);
     }
   }
 
@@ -145,6 +160,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     _leaveRoom();
     _messageController.dispose();
     _scrollController.removeListener(_onScrollLoadMore);
+    _scrollController.removeListener(_updateScrollToBottomVisibility);
     _scrollController.dispose();
     _nameShimmerController.dispose();
     super.dispose();
@@ -152,29 +168,20 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   void _scrollToBottom({bool immediate = false}) {
     if (!_scrollController.hasClients) return;
-    // Bir sonraki frame'de güvenli jump/animate
+    // jumpTo zaten animasyonsuz; immediate param kullanılmıyor ama interface korunuyor
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       final max = _scrollController.position.maxScrollExtent;
-      final current = _scrollController.position.pixels;
-      if ((max - current).abs() < 5) return; // Zaten altta
-      if (immediate) {
-        _scrollController.jumpTo(max);
-      } else {
-        _scrollController.animateTo(
-          max,
-            duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-        );
-      }
+      try { _scrollController.jumpTo(max); } catch (_) {}
     });
   }
 
   @override
   void didChangeMetrics() {
     final bottomInset = View.of(context).viewInsets.bottom;
-    if (bottomInset > 0 && bottomInset != _lastBottomInset) {
-      _scrollToBottom(immediate: true); // anında zıpla
+    // Klavye yeni açıldı (artış oldu) ise koşulsuz en alta zıpla (jank yok, animasyon yok)
+    if (bottomInset > _lastBottomInset) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(immediate: true));
     }
     _lastBottomInset = bottomInset;
     super.didChangeMetrics();
@@ -491,18 +498,61 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final appBarBg = isDark ? Theme.of(context).colorScheme.surface : Colors.white;
+    final fgColor = isDark ? Colors.teal.shade200 : Colors.teal.shade800;
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Icon(widget.roomIcon, size: 24),
-            const SizedBox(width: 8),
-            Text(widget.roomName),
-          ],
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: AppBar(
+          elevation: 2,
+          backgroundColor: appBarBg,
+          foregroundColor: fgColor,
+          titleSpacing: 0,
+          title: Row(
+            children: [
+              const SizedBox(width: 4),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(colors: isDark
+                      ? [Colors.teal.shade900, Colors.teal.shade600]
+                      : [Colors.teal.shade400, Colors.teal.shade700]),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withAlpha(isDark ? 80 : 30), blurRadius: 4, offset: const Offset(0,2))
+                  ],
+                ),
+                child: Icon(widget.roomIcon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(widget.roomName, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: fgColor)),
+                  const SizedBox(height: 2),
+                  Text('Group Chat', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, letterSpacing: .3)),
+                ],
+              ),
+            ],
+          ),
+          actions: const [SizedBox(width: 4)], // scroll icon kaldırıldı
         ),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
       ),
+      floatingActionButton: _showScrollToBottom
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 56.0), // composer üstünde konum
+              child: FloatingActionButton.small(
+                heroTag: 'scroll_bottom_btn',
+                backgroundColor: isDark ? Colors.teal.shade600 : Colors.teal.shade400,
+                elevation: 3,
+                onPressed: () => _scrollToBottom(immediate: true),
+                child: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 26),
+              ),
+            )
+          : null,
       body: Column(
         children: [
           Expanded(
@@ -543,8 +593,22 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                   return !_blocked.contains(senderId);
                 }).toList();
 
+                // İlk yükleme sonrasında bir kez alta kaydır
+                if (!_didInitialScroll) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_didInitialScroll) {
+                      _didInitialScroll = true; // tekrar etme
+                      _scrollToBottom(immediate: true);
+                    }
+                  });
+                }
+
                 return ListView.builder(
                   controller: _scrollController,
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: true,
+                  addSemanticIndexes: false,
+                  cacheExtent: 600,
                   padding: EdgeInsets.only(
                     left: 16,
                     right: 16,
@@ -575,14 +639,25 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                     final msgId = doc.id;
                     final ga = isMe ? _grammarCache[msgId] : null;
                     final analyzing = isMe && _analyzing.contains(msgId);
+
+                    bool continuation = false;
+                    if (adjIndex > 0) {
+                      final prevDoc = ordered[adjIndex - 1];
+                      final prevMsg = GroupMessage.fromFirestore(prevDoc);
+                      if (prevMsg.senderId == message.senderId) {
+                        continuation = true; // zaman sınırı kaldırıldı
+                      }
+                    }
+
                     return GestureDetector(
                       onLongPress: () async {
                         if (isMe) {
                           if (analyzing) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Analiz devam ediyor...')));
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Analyzing...')));
                           } else if (ga != null) {
-                            _showGrammarDialog(ga, message.text);
+                            _showGrammarDialog(ga, message.text); // mevcut analiz direkt aç
                           } else if (_isCurrentUserPremium) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Analyzing...')));
                             setState(() => _analyzing.add(msgId));
                             final analysis = await _grammarService.analyzeGrammar(message.text);
                             if (!mounted) return;
@@ -591,14 +666,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                               if (analysis != null) _grammarCache[msgId] = analysis;
                             });
                             if (analysis == null && mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Analiz başarısız, tekrar deneyebilirsin.')));
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Analysis failed, try again.')));
+                            } else if (analysis != null) {
+                              _showGrammarDialog(analysis, message.text); // yeni analiz otomatik aç
                             }
                           }
                         } else {
-                          _showUserActionsDialog(message);
+                          _showUserActionsDialog(message); // report/block
                         }
                       },
-                      child: _buildMessageBubble(message, isMe, ga: ga, analyzing: analyzing),
+                      child: _buildMessageBubble(message, isMe, ga: ga, analyzing: analyzing, continuation: continuation),
                     );
                   },
                 );
@@ -611,9 +688,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildMessageBubble(GroupMessage message, bool isMe, {GrammarAnalysis? ga, bool analyzing = false}) {
+  Widget _buildMessageBubble(GroupMessage message, bool isMe, {GrammarAnalysis? ga, bool analyzing = false, bool continuation = false}) {
     final alignment = isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final color = isMe ? Colors.teal.shade300 : Colors.grey.shade200;
     final enableTranslation = !isMe && _isCurrentUserPremium && _nativeLanguage != 'en';
 
     Widget messageContent = GroupMessageBubble(
@@ -625,94 +701,73 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       analyzing: analyzing,
     );
 
+    // Avatar placeholder genişliği (radius*2 + spacing(6))
+    const double avatarDiameter = 32; // radius 16 *2
+    const double avatarSpacing = 6;
+    const double avatarBlockWidth = avatarDiameter + avatarSpacing; // 38
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: EdgeInsets.symmetric(vertical: continuation ? 2.0 : 4.0),
       child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe)
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.grey.shade300,
-              child: ClipOval(
-                child: SvgPicture.network(
-                  message.senderAvatarUrl,
-                  placeholderBuilder: (context) => const Icon(Icons.person, size: 18),
-                ),
-              ),
-            ),
-          const SizedBox(width: 8),
+            (continuation
+                ? const SizedBox(width: avatarBlockWidth)
+                : CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.grey.shade300,
+                    child: ClipOval(
+                      child: SvgPicture.network(
+                        message.senderAvatarUrl,
+                        placeholderBuilder: (context) => const Icon(Icons.person, size: 18),
+                      ),
+                    ),
+                  )),
+          if (!isMe) const SizedBox(width: 6),
           Flexible(
             child: Column(
               crossAxisAlignment: alignment,
               children: [
-                if (!isMe)
+                if (!isMe && !continuation)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4.0),
+                    padding: const EdgeInsets.only(bottom: 2.0),
                     child: _buildStaticSenderHeader(message),
                   ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(20),
-                      topRight: const Radius.circular(20),
-                      bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(4),
-                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
-                    ),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(
-                          right: isMe ? 20 : 0,
-                          top: 0,
-                        ),
-                        child: messageContent,
-                      ),
-                      if (isMe && analyzing)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          // Önceden spinner vardı; kaldırıldı ki flicker oluşmasın
-                        )
-                      else if (isMe && ga != null)
-                        const Icon(Icons.science_outlined, size: 16, color: Colors.cyanAccent),
-                    ],
-                  ),
-                ),
+                messageContent,
                 if (message.createdAt != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
+                    padding: const EdgeInsets.only(top: 2.0),
                     child: Text(
                       DateFormat('HH:mm').format(message.createdAt!.toDate()),
-                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                      style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
                     ),
                   ),
               ],
             ),
           ),
-          if (isMe) const SizedBox(width: 8),
+          if (isMe) const SizedBox(width: 6),
           if (isMe)
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.grey.shade300,
-              child: ClipOval(
-                child: SvgPicture.network(
-                  _avatarUrl,
-                  placeholderBuilder: (context) => const Icon(Icons.person, size: 18),
-                ),
-              ),
-            ),
+            (continuation
+                ? const SizedBox(width: avatarBlockWidth)
+                : CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.grey.shade300,
+                    child: ClipOval(
+                      child: SvgPicture.network(
+                        _avatarUrl,
+                        placeholderBuilder: (context) => const Icon(Icons.person, size: 18),
+                      ),
+                    ),
+                  )),
         ],
       ),
     );
   }
 
   Widget _buildMessageComposer() {
+    final overLimit = _messageController.text.characters.length > 1000;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
       decoration: BoxDecoration(
@@ -730,14 +785,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             Expanded(
               child: TextField(
                 controller: _messageController,
-                maxLength: 1000,
+                onChanged: (_) => setState(() {}),
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: 'Mesajını yaz...',
+                  hintText: 'Type a message...', // İngilizce yapıldı
+                  counterText: '',
                   filled: true,
                   fillColor: Colors.grey.withAlpha(50),
                   contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
+                      const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(25.0),
                       borderSide: BorderSide.none),
@@ -747,8 +803,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.send_rounded),
-              color: Colors.teal,
-              onPressed: _sendMessage,
+              color: overLimit ? Colors.redAccent : Colors.teal,
+              onPressed: overLimit ? null : _sendMessage,
+              tooltip: overLimit ? '1000 karakter sınırı aşıldı' : 'Gönder',
             ),
           ],
         ),
@@ -822,23 +879,25 @@ class GroupMessageBubble extends StatefulWidget {
 class _GroupMessageBubbleState extends State<GroupMessageBubble> {
   String? _translated;
   bool _translating = false;
-  bool _showTranslation = true;
   String? _error;
+  bool _showTranslation = true;
 
   Future<void> _handleTranslate() async {
-    if (_translated != null) {
-      setState(() => _showTranslation = !_showTranslation);
-      return;
-    }
-    setState(() { _translating = true; _error = null; });
-    try {
-      await TranslationService.instance.ensureReady(widget.targetLanguageCode);
-       final tr = await TranslationService.instance.translateFromEnglish(widget.message.text, widget.targetLanguageCode);
-       setState(() { _translated = tr; _showTranslation = true; });
-    } catch (e) {
-      setState(() { _error = 'Çeviri başarısız: ${e.toString()}'; });
-    } finally {
-      if (mounted) setState(() { _translating = false; });
+    if (_translating) return;
+    if (_translated == null) {
+      if (!widget.canTranslate) return;
+      setState(() { _translating = true; _error = null; });
+      try {
+        await TranslationService.instance.ensureReady(widget.targetLanguageCode);
+        final tr = await TranslationService.instance.translateFromEnglish(widget.message.text, widget.targetLanguageCode);
+        setState(() { _translated = tr; _showTranslation = true; });
+      } catch (e) {
+        setState(() { _error = 'Çeviri başarısız: ${e.toString()}'; });
+      } finally {
+        if (mounted) setState(() { _translating = false; });
+      }
+    } else {
+      setState(() { _showTranslation = !_showTranslation; });
     }
   }
 
@@ -846,87 +905,63 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
   Widget build(BuildContext context) {
     final isMe = widget.isMe;
     final baseColor = isMe ? Colors.white : Colors.black87;
+
     Widget inner;
     if (widget.canTranslate && _translated != null && _showTranslation) {
       inner = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.message.text, style: TextStyle(color: baseColor.withValues(alpha: 0.75), fontSize: 14, fontStyle: FontStyle.italic)),
-          const SizedBox(height: 4),
-          Text(_translated!, style: TextStyle(color: baseColor, fontSize: 16, fontWeight: FontWeight.w500)),
+          Text(widget.message.text, style: TextStyle(color: baseColor.withValues(alpha: 0.65), fontSize: 13, fontStyle: FontStyle.italic)),
+          const SizedBox(height: 3),
+          Text(_translated!, style: TextStyle(color: baseColor, fontSize: 14, fontWeight: FontWeight.w500)),
         ],
       );
     } else {
-      inner = Text(widget.message.text, style: TextStyle(color: baseColor, fontSize: 16));
+      inner = Text(widget.message.text, style: TextStyle(color: baseColor, fontSize: 14));
     }
 
-    final translateIcon = widget.canTranslate
-        ? Positioned(
-            bottom: -6,
-            right: -6,
-            child: InkWell(
-              onTap: _translating ? null : _handleTranslate,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: _translating
-                    ? Container(
-                        key: const ValueKey('grp_prog'),
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: (isMe ? Colors.teal[600] : Colors.white),
-                          shape: BoxShape.circle,
-                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
-                          border: Border.all(color: isMe ? Colors.white70 : Colors.teal.shade200, width: 1),
-                        ),
-                        padding: const EdgeInsets.all(3),
-                        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(isMe ? Colors.white : Colors.teal)),
-                      )
-                    : Container(
-                        key: ValueKey(_translated == null ? 'g1' : (_showTranslation ? 'g2' : 'g3')),
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: (isMe ? Colors.teal[600] : Colors.white),
-                          shape: BoxShape.circle,
-                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
-                          border: Border.all(color: isMe ? Colors.white70 : Colors.teal.shade200, width: 1),
-                        ),
-                        child: Icon(
-                          _translated == null
-                              ? Icons.translate_outlined
-                              : (_showTranslation ? Icons.visibility_off : Icons.visibility),
-                          size: 14,
-                          color: isMe ? Colors.white : Colors.teal.shade700,
-                        ),
-                      ),
-              ),
-            ),
-          )
-        : const SizedBox.shrink();
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: widget.isMe ? Colors.teal.shade300 : Colors.grey.shade200,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(16),
+          topRight: const Radius.circular(16),
+          bottomLeft: widget.isMe ? const Radius.circular(16) : const Radius.circular(4),
+          bottomRight: widget.isMe ? const Radius.circular(4) : const Radius.circular(16),
+        ),
+      ),
+      child: inner, // AnimatedSize kaldırıldı (performans)
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: widget.isMe ? Colors.teal.shade300 : Colors.grey.shade200,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-                  bottomLeft: widget.isMe ? const Radius.circular(20) : const Radius.circular(4),
-                  bottomRight: widget.isMe ? const Radius.circular(4) : const Radius.circular(20),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.canTranslate ? _handleTranslate : null,
+          child: Stack(
+            children: [
+              bubble,
+              if (_translating)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: inner,
-            ),
-            translateIcon,
-          ],
+            ],
+          ),
         ),
         if (_error != null)
           Padding(

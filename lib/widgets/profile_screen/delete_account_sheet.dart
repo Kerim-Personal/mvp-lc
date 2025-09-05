@@ -12,7 +12,7 @@ Future<void> showDeleteAccountSheet(BuildContext context) async {
     isScrollControlled: true,
     useRootNavigator: true,
     backgroundColor: theme.colorScheme.surface,
-    barrierColor: Colors.black.withOpacity(0.45),
+    barrierColor: Colors.black.withValues(alpha: 0.45),
     showDragHandle: false,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -111,7 +111,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (_) => false,
+              (_) => false,
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -159,7 +159,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: colorScheme.outlineVariant.withOpacity(0.6),
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -194,7 +194,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 'This action cannot be undone. Your account and associated data will be permanently deleted.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
-                  color: textTheme.bodyMedium?.color?.withOpacity(0.9),
+                  color: textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
                 ),
               ),
               const SizedBox(height: 20),
@@ -219,7 +219,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withOpacity(0.3),
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -294,13 +294,13 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                       onPressed: (_isLoading)
                           ? null
                           : () {
-                              final ok = _formKey.currentState?.validate() ?? false;
-                              if (ok && _acknowledged && _confirmController.text.trim().toUpperCase() == 'DELETE') {
-                                _deleteAccount();
-                              } else {
-                                _formKey.currentState?.validate();
-                              }
-                            },
+                        final ok = _formKey.currentState?.validate() ?? false;
+                        if (ok && _acknowledged && _confirmController.text.trim().toUpperCase() == 'DELETE') {
+                          _deleteAccount();
+                        } else {
+                          _formKey.currentState?.validate();
+                        }
+                      },
                       style: FilledButton.styleFrom(
                         backgroundColor: colorScheme.error,
                         foregroundColor: colorScheme.onError,
@@ -309,10 +309,10 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                       ),
                       child: _isLoading
                           ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
                           : const Text('Delete Account'),
                     ),
                   ),

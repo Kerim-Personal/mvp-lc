@@ -27,7 +27,7 @@ class AchievementsSection extends StatelessWidget {
       icon: Icons.filter_5,
       color: Colors.lightBlue,
       earned: true,
-      description: 'Reach a 5‑day learning streak.',
+      description: 'Reach a 5-day learning streak.',
     ),
     Achievement(
       name: '30 Day Streak',
@@ -41,7 +41,7 @@ class AchievementsSection extends StatelessWidget {
       icon: Icons.timelapse,
       color: Colors.deepPurple,
       earned: false,
-      description: 'Achieve a 100‑day uninterrupted streak.',
+      description: 'Achieve a 100-day uninterrupted streak.',
     ),
     Achievement(
       name: 'Chatty',
@@ -220,7 +220,7 @@ class _AchievementBadge extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: a.earned ? Border.all(color: a.color.withOpacity(0.5), width: 2) : null,
+                    border: a.earned ? Border.all(color: a.color.withValues(alpha: 0.5), width: 2) : null,
                   ),
                   child: CircleAvatar(
                     radius: 30,
@@ -235,7 +235,7 @@ class _AchievementBadge extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: a.earned ? FontWeight.w600 : FontWeight.normal,
-                  color: a.earned ? onSurface.withOpacity(0.9) : onSurface.withOpacity(0.55),
+                  color: a.earned ? onSurface.withValues(alpha: 0.9) : onSurface.withValues(alpha: 0.55),
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 1,
@@ -312,28 +312,28 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            a.color.withOpacity(.14),
-                            a.color.withOpacity(.08),
-                            Theme.of(context).colorScheme.surface.withOpacity(.58),
+                            a.color.withValues(alpha: .14),
+                            a.color.withValues(alpha: .08),
+                            Theme.of(context).colorScheme.surface.withValues(alpha: .58),
                           ],
                         ),
                         border: Border.all(color: a.color, width: 3.0),
                         boxShadow: [
-                          BoxShadow(color: a.color.withOpacity(.95), blurRadius: 14, spreadRadius: 1),
-                          BoxShadow(color: a.color.withOpacity(.70), blurRadius: 34, spreadRadius: 8),
-                          BoxShadow(color: a.color.withOpacity(.45), blurRadius: 60, spreadRadius: 20),
-                          BoxShadow(color: a.color.withOpacity(.28), blurRadius: 90, spreadRadius: 36),
+                          BoxShadow(color: a.color.withValues(alpha: .95), blurRadius: 14, spreadRadius: 1),
+                          BoxShadow(color: a.color.withValues(alpha: .70), blurRadius: 34, spreadRadius: 8),
+                          BoxShadow(color: a.color.withValues(alpha: .45), blurRadius: 60, spreadRadius: 20),
+                          BoxShadow(color: a.color.withValues(alpha: .28), blurRadius: 90, spreadRadius: 36),
                         ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(a.name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: .5, color: onSurface.withOpacity(.95))),
+                          Text(a.name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: .5, color: onSurface.withValues(alpha: .95))),
                           const SizedBox(height: 14),
                           Text(
                             a.description,
-                            style: TextStyle(fontSize: 15, color: onSurface.withOpacity(.82), height: 1.4),
+                            style: TextStyle(fontSize: 15, color: onSurface.withValues(alpha: .82), height: 1.4),
                           ),
                           const SizedBox(height: 28),
                           Row(
@@ -342,7 +342,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                                 duration: const Duration(milliseconds: 300),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: a.earned ? Colors.green.withOpacity(.18) : Colors.orange.withOpacity(.18),
+                                  color: a.earned ? Colors.green.withValues(alpha: .18) : Colors.orange.withValues(alpha: .18),
                                   borderRadius: BorderRadius.circular(34),
                                   border: Border.all(color: a.earned ? Colors.green : Colors.orange, width: 1.1),
                                 ),
@@ -383,7 +383,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: SweepGradient(
-                                  colors: [a.color, a.color.withOpacity(.10), a.color],
+                                  colors: [a.color, a.color.withValues(alpha: .10), a.color],
                                   startAngle: 0,
                                   endAngle: 6.283,
                                 ),
@@ -395,7 +395,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 boxShadow: [
-                                  BoxShadow(color: a.color.withOpacity(.75), blurRadius: 26, spreadRadius: -2),
+                                  BoxShadow(color: a.color.withValues(alpha: .75), blurRadius: 26, spreadRadius: -2),
                                 ],
                               ),
                               child: CircleAvatar(
@@ -414,7 +414,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       shape: BoxShape.circle,
-                                      boxShadow: [BoxShadow(color: a.color.withOpacity(.5), blurRadius: 12)],
+                                      boxShadow: [BoxShadow(color: a.color.withValues(alpha: .5), blurRadius: 12)],
                                     ),
                                     padding: const EdgeInsets.all(6),
                                     child: Icon(Icons.check, color: a.color, size: 28),
