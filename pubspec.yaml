@@ -54,6 +54,7 @@ dependencies:
 
   # Premium çeviri özelliği için Google ML Kit Translation
   google_mlkit_translation: ^0.13.0
+  google_mlkit_language_id: ^0.13.0
 
   # Google kimlik doğrulama
   google_sign_in: ^6.2.1

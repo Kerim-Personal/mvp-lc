@@ -84,7 +84,6 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
         return StoreScreen(
           key: ValueKey('store_$_storeReplay'),
           embedded: true,
-          replayTrigger: _storeReplay,
         );
       case 1: // Discover (Grammar alt sekmesi açıldığında tetiklenecek)
         return DiscoverScreen(

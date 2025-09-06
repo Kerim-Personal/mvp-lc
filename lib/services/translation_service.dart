@@ -4,6 +4,7 @@
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:collection';
+import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
 
 class TranslationModelDownloadState {
   final bool inProgress;
@@ -216,6 +217,119 @@ class TranslationService {
     } catch (_) {
       return text; // Hata durumunda orijinal metni göster
     }
+  }
+
+  Future<String> translateToEnglishAuto(String text) async {
+    final source = text.trim();
+    if (source.isEmpty) return text;
+    final identifier = LanguageIdentifier(confidenceThreshold: 0.5);
+    final code = await identifier.identifyLanguage(source);
+    await identifier.close();
+
+    if (code == 'en' || code == 'und') return text;
+
+    // Modelleri hazırla (en + tespit edilen kaynak)
+    await ensureReady(code);
+
+    final translator = OnDeviceTranslator(
+      sourceLanguage: _langFromCode(code),
+      targetLanguage: _langFromCode('en'),
+    );
+    final translated = await translator.translateText(source);
+    await translator.close();
+    return translated;
+  }
+
+  Future<String> translateSmartEnTr(String text) async {
+    final source = text.trim();
+    if (source.isEmpty) return text;
+
+    final identifier = LanguageIdentifier(confidenceThreshold: 0.5);
+    String code = await identifier.identifyLanguage(source);
+
+    if (code == 'und') {
+      // Olası dilleri al ve en yüksek güveni seç
+      final possibles = await identifier.identifyPossibleLanguages(source);
+      if (possibles.isNotEmpty) {
+        possibles.sort((a, b) => b.confidence.compareTo(a.confidence));
+        code = possibles.first.languageTag;
+      }
+
+      // Hâlâ belirsizse basit heuristik: İngilizce ipuçları vs Türkçe ipuçları
+      if (code == 'und') {
+        final s = source.toLowerCase();
+        final englishHints = [' the ', ' and ', ' is ', ' are ', ' you ', 'hello', ' hi ', ' i ', "i'm", "i am", ' my '];
+        final turkishHints = [' ve ', ' ile ', ' mi', ' mı', ' mu', ' mü', 'merhaba', 'nasıl', 'teşekkür', 'evet', 'hayır', 'lütfen', 'ben ', ' sen ', ' biz ', ' siz ', ' onlar '];
+        // Yaygın Türkçe ek/sonekleri
+        final trSuffixes = [
+          'yorum', 'yorsun', 'yoruz', 'yorsunuz', 'yorlar',
+          'iyorum', 'iyorsun', 'iyoruz', 'iyorsunuz', 'iyorlar',
+          'acak', 'ecek', 'mış', 'miş', 'muş', 'müş', 'dır', 'dir', 'dur', 'dür',
+          'lar', 'ler', 'dan', 'den', 'ten', 'tan', 'ında', 'inde', 'undan', 'ünden', 'dır', 'dir'
+        ];
+        final enRegex = RegExp("^[a-zA-Z0-9 ,.!?\-\'\"]+");
+        bool enHit = englishHints.any((h) => s.contains(h)) || enRegex.hasMatch(s);
+        bool trHit = turkishHints.any((h) => s.contains(h)) || RegExp(r'[çğıöşü]').hasMatch(s) || trSuffixes.any((suf) => s.endsWith(suf));
+        if (enHit && !trHit) code = 'en';
+        if (trHit && !enHit) code = 'tr';
+        // eşitlikte kısa tek kelimelerde: hello/hi -> en, merhaba -> tr
+        if (code == 'und') {
+          if (s.trim() == 'hello' || s.trim() == 'hi') code = 'en';
+          if (s.trim() == 'merhaba') code = 'tr';
+          if (code == 'und') code = 'en';
+        }
+      }
+    }
+
+    await identifier.close();
+
+    String targetCode;
+    String ensureCode; // en dışındaki modelin kodu
+    if (code == 'en') {
+      targetCode = 'tr';
+      ensureCode = 'tr';
+    } else if (code == 'tr') {
+      targetCode = 'en';
+      ensureCode = 'tr';
+    } else {
+      targetCode = 'en';
+      ensureCode = code;
+    }
+
+    // Gerekli modelleri hazırla (en + ensureCode)
+    await ensureReady(ensureCode);
+
+    final translator = OnDeviceTranslator(
+      sourceLanguage: _langFromCode(code),
+      targetLanguage: _langFromCode(targetCode),
+    );
+    final translated = await translator.translateText(source);
+    await translator.close();
+    return translated;
+  }
+
+  Future<String> translatePair(String text, {required String sourceCode, required String targetCode}) async {
+    final source = text.trim();
+    if (source.isEmpty) return text;
+    if (sourceCode == targetCode) return text;
+
+    // Gerekli modelleri indir: en + diğer dil yeterli; ancak ikisi de en dışındaysa ikisini de garantiye al
+    if (sourceCode == 'en' && targetCode != 'en') {
+      await ensureReady(targetCode);
+    } else if (sourceCode != 'en' && targetCode == 'en') {
+      await ensureReady(sourceCode);
+    } else {
+      await ensureReady(sourceCode);
+      await ensureReady(targetCode);
+    }
+
+    final translator = OnDeviceTranslator(
+      sourceLanguage: _langFromCode(sourceCode),
+      targetLanguage: _langFromCode(targetCode),
+    );
+    final translated = await translator.translateText(source);
+    await translator.close();
+    return translated;
   }
 
   final ValueNotifier<TranslationModelDownloadState> downloadState =

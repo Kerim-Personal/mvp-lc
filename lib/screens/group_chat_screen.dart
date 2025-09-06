@@ -906,33 +906,57 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
     final isMe = widget.isMe;
     final baseColor = isMe ? Colors.white : Colors.black87;
 
+    // Mesaj balonu için tekil radius tanımı (overlay ile birebir aynı kullanılacak)
+    final BorderRadius bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(16),
+      topRight: const Radius.circular(16),
+      bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+    );
+
+    // Çok uzun mesajlarda avatar/zaman ile çakışmayı önlemek için üst genişlik sınırı
+    final double maxBubbleWidth = MediaQuery.of(context).size.width * 0.72;
+
     Widget inner;
     if (widget.canTranslate && _translated != null && _showTranslation) {
       inner = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.message.text, style: TextStyle(color: baseColor.withValues(alpha: 0.65), fontSize: 13, fontStyle: FontStyle.italic)),
+          Text(
+            widget.message.text,
+            style: TextStyle(color: baseColor.withValues(alpha: 0.65), fontSize: 13, fontStyle: FontStyle.italic, height: 1.25),
+            softWrap: true,
+            overflow: TextOverflow.visible,
+            textWidthBasis: TextWidthBasis.parent,
+          ),
           const SizedBox(height: 3),
-          Text(_translated!, style: TextStyle(color: baseColor, fontSize: 14, fontWeight: FontWeight.w500)),
+          Text(
+            _translated!,
+            style: TextStyle(color: baseColor, fontSize: 14, fontWeight: FontWeight.w500, height: 1.25),
+            softWrap: true,
+            overflow: TextOverflow.visible,
+            textWidthBasis: TextWidthBasis.parent,
+          ),
         ],
       );
     } else {
-      inner = Text(widget.message.text, style: TextStyle(color: baseColor, fontSize: 14));
+      inner = Text(
+        widget.message.text,
+        style: TextStyle(color: baseColor, fontSize: 14, height: 1.25),
+        softWrap: true,
+        overflow: TextOverflow.visible,
+        textWidthBasis: TextWidthBasis.parent,
+      );
     }
 
     final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: widget.isMe ? Colors.teal.shade300 : Colors.grey.shade200,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(16),
-          topRight: const Radius.circular(16),
-          bottomLeft: widget.isMe ? const Radius.circular(16) : const Radius.circular(4),
-          bottomRight: widget.isMe ? const Radius.circular(4) : const Radius.circular(16),
-        ),
+        borderRadius: bubbleRadius,
       ),
-      child: inner, // AnimatedSize kaldırıldı (performans)
+      child: inner,
     );
 
     return Column(
@@ -941,26 +965,31 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.canTranslate ? _handleTranslate : null,
-          child: Stack(
-            children: [
-              bubble,
-              if (_translating)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+            child: ClipRRect(
+              borderRadius: bubbleRadius,
+              child: Stack(
+                children: [
+                  bubble,
+                  if (_translating)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.15),
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
         if (_error != null)
