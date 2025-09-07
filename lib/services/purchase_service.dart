@@ -24,6 +24,7 @@ class PurchaseService {
     'diamonds_small', // 100
     'diamonds_medium', // 550
     'diamonds_large', // 1200
+    'diamonds_mega', // 3000 (yeni)
   ];
 
   static int? diamondAmountFor(String id) {
@@ -34,6 +35,8 @@ class PurchaseService {
         return 550;
       case 'diamonds_large':
         return 1200;
+      case 'diamonds_mega':
+        return 3000;
     }
     return null;
   }
@@ -55,7 +58,10 @@ class PurchaseService {
     // Sahte / örnek fiyatlar. Gerçek uygulamada locale & currency gelir.
     for (final id in diamondProductIds) {
       final amount = diamondAmountFor(id) ?? 0;
-      _products[id] = StoreProduct(id, '₺${(amount / 20).toStringAsFixed(2)}');
+      // Basit fiyatlama: amount / 20, mega için küçük indirim uygula
+      double base = amount / 20;
+      if (id == 'diamonds_mega') base *= 0.92; // indirim
+      _products[id] = StoreProduct(id, '₺${base.toStringAsFixed(2)}');
     }
     _products[monthlyProductId] = const StoreProduct(monthlyProductId, '₺59,90');
     _products[yearlyProductId] = const StoreProduct(yearlyProductId, '₺399,90');
@@ -65,19 +71,22 @@ class PurchaseService {
 
   Future<bool> buy(String productId) async {
     if (!isAvailable) return false;
-    // Gerçek satın alma entegrasyonu yok; simülasyon.
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    if (diamondProductIds.contains(productId)) {
-      final add = diamondAmountFor(productId) ?? 0;
-      await _addDiamonds(add);
-      return true;
+    try {
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (diamondProductIds.contains(productId)) {
+        final add = diamondAmountFor(productId) ?? 0;
+        final added = await _addDiamonds(add);
+        return added; // Firestore yazımı başarısız ise false döner
+      }
+      if (productId == monthlyProductId || productId == yearlyProductId) {
+        await _activateSubscription(productId);
+        return true;
+      }
+      return false; // tanınmayan ürün
+    } catch (e) {
+      // Genel hata
+      return false;
     }
-    if (productId == monthlyProductId || productId == yearlyProductId) {
-      await _activateSubscription(productId);
-      return true;
-    }
-    return false;
   }
 
   Future<void> restorePurchases() async {
@@ -85,18 +94,31 @@ class PurchaseService {
     await Future.delayed(const Duration(milliseconds: 400));
   }
 
-  Future<void> _addDiamonds(int amount) async {
+  Future<bool> _addDiamonds(int amount) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
     final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    await FirebaseFirestore.instance.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      final data = snap.data() ?? {};
-      final current = (data['diamonds'] as int?) ?? 0;
-      tx.set(ref, {...data, 'diamonds': current + amount}, SetOptions(merge: true));
-    });
-    // Yayınla
-    DiamondService().notifyRefresh();
+
+    const int maxRetries = 3;
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        await FirebaseFirestore.instance.runTransaction((tx) async {
+          final snap = await tx.get(ref);
+          final data = snap.data() ?? {};
+          final current = (data['diamonds'] as int?) ?? 0;
+          final next = current + amount;
+          tx.set(ref, {...data, 'diamonds': next}, SetOptions(merge: true));
+        });
+        DiamondService().notifyRefresh();
+        return true;
+      } catch (e) {
+        if (attempt == maxRetries - 1) {
+          return false;
+        }
+        await Future.delayed(const Duration(milliseconds: 120));
+      }
+    }
+    return false;
   }
 
   Future<void> _activateSubscription(String productId) async {
