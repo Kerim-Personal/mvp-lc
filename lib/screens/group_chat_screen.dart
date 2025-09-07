@@ -13,6 +13,7 @@ import 'package:lingua_chat/services/translation_service.dart';
 import 'package:lingua_chat/services/linguabot_service.dart';
 import 'package:lingua_chat/models/grammar_analysis.dart';
 import 'package:characters/characters.dart';
+import 'package:lingua_chat/widgets/message_composer.dart';
 
 // Mesaj veri modeli
 class GroupMessage {
@@ -64,7 +65,7 @@ class GroupChatScreen extends StatefulWidget {
 }
 
 class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
-  final TextEditingController _messageController = TextEditingController();
+  // final TextEditingController _messageController = TextEditingController(); // KALDIRILDI
   final ScrollController _scrollController = ScrollController();
   final currentUser = FirebaseAuth.instance.currentUser;
 
@@ -158,7 +159,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _leaveRoom();
-    _messageController.dispose();
+    // _messageController.dispose(); // kaldırıldı
     _scrollController.removeListener(_onScrollLoadMore);
     _scrollController.removeListener(_updateScrollToBottomVisibility);
     _scrollController.dispose();
@@ -239,20 +240,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   }
 
 
-  void _sendMessage() {
+  void _sendMessage() { /* eski metot kullanılmıyor */ }
+
+  Future<void> _sendGroupMessage(String text) async {
     if (currentUser == null) return;
-    final raw = _messageController.text;
-    final messageText = raw.trim();
+    final messageText = text.trim();
     if (messageText.isEmpty) return;
     if (messageText.length > 1000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mesaj 1000 karakterden uzun olamaz.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message cannot exceed 1000 characters.')),
+        );
+      }
       return;
     }
-    _messageController.clear();
-
-    FirebaseFirestore.instance
+    final ref = await FirebaseFirestore.instance
         .collection('group_chats')
         .doc(widget.roomId)
         .collection('messages')
@@ -264,24 +266,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       'senderAvatarUrl': _avatarUrl,
       'senderRole': _userRole,
       'senderIsPremium': _isCurrentUserPremium,
-      'serverAuth': true, // security rule gereği
-    }).then((ref) async {
-      if (_isCurrentUserPremium) {
-        setState(() => _analyzing.add(ref.id));
-        final analysis = await _grammarService.analyzeGrammar(messageText);
-        if (!mounted) return;
-        setState(() {
-          _analyzing.remove(ref.id);
-          if (analysis != null) {
-            _grammarCache[ref.id] = analysis;
-          }
-        });
-      }
+      'serverAuth': true,
     });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom(immediate: true); // mesaj sonrası da anında
-    });
+    if (_isCurrentUserPremium) {
+      setState(() => _analyzing.add(ref.id));
+      final analysis = await _grammarService.analyzeGrammar(messageText);
+      if (!mounted) return;
+      setState(() {
+        _analyzing.remove(ref.id);
+        if (analysis != null) {
+          _grammarCache[ref.id] = analysis;
+        }
+      });
+    }
   }
 
   Future<void> _showUserActionsDialog(GroupMessage message) async {
@@ -682,7 +679,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
               },
             ),
           ),
-          _buildMessageComposer(),
+          MessageComposer(
+            onSend: _sendGroupMessage,
+            nativeLanguage: _nativeLanguage,
+            enableTranslation: _isCurrentUserPremium && _nativeLanguage != 'en',
+            enableSpeech: true,
+            enableEmojis: true,
+            hintText: 'Type a message…',
+            characterLimit: 1000,
+            enabled: currentUser != null,
+          ),
         ],
       ),
     );
@@ -766,52 +772,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildMessageComposer() {
-    final overLimit = _messageController.text.characters.length > 1000;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-              offset: const Offset(0, -2),
-              blurRadius: 5,
-              color: Colors.black.withAlpha(10))
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                onChanged: (_) => setState(() {}),
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText: 'Type a message...', // İngilizce yapıldı
-                  counterText: '',
-                  filled: true,
-                  fillColor: Colors.grey.withAlpha(50),
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 12.0, horizontal: 20.0),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25.0),
-                      borderSide: BorderSide.none),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.send_rounded),
-              color: overLimit ? Colors.redAccent : Colors.teal,
-              onPressed: overLimit ? null : _sendMessage,
-              tooltip: overLimit ? '1000 karakter sınırı aşıldı' : 'Gönder',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildStaticSenderHeader(GroupMessage message) {
     String name = message.senderName;

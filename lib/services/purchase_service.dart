@@ -102,27 +102,12 @@ class PurchaseService {
   Future<void> _activateSubscription(String productId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final nowUtc = DateTime.now().toUtc();
-    Duration add;
-    if (productId == yearlyProductId) {
-      add = const Duration(days: 365);
-    } else {
-      add = const Duration(days: 30);
-    }
-
+    // premiumUntil kullanılmıyor; Google yönetiyor varsayımıyla sadece isPremium=true.
     final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
     await FirebaseFirestore.instance.runTransaction((tx) async {
       final snap = await tx.get(ref);
       final data = snap.data() ?? {};
-      DateTime base;
-      if (data['premiumUntil'] is String) {
-        base = DateTime.tryParse(data['premiumUntil'])?.toUtc() ?? nowUtc;
-        if (base.isBefore(nowUtc)) base = nowUtc;
-      } else {
-        base = nowUtc;
-      }
-      final updated = base.add(add);
-      tx.set(ref, {...data, 'premiumUntil': updated.toIso8601String()}, SetOptions(merge: true));
+      tx.set(ref, {...data, 'isPremium': true}, SetOptions(merge: true));
     });
   }
 

@@ -428,4 +428,19 @@ class TranslationService {
     }
     _translators.clear();
   }
+
+  /// Metnin dilini tespit eder. Hata veya belirsizlikte 'und' döner.
+  Future<String> detectLanguage(String text) async {
+    final source = text.trim();
+    if (source.isEmpty) return 'und';
+    final identifier = LanguageIdentifier(confidenceThreshold: 0.5);
+    try {
+      final code = await identifier.identifyLanguage(source);
+      await identifier.close();
+      return code;
+    } catch (_) {
+      try { await identifier.close(); } catch (_) {}
+      return 'und';
+    }
+  }
 }

@@ -1,5 +1,6 @@
 // lib/screens/root_screen.dart
 
+import 'dart:ui'; // ImageFilter için eklendi
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,7 +10,6 @@ import 'package:lingua_chat/screens/store_screen.dart';
 import 'package:lingua_chat/screens/discover_screen.dart';
 import 'package:lingua_chat/screens/community_screen.dart';
 import 'package:lingua_chat/widgets/shared/animated_background.dart';
-import 'dart:ui' show lerpDouble;
 
 // Bu fonksiyon veritabanı kurulumu için, dokunulmasına gerek yok.
 Future<void> _createDefaultChatRooms() async {
@@ -83,7 +83,7 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       case 0: // Store – her açılışta animasyon tazelensin
         return StoreScreen(
           key: ValueKey('store_$_storeReplay'),
-          embedded: true,
+          // embedded: true, // HATA DÜZELTİLDİ: Bu satır kaldırıldı.
         );
       case 1: // Discover (Grammar alt sekmesi açıldığında tetiklenecek)
         return DiscoverScreen(
@@ -178,9 +178,10 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final Color backgroundColor = (isDark ? cs.surface : Colors.white).withValues(alpha: isDark ? 0.94 : 0.97);
-    final Color shadowColor = isDark ? Colors.black.withValues(alpha: 0.45) : Colors.black.withValues(alpha: 0.06);
-    final Color inactiveColor = isDark ? cs.onSurface.withValues(alpha: 0.65) : Colors.black87;
+    // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
+    final Color backgroundColor = (isDark ? cs.surface : Colors.white).withOpacity(isDark ? 0.94 : 0.97);
+    final Color shadowColor = isDark ? Colors.black.withOpacity(0.45) : Colors.black.withOpacity(0.06);
+    final Color inactiveColor = isDark ? cs.onSurface.withOpacity(0.65) : Colors.black87;
     final Color activeColor = cs.primary;
     final Color activeIconColor = cs.onPrimary;
 
@@ -197,9 +198,10 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
         color: backgroundColor,
         border: Border(
           top: BorderSide(
+            // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
             color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.05),
+                ? Colors.white.withOpacity(0.06)
+                : Colors.black.withOpacity(0.05),
             width: 0.6,
           ),
         ),
@@ -270,7 +272,8 @@ class _NavBarItem extends StatelessWidget {
       label: data.label,
       child: InkWell(
         onTap: onTap,
-        splashColor: highlightColor.withValues(alpha: 0.15),
+        // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
+        splashColor: highlightColor.withOpacity(0.15),
         highlightColor: Colors.transparent,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -299,7 +302,8 @@ class _NavBarItem extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.1,
-                    color: selected ? activeIconColor : inactiveColor.withValues(alpha: 0.85),
+                    // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
+                    color: selected ? activeIconColor : inactiveColor.withOpacity(0.85),
                   ),
                   child: Text(
                     data.label,

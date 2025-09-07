@@ -36,6 +36,8 @@ dependencies:
 
   flip_card: ^0.7.0 #
 
+  shimmer: ^3.0.0
+
 
   # Firebase için gerekli paketler
   firebase_core: ^2.31.0
@@ -66,6 +68,7 @@ dependencies:
 
   # Uygulama içi satın alma
   in_app_purchase: ^3.2.0
+  emoji_picker_flutter: ^2.2.0
 
 # Mobil hedefte sürüm uyuşmazlığını çözmek için web paketini override ediyoruz
 dependency_overrides:

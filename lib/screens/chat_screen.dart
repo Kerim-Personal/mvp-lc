@@ -14,7 +14,7 @@ import 'package:lingua_chat/services/block_service.dart';
 import 'package:lingua_chat/services/translation_service.dart';
 import 'package:lingua_chat/services/linguabot_service.dart';
 import 'package:lingua_chat/models/grammar_analysis.dart';
-import 'package:speech_to_text/speech_to_text.dart';
+import 'package:lingua_chat/widgets/message_composer.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -945,24 +945,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   },
                 ),
               ),
-              _MessageComposer(
-                chatRoomId: widget.chatRoomId,
-                currentUser: _currentUser,
-                enabled: _interactionAllowed,
-                isPremium: _isCurrentUserPremium,
-                onAfterSend: (text, ref) async {
-                  if (_isCurrentUserPremium) {
-                    setState(() => _analyzing.add(ref.id));
-                    final analysis = await _grammarService.analyzeGrammar(text);
-                    if (!mounted) return;
-                    setState(() {
-                      _analyzing.remove(ref.id);
-                      if (analysis != null) {
-                        _grammarCache[ref.id] = analysis;
-                      }
-                    });
-                  }
-                },
+              MessageComposer(
+                onSend: _sendDirectMessage,
+                nativeLanguage: _currentUserNativeLanguage,
+                enableTranslation: _isCurrentUserPremium && _currentUserNativeLanguage != 'en',
+                enableSpeech: true,
+                enableEmojis: true,
+                hintText: 'Type your message…',
+                enabled: _interactionAllowed && _currentUser != null,
+                maxLines: 5,
               ),
             ],
           ),
@@ -970,246 +961,39 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
   }
-}
 
-// ... (_MessageComposer widget'ı aynı kalır)
-class _MessageComposer extends StatefulWidget {
-  final String chatRoomId;
-  final User? currentUser;
-  final bool enabled;
-  final bool isPremium; // premium flag
-  final Future<void> Function(String text, DocumentReference ref)? onAfterSend; // analiz callback
-
-  const _MessageComposer({required this.chatRoomId, required this.currentUser, this.enabled = true, this.isPremium = false, this.onAfterSend});
-
-  @override
-  State<_MessageComposer> createState() => _MessageComposerState();
-}
-
-class _MessageComposerState extends State<_MessageComposer> {
-  final _messageController = TextEditingController();
-  bool _isComposing = false;
-  bool _showEmoticons = false;
-
-  // STT geri eklendi
-  final SpeechToText _speech = SpeechToText();
-  bool _speechReady = false;
-  bool _listening = false;
-  String _speechBaseText = '';
-
-  String? _enLocaleId; // İngilizce locale sabitleme
-
-  final List<String> _textEmoticons = const [
-    ':)', ':(', ';)', ':D', ':P', ':O', ':/', ':|', 'XD', 'T_T', '^^', '^^;', '>_<', '^_^', 'o_O', 'O_o', '-_-', '=_=',
-    ':3', '>:(', ':-)', ':-(', ':-D', ':-P', ':-O', ':-|', ':-/', ';-)', '(^_^)', '(>_<)', '(T_T)', '(._.)', '(o_O)',
-    '(^o^)/', '(¬_¬)', '(•_•)', '(•‿•)', '(☞ﾟ∀ﾟ)☞', '(づ｡◕‿‿◕｡)づ', '(╯°□°）��︵ ��━┻', '┬─��� ノ( ゜-゜ノ)', '(ಥ﹏ಥ)', '(づ￣ ³￣)づ',
-    '¯\\_(ツ)_/¯', '(ง •̀_•́)ง', '(*_*)', '(✿◠‿◠)', '(◕‿◕)', '(ᵔᴥᵔ)', '（＾ｖ＾）', '(ʘ‿ʘ)', '(ง’̀-’́)ง', '(✧ω✧)', '(◔_◔)', '(◕‿↼)',
-    '(≧▽≦)', '(￣ー￣)', '(>‿◠)', '(✿╹◡╹)', '(��ᴗ◕✿)', '(*≧ω≦)', '(｡◕‿‿◕｡)', '(｀・ω・´)', '(；一_一)', '(●´ω｀●)', '(ノಠ益ಠ)ノ彡┻━┻',
-    '(☞ ͡° ͜ʖ ͡°)☞', '( ͡° ͜ʖ ͡°)', '(⌐■_■)', '(●__●)', '(>_<)', '(^人^)', '(◡‿◡*)', '(✿´‿`)', '(●´∀｀●)', '(•̀ᴗ•́)و ̑̑',
-    '(ᕗ ͠° ਊ ͠° )ᕗ', '(ノ´∀`)ノ', '(๑˃̵ᴗ˂̵)و', '(๑•̀ㅂ•́)و✧', '(´･_･`)', '(´；ω；`)', '(￣^￣)ゞ', '(-‿◦☀)', '(｡•̀ᴗ-)✧', '(~_^)', '(*￣▽￣)b',
-    '(づᴗ_ᴗ)づ', 'ヽ(•‿•)ノ', '(งツ)���', 'ヽ(´ー｀)ノ', 'ಠ_ಠ', 'ʕ•ᴥ•ʔ', '(•��•)♡', '(ง •̀ω•́)ง✧', '(✿◕‿◕)', '(~˘▾˘)~', '(•̀▁•́ )', '(*￣3￣)╭',
-    'ヾ(＾-＾)ノ', '(〃＾▽＾〃)', '(￣ω￣;)', '(๑•́ ₃ •̀๑)', '(๑˘︶˘๑)', '(๑ᵕ⌓ᵕ๑)', '(´∀｀)♡', '(*^▽^*)', '(￣▽￣)ノ', 'ヽ(〃＾▽＾〃)ﾉ',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _messageController.addListener(() {
-      final isComposing = _messageController.text.isNotEmpty;
-      if (_isComposing != isComposing) {
-        setState(() {
-          _isComposing = isComposing;
-        });
-      }
-    });
-    _initSpeech();
-  }
-
-  Future<void> _initSpeech() async {
-    _speechReady = await _speech.initialize(onStatus: (s) {
-      if (s == 'done' || s == 'notListening') {
-        if (mounted) setState(() => _listening = false);
-      }
-    }, onError: (e) {
-      if (mounted) setState(() => _listening = false);
-    });
-    if (_speechReady) {
-      try {
-        final locales = await _speech.locales();
-        _enLocaleId = locales.firstWhere((l) => l.localeId == 'en_US', orElse: () => locales.firstWhere((l)=> l.localeId.startsWith('en'))).localeId;
-      } catch (_) {
-        _enLocaleId = 'en_US';
-      }
-    }
-    if (mounted) setState(() {});
-  }
-
-  void _toggleEmoticons() {
-    setState(() => _showEmoticons = !_showEmoticons);
-  }
-
-  Future<void> _toggleListening() async {
-    if (!_speechReady) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cihaz konuşmayı tanımayı desteklemiyor veya izin verilmedi.')));
-      return;
-    }
-    if (_listening) {
-      await _speech.stop();
-      setState(() => _listening = false);
-      return;
-    }
-    _speechBaseText = _messageController.text;
-    setState(() => _listening = true);
-    await _speech.listen(onResult: (res) {
-      final recognized = res.recognizedWords;
-      final newText = (_speechBaseText.isEmpty ? recognized : (_speechBaseText + (recognized.isEmpty ? '' : ' ' + recognized)));
-      _messageController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: newText.length));
-    }, localeId: _enLocaleId ?? 'en_US');
-  }
-
-  void _insertEmoticon(String emo) {
-    final text = _messageController.text;
-    final sel = _messageController.selection;
-    final start = sel.start >= 0 ? sel.start : text.length;
-    final end = sel.end >= 0 ? sel.end : text.length;
-    final newText = text.replaceRange(start, end, emo);
-    _messageController.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: start + emo.length));
-  }
-
-  @override
-  void dispose() {
-    _messageController.dispose();
-    if (_listening) {
-      _speech.stop();
-    }
-    super.dispose();
-  }
-
-  Future<void> _sendMessage() async {
-    if (!widget.enabled) return;
-    final messageText = _messageController.text.trim();
-    if (messageText.isEmpty || widget.currentUser == null) {
-      return;
-    }
-
-    _messageController.clear();
+  Future<void> _sendDirectMessage(String text) async {
+    if (_currentUser == null) return;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
 
     final ref = await FirebaseFirestore.instance
         .collection('chats')
         .doc(widget.chatRoomId)
         .collection('messages')
         .add({
-      'text': messageText,
+      'text': trimmed,
       'createdAt': Timestamp.now(),
-      'userId': widget.currentUser!.uid,
-      'serverAuth': true, // security rule gereği
+      'userId': _currentUser!.uid,
+      'serverAuth': true,
     });
 
     FirebaseFirestore.instance
         .collection('chats')
         .doc(widget.chatRoomId)
-        .update({'${widget.currentUser!.uid}_lastActive': FieldValue.serverTimestamp()});
+        .update({'${_currentUser!.uid}_lastActive': FieldValue.serverTimestamp()});
 
-    if (widget.onAfterSend != null) {
-      widget.onAfterSend!(messageText, ref);
+    if (_isCurrentUserPremium) {
+      setState(() => _analyzing.add(ref.id));
+      final analysis = await _grammarService.analyzeGrammar(trimmed);
+      if (!mounted) return;
+      setState(() {
+        _analyzing.remove(ref.id);
+        if (analysis != null) {
+          _grammarCache[ref.id] = analysis;
+        }
+      });
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final canType = widget.enabled && widget.currentUser != null;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-          decoration: const BoxDecoration(
-            color: Colors.transparent,
-          ),
-          child: SafeArea(
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28.0),
-                      boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), blurRadius: 10, offset: const Offset(0, 4))],
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.emoji_emotions_outlined),
-                          color: _showEmoticons ? Colors.teal : Colors.grey[600],
-                          onPressed: canType ? _toggleEmoticons : null,
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _messageController,
-                            enabled: canType,
-                            textCapitalization: TextCapitalization.sentences,
-                            minLines: 1,
-                            maxLines: 5,
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              hintText: 'Mesajını yaz...',
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(_listening ? Icons.mic : Icons.mic_none),
-                          color: _listening ? Colors.teal : Colors.grey[600],
-                          onPressed: canType ? _toggleListening : null,
-                        ),
-                        const SizedBox(width: 4),
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: (_isComposing && canType) ? Colors.teal : Colors.grey[400],
-                          child: IconButton(
-                            icon: const Icon(Icons.send_rounded, color: Colors.white),
-                            onPressed: (_isComposing && canType) ? _sendMessage : null,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_showEmoticons)
-          Container(
-            height: 180,
-            margin: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: GridView.builder(
-              itemCount: _textEmoticons.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 6,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 2.6,
-              ),
-              itemBuilder: (context, i) {
-                final emo = _textEmoticons[i];
-                return OutlinedButton(
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), side: BorderSide(color: Colors.grey.withAlpha(120)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  onPressed: () => _insertEmoticon(emo),
-                  child: Text(emo, style: const TextStyle(fontSize: 12)),
-                );
-              },
-            ),
-          ),
-      ],
-    );
   }
 }
 

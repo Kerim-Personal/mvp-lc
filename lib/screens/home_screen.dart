@@ -462,6 +462,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: _buildHeaderSection(userSnap),
                     ),
                   ),
+                  // Premium panel home ekranından kaldırıldı
+                  // if (_isProUser) ...[
+                  //   const SizedBox(height: 20),
+                  //   Padding(
+                  //     padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  //     child: _buildAnimatedUI(
+                  //       interval: const Interval(0.05, 0.7),
+                  //       child: const PremiumStatusPanel(),
+                  //     ),
+                  //   ),
+                  // ],
                   const SizedBox(height: 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),

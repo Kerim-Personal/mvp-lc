@@ -1,6 +1,5 @@
 // lib/screens/store_screen.dart
-// Mağaza ekranı (Premium + Elmas). Baştan yazıldı.
-// Not: Gerçek cihazda test için Play Store / App Store yapılandırması gerekir.
+// Premium durum kontrolü hatası düzeltildi. Mantık daha sağlam hale getirildi.
 
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,16 +7,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/services/diamond_service.dart';
 import 'package:lingua_chat/services/purchase_service.dart';
+import 'package:lingua_chat/widgets/shared/animated_background.dart';
 import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
-import 'package:lingua_chat/widgets/store_screen/premium_animated_background.dart';
+import 'package:lingua_chat/widgets/home_screen/premium_status_panel.dart';
+import 'package:shimmer/shimmer.dart';
 
 class StoreScreen extends StatefulWidget {
-  final bool embedded; // RootScreen sekme içinde kullanırken işaretlemek için (şimdilik davranış değiştirmiyor)
-  const StoreScreen({super.key, this.embedded = false});
+  const StoreScreen({super.key});
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
 }
+
+enum PremiumPlan { monthly, yearly }
 
 class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin {
   final PurchaseService _purchaseService = PurchaseService();
@@ -28,24 +30,26 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
 
   int? _diamonds;
-  DateTime? _premiumUntil;
+  // premiumUntil kaldırıldı; sadece isPremium kullanılacak
+  PremiumPlan _selectedPlan = PremiumPlan.yearly;
+
+  bool _isPremium = false;
 
   bool _loadingProducts = true;
   bool _initTried = false;
 
   late final TabController _tabController;
-  late final AnimationController _fadeController;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _tabController.addListener(() => setState(() {}));
     _init();
   }
 
   Future<void> _init() async {
-    if (_initTried) return; // idempotent
+    if (_initTried) return;
     _initTried = true;
     await _purchaseService.init();
 
@@ -56,7 +60,14 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     _diamondsSub = DiamondService().diamondsStream().listen((v) {
       if (mounted) setState(() => _diamonds = v);
     });
-    _fadeController.forward();
+    // İlk değeri hemen çek ve yayınla
+    unawaited(DiamondService().currentDiamonds(refresh: true));
+    // 2 sn sonra hala null ise 0 yap (sonsuz spinner engeli)
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _diamonds == null) {
+        setState(() => _diamonds = 0);
+      }
+    });
   }
 
   void _listenUser() {
@@ -64,25 +75,24 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     if (user == null) return;
     _userSub = _firestore.collection('users').doc(user.uid).snapshots().listen((snap) {
       final data = snap.data();
-      DateTime? until;
-      if (data != null && data['premiumUntil'] is String) {
-        until = DateTime.tryParse(data['premiumUntil'] as String);
+      final isPremiumFlag = (data?['isPremium'] as bool?) ?? false;
+      if (mounted) {
+        setState(() {
+          _isPremium = isPremiumFlag;
+        });
       }
-      if (mounted) setState(() => _premiumUntil = until);
     });
   }
 
-  bool get _isPremiumActive {
-    if (_premiumUntil == null) return false;
-    return _premiumUntil!.isAfter(DateTime.now().toUtc());
-  }
+  // Artık bu getter'a ihtiyacımız yok, _isPremium değişkenini kullanacağız.
+  // bool get _isPremiumActive { ... }
 
   @override
   void dispose() {
     _diamondsSub?.cancel();
     _userSub?.cancel();
+    _tabController.removeListener(() {});
     _tabController.dispose();
-    _fadeController.dispose();
     _purchaseService.dispose();
     super.dispose();
   }
@@ -92,36 +102,90 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Satın alma başlatılamadı.'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('Satın alma başlatılamadı.'),
+            backgroundColor: Colors.red),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Satın alma işlendiğinde bakiyeniz güncellenecek.'), backgroundColor: Colors.black87),
+        const SnackBar(
+            content:
+            Text('Satın alma işlendiğinde bakiyeniz güncellenecek.'),
+            backgroundColor: Colors.black87),
       );
     }
   }
 
-  Future<void> _restore() async {
-    await _purchaseService.restorePurchases();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Geri yükleme isteği gönderildi.'), backgroundColor: Colors.black87),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Mağaza'),
+        title: Shimmer.fromColors(
+          baseColor: Colors.white,
+          highlightColor: Colors.amber.shade300,
+          child: const Text(
+            'Store',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
         centerTitle: true,
+        backgroundColor: Colors.black.withOpacity(0.3),
+        elevation: 0,
         actions: [
-          IconButton(
-            tooltip: 'Satın Alma Geri Yükle',
-            icon: const Icon(Icons.restore),
-            onPressed: _purchaseService.isAvailable ? _restore : null,
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: GestureDetector(
+              onTap: () {
+                _tabController.animateTo(0);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white30, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.diamond, color: Colors.amber, size: 20),
+                    const SizedBox(width: 6),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                      child: _diamonds == null
+                          ? const SizedBox(
+                        key: ValueKey('loader'),
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                          : Text(
+                        key: const ValueKey('diamonds_count'),
+                        _diamonds.toString(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.add, color: Colors.white70, size: 22),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
         bottom: TabBar(
@@ -133,51 +197,60 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           ],
         ),
       ),
-      body: FadeTransition(
-        opacity: _fadeController.drive(CurveTween(curve: Curves.easeIn)),
-        child: Stack(
-          children: [
-            Positioned.fill(child: _isPremiumActive ? const PremiumAnimatedBackground() : Container(color: const Color(0xFF0F0F17))),
-            TabBarView(
-              controller: _tabController,
-              children: [
-                _buildDiamondsTab(theme),
-                _buildPremiumTab(theme),
-              ],
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AnimatedBackground()),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: GlassmorphicContainer(
+                width: double.infinity,
+                height: MediaQuery.of(context).size.height * 0.85,
+                borderRadius: 28,
+                blur: 18,
+                border: Border.all(color: Colors.white.withAlpha(70), width: 1.5),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: _loadingProducts
+                        ? const Center(key: ValueKey('loader'), child: CircularProgressIndicator())
+                        : _tabController.index == 0
+                        ? _buildDiamondsTab(key: const ValueKey('diamonds'))
+                        : _isPremium // DÜZELTME: Getter yerine state değişkenini kullan
+                        ? _buildPremiumActiveView(key: const ValueKey('premium_active'))
+                        : _buildPremiumUpsellView(key: const ValueKey('premium_upsell')),
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDiamondsTab(ThemeData theme) {
-    if (_loadingProducts) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
+  Widget _buildDiamondsTab({Key? key}) {
     final packs = PurchaseService.diamondProductIds;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _balanceCard(),
-          const SizedBox(height: 16),
-          Text('Elmas Paketleri', style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: packs.map((id) => _diamondPack(id)).toList(),
-          ),
-          const SizedBox(height: 32),
-          _infoBox(
-            icon: Icons.info_outline,
-            title: 'Nasıl Kullanılır?',
-            text: 'Elmasları ek özellikler ve içerik açmak için kullanabilirsiniz. Satın almalar otomatik tüketilir.',
-          ),
-        ],
+      key: key,
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          alignment: WrapAlignment.center,
+          children: packs.map((id) => _diamondPack(id)).toList(),
+        ),
       ),
     );
   }
@@ -195,16 +268,24 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       border: Border.all(color: Colors.white.withAlpha(40), width: 1),
       child: InkWell(
         onTap: product == null ? null : () => _buy(id),
+        borderRadius: BorderRadius.circular(22),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _circleIcon(Icons.diamond, gradient: true),
-              const Spacer(),
-              Text('$amount Elmas', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+              const SizedBox(height: 12),
+              Text('$amount Elmas',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16)),
               const SizedBox(height: 4),
-              Text(price, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+              Text(price,
+                  style: const TextStyle(
+                      color: Colors.amber, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -212,242 +293,177 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildPremiumTab(ThemeData theme) {
-    if (_loadingProducts) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final active = _isPremiumActive;
-    final until = _premiumUntil;
+  Widget _buildPremiumUpsellView({Key? key}) {
+    final monthlyProduct = _purchaseService.product(PurchaseService.monthlyProductId);
+    final yearlyProduct = _purchaseService.product(PurchaseService.yearlyProductId);
+    final selectedProductId = _selectedPlan == PremiumPlan.monthly
+        ? PurchaseService.monthlyProductId
+        : PurchaseService.yearlyProductId;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _premiumStatusCard(active: active, until: until),
+          const Text(
+            'Tüm Ayrıcalıkları Aç',
+            style: TextStyle(
+                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 20),
-          Text('Plan Seç', style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _subPlan(
-                  id: PurchaseService.monthlyProductId,
+                child: _buildPlanCard(
+                  plan: PremiumPlan.monthly,
                   title: 'Aylık',
-                  highlight: !active,
-                  desc: '1 ay premium erişim.',
+                  price: monthlyProduct?.price ?? '...',
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _subPlan(
-                  id: PurchaseService.yearlyProductId,
+                child: _buildPlanCard(
+                  plan: PremiumPlan.yearly,
                   title: 'Yıllık',
-                  highlight: true,
-                  desc: '12 ay (en avantajlı).',
+                  price: yearlyProduct?.price ?? '...',
+                  isBestValue: true,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 28),
-          Text('Premium Avantajları', style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          _benefit(icon: Icons.flash_on, title: 'Hızlı Eşleşme', text: 'Öncelikli partner eşleşme kuyruğu.'),
-          _benefit(icon: Icons.auto_awesome, title: 'Gelişmiş Analiz', text: 'Konuşma & yazma için ileri seviye analiz.'),
-          _benefit(icon: Icons.lock_open, title: 'Tüm İçerik', text: 'Özel hikaye ve quiz setleri.'),
-          _benefit(icon: Icons.workspace_premium, title: 'Rozet ve Efektler', text: 'Profilde premium rozeti ve animasyonlu arka plan.'),
-          const SizedBox(height: 36),
-          _infoBox(
-            icon: Icons.security,
-            title: 'Güvenli Ödeme',
-            text: 'Ödemeler mağaza (Play / App Store) altyapısı ile güvenle işlenir. Kart bilgileri uygulamaya ulaşmaz.',
-          ),
-          const SizedBox(height: 16),
-          _infoBox(
-            icon: Icons.refresh,
-            title: 'Abonelik Yenileme',
-            text: 'Abonelik dönem sonunda otomatik yenilenebilir. Dilediğiniz zaman iptal edebilirsiniz.',
+          const SizedBox(height: 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: (monthlyProduct == null || yearlyProduct == null)
+                ? null
+                : () => _buy(selectedProductId),
+            child: const Text('Şimdi Premium Ol', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 24),
+          const Text(
+            'Premium Avantajları',
+            style: TextStyle(
+                color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          _benefit(icon: Icons.flash_on, title: 'Hızlı Eşleşme', text: 'Öncelikli partner eşleşme kuyruğunda yer al.'),
+          _benefit(icon: Icons.auto_awesome, title: 'Gelişmiş Analiz', text: 'Konuşma & yazma yeteneklerin için ileri seviye analizler al.'),
+          _benefit(icon: Icons.lock_open, title: 'Tüm İçerik', text: 'Bütün özel hikaye ve quiz setlerine sınırsız erişim kazan.'),
+          _benefit(icon: Icons.workspace_premium, title: 'Rozet ve Efektler', text: 'Profilinde havalı premium rozeti ve animasyonlu arka plan sergile.'),
+          _benefit(icon: Icons.translate, title: 'Sınırsız Çeviri', text: 'Pratik yaparken kelimeleri sınırsızca çevir.'),
         ],
       ),
     );
   }
 
-  Widget _premiumStatusCard({required bool active, required DateTime? until}) {
-    final remaining = active && until != null ? until.difference(DateTime.now().toUtc()) : null;
-    String subtitle;
-    if (active && remaining != null) {
-      final days = remaining.inDays;
-      subtitle = days > 0 ? '$days gün kaldı' : 'Son gün';
-    } else {
-      subtitle = 'Tüm premium özellikleri aç';
-    }
-
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 150,
-      borderRadius: 26,
-      blur: 15,
-      border: Border.all(color: Colors.white.withAlpha(50), width: 1.2),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            _circleIcon(Icons.workspace_premium, gradient: true, size: 56),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    active ? 'Premium Aktif' : 'Premium Pasif',
-                    style: TextStyle(
-                      color: active ? Colors.amber : Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  if (active && until != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Bitiş: ${until.toLocal().toString().substring(0, 16)}',
-                      style: const TextStyle(color: Colors.white38, fontSize: 12),
-                    ),
-                  ]
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _subPlan({
-    required String id,
-    required String title,
-    required bool highlight,
-    required String desc,
-  }) {
-    final product = _purchaseService.product(id);
-    final price = product?.price ?? '?';
-    final isYearly = id == PurchaseService.yearlyProductId;
-    final savings = isYearly ? 'Tasarruf ~%35' : '';
-
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 190,
-      borderRadius: 24,
-      blur: 14,
-      border: Border.all(color: highlight ? Colors.amber.withAlpha(120) : Colors.white.withAlpha(40), width: 1.4),
-      child: InkWell(
-        onTap: product == null ? null : () => _buy(id),
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildPremiumActiveView({Key? key}) {
+    return SingleChildScrollView(
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  _circleIcon(isYearly ? Icons.calendar_month : Icons.calendar_view_month, gradient: highlight),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        shadows: highlight
-                            ? [const Shadow(color: Colors.amber, blurRadius: 12, offset: Offset(0, 0))]
-                            : null,
-                      ),
-                    ),
-                  ),
-                  if (savings.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withAlpha(70),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        savings,
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                ],
+              Shimmer.fromColors(
+                baseColor: Colors.amber,
+                highlightColor: Colors.white,
+                child: const Icon(Icons.workspace_premium, size: 60, color: Colors.amber),
               ),
-              const SizedBox(height: 12),
-              Text(desc, style: const TextStyle(color: Colors.white70, height: 1.2)),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(price, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: highlight ? Colors.amber : Colors.white12,
-                      foregroundColor: highlight ? Colors.black : Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                    ),
-                    onPressed: product == null ? null : () => _buy(id),
-                    child: const Text('Satın Al'),
+              const SizedBox(width: 14),
+              const Flexible(
+                child: Text(
+                  'Premium Aktif',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
                   ),
-                ],
-              )
+                ),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: 26),
+          // FIX: Column + SingleChildScrollView içinde PremiumStatusPanel
+          // sınırsız (unbounded) yükseklik alıyordu ve Stack + Positioned.fill
+          // kombinasyonu layout exception oluşturup görünmemesine yol açıyordu.
+          // Bunu önlemek için makul bir sabit yükseklik veriyoruz.
+          SizedBox(
+            height: 360,
+            child: const PremiumStatusPanel(),
+          ),
+          const SizedBox(height: 12),
+        ],
       ),
     );
   }
 
-  Widget _balanceCard() {
-    final d = _diamonds;
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: 120,
-      borderRadius: 26,
-      blur: 14,
-      border: Border.all(color: Colors.white.withAlpha(50), width: 1.2),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
+  Widget _buildPlanCard({
+    required PremiumPlan plan,
+    required String title,
+    required String price,
+    bool isBestValue = false,
+  }) {
+    final bool isSelected = _selectedPlan == plan;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedPlan = plan),
+      child: GlassmorphicContainer(
+        width: double.infinity,
+        height: 120,
+        borderRadius: 20,
+        blur: 10,
+        border: Border.all(
+          color: isSelected ? Colors.amber : Colors.white.withAlpha(40),
+          width: isSelected ? 2.5 : 1,
+        ),
+        child: Stack(
           children: [
-            _circleIcon(Icons.savings, gradient: true, size: 56),
-            const SizedBox(width: 18),
-            Expanded(
+            Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Elmas Bakiyesi', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 4),
                   Text(
-                    d == null ? '...' : d.toString(),
-                    style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                    title,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    price,
+                    style: TextStyle(
+                      color: isSelected ? Colors.amber : Colors.white70,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
             ),
-            IconButton(
-              onPressed: () async {
-                // Manuel yenileme
-                final val = await DiamondService().currentDiamonds(refresh: true);
-                if (mounted) setState(() => _diamonds = val);
-              },
-              icon: const Icon(Icons.refresh, color: Colors.white70),
-            ),
+            if (isBestValue)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: const BoxDecoration(
+                    color: Colors.amber,
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(18),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'En Avantajlı',
+                    style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -456,53 +472,26 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   Widget _benefit({required IconData icon, required String title, required String text}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _circleIcon(icon, gradient: false, size: 40),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                Text(title,
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
                 const SizedBox(height: 4),
-                Text(text, style: const TextStyle(color: Colors.white70, height: 1.2)),
+                Text(text,
+                    style: const TextStyle(color: Colors.white70, height: 1.3, fontSize: 13)),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _infoBox({required IconData icon, required String title, required String text}) {
-    return GlassmorphicContainer(
-      width: double.infinity,
-      height: null,
-      borderRadius: 24,
-      blur: 10,
-      border: Border.all(color: Colors.white.withAlpha(30), width: 1),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _circleIcon(icon, gradient: true, size: 46),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
-                  const SizedBox(height: 6),
-                  Text(text, style: const TextStyle(color: Colors.white70, height: 1.25)),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -514,17 +503,15 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: gradient
-            ? const LinearGradient(colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)])
-            : const LinearGradient(colors: [Color(0x33212121), Color(0x66121212)]),
+            ? const LinearGradient(
+            colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)])
+            : LinearGradient(colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05)
+        ]),
         border: Border.all(color: Colors.white.withAlpha(40), width: 1),
-        boxShadow: gradient
-            ? [
-                BoxShadow(color: Colors.amber.withAlpha(120), blurRadius: 20, spreadRadius: 1),
-              ]
-            : null,
       ),
       child: Icon(icon, color: Colors.white, size: size * 0.55),
     );
   }
 }
-

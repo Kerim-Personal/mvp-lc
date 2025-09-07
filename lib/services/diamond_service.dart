@@ -12,6 +12,7 @@ class DiamondService {
 
   final _controller = StreamController<int?>.broadcast();
   StreamSubscription? _firestoreSub;
+  StreamSubscription<User?>? _authSub; // auth değişimleri
 
   Stream<int?> diamondsStream() {
     _ensureListener();
@@ -35,7 +36,16 @@ class DiamondService {
   void _ensureListener() {
     if (_firestoreSub != null) return;
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      // Kullanıcı yoksa auth state dinle ve login olduğunda listener kur.
+      _authSub ??= FirebaseAuth.instance.authStateChanges().listen((u) {
+        if (u != null && _firestoreSub == null) {
+          _ensureListener();
+          currentDiamonds(refresh: true);
+        }
+      });
+      return;
+    }
     _firestoreSub = FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots().listen((snap) {
       final val = (snap.data()?['diamonds'] as int?) ?? 0;
       _controller.add(val);
@@ -44,6 +54,7 @@ class DiamondService {
 
   void dispose() {
     _firestoreSub?.cancel();
+    _authSub?.cancel();
     _controller.close();
   }
 }
