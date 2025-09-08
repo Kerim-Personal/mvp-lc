@@ -31,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
   bool _listening = false;
   final AuthService _authService = AuthService();
+  static final Set<String> _pendingBadgeWrites = <String>{};
 
   @override
   void initState() {
@@ -45,14 +46,43 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   void _attachListener() {
     if (_listening) return;
     _listening = true;
-    _userSub = FirebaseFirestore.instance
+    final docRef = FirebaseFirestore.instance
         .collection('users')
-        .doc(widget.userId)
+        .doc(widget.userId);
+    _userSub = docRef
         .snapshots()
-        .listen((snap) {
+        .listen((snap) async {
       if (!snap.exists) return;
       final data = snap.data();
       if (data == null) return;
+
+      // Rozet hesaplama ve Firestore'a düşük maliyetli yazma
+      try {
+        final int streak = data['streak'] is int ? data['streak'] : 0;
+        final int highestStreak = data['highestStreak'] is int ? data['highestStreak'] : streak;
+        final int totalPracticeTime = data['totalPracticeTime'] is int ? data['totalPracticeTime'] : 0;
+        final int partnerCount = data['partnerCount'] is int ? data['partnerCount'] : 0;
+        final String level = (data['level']?.toString()) ?? '-';
+
+        final computed = AchievementsSection.computeEarnedBadgeIds(
+          streak: streak,
+          highestStreak: highestStreak,
+          totalPracticeTime: totalPracticeTime,
+          partnerCount: partnerCount,
+          level: level,
+        );
+        final existing = (data['earnedBadges'] as List?)?.map((e) => e.toString()).toSet() ?? <String>{};
+        final newOnes = computed.where((id) => !existing.contains(id)).toList();
+        // Tekrar yazımları azaltmak için pending filtrele
+        final toWrite = newOnes.where((id) => !_pendingBadgeWrites.contains(id)).toList();
+        if (toWrite.isNotEmpty) {
+          _pendingBadgeWrites.addAll(toWrite);
+          // Sessiz (await etmeden) yaz; hata olsa bile UI bloklanmasın
+          // arrayUnion idempotent -> yarış koşullarında sorun yok
+          docRef.update({'earnedBadges': FieldValue.arrayUnion(toWrite)}).catchError((_) {});
+        }
+      } catch (_) {}
+
       // Küçük değişimler için gereksiz rebuild engelle (referans ya da önemli alan farkı)
       if (_cachedUserData != null) {
         final old = _cachedUserData!;
@@ -104,6 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     final isPremium = userData['isPremium'] as bool? ?? false;
     final role = (userData['role'] as String?) ?? 'user';
     final highestStreak = userData['highestStreak'] ?? (streak ?? 0);
+    final int highestStreakInt = highestStreak is int ? highestStreak : 0;
 
     final List<Widget> children = [];
 
@@ -118,7 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             streak: streak,
             totalPracticeTime: totalPracticeTime,
             partnerCount: partnerCount,
-            highestStreak: highestStreak is int ? highestStreak : 0,
+            highestStreak: highestStreakInt,
           ),
         ),
       ],
@@ -127,9 +158,15 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
     children.add(_section(Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        SectionTitle('Earned Badges'),
-        AchievementsSection(),
+      children: [
+        const SectionTitle('Earned Badges'),
+        AchievementsSection(
+          streak: streak,
+          highestStreak: highestStreakInt,
+          totalPracticeTime: totalPracticeTime,
+            partnerCount: partnerCount,
+            level: level,
+        ),
       ],
     )));
     children.add(const SizedBox(height: 16));

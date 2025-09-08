@@ -4,172 +4,168 @@ import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 
 class AchievementsSection extends StatelessWidget {
-  const AchievementsSection({super.key});
+  final int streak; // mevcut anlık streak
+  final int highestStreak; // en yüksek streak
+  final int totalPracticeTime; // toplam pratik süresi (dakika)
+  final int partnerCount; // partner sayısı
+  final String level; // seviye (string olabilir)
 
-  // All badge definitions (static data). Could be made dynamic from backend later.
-  static const List<Achievement> _achievements = [
-    Achievement(
-      name: 'First Step',
-      icon: Icons.flag,
-      color: Colors.green,
-      earned: true,
-      description: 'Send your first message or finish your first lesson.',
-    ),
-    Achievement(
-      name: 'Consistent',
-      icon: Icons.calendar_today,
-      color: Colors.teal,
-      earned: true,
-      description: 'Log in 7 days in a row.',
-    ),
-    Achievement(
-      name: '5 Day Streak',
-      icon: Icons.filter_5,
-      color: Colors.lightBlue,
-      earned: true,
-      description: 'Reach a 5-day learning streak.',
-    ),
-    Achievement(
-      name: '30 Day Streak',
-      icon: Icons.calendar_month,
-      color: Colors.indigo,
-      earned: false,
-      description: 'Be active 30 days consecutively.',
-    ),
-    Achievement(
-      name: '100 Day Streak',
-      icon: Icons.timelapse,
-      color: Colors.deepPurple,
-      earned: false,
-      description: 'Achieve a 100-day uninterrupted streak.',
-    ),
-    Achievement(
-      name: 'Chatty',
-      icon: Icons.chat_bubble,
-      color: Colors.blue,
-      earned: true,
-      description: 'Send a total of 100 messages.',
-    ),
-    Achievement(
-      name: 'Conversation Master',
-      icon: Icons.forum,
-      color: Colors.blueGrey,
-      earned: false,
-      description: 'Send a total of 1000 messages.',
-    ),
-    Achievement(
-      name: 'Night Owl',
-      icon: Icons.nights_stay,
-      color: Colors.deepOrange,
-      earned: false,
-      description: 'Be active on 3 different nights (00:00–03:00).',
-    ),
-    Achievement(
-      name: 'Early Bird',
-      icon: Icons.wb_sunny,
-      color: Colors.orange,
-      earned: false,
-      description: 'Complete 5 morning (06:00–08:00) sessions.',
-    ),
-    Achievement(
-      name: 'Explorer',
-      icon: Icons.language,
-      color: Colors.orangeAccent,
-      earned: true,
-      description: 'Join at least 3 different language rooms.',
-    ),
-    Achievement(
-      name: 'Linguist',
-      icon: Icons.menu_book,
-      color: Colors.purple,
-      earned: false,
-      description: 'Learn 500 distinct words.',
-    ),
-    Achievement(
-      name: 'Word Sage',
-      icon: Icons.library_books,
-      color: Colors.purpleAccent,
-      earned: false,
-      description: 'Learn 1000 distinct words.',
-    ),
-    Achievement(
-      name: 'Translation Pro',
-      icon: Icons.translate,
-      color: Colors.redAccent,
-      earned: false,
-      description: 'Successfully translate 200 sentences.',
-    ),
-    Achievement(
-      name: 'Grammar Slayer',
-      icon: Icons.rule,
-      color: Colors.brown,
-      earned: false,
-      description: 'Complete 100 grammar exercises correctly.',
-    ),
-    Achievement(
-      name: 'Polyglot',
-      icon: Icons.public,
-      color: Colors.cyan,
-      earned: false,
-      description: 'Add 3 different languages to your learning list.',
-    ),
-    Achievement(
-      name: 'Popular',
-      icon: Icons.whatshot,
-      color: Colors.red,
-      earned: false,
-      description: 'Reach 500 likes / interactions on your posts.',
-    ),
-    Achievement(
-      name: 'Progress Tracker',
-      icon: Icons.trending_up,
-      color: Colors.greenAccent,
-      earned: false,
-      description: 'Level up 10 times.',
-    ),
-    Achievement(
-      name: 'Marathoner',
-      icon: Icons.directions_run,
-      color: Colors.lightGreen,
-      earned: false,
-      description: 'Accumulate 300+ minutes practice over 7 days.',
-    ),
-    Achievement(
-      name: 'Expert',
-      icon: Icons.star,
-      color: Colors.amber,
-      earned: false,
-      description: 'Earn the advanced proficiency badge.',
-    ),
-    Achievement(
-      name: 'Legend',
-      icon: Icons.emoji_events,
-      color: Colors.deepOrangeAccent,
-      earned: false,
-      description: 'Complete all core badges and toughest goals.',
-    ),
-  ];
+  const AchievementsSection({
+    super.key,
+    required this.streak,
+    required this.highestStreak,
+    required this.totalPracticeTime,
+    required this.partnerCount,
+    required this.level,
+  });
+
+  static List<Achievement> buildAchievementsFromStats({
+    required int streak,
+    required int highestStreak,
+    required int totalPracticeTime,
+    required int partnerCount,
+    required String level,
+  }) {
+    int _extractLevelNumber(String lvl) {
+      final match = RegExp(r'(\d+)').firstMatch(lvl);
+      if (match == null) return 0;
+      return int.tryParse(match.group(1)!) ?? 0;
+    }
+
+    final lvlNum = _extractLevelNumber(level);
+    return [
+      Achievement(
+        id: 'first_step',
+        name: 'First Step',
+        icon: Icons.flag,
+        color: Colors.green,
+        earned: (totalPracticeTime > 0) || highestStreak > 0 || partnerCount > 0,
+        description: 'İlk adımı at: bir süre çalış veya etkileşim kur.',
+      ),
+      Achievement(
+        id: 'streak_5',
+        name: '5 Day Streak',
+        icon: Icons.filter_5,
+        color: Colors.lightBlue,
+        earned: highestStreak >= 5,
+        description: '5 günlük öğrenme serisine ulaş.',
+      ),
+      Achievement(
+        id: 'streak_30',
+        name: '30 Day Streak',
+        icon: Icons.calendar_month,
+        color: Colors.indigo,
+        earned: highestStreak >= 30,
+        description: '30 günlük kesintisiz seri.',
+      ),
+      Achievement(
+        id: 'streak_100',
+        name: '100 Day Streak',
+        icon: Icons.timelapse,
+        color: Colors.deepPurple,
+        earned: highestStreak >= 100,
+        description: '100 günlük efsanevi seri.',
+      ),
+      Achievement(
+        id: 'consistent_7',
+        name: 'Consistent',
+        icon: Icons.calendar_today,
+        color: Colors.teal,
+        earned: streak >= 7 || highestStreak >= 7,
+        description: 'Art arda 7 gün aktif ol.',
+      ),
+      Achievement(
+        id: 'practice_60',
+        name: 'Practice 60m',
+        icon: Icons.timer,
+        color: Colors.orange,
+        earned: totalPracticeTime >= 60,
+        description: 'Toplam 60+ dakika pratik yap.',
+      ),
+      Achievement(
+        id: 'practice_300',
+        name: 'Practice 300m',
+        icon: Icons.av_timer,
+        color: Colors.deepOrange,
+        earned: totalPracticeTime >= 300,
+        description: 'Toplam 300+ dakika pratik.',
+      ),
+      Achievement(
+        id: 'social_3',
+        name: 'Social 3',
+        icon: Icons.people,
+        color: Colors.green,
+        earned: partnerCount >= 3,
+        description: '3 farklı partnerle bağlantı kur.',
+      ),
+      Achievement(
+        id: 'networker_10',
+        name: 'Networker 10',
+        icon: Icons.groups,
+        color: Colors.greenAccent,
+        earned: partnerCount >= 10,
+        description: '10 farklı partnerle bağlantı kur.',
+      ),
+      Achievement(
+        id: 'level_5',
+        name: 'Level Up 5',
+        icon: Icons.trending_up,
+        color: Colors.purple,
+        earned: lvlNum >= 5,
+        description: 'Seviyeni en az 5\'e çıkar.',
+      ),
+    ];
+  }
+
+  static List<String> computeEarnedBadgeIds({
+    required int streak,
+    required int highestStreak,
+    required int totalPracticeTime,
+    required int partnerCount,
+    required String level,
+  }) {
+    return buildAchievementsFromStats(
+      streak: streak,
+      highestStreak: highestStreak,
+      totalPracticeTime: totalPracticeTime,
+      partnerCount: partnerCount,
+      level: level,
+    ).where((a) => a.earned).map((a) => a.id).toList();
+  }
+
+  List<Achievement> _buildAchievements() {
+    return buildAchievementsFromStats(
+      streak: streak,
+      highestStreak: highestStreak,
+      totalPracticeTime: totalPracticeTime,
+      partnerCount: partnerCount,
+      level: level,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final achievements = _buildAchievements();
     return SizedBox(
       height: 110,
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        children: _achievements.map((a) => _AchievementBadge(achievement: a)).toList(),
+        children: achievements.map((a) => _AchievementBadge(achievement: a)).toList(),
       ),
     );
   }
 }
 
 class Achievement {
+  final String id; // eklenen stabil kimlik
   final String name;
   final IconData icon;
   final Color color;
   final bool earned;
   final String description;
   const Achievement({
+    required this.id,
     required this.name,
     required this.icon,
     required this.color,
@@ -187,7 +183,7 @@ class _AchievementBadge extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'achievement',
-      barrierColor: Colors.transparent, // Removed darkened background
+      barrierColor: Colors.transparent,
       transitionDuration: const Duration(milliseconds: 380),
       pageBuilder: (_, __, ___) => _AchievementDialog(achievement: achievement),
       transitionBuilder: (ctx, anim, sec, child) {
@@ -352,7 +348,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                                     Icon(a.earned ? Icons.check_circle : Icons.lock_clock, size: 18, color: a.earned ? Colors.green : Colors.orange),
                                     const SizedBox(width: 7),
                                     Text(
-                                      a.earned ? 'Earned' : 'Not earned yet',
+                                      a.earned ? 'Kazanıldı' : 'Henüz değil',
                                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: a.earned ? Colors.green : Colors.orange),
                                     ),
                                   ],
@@ -361,7 +357,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                               const Spacer(),
                               TextButton(
                                 onPressed: () => Navigator.of(context).maybePop(),
-                                child: const Text('Close'),
+                                child: const Text('Kapat'),
                               ),
                             ],
                           ),
@@ -400,7 +396,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                               ),
                               child: CircleAvatar(
                                 backgroundColor: a.color,
-                                child: Icon(a.icon, size: 40, color: Colors.white), // icon reduced (46 -> 40)
+                                child: Icon(a.icon, size: 40, color: Colors.white),
                               ),
                             ),
                             if (a.earned)
