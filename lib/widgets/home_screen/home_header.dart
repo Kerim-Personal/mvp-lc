@@ -11,7 +11,7 @@ class HomeHeader extends StatefulWidget {
     super.key,
     required this.userName,
     required this.avatarUrl,
-    required this.streak,
+    required this.diamonds,
     this.isPremium = false,
     required this.currentUser,
     this.role = 'user',
@@ -19,7 +19,7 @@ class HomeHeader extends StatefulWidget {
 
   final String userName;
   final String? avatarUrl;
-  final int streak;
+  final int diamonds; // diamonds gösteriyoruz
   final bool isPremium;
   final User? currentUser;
   final String? role;
@@ -91,7 +91,7 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
       borderRadius: BorderRadius.circular(28),
       child: Stack(
         children: [
-          // Animasyonlu arka plan
+          // Animasyonlu arka plan (blur kaldırıldı)
           AnimatedBuilder(
             animation: _bgController,
             builder: (_, __) {
@@ -155,20 +155,13 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
     return Row(
       children: [
         _buildAvatar(),
-        const SizedBox(width: 16),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Row(
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(child: _buildAnimatedName(baseColor)),
-                  const SizedBox(width: 8),
-                  _buildStreakChip(),
-                ],
-              ),
+              Expanded(child: _buildAnimatedName(baseColor)),
+              const SizedBox(width: 8),
+              _buildCompactDiamondsChip(),
             ],
           ),
         ),
@@ -260,37 +253,74 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildStreakChip() {
-    if (widget.streak <= 0) return const SizedBox.shrink();
-    final hot = widget.streak >= 7;
+  // Eski streak chip kaldırıldı
+  // Diamond format fonksiyonu + compact chip
+  String _formatDiamonds(int v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(v % 1000000 >= 100000 ? 1 : 0)}M';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(v % 1000 >= 100 ? 1 : 0)}K';
+    return '$v';
+  }
 
-    return AnimatedScale(
-      duration: const Duration(milliseconds: 400),
-      scale: 1.0 + (hot ? 0.03 : 0.0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: hot
-                ? const [Color(0xFFFFB347), Color(0xFFFF7050)]
-                : const [Color(0xFFBBBEC1), Color(0xFF9DA0A3)],
-          ),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(hot ? Icons.local_fire_department : Icons.whatshot_outlined, size: 16, color: Colors.white),
-            const SizedBox(width: 4),
-            Text(
-              '${widget.streak}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+  Widget _buildCompactDiamondsChip() {
+    final amount = widget.diamonds;
+    final rich = amount >= 1000;
+    final txt = _formatDiamonds(amount);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: _openStore,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          constraints: const BoxConstraints(minHeight: 28),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              colors: rich
+                  ? const [Color(0xFF7F5DFF), Color(0xFFE5B53A)]
+                  : const [Color(0xFF545B62), Color(0xFF6B7280)],
             ),
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.22),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+            border: Border.all(color: Colors.white.withOpacity(0.12), width: 0.5),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.diamond, size: 15, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                txt,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.28), width: 0.6),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.add, size: 12, color: Colors.white),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  void _openStore() {
+    if (!mounted) return;
+    Navigator.of(context).pushNamed('/store');
   }
 
   List<Color> _selectAdaptivePalette(DateTime now, bool isPremium, String? role) {
@@ -299,7 +329,6 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
       if (role == 'moderator') return [const Color(0xFF4E2E00), const Color(0xFFCC7A00), const Color(0xFFFFC773)];
       return [const Color(0xFF3B2A00), const Color(0xFF8B6300), const Color(0xFFE5B53A)];
     }
-
     final hour = now.hour;
     if (hour >= 5 && hour < 12) return [const Color(0xFFFFECD2), const Color(0xFFFCCF8A), const Color(0xFFEFA45C)];
     if (hour >= 12 && hour < 18) return [const Color(0xFF0093E9), const Color(0xFF38B2AC), const Color(0xFF006F7A)];

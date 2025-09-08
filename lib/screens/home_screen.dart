@@ -388,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return HomeHeader(
           userName: 'Traveler',
           avatarUrl: null,
-          streak: 0,
+          diamonds: 0,
           isPremium: false,
           currentUser: _currentUser,
           role: 'user');
@@ -397,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return HomeHeader(
           userName: 'Loading...',
           avatarUrl: null,
-          streak: 0,
+          diamonds: 0,
           isPremium: false,
           currentUser: _currentUser,
           role: 'user');
@@ -406,7 +406,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final userName = userData['displayName'] ?? 'Traveler';
     final avatarUrl = userData['avatarUrl'] as String?;
     final isPremium = userData['isPremium'] as bool? ?? false;
-    final streak = userData['streak'] as int? ?? 0;
+    final diamonds = userData['diamonds'] as int? ?? 0; // streak yerine diamonds
     final role = (userData['role'] as String?) ?? 'user';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -419,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       userName: userName,
       avatarUrl: avatarUrl,
       isPremium: isPremium,
-      streak: streak,
+      diamonds: diamonds,
       currentUser: _currentUser,
       role: role,
     );

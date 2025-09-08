@@ -1,4 +1,5 @@
 // lib/widgets/community_screen/group_chat_card.dart
+import 'dart:async';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +9,7 @@ import 'package:lingua_chat/screens/group_chat_screen.dart';
 
 class GroupChatCard extends StatefulWidget {
   final GroupChatRoomInfo roomInfo;
-  final bool compact; // yeni: kompakt görünüm
+  final bool compact; // yeni: kompakt gör��nüm
   const GroupChatCard({super.key, required this.roomInfo, this.compact = false});
 
   @override
@@ -17,12 +18,12 @@ class GroupChatCard extends StatefulWidget {
 
 class _GroupChatCardState extends State<GroupChatCard> {
   Offset _offset = Offset.zero;
-  // --- Maliyet azaltımı için eklenen cache alanları ---
   bool _loadingMembers = true;
   int _memberCount = 0;
   List<String> _avatarUrls = [];
   DateTime? _lastFetch;
   bool _pressed = false; // yeni: basılı animasyon durumu
+  Timer? _periodic; // periyodik sayım güncelleme
 
   @override
   void initState() {
@@ -36,42 +37,58 @@ class _GroupChatCardState extends State<GroupChatCard> {
       _loadingMembers = false;
     } else {
       _fetchMembers();
+      _periodic = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted) _fetchMembers();
+      });
     }
   }
 
+  @override
+  void dispose() {
+    _periodic?.cancel();
+    super.dispose();
+  }
+
   Future<void> _fetchMembers({bool force = false}) async {
-    // Eğer zaten denormalize veri gelmişse ve force değilse okuma yapma
     if (!force && widget.roomInfo.memberCount != null) return;
-    // Basit throttle: 30 sn içinde yeniden istenirse atla.
-    if (!force && _lastFetch != null && DateTime.now().difference(_lastFetch!) < const Duration(seconds: 30)) return;
+    if (!force && _lastFetch != null && DateTime.now().difference(_lastFetch!) < const Duration(seconds: 8)) return;
     try {
       setState(() => _loadingMembers = true);
-      final snapshot = await FirebaseFirestore.instance
+      final membersRef = FirebaseFirestore.instance
           .collection('group_chats')
           .doc(widget.roomInfo.id)
-          .collection('members')
-          .limit(5) // Limit maliyeti azaltır
-          .get(); // Tek seferlik okuma – real-time listener yok
+          .collection('members');
 
-      final docs = snapshot.docs;
+      // Sadece aktif var mı ve avatar göstermek için birkaç kayıt
+      final avatarSnap = await membersRef.limit(3).get();
       final avatars = <String>[];
-      for (final d in docs) {
-        final data = d.data(); // unnecessary cast kaldırıldı
+      for (final d in avatarSnap.docs) {
+        final data = d.data();
         final url = data['avatarUrl'];
         if (url is String && url.isNotEmpty) avatars.add(url);
       }
+
+      int totalCount;
+      try {
+        final agg = await membersRef.count().get();
+        totalCount = (agg.count ?? avatarSnap.size);
+      } catch (_) {
+        totalCount = avatarSnap.size;
+      }
+
       if (mounted) {
         setState(() {
-          _memberCount = docs.length; // İleride aggregate count ile değiştirilebilir
-          _avatarUrls = avatars;
+          _memberCount = totalCount; // sadece >0 kontrolü için tutuluyor
+          _avatarUrls = avatars.take(3).toList();
           _loadingMembers = false;
           _lastFetch = DateTime.now();
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _loadingMembers = false; // Hata durumunda da UI dursun
+          _loadingMembers = false;
+          _lastFetch = DateTime.now();
         });
       }
     }
@@ -97,8 +114,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
           ),
         );
       },
-      // Kullanıcı uzun basarsa manuel yenile (isteğe bağlı basit etkileşim)
-      onLongPress: () => _fetchMembers(force: true),
+      // onLongPress kaldırıldı
       child: Transform(
         transform: Matrix4.identity()
           ..setEntry(3, 2, 0.001)
@@ -195,7 +211,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
           ),
         );
       },
-      onLongPress: () => _fetchMembers(force: true),
+      // onLongPress kaldırıldı
       onHighlightChanged: (v) => setState(() => _pressed = v),
       borderRadius: BorderRadius.circular(22),
       splashColor: Colors.white.withValues(alpha: 0.1),
@@ -329,26 +345,8 @@ class _GroupChatCardState extends State<GroupChatCard> {
                         )
                       : Row(
                           children: [
-                            _buildMiniAvatars(),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 350),
-                                switchInCurve: Curves.easeOutBack,
-                                switchOutCurve: Curves.easeIn,
-                                child: Text(
-                                  hasMembers ? '$_memberCount üye aktif' : 'İlk sen katıl',
-                                  key: ValueKey('m$_memberCount$hasMembers'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 12.2,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
+                            if (hasMembers) _buildMiniAvatars(),
+                            const Spacer(),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
@@ -356,11 +354,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.9),
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.arrow_outward_rounded, size: 18, color: Colors.white.withValues(alpha: 0.95)),
-                                ],
-                              ),
+                              child: Icon(Icons.arrow_outward_rounded, size: 18, color: Colors.white.withValues(alpha: 0.95)),
                             ),
                           ],
                         ),
@@ -450,8 +444,10 @@ class _GroupChatCardState extends State<GroupChatCard> {
   }
 
   Widget _buildFooter(int memberCount, List<String> avatarUrls) {
+    if (memberCount <= 0) {
+      return const SizedBox.shrink();
+    }
     final avatarsToShow = avatarUrls.take(3).toList();
-
     return Row(
       children: [
         if (avatarsToShow.isNotEmpty)
@@ -461,7 +457,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
             child: Stack(
               children: List.generate(
                 avatarsToShow.length,
-                    (index) => Positioned(
+                (index) => Positioned(
                   left: (index * 20).toDouble(),
                   child: CircleAvatar(
                     radius: 15,
@@ -473,8 +469,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
                           avatarsToShow[index],
                           width: 28,
                           height: 28,
-                          placeholderBuilder: (context) =>
-                          const SizedBox.shrink(),
+                          placeholderBuilder: (context) => const SizedBox.shrink(),
                         ),
                       ),
                     ),
@@ -483,15 +478,7 @@ class _GroupChatCardState extends State<GroupChatCard> {
               ),
             ),
           ),
-        Expanded(
-          child: Text(
-            memberCount > 0
-                ? '$memberCount members here'
-                : 'Be the first to join the room!',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+        const Spacer(),
         const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
       ],
     );
@@ -599,4 +586,3 @@ class _LivePulseDotState extends State<_LivePulseDot> with SingleTickerProviderS
     );
   }
 }
-

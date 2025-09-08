@@ -186,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           }
         }
 
-        // Kullanıcı tercihlerini dinle (dil vb.)
+        // Kullan��cı tercihlerini dinle (dil vb.)
         _userPrefSub = FirebaseFirestore.instance.collection('users').doc(currentUser.uid).snapshots().listen((snap) {
           final data = snap.data();
           if (data == null) return;
@@ -577,6 +577,40 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final appBarGradient = isDark
+        ? LinearGradient(
+            colors: [
+              theme.colorScheme.surfaceVariant,
+              theme.colorScheme.surface,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          )
+        : const LinearGradient(
+            colors: [Color(0xFFE0F2F1), Color(0xFFB2DFDB)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          );
+    final bodyDecoration = isDark
+        ? BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.background,
+                theme.colorScheme.surface,
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          )
+        : const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFF7F9FC), Color(0xFFEFF3F6)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          );
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -589,13 +623,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           backgroundColor: Colors.transparent,
           elevation: 0,
           flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFE0F2F1), Color(0xFFB2DFDB)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+            decoration: BoxDecoration(gradient: appBarGradient),
           ),
           title: FutureBuilder<DocumentSnapshot>(
             future: _partnerFuture,
@@ -612,13 +640,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               Color baseColor;
               switch (role) {
                 case 'admin':
-                  baseColor = Colors.red;
+                  baseColor = Colors.redAccent;
                   break;
                 case 'moderator':
-                  baseColor = Colors.orange;
+                  baseColor = Colors.orangeAccent;
                   break;
                 default:
-                  baseColor = Colors.black87;
+                  baseColor = isDark ? theme.colorScheme.onSurface : Colors.black87;
               }
 
               if (isPremium && !_shimmerController.isAnimating) {
@@ -634,10 +662,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         final end = value * 1.5;
                         final bool isSpecialRole = (role == 'admin' || role == 'moderator');
                         final Color shimmerBase = isSpecialRole ? baseColor : const Color(0xFFE5B53A);
+                        final Color centerColor = isDark ? Colors.white70 : Colors.white;
                         return ShaderMask(
                           blendMode: BlendMode.srcIn,
                           shaderCallback: (bounds) => LinearGradient(
-                            colors: [shimmerBase, Colors.white, shimmerBase],
+                            colors: [shimmerBase, centerColor, shimmerBase],
                             stops: [start, (start + end) / 2, end]
                                 .map((e) => e.clamp(0.0, 1.0))
                                 .toList(),
@@ -669,19 +698,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: Colors.teal.shade100,
+                    backgroundColor: isDark
+                        ? theme.colorScheme.primary.withOpacity(0.25)
+                        : Colors.teal.shade100,
                     child: avatarUrl != null
                         ? ClipOval(
                             child: SvgPicture.network(
                               avatarUrl,
                               placeholderBuilder: (context) => const SizedBox(
-                                  width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2,)
-                              ),
+                                  width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2,)),
                               width: 36,
                               height: 36,
                             ),
                           )
-                        : const Icon(Icons.person, color: Colors.teal),
+                        : Icon(Icons.person, color: theme.colorScheme.primary),
                   ),
                   const SizedBox(width: 12),
                   Flexible(child: nameWidget),
@@ -764,13 +794,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ],
         ),
         body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFF7F9FC), Color(0xFFEFF3F6)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
+          decoration: bodyDecoration,
           child: Column(
             children: <Widget>[
               if (!_interactionAllowed)
@@ -778,15 +802,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   width: double.infinity,
                   margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withAlpha(28),
+                    color: (isDark ? Colors.orange.withOpacity(0.25) : Colors.orange.withOpacity(0.12)),
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withOpacity(0.35)),
                   ),
                   padding: const EdgeInsets.all(12),
                   child: Text(
                     _blockedByMe
                         ? 'Bu kullanıcıyı engellediniz. Mesaj göndermek için engeli kaldırın.'
                         : 'Bu kullanıcı sizi engellemiş. Mesaj gönderemezsiniz.',
-                    style: const TextStyle(color: Colors.black87),
+                    style: TextStyle(color: theme.colorScheme.onSurface),
                   ),
                 ),
               // Çeviri modeli indirme durumu chip'i
@@ -799,9 +824,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.teal.withAlpha(18),
+                          color: theme.colorScheme.primary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.teal.withAlpha(60)),
+                          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.4)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -812,7 +837,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             const SizedBox(width: 10),
-                            Text('Çeviri modeli indiriliyor: ${state.downloaded}/${state.total}'),
+                            Text('Çeviri modeli indiriliyor: \\${state.downloaded}/\\${state.total}',
+                                style: TextStyle(color: theme.colorScheme.onSurface)),
                           ],
                         ),
                       ),
@@ -824,11 +850,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.red.withAlpha(18),
+                          color: theme.colorScheme.error.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.redAccent.withAlpha(80)),
+                          border: Border.all(color: theme.colorScheme.error.withOpacity(0.4)),
                         ),
-                        child: Text('Çeviri modeli indirilemedi: ${state.error}', style: const TextStyle(color: Colors.redAccent)),
+                        child: Text('Çeviri modeli indirilemedi: \\${state.error}',
+                            style: TextStyle(color: theme.colorScheme.error)),
                       ),
                     );
                   }
@@ -1022,9 +1049,26 @@ class _MessageBubbleState extends State<MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isMe = widget.isMe;
     final formattedTime = DateFormat('HH:mm').format(widget.timestamp.toDate());
-    final baseTextColor = isMe ? Colors.white : Colors.black87;
+
+    final Color incomingBg = isDark
+        ? theme.colorScheme.surfaceVariant.withOpacity(0.6)
+        : Colors.white;
+    final LinearGradient outgoingGradient = LinearGradient(
+      colors: [
+        theme.colorScheme.primary,
+        theme.colorScheme.primaryContainer.withOpacity(0.9),
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
+    final Color baseTextColor = isMe
+        ? theme.colorScheme.onPrimary
+        : (isDark ? theme.colorScheme.onSurface : Colors.black87);
 
     Widget content;
     if (widget.canTranslate && _translated != null && _showTranslation) {
@@ -1032,13 +1076,34 @@ class _MessageBubbleState extends State<MessageBubble> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.message, style: TextStyle(color: baseTextColor.withValues(alpha: 0.70), fontSize: 14, fontStyle: FontStyle.italic)),
+          Text(
+            widget.message,
+            style: TextStyle(
+              color: baseTextColor.withOpacity(0.70),
+              fontSize: 14,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
           const SizedBox(height: 6),
-          Text(_translated!, style: TextStyle(color: baseTextColor, fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(
+            _translated!,
+            style: TextStyle(
+              color: baseTextColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       );
     } else {
-      content = Text(widget.message, style: TextStyle(color: baseTextColor, fontSize: 16, height: 1.3));
+      content = Text(
+        widget.message,
+        style: TextStyle(
+          color: baseTextColor,
+          fontSize: 16,
+          height: 1.3,
+        ),
+      );
     }
 
     return Padding(
@@ -1046,27 +1111,20 @@ class _MessageBubbleState extends State<MessageBubble> {
       child: Column(
         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // Balon kutusu
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
             decoration: BoxDecoration(
               gradient: widget.isPremium
-                  ? LinearGradient(
-                      colors: isMe
-                          ? [const Color(0xFF26A69A), const Color(0xFF2BBBAD)]
-                          : [Colors.white, Colors.white],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : (isMe
-                      ? const LinearGradient(
-                          colors: [Color(0xFF26A69A), Color(0xFF2BBBAD)],
+                  ? (isMe
+                      ? outgoingGradient
+                      : LinearGradient(
+                          colors: [incomingBg, incomingBg.withOpacity(isDark ? 0.85 : 1)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                        )
-                      : null),
-              color: (!widget.isPremium && !isMe) ? Colors.white : null,
+                        ))
+                  : (isMe ? outgoingGradient : null),
+              color: (!widget.isPremium && !isMe) ? incomingBg : null,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),
@@ -1075,7 +1133,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withAlpha(20),
+                  color: Colors.black.withOpacity(isDark ? 0.4 : 0.15),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1085,7 +1143,6 @@ class _MessageBubbleState extends State<MessageBubble> {
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
             child: content,
           ),
-          // Balon altı aksiyon satırı (çeviri butonu ve hatalar)
           if (widget.canTranslate)
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
@@ -1093,7 +1150,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(10, 32), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(10, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      foregroundColor: baseTextColor,
+                    ),
                     onPressed: _translating
                         ? null
                         : () async {
@@ -1101,21 +1162,47 @@ class _MessageBubbleState extends State<MessageBubble> {
                               setState(() => _showTranslation = !_showTranslation);
                               return;
                             }
-                            setState(() { _translating = true; _error = null; });
+                            setState(() {
+                              _translating = true;
+                              _error = null;
+                            });
                             try {
                               await TranslationService.instance.ensureReady(widget.targetLanguageCode);
-                              final tr = await TranslationService.instance.translateFromEnglish(widget.message, widget.targetLanguageCode);
-                              setState(() { _translated = tr; _showTranslation = true; });
+                              final tr = await TranslationService.instance.translateFromEnglish(
+                                  widget.message, widget.targetLanguageCode);
+                              setState(() {
+                                _translated = tr;
+                                _showTranslation = true;
+                              });
                             } catch (e) {
-                              setState(() { _error = 'Çeviri başarısız: ${e.toString()}'; });
+                              setState(() {
+                                _error = 'Çeviri başarısız: \\${e.toString()}';
+                              });
                             } finally {
-                              if (mounted) setState(() { _translating = false; });
+                              if (mounted) setState(() {
+                                _translating = false;
+                              });
                             }
                           },
                     icon: _translating
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(_translated == null ? Icons.translate_outlined : (_showTranslation ? Icons.visibility_off : Icons.visibility), size: 16),
-                    label: Text(_translated == null ? 'Çevir' : (_showTranslation ? 'Gizle' : 'Göster')),
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            _translated == null
+                                ? Icons.translate_outlined
+                                : (_showTranslation
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                            size: 16,
+                          ),
+                    label: Text(
+                      _translated == null
+                          ? 'Çevir'
+                          : (_showTranslation ? 'Gizle' : 'Göster'),
+                    ),
                   ),
                 ],
               ),
@@ -1123,12 +1210,26 @@ class _MessageBubbleState extends State<MessageBubble> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 2, left: 8, right: 8),
-              child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 11)),
+              child: Text(
+                _error!,
+                style: TextStyle(
+                  color: theme.colorScheme.error,
+                  fontSize: 11,
+                ),
+              ),
             ),
           const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6.0),
-            child: Text(formattedTime, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+            child: Text(
+              formattedTime,
+              style: TextStyle(
+                color: isDark
+                    ? theme.colorScheme.onSurface.withOpacity(0.6)
+                    : Colors.grey[600],
+                fontSize: 11,
+              ),
+            ),
           ),
         ],
       ),

@@ -76,7 +76,7 @@ class PurchaseService {
       if (diamondProductIds.contains(productId)) {
         final add = diamondAmountFor(productId) ?? 0;
         final added = await _addDiamonds(add);
-        return added; // Firestore yazımı başarısız ise false döner
+        return added; // merkezi servis üzerinden optimistik artış
       }
       if (productId == monthlyProductId || productId == yearlyProductId) {
         await _activateSubscription(productId);
@@ -95,30 +95,14 @@ class PurchaseService {
   }
 
   Future<bool> _addDiamonds(int amount) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
-    final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
-
-    const int maxRetries = 3;
-    for (int attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        await FirebaseFirestore.instance.runTransaction((tx) async {
-          final snap = await tx.get(ref);
-          final data = snap.data() ?? {};
-          final current = (data['diamonds'] as int?) ?? 0;
-          final next = current + amount;
-          tx.set(ref, {...data, 'diamonds': next}, SetOptions(merge: true));
-        });
-        DiamondService().notifyRefresh();
-        return true;
-      } catch (e) {
-        if (attempt == maxRetries - 1) {
-          return false;
-        }
-        await Future.delayed(const Duration(milliseconds: 120));
-      }
+    if (amount <= 0) return false;
+    try {
+      // Yeni merkezi sistem: sadece optimistik ekle, flush'ı DiamondService yönetecek
+      await DiamondService().addOptimisticDiamonds(amount);
+      return true;
+    } catch (_) {
+      return false;
     }
-    return false;
   }
 
   Future<void> _activateSubscription(String productId) async {
