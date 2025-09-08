@@ -41,17 +41,20 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   bool _initTried = false;
 
   late final TabController _tabController;
+  late final VoidCallback _tabListener; // Eklenen: listener referansı
 
   final Set<String> _purchasing = {};
   Map<String, String> _priceMap = {};
-  Color _headerAccentStart = const Color(0x22FFD54F);
-  Color _headerAccentEnd = const Color(0x2200172A);
+  // Dinamik accent renkleri kaldırıldı
+  // Color _headerAccentStart = const Color(0x22FFD54F);
+  // Color _headerAccentEnd = const Color(0x2200172A);
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() {}));
+    _tabListener = () => setState(() {}); // Listener referansını sakla
+    _tabController.addListener(_tabListener); // Anonim yerine referans ekle
     _init();
   }
 
@@ -61,12 +64,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     await _purchaseService.init();
     if (!mounted) return;
     _buildPriceMap();
-    setState(() => _loadingProducts = false);
+    if (mounted) setState(() => _loadingProducts = false);
 
     _listenUser();
     _diamondsSub = DiamondService().diamondsStream().listen((v) {
       if (mounted) setState(() => _diamonds = v);
     });
+    // isteğe bağlı: mevcut değeri yenile
     unawaited(DiamondService().currentDiamonds(refresh: true));
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted && _diamonds == null) {
@@ -79,7 +83,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     final map = <String, String>{};
     for (final id in PurchaseService.diamondProductIds) {
       final p = _purchaseService.product(id);
-      if (p != null) map[id] = p.price;
+      if (p != null && p.price != null) map[id] = p.price;
     }
     _priceMap = map;
   }
@@ -102,7 +106,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   void dispose() {
     _diamondsSub?.cancel();
     _userSub?.cancel();
-    _tabController.removeListener(() {});
+    try {
+      _tabController.removeListener(_tabListener); // Doğru şekilde kaldır
+    } catch (_) {}
     _tabController.dispose();
     _purchaseService.dispose();
     super.dispose();
@@ -111,39 +117,49 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   Future<void> _buy(String productId) async {
     if (_purchasing.contains(productId)) return;
     HapticFeedback.lightImpact();
+    if (!mounted) return;
     setState(() => _purchasing.add(productId));
     bool ok = false;
     try {
       ok = await _purchaseService.buy(productId);
-    } catch (e) {
-      debugPrint('Purchase error: $e');
+    } catch (e, st) {
+      debugPrint('Purchase error: $e\n$st');
       ok = false;
     }
-    if (!mounted) return;
-    setState(() => _purchasing.remove(productId));
 
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Satın alma başlatılamadı.'), backgroundColor: Colors.red),
-      );
+    if (!mounted) {
+      // Eğer widget artık mount değilse, satın alma işlemi tamamlanmış olsa da
+      // UI üzerinde değişiklik yapma. Burada yine de log tut.
+      debugPrint('StoreScreen disposed before purchase completed.');
       return;
     }
 
-    // Başarılıysa optimistik local artış (Firestore gecikmesine karşı)
-    if (PurchaseService.diamondProductIds.contains(productId)) {
-      final add = PurchaseService.diamondAmountFor(productId) ?? 0;
-      setState(() => _diamonds = (_diamonds ?? 0) + add);
+    // satın alma bitince UI'daki loading durumunu kaldır
+    if (mounted) setState(() => _purchasing.remove(productId));
+
+    if (!ok) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Satın alma başlatılamadı.'), backgroundColor: Colors.red),
+        );
+      }
+      return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Satın alma işlendiğinde bakiyeniz güncellenecek.'), backgroundColor: Colors.black87),
-    );
+    // Başarılı işlem -> DiamondService güncellemesi artık servis tarafından yapılmalı.
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Elmaslar hesabına ekleniyor...'), backgroundColor: Colors.black87),
+      );
+    }
   }
 
   Future<void> _restorePurchases() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Satın alımlar geri yükleniyor...'), backgroundColor: Colors.black87),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Satın alımlar geri yükleniyor...'), backgroundColor: Colors.black87),
+      );
+    }
     try {
       await _purchaseService.restorePurchases();
       if (!mounted) return;
@@ -168,30 +184,42 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
+          // Daha sade tek ton cam efekti
           gradient: LinearGradient(
             colors: [
-              Colors.amber.withOpacity(0.35),
-              Colors.deepOrange.withOpacity(0.25),
-              Colors.purple.withOpacity(0.20),
+              Colors.white.withOpacity(0.06),
+              Colors.white.withOpacity(0.02),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+          border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         child: Row(
           children: [
             if (icon != null)
-              ShaderMask(
-                shaderCallback: (rect) => const LinearGradient(
-                  colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ).createShader(rect),
-                child: Icon(icon, size: 42, color: Colors.white),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.amber.withOpacity(0.4),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: Icon(icon, size: 26, color: Colors.black87),
               ),
-            if (icon != null) const SizedBox(width: 18),
+            if (icon != null) const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,9 +227,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
                       color: Colors.white,
                     ),
                   ),
@@ -209,9 +237,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.82),
+                      color: Colors.white.withOpacity(0.70),
                     ),
                   ),
                 ],
@@ -224,7 +252,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _header() {
-    final diamondsText = (_diamonds == null) ? '...' : _diamonds.toString();
+    final diamondsText = _formatDiamonds(_diamonds);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -244,7 +272,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 ),
               ),
             ),
-            _diamondBalanceChip(diamondsText),
+            Flexible(child: _diamondBalanceChip(diamondsText)),
           ],
         ),
         const SizedBox(height: 18),
@@ -254,78 +282,90 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
+  String _formatDiamonds(int? v) {
+    if (v == null) return '...';
+    if (v < 1000) return v.toString();
+    if (v < 1000000) {
+      final k = v / 1000;
+      return k.toStringAsFixed(k >= 100 ? 0 : 1) + 'K';
+    }
+    if (v < 1000000000) {
+      final m = v / 1000000;
+      return m.toStringAsFixed(m >= 100 ? 0 : 1) + 'M';
+    }
+    final b = v / 1000000000;
+    return b.toStringAsFixed(b >= 100 ? 0 : 1) + 'B';
+  }
+
   Widget _diamondBalanceChip(String value) {
     return InkWell(
       onTap: () => _tabController.animateTo(0),
       borderRadius: BorderRadius.circular(24),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: Colors.black.withOpacity(0.28),
-          border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _AnimatedDiamondIcon(value: _diamonds),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 42),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _DiamondCountAnimated(value: _diamonds),
-              ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 170),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: Colors.black.withOpacity(0.28),
+            border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+          ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.diamond, color: Colors.amber, size: 20),
+                const SizedBox(width: 6),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    letterSpacing: 0.6,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.add, color: Colors.white70, size: 18),
+              ],
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.add, color: Colors.white70, size: 20),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _segmentedTabs() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
+    return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withOpacity(0.05),
+        border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
       ),
       child: TabBar(
         controller: _tabController,
-        onTap: (i){
-          setState(() {
-            // header accent renkleri sekmeye göre değişsin
-            if (i == 0) {
-              _headerAccentStart = const Color(0x22FFD54F);
-              _headerAccentEnd = const Color(0x22101724);
-            } else {
-              _headerAccentStart = const Color(0x22458AFF);
-              _headerAccentEnd = const Color(0x22121C40);
-            }
-          });
-        },
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
         indicatorPadding: EdgeInsets.zero,
         indicator: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          gradient: LinearGradient(
-            colors: _tabController.index == 0
-                ? const [Color(0xFFFFD54F), Color(0xFFFF8F00)]
-                : const [Color(0xFF66CCFF), Color(0xFF3366FF)],
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: (_tabController.index == 0 ? Colors.amber : Colors.blueAccent).withOpacity(0.45),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: Colors.amber.withOpacity(0.45),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
             )
           ],
+          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
         ),
         labelColor: Colors.black,
         unselectedLabelColor: Colors.white70,
@@ -333,7 +373,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         tabs: const [
           Tab(text: 'Elmas', icon: Icon(Icons.diamond, size: 18)),
-          Tab(text: 'Premium', icon: Icon(Icons.workspace_premium, size: 18)),
+            Tab(text: 'Premium', icon: Icon(Icons.workspace_premium, size: 18)),
         ],
       ),
     );
@@ -355,7 +395,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(42),
                   gradient: const LinearGradient(
-                    colors: [Color(0x66121C27), Color(0x66101724)],
+                    colors: [Color(0x99121C27), Color(0x98101724)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -372,21 +412,22 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                       offset: const Offset(0, 4),
                     ),
                   ],
-                  border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
+                  border: Border.all(color: Colors.white.withOpacity(0.04), width: 1),
                 ),
                 child: Container(
                   margin: const EdgeInsets.all(2.2),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(38),
+                    // İç panel sabit koyu cam
                     gradient: LinearGradient(
                       colors: [
-                        _headerAccentStart,
-                        _headerAccentEnd,
+                        Colors.white.withOpacity(0.04),
+                        Colors.white.withOpacity(0.02),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
+                    border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(38),
@@ -399,12 +440,11 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                         Expanded(
                           child: _loadingProducts
                               ? const Center(child: CircularProgressIndicator())
-                              : IndexedStack(
-                                  index: _tabController.index,
+                              : TabBarView(
+                                  controller: _tabController,
+                                  physics: const BouncingScrollPhysics(),
                                   children: [
-                                    // Elmas Grid
                                     _diamondsGrid(),
-                                    // Premium içerik
                                     _isPremium
                                         ? _buildPremiumActiveView()
                                         : _buildPremiumUpsellView(),
@@ -423,19 +463,20 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _diamondsGrid() {
+  Widget _diamondsGrid({bool shrinkWrap = false, bool outerScroll = false}) {
     final ids = PurchaseService.diamondProductIds;
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount = 3;
         if (constraints.maxWidth < 380) crossAxisCount = 2;
-        final itemWidth = (constraints.maxWidth - (16 * (crossAxisCount - 1))) / crossAxisCount;
+        final usableWidth = constraints.maxWidth.clamp(0.0, double.infinity);
+        final itemWidth = (usableWidth - (16 * (crossAxisCount - 1))).clamp(1.0, double.infinity) / crossAxisCount;
         final itemHeight = 168.0;
-        final aspectRatio = itemWidth / itemHeight;
+        final aspectRatio = (itemWidth.isFinite && itemHeight > 0) ? (itemWidth / itemHeight) : 1.0;
         return GridView.builder(
           key: const PageStorageKey('diamonds_grid'),
           padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
-          physics: const ClampingScrollPhysics(),
+            physics: const BouncingScrollPhysics(parent: ClampingScrollPhysics()),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
@@ -447,10 +488,18 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             final id = ids[index];
             final amount = PurchaseService.diamondAmountFor(id) ?? 0;
             final price = _priceMap[id] ?? '...';
-            String? badge; Color? badgeColor;
-            if (id == 'diamonds_large') { badge = 'EN İYİ DEĞER'; badgeColor = Colors.greenAccent; }
-            else if (id == 'diamonds_medium') { badge = 'POPÜLER'; badgeColor = Colors.amber; }
-            else if (id == 'diamonds_mega') { badge = 'DEV PAKET'; badgeColor = Colors.deepPurpleAccent; }
+            String? badge;
+            Color? badgeColor;
+            if (id == 'diamonds_large') {
+              badge = 'EN İYİ DEĞER';
+              badgeColor = Colors.greenAccent;
+            } else if (id == 'diamonds_medium') {
+              badge = 'POPÜLER';
+              badgeColor = Colors.amber;
+            } else if (id == 'diamonds_mega') {
+              badge = 'DEV PAKET';
+              badgeColor = Colors.deepPurpleAccent;
+            }
             return DiamondPackGridTile(
               productId: id,
               title: '$amount Elmas',
@@ -588,10 +637,12 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 child: const Icon(Icons.workspace_premium, size: 60, color: Colors.amber),
               ),
               const SizedBox(width: 14),
-              const Flexible(
+              Flexible(
                 child: Text(
                   'Premium Aktif',
-                  style: TextStyle(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: Colors.amber,
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -602,9 +653,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             ],
           ),
           const SizedBox(height: 26),
-          SizedBox(
+          const SizedBox(
             height: 360,
-            child: const PremiumStatusPanel(),
+            child: PremiumStatusPanel(),
           ),
           const SizedBox(height: 12),
         ],
@@ -765,159 +816,3 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 }
 
-// ================= Animasyonlu Elmas Sayaç Bileşenleri =================
-class _DiamondCountAnimated extends StatefulWidget {
-  final int? value;
-  const _DiamondCountAnimated({required this.value});
-
-  @override
-  State<_DiamondCountAnimated> createState() => _DiamondCountAnimatedState();
-}
-
-class _DiamondCountAnimatedState extends State<_DiamondCountAnimated> with SingleTickerProviderStateMixin {
-  late int _displayFrom;
-  late int _displayTo;
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _displayFrom = widget.value ?? 0;
-    _displayTo = widget.value ?? 0;
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
-  }
-
-  @override
-  void didUpdateWidget(covariant _DiamondCountAnimated oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final newVal = widget.value;
-    if (newVal == null) return;
-    final oldVal = oldWidget.value ?? 0;
-    if (newVal != oldVal) {
-      _displayFrom = oldVal;
-      _displayTo = newVal;
-      if (newVal > oldVal) {
-        _ctrl.forward(from: 0);
-      } else {
-        // Azalma: direkt göster (animasyonsuz)
-        _ctrl.value = 1;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.value == null) {
-      return const Text('...', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 17));
-    }
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        final t = Curves.easeOutCubic.transform(_ctrl.value);
-        final current = (_displayFrom + ( (_displayTo - _displayFrom) * t )).round();
-        final Color color = Color.lerp(Colors.amberAccent, Colors.white, t) ?? Colors.white;
-        return Text(
-          current.toString(),
-          softWrap: false,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 17 + (1.5 * (1 - t)),
-            letterSpacing: 0.6,
-            color: color,
-            shadows: [
-              Shadow(
-                color: Colors.amber.withOpacity((1 - t) * 0.6),
-                blurRadius: 6 * (1 - t) + 2,
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AnimatedDiamondIcon extends StatefulWidget {
-  final int? value;
-  const _AnimatedDiamondIcon({required this.value});
-  @override
-  State<_AnimatedDiamondIcon> createState() => _AnimatedDiamondIconState();
-}
-
-class _AnimatedDiamondIconState extends State<_AnimatedDiamondIcon> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  int? _old;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
-    _old = widget.value;
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedDiamondIcon oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.value != null && oldWidget.value != null) {
-      if ((widget.value ?? 0) > (oldWidget.value ?? 0)) {
-        _ctrl.forward(from: 0);
-      }
-    }
-    _old = widget.value;
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        final t = Curves.easeOutBack.transform(_ctrl.value);
-        final scale = 1 + 0.35 * (1 - t);
-        final glowOpacity = (1 - t) * 0.8;
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Opacity(
-              opacity: glowOpacity,
-              child: Container(
-                width: 28 + 18 * (1 - t),
-                height: 28 + 18 * (1 - t),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.amber.withOpacity(glowOpacity),
-                      blurRadius: 22 * (1 - t) + 4,
-                      spreadRadius: 1,
-                    )
-                  ],
-                ),
-              ),
-            ),
-            Transform.scale(
-              scale: scale,
-              child: const Icon(Icons.diamond, color: Colors.amber, size: 20),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}

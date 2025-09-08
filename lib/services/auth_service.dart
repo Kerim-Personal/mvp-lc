@@ -65,11 +65,12 @@ class AuthService {
           'gender': gender,
           'email': email,
           'uid': userCredential.user!.uid,
-          'createdAt': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(),
           'emailVerified':
           false,
           'avatarUrl': avatarUrl,
           'partnerCount': 0,
+          'weeklyPartnerCount': 0, // NEW weekly counter init
           'streak': 0,
           'totalPracticeTime': 0,
           'lastActivityDate': FieldValue.serverTimestamp(),
@@ -122,6 +123,7 @@ class AuthService {
             'emailVerified': user.emailVerified,
             'avatarUrl': 'https://api.dicebear.com/8.x/micah/svg?seed=${user.uid.substring(0,6)}',
             'partnerCount': 0,
+            'weeklyPartnerCount': 0, // NEW weekly init
             'streak': 0,
             'totalPracticeTime': 0,
             'lastActivityDate': FieldValue.serverTimestamp(),
@@ -164,6 +166,10 @@ class AuthService {
           // Eksik emailVerified alanı güncelle
           if (data['emailVerified'] != true && user.emailVerified) {
             await docRef.update({'emailVerified': true});
+          }
+          // Eksik weeklyPartnerCount varsa ekle
+          if (data['weeklyPartnerCount'] == null) {
+            try { await docRef.update({'weeklyPartnerCount': 0}); } catch (_) {}
           }
         }
       }
@@ -266,6 +272,7 @@ class AuthService {
             'emailVerified': user.emailVerified, // Google genelde doğrulanmış gelir
             'avatarUrl': dicebear,
             'partnerCount': 0,
+            'weeklyPartnerCount': 0, // NEW weekly init
             'streak': 0,
             'totalPracticeTime': 0,
             'lastActivityDate': FieldValue.serverTimestamp(),

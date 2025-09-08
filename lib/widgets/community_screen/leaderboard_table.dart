@@ -7,73 +7,95 @@ import 'dart:async';
 
 class LeaderboardTable extends StatefulWidget {
   final List<LeaderboardUser> users;
+  final bool animate;
 
-  const LeaderboardTable({super.key, required this.users});
+  const LeaderboardTable({super.key, required this.users, this.animate = true});
 
   @override
   State<LeaderboardTable> createState() => _LeaderboardTableState();
 }
 
 class _LeaderboardTableState extends State<LeaderboardTable> with TickerProviderStateMixin {
-  late final AnimationController _listAnimationController;
-  late final List<Animation<Offset>> _slideAnimations;
-  late final List<Animation<double>> _fadeAnimations;
+  AnimationController? _listAnimationController;
+  List<Animation<Offset>> _slideAnimations = const [];
+  List<Animation<double>> _fadeAnimations = const [];
+
+  bool get _useAnimation => widget.animate && widget.users.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    final totalDuration = 500 + widget.users.length * 30;
-    _listAnimationController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: totalDuration > 2000 ? 2000 : totalDuration),
-    );
-
-    _slideAnimations = List.generate(
-      widget.users.length,
-          (index) => Tween<Offset>(
-        begin: const Offset(0, 0.5),
-        end: Offset.zero,
-      ).animate(
-        CurvedAnimation(
-          parent: _listAnimationController,
-          curve: Interval(
-            (index * 0.015),
-            (0.4 + (index * 0.015)).clamp(0.0, 1.0),
-            curve: Curves.easeOutCubic,
+    if (_useAnimation) {
+      final totalDuration = 500 + widget.users.length * 30;
+      _listAnimationController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: totalDuration > 1600 ? 1600 : totalDuration),
+      );
+      _slideAnimations = List.generate(
+        widget.users.length,
+            (index) => Tween<Offset>(
+          begin: const Offset(0, 0.5),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _listAnimationController!,
+            curve: Interval(
+              (index * 0.015),
+              (0.4 + (index * 0.015)).clamp(0.0, 1.0),
+              curve: Curves.easeOutCubic,
+            ),
           ),
         ),
-      ),
-    );
-
-    _fadeAnimations = List.generate(
-      widget.users.length,
-          (index) => Tween<double>(
-        begin: 0.0,
-        end: 1.0,
-      ).animate(
-        CurvedAnimation(
-          parent: _listAnimationController,
-          curve: Interval(
-            (index * 0.015),
-            (0.5 + (index * 0.015)).clamp(0.0, 1.0),
-            curve: Curves.easeOut,
+      );
+      _fadeAnimations = List.generate(
+        widget.users.length,
+            (index) => Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(
+          CurvedAnimation(
+            parent: _listAnimationController!,
+            curve: Interval(
+              (index * 0.015),
+              (0.5 + (index * 0.015)).clamp(0.0, 1.0),
+              curve: Curves.easeOut,
+            ),
           ),
         ),
-      ),
-    );
+      );
+      _listAnimationController!.forward();
+    }
+  }
 
-
-    _listAnimationController.forward();
+  @override
+  void didUpdateWidget(covariant LeaderboardTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Animasyon sadece ilk yüklemede; animate false'dan true'ya geçiş olursa tekrar başlat.
+    if (_useAnimation && _listAnimationController == null) {
+      final totalDuration = 500 + widget.users.length * 30;
+      _listAnimationController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: totalDuration > 1600 ? 1600 : totalDuration),
+      );
+      _listAnimationController!.forward();
+    }
   }
 
   @override
   void dispose() {
-    _listAnimationController.dispose();
+    _listAnimationController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_useAnimation) {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: widget.users.length,
+        itemBuilder: (context, index) => _UserRankCard(user: widget.users[index]),
+      );
+    }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: widget.users.length,

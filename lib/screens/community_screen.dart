@@ -104,7 +104,14 @@ class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   // late Future<List<LeaderboardUser>> _leaderboardFuture; // Kaldırıldı
-  final String _leaderboardPeriod = 'partnerCount';
+  // final String _leaderboardPeriod = 'partnerCount'; // KALDIRILDI
+  String _leaderboardType = 'weekly'; // default artık weekly
+  String _leaderboardField = 'partnerCount'; // Firestore alanı (overall
+
+  // Ek performans & animasyon kontrolü
+  bool _leaderboardFirstAnimationDone = false; // sadece ilk liste yüklemesinde animasyon
+  List<LeaderboardUser>? _overallCache; // genel cache
+  List<LeaderboardUser>? _weeklyCache;  // haftalık cache
 
   late Future<QuerySnapshot> _feedFuture;
   late Future<QuerySnapshot> _roomsFuture;
@@ -178,18 +185,38 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<void> _loadLeaderboard({bool force = false, bool initial = false}) async {
-    if (_leaderboardLoading) return; // eşzamanlı istek engelle
-    if (!force && !initial && _leaderboardCache != null) return; // zaten var, zorunlu değil
+    // Var olan cache'i hızlı göster (force değilse) - lag azaltma
+    if (!force) {
+      if (_leaderboardType == 'overall' && _overallCache != null) {
+        _leaderboardCache = _overallCache; // anında göster
+        if (!initial) setState(() {});
+        if (!initial) return; // arka planda fetch tetiklemeden çık
+      } else if (_leaderboardType == 'weekly' && _weeklyCache != null) {
+        _leaderboardCache = _weeklyCache;
+        if (!initial) setState(() {});
+        if (!initial) return;
+      }
+    }
+
+    if (_leaderboardLoading) return;
     setState(() {
       _leaderboardLoading = true;
-      if (force) _leaderboardError = null; // yenilemede önceki hatayı temizle
+      if (force) _leaderboardError = null;
     });
     try {
       final data = await _fetchLeaderboardData();
       if (!mounted) return;
       setState(() {
         _leaderboardCache = data;
+        if (_leaderboardType == 'overall') {
+          _overallCache = data;
+        } else {
+          _weeklyCache = data;
+        }
         _leaderboardLoading = false;
+        if (!_leaderboardFirstAnimationDone && data.isNotEmpty) {
+          _leaderboardFirstAnimationDone = true; // ilk başarılı yüklemede işaretle
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -281,30 +308,51 @@ class _CommunityScreenState extends State<CommunityScreen>
           }
           final data = _leaderboardCache;
           if (data == null || data.isEmpty) {
-            return const Center(child: Text('No leaderboard data yet.'));
+            return const Center(child: Text('No leaderboard data.'));
           }
-          return LeaderboardTable(users: data);
+          return LeaderboardTable(
+            users: data,
+            animate: !_leaderboardFirstAnimationDone,
+          );
         },
       ),
     );
   }
 
   Widget _buildTabSelector() {
+    final isLeaderboard = _tabController.index == 0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.black.withAlpha(13),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            _buildTabItem(title: 'Leaderboard', icon: Icons.leaderboard_outlined, index: 0),
-            _buildTabItem(title: 'Feed', icon: Icons.dynamic_feed_outlined, index: 1),
-            _buildTabItem(title: 'Rooms', icon: Icons.chat_bubble_outline_rounded, index: 2),
-          ],
-        ),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, isLeaderboard ? 8 : 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(13),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                _buildTabItem(title: 'Leaderboard', icon: Icons.leaderboard_outlined, index: 0),
+                _buildTabItem(title: 'Feed', icon: Icons.dynamic_feed_outlined, index: 1),
+                _buildTabItem(title: 'Rooms', icon: Icons.chat_bubble_outline_rounded, index: 2),
+              ],
+            ),
+          ),
+          if (isLeaderboard) const SizedBox(height: 10),
+          if (isLeaderboard)
+            Center(
+              child: _LeaderboardModePicker(
+                current: _leaderboardType,
+                onChanged: (val) {
+                  if (_leaderboardType == val) return;
+                  setState(() { _leaderboardType = val; });
+                  _loadLeaderboard(force: false);
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -423,7 +471,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
         color1: Color(_parseColor(data['color1'], 0xFF4E54C8)),
         color2: Color(_parseColor(data['color2'], 0xFF8F94FB)),
-        isFeatured: false, // Artık kullanılmıyor
+        isFeatured: false,
         memberCount: data['memberCount'] is int ? data['memberCount'] : null,
         avatarsPreview: (data['avatarsPreview'] is List)
             ? (data['avatarsPreview'] as List).whereType<String>().take(3).toList()
@@ -431,20 +479,37 @@ class _CommunityScreenState extends State<CommunityScreen>
       );
     }).toList();
 
-    // 4 kartı tam ekrana modern şekilde yerleştir: Column + Expanded
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Column(
-          children: [
-            for (int i = 0; i < rooms.length; i++)
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, i == 0 ? 8 : 6, 16, i == rooms.length - 1 ? 16 : 6),
+        const listPadding = EdgeInsets.fromLTRB(16, 8, 16, 24);
+        const rowSpacing = 12.0;
+        final roomCount = rooms.length;
+        // Ekrandaki kullanılabilir yükseklik (ListView padding hariç)
+        final availableHeight = constraints.maxHeight - listPadding.vertical;
+        double cardHeight;
+        if (roomCount > 0) {
+          cardHeight = (availableHeight - rowSpacing * (roomCount - 1)) / roomCount;
+        } else {
+          cardHeight = 140;
+        }
+        // Alt / üst sıkışmayı engelle - minimum koy
+        const minCardHeight = 110.0;
+        if (cardHeight < minCardHeight) cardHeight = minCardHeight; // Çok küçükse kaydırma oluşur
+        // İçerik daha fazla boşluk bırakmasın diye üst limite gerek yok: tam doldurma davranışı için hesaplanan değeri kullanıyoruz.
+
+        return ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+            padding: listPadding,
+            itemCount: rooms.length,
+            itemBuilder: (context, i) {
+              return Padding(
+                padding: EdgeInsets.only(bottom: i == rooms.length - 1 ? 0 : rowSpacing),
+                child: SizedBox(
+                  height: cardHeight,
                   child: GroupChatCard(roomInfo: rooms[i], compact: true),
                 ),
-              ),
-          ],
-        );
+              );
+            });
       },
     );
   }
@@ -534,24 +599,66 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
-    final snapshot = await FirebaseFirestore.instance
+    _leaderboardField = (_leaderboardType == 'weekly') ? 'weeklyPartnerCount' : 'partnerCount';
+    Query baseQuery = FirebaseFirestore.instance
         .collection('users')
-        .orderBy(_leaderboardPeriod, descending: true)
-        .limit(100)
-        .get();
-    if (snapshot.docs.isEmpty) return [];
+        .orderBy(_leaderboardField, descending: true)
+        .limit(100);
+
+    QuerySnapshot snapshot;
+    try {
+      snapshot = await baseQuery.get();
+    } catch (e) {
+      // weekly alanı henüz indexlenmemiş ya da hata -> overall'a düş
+      if (_leaderboardType == 'weekly') {
+        final overallSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .orderBy('partnerCount', descending: true)
+            .limit(100)
+            .get();
+        return _mapUsersFromSnapshot(overallSnap, fallbackWeekly: true);
+      }
+      rethrow;
+    }
+
+    if (snapshot.docs.isEmpty) {
+      if (_leaderboardType == 'weekly') {
+        // Weekly boş -> overall fallback
+        final overallSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .orderBy('partnerCount', descending: true)
+            .limit(100)
+            .get();
+        return _mapUsersFromSnapshot(overallSnap, fallbackWeekly: true);
+      }
+      return [];
+    }
+    return _mapUsersFromSnapshot(snapshot);
+  }
+
+  List<LeaderboardUser> _mapUsersFromSnapshot(QuerySnapshot snapshot, {bool fallbackWeekly = false}) {
     final users = snapshot.docs.where((doc) {
-      final data = doc.data();
+      final data = doc.data() as Map<String, dynamic>;
       final status = data['status'];
       return status == null || (status != 'banned' && status != 'deleted');
     }).toList();
     return users.asMap().entries.map((entry) {
-      final data = entry.value.data();
+      final data = entry.value.data() as Map<String, dynamic>;
+      final dynamic rawValue = data[_leaderboardField];
+      int value;
+      if (fallbackWeekly && _leaderboardType == 'weekly') {
+        // weekly yoksa overall değerini göster ama 0'dan büyükse işaretle
+        value = (data['weeklyPartnerCount'] is int)
+            ? data['weeklyPartnerCount']
+            : (data['partnerCount'] is int ? data['partnerCount'] : 0);
+      } else {
+        value = rawValue is int ? rawValue : 0;
+      }
       return LeaderboardUser(
         rank: entry.key + 1,
         name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown',
         avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
-        partnerCount: (data['partnerCount'] is int) ? data['partnerCount'] : 0,
+        partnerCount: value,
         isPremium: data['isPremium'] == true,
         role: (data['role'] as String?) ?? 'user',
       );
@@ -626,7 +733,6 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
   void initState() {
     super.initState();
     _controller.addListener(() => _length.value = _controller.text.characters.length);
-    // Immediate focus (single combined animation with keyboard)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
@@ -647,7 +753,6 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
     if (text.isEmpty || _posting) return;
     setState(() => _posting = true);
     try {
-      // Mümkünse cache, yoksa minimal fetch
       String userName = widget.cachedName ?? 'Unknown User';
       String avatar = widget.cachedAvatar ?? '';
       if (widget.cachedName == null) {
@@ -682,8 +787,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
-    final viewInsets = MediaQuery.of(context).viewInsets; // keyboard inset
-    // Remove AnimatedPadding + heightFactor to prevent multi-phase vertical jumps.
+    final viewInsets = MediaQuery.of(context).viewInsets;
     return Padding(
       padding: EdgeInsets.only(bottom: viewInsets.bottom),
       child: Material(
@@ -693,10 +797,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
         ),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            // Cap max height so content feels like a sheet, but allow shrink when keyboard appears.
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Column(
@@ -716,28 +817,26 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 ),
                 Text('Create New Post', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                // Expanded only if remaining vertical space > threshold; else flexible scroll.
                 Flexible(
                   fit: FlexFit.loose,
-                  child: RepaintBoundary(
-                    child: SingleChildScrollView(
-                      // Ensures content scrollable when keyboard reduces space.
-                      padding: EdgeInsets.zero,
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        maxLines: null,
-                        minLines: 5,
-                        maxLength: _maxLen,
-                        keyboardType: TextInputType.multiline,
-                        decoration: InputDecoration(
-                          hintText: 'What are you thinking?',
-                          counterText: '',
-                          filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          contentPadding: const EdgeInsets.all(14),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.zero,
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      maxLines: null,
+                      minLines: 5,
+                      maxLength: _maxLen,
+                      decoration: InputDecoration(
+                        hintText: 'What are you thinking?',
+                        counterText: '',
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.25),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
+                        contentPadding: const EdgeInsets.all(14),
                       ),
                     ),
                   ),
@@ -747,9 +846,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                   children: [
                     ValueListenableBuilder<int>(
                       valueListenable: _length,
-                      builder: (context, len, _) {
-                        return Text('$len/$_maxLen', style: theme.textTheme.bodySmall);
-                      },
+                      builder: (context, len, _) => Text('$len/$_maxLen', style: theme.textTheme.bodySmall),
                     ),
                     const Spacer(),
                     TextButton(
@@ -764,9 +861,225 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                           : const Text('Post'),
                     ),
                   ],
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderboardModePicker extends StatefulWidget {
+  final String current;
+  final ValueChanged<String> onChanged;
+  const _LeaderboardModePicker({required this.current, required this.onChanged});
+
+  @override
+  State<_LeaderboardModePicker> createState() => _LeaderboardModePickerState();
+}
+
+class _LeaderboardModePickerState extends State<_LeaderboardModePicker> {
+  final LayerLink _link = LayerLink();
+  OverlayEntry? _entry;
+  final GlobalKey _buttonKey = GlobalKey();
+  Offset _calculatedOffset = const Offset(0, 46);
+  double _popupWidth = 140; // dinamik belirlenecek minimum
+
+  bool get _isWeekly => widget.current == 'weekly';
+
+  void _toggle() {
+    if (_entry == null) {
+      _prepareAndShow();
+    } else {
+      _hide();
+    }
+  }
+
+  void _prepareAndShow() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _buttonKey.currentContext;
+      if (ctx != null) {
+        final box = ctx.findRenderObject() as RenderBox?;
+        if (box != null) {
+          final btnSize = box.size;
+          final btnWidth = btnSize.width;
+          final btnHeight = btnSize.height;
+          // Dinamik popup genişliği: butondan en az 16px fazla ya da min 140, max 220
+          _popupWidth = btnWidth + 16;
+          if (_popupWidth < 140) _popupWidth = 140;
+          if (_popupWidth > 220) _popupWidth = 220;
+          double dx = (btnWidth - _popupWidth) / 2; // merkezle
+          final screenWidth = MediaQuery.of(ctx).size.width;
+          final buttonGlobalPos = box.localToGlobal(Offset.zero);
+          final globalLeft = buttonGlobalPos.dx + dx;
+          if (globalLeft < 8) {
+            dx += (8 - globalLeft);
+          }
+          final globalRight = buttonGlobalPos.dx + dx + _popupWidth;
+          if (globalRight > screenWidth - 8) {
+            dx -= (globalRight - (screenWidth - 8));
+          }
+          final dy = btnHeight + 8;
+          _calculatedOffset = Offset(dx, dy);
+        }
+      }
+      if (mounted) _show();
+    });
+  }
+
+  void _show() {
+    final overlay = Overlay.of(context);
+    if (overlay == null) return;
+    _entry = OverlayEntry(
+      builder: (context) {
+        return Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _hide,
+            child: Stack(
+              children: [
+                CompositedTransformFollower(
+                  link: _link,
+                  showWhenUnlinked: false,
+                  offset: _calculatedOffset,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: _buildCard(),
+                  ),
                 ),
               ],
             ),
+          ),
+        );
+      },
+    );
+    overlay.insert(_entry!);
+  }
+
+  void _hide() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  Widget _buildCard() {
+    final theme = Theme.of(context);
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 160),
+      scale: 1,
+      child: Container(
+        width: _popupWidth,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(30),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            )
+          ],
+          border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4), width: 1),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _modeTile('weekly', Icons.calendar_view_week, 'Weekly'),
+            _divider(),
+            _modeTile('overall', Icons.public, 'Overall'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _divider() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: Divider(height: 14, thickness: 0.8, color: Theme.of(context).dividerColor.withAlpha(80)),
+  );
+
+  Widget _modeTile(String value, IconData icon, String text) {
+    final theme = Theme.of(context);
+    final selected = widget.current == value;
+    return InkWell(
+      onTap: () {
+        if (!selected) widget.onChanged(value);
+        _hide();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_rounded, size: 18, color: theme.colorScheme.onPrimaryContainer),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hide();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CompositedTransformTarget(
+      link: _link,
+      child: GestureDetector(
+        onTap: _toggle,
+        child: AnimatedContainer(
+          key: _buttonKey,
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.55),
+            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(25),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_isWeekly ? Icons.calendar_view_week : Icons.public, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                _isWeekly ? 'Weekly' : 'Overall',
+                style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3, color: theme.colorScheme.onSurface),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+            ],
           ),
         ),
       ),
