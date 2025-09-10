@@ -1,0 +1,315 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- YARDIMCI FONKSİYONLAR ---
+    function isAuthenticated() { return request.auth != null; }
+    function isOwner(userId) { return request.auth.uid == userId; }
+    function incByOne(oldVal, newVal) {
+      return ((oldVal is int || oldVal is float) && newVal == oldVal + 1) ||
+             (!(oldVal is int) && !(oldVal is float) && newVal == 1);
+    }
+    function myLastActiveField() { return request.auth.uid + '_lastActive'; }
+
+    function getUser(uid) { return get(/databases/$(database)/documents/users/$(uid)).data; }
+    function userRole(uid) { return (getUser(uid).role != null) ? getUser(uid).role : 'user'; }
+    function isBanned(uid) { return getUser(uid).status == 'banned'; }
+    function isAdmin(uid) { return userRole(uid) == 'admin'; }
+    function isModerator(uid) { return userRole(uid) == 'moderator'; }
+    function isPrivileged(uid) { return isAdmin(uid) || isModerator(uid); }
+
+    function canBan(targetUid) {
+      return (
+        isAdmin(request.auth.uid) ||
+        (isModerator(request.auth.uid) && !isAdmin(targetUid) && !isModerator(targetUid))
+      );
+    }
+
+    function isValidDisplayName(name) {
+      return name is string && name.size() >= 3 && name.size() <= 29 && name.matches('^[A-Za-z0-9_]{3,29}$');
+    }
+    function isReservedName(n) {
+      return n in ['admin','administrator','root','support','moderator','mod','system','null','undefined','owner','staff','team','linguachat','lingua','api'];
+    }
+    function ownsReservedUsername(uname) {
+      return exists(/databases/$(database)/documents/usernames/$(uname)) &&
+             get(/databases/$(database)/documents/usernames/$(uname)).data.uid == request.auth.uid;
+    }
+    function expectedChatIdFor(a, b) { return (a < b) ? (a + '_' + b) : (b + '_' + a); }
+
+    function isValidNewUser(data) {
+      return data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             isValidDisplayName(data.displayName) &&
+             data.username_lowercase == data.displayName.lower() &&
+             !isReservedName(data.username_lowercase) &&
+             ownsReservedUsername(data.username_lowercase) &&
+             data.birthDate is timestamp && data.gender in ['Male', 'Female'] &&
+             data.avatarUrl is string && data.avatarUrl.matches('https://api.dicebear.com/8.x/micah/svg\\?seed=.*') &&
+             data.emailVerified == false && data.partnerCount == 0 && data.streak == 0 &&
+             data.totalPracticeTime == 0 && data.isPremium == false && data.createdAt == request.time &&
+             data.role == 'user' && data.status == 'active' && data.profileCompleted == false;
+    }
+
+    // Elmas artışı: sadece ileri yönde, pozitif ve mantıklı bir üst limit içinde.
+    // (Offline birikim flush senaryosu için tek seferde max +50000)
+    function isValidDiamondIncrement() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['diamonds']) &&
+             request.resource.data.diamonds is int &&
+             (
+               (
+                 // Alan daha önce yoksa veya null ise ilk set 0 ya da pozitif olabilir (ör: migrate)
+                 !(resource.data.diamonds is int) && request.resource.data.diamonds >= 0 && request.resource.data.diamonds <= 50000
+               ) || (
+                 resource.data.diamonds is int &&
+                 request.resource.data.diamonds >= resource.data.diamonds &&
+                 (request.resource.data.diamonds - resource.data.diamonds) <= 50000
+               )
+             );
+    }
+
+    function callerNotBanned() { return !isBanned(request.auth.uid); }
+
+    function isValidSupportCreate(data) {
+      return data.userId == request.auth.uid &&
+             data.subject is string && data.subject.size() > 2 && data.subject.size() <= 120 &&
+             data.message is string && data.message.size() >= 10 && data.message.size() <= 5000 &&
+             data.status == 'open';
+    }
+
+    function isValidMessage(data) {
+      return data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
+             data.userId == request.auth.uid &&
+             data.keys().hasOnly(['text','createdAt','userId']);
+    }
+    function isGroupMember(roomId, uid) { return exists(/databases/$(database)/documents/group_chats/$(roomId)/members/$(uid)); }
+    function isBlocked(byUid, targetUid) { return exists(/databases/$(database)/documents/users/$(byUid)/blockedUsers/$(targetUid)); }
+
+    // --- KOLEKSİYON KURALLARI ---
+
+    match /usernames/{uname} {
+      allow create: if isAuthenticated() && !isReservedName(uname) &&
+        request.resource.data.keys().hasOnly(['uid','createdAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow read: if false;
+      allow update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.role == 'user' &&
+        request.resource.data.status == 'active' &&
+        request.resource.data.isPremium == false;
+
+      allow update: if
+        (
+          isOwner(userId) && callerNotBanned() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'displayName', 'avatarUrl', 'birthDate', 'gender', 'nativeLanguage', 'level', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak','autoTranslate'
+          ])
+        ) || (
+          // Elmas artışı
+          isOwner(userId) && callerNotBanned() && isValidDiamondIncrement()
+        ) || (
+          // Email doğrulaması
+          isOwner(userId) && callerNotBanned() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['emailVerified']) &&
+          resource.data.emailVerified == false &&
+          request.resource.data.emailVerified == true &&
+          request.auth.token.email_verified == true
+        ) || (
+          // Ban
+          isAuthenticated() && canBan(userId) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','bannedReason','bannedDetails','bannedAt','bannedBy']) &&
+          request.resource.data.status == 'banned'
+        ) || (
+          // Unban
+          isAuthenticated() && isPrivileged(request.auth.uid) &&
+          resource.data.status == 'banned' && request.resource.data.status == 'active' &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','bannedReason','bannedDetails','bannedAt','bannedBy','unbannedAt','unbannedBy'])
+        );
+
+      allow delete: if false;
+
+      match /blockedUsers/{targetId} {
+        // Önceki: allow read yalnızca owner idi. Artık blocklanan kullanıcı da kendi block durumunu sorgulayabilir.
+        allow read: if isAuthenticated() && (isOwner(userId) || request.auth.uid == targetId);
+        allow create: if isAuthenticated() && isOwner(userId) &&
+          request.resource.data.keys().hasOnly(['blockedAt','targetUserId']) &&
+          request.resource.data.targetUserId == targetId;
+        allow update: if isAuthenticated() && isOwner(userId) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['blockedAt']);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+    }
+
+    match /waiting_pool/{userId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isOwner(userId) && callerNotBanned();
+      allow update: if isAuthenticated() && callerNotBanned() &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['matchedChatRoomId']) &&
+        resource.data.matchedChatRoomId == null && (
+          isPrivileged(request.auth.uid) || (
+            request.auth.uid != userId &&
+            exists(/databases/$(database)/documents/chats/$(request.resource.data.matchedChatRoomId)) &&
+            get(/databases/$(database)/documents/chats/$(request.resource.data.matchedChatRoomId)).data.users.size() == 2 &&
+            request.auth.uid in get(/databases/$(database)/documents/chats/$(request.resource.data.matchedChatRoomId)).data.users &&
+            userId in get(/databases/$(database)/documents/chats/$(request.resource.data.matchedChatRoomId)).data.users
+          )
+        );
+    }
+
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && callerNotBanned() && request.auth.uid in resource.data.users;
+      allow update: if isAuthenticated() && callerNotBanned() && request.auth.uid in resource.data.users && (
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([myLastActiveField()]) || (
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','leftBy']) &&
+          resource.data.status == 'active' && request.resource.data.status == 'ended' &&
+          request.resource.data.leftBy in resource.data.users
+        )
+      );
+      allow create: if isAuthenticated() && callerNotBanned() &&
+        request.resource.data.users.size() == 2 &&
+        request.resource.data.users[0] < request.resource.data.users[1] &&
+        request.resource.data.users[0] != request.resource.data.users[1] &&
+        !isBlocked(request.resource.data.users[0], request.resource.data.users[1]) &&
+        !isBlocked(request.resource.data.users[1], request.resource.data.users[0]) &&
+        request.auth.uid in request.resource.data.users &&
+        request.resource.data.keys().hasOnly(['users','status']);
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && callerNotBanned() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users;
+        allow create: if isAuthenticated() && callerNotBanned() &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users &&
+          request.resource.data.keys().hasOnly(['text','createdAt','userId','serverAuth']) &&
+          request.resource.data.serverAuth == true &&
+          request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000 &&
+          request.resource.data.userId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.userId);
+      allow update: if isAuthenticated() && callerNotBanned() && ((
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['likes']) && ((
+          !(request.auth.uid in resource.data.likes) &&
+          request.auth.uid in request.resource.data.likes &&
+          request.resource.data.likes.size() == resource.data.likes.size() + 1
+        ) || (
+          (request.auth.uid in resource.data.likes) &&
+          !(request.auth.uid in request.resource.data.likes) &&
+          request.resource.data.likes.size() == resource.data.likes.size() - 1
+        ))
+      ) || (
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['commentCount']) &&
+        incByOne(resource.data.commentCount, request.resource.data.commentCount)
+      ));
+      allow delete: if isAuthenticated() && callerNotBanned() && (isOwner(resource.data.userId) || isPrivileged(request.auth.uid));
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.userId);
+        allow update, delete: if false;
+      }
+    }
+
+    match /group_chats/{roomId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+
+      match /members/{userId} {
+        allow read: if isAuthenticated() && (userId == request.auth.uid || isPrivileged(request.auth.uid) || (exists(/databases/$(database)/documents/group_chats/$(roomId)) && get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid));
+        allow create: if isOwner(userId) && callerNotBanned() && exists(/databases/$(database)/documents/group_chats/$(roomId)) && (
+          get(/databases/$(database)/documents/group_chats/$(roomId)).data.openJoin == true ||
+          isPrivileged(request.auth.uid) ||
+            get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid
+        );
+        allow delete: if callerNotBanned() && isAuthenticated() && (isOwner(userId) || isPrivileged(request.auth.uid) || (exists(/databases/$(database)/documents/group_chats/$(roomId)) && get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid));
+        allow update: if false;
+      }
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (isGroupMember(roomId, request.auth.uid) || isPrivileged(request.auth.uid));
+        allow create: if isAuthenticated() && callerNotBanned() &&
+          isOwner(request.resource.data.senderId) &&
+          isGroupMember(roomId, request.auth.uid) &&
+          request.resource.data.keys().hasOnly(['text','createdAt','senderId','senderName','senderAvatarUrl','senderRole','senderIsPremium','serverAuth']) &&
+          request.resource.data.serverAuth == true &&
+          request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000 &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /reports/{reportId} {
+      allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.reporterId) &&
+        request.resource.data.keys().hasOnly(['reporterId','reportedUserId','reason','details','reportedContent','reportedContentId','reportedContentType','reportedContentParentId','timestamp','status','serverAuth']) &&
+        request.resource.data.serverAuth == true &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.reason is string && request.resource.data.reason.size() > 2 && request.resource.data.reason.size() <= 120 &&
+        (request.resource.data.details == null || (request.resource.data.details is string && request.resource.data.details.size() <= 2000));
+      allow read: if isAuthenticated() && isPrivileged(request.auth.uid);
+      allow update: if isAuthenticated() && isPrivileged(request.auth.uid) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy']) &&
+        request.resource.data.status in ['pending','reviewed','dismissed'];
+      allow delete: if false;
+    }
+
+    match /quizzes/{quizId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+
+      match /questions/{questionId} { allow read: if isAuthenticated(); allow write: if false; }
+      match /answers/{answerId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && callerNotBanned() && answerId.matches('^' + request.auth.uid + '.*');
+        allow update, delete: if false;
+      }
+    }
+
+    match /support/{ticketId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isPrivileged(request.auth.uid));
+      allow create: if isAuthenticated() && callerNotBanned() && getUser(request.auth.uid).isPremium == true &&
+        isValidSupportCreate(request.resource.data) &&
+        request.resource.data.keys().hasOnly(['userId','subject','message','status','createdAt','updatedAt','attachments','platform','email','displayName','serverAuth']) &&
+        request.resource.data.serverAuth == true &&
+        request.resource.data.createdAt is timestamp && request.resource.data.createdAt <= request.time &&
+        request.resource.data.updatedAt is timestamp && request.resource.data.updatedAt <= request.time &&
+        (request.resource.data.attachments is list);
+      allow update: if isAuthenticated() && isPrivileged(request.auth.uid) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','updatedAt','updatedBy','adminResponse','assignedTo']) &&
+        request.resource.data.status in ['open','in_progress','resolved','closed'];
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (isOwner(get(/databases/$(database)/documents/support/$(ticketId)).data.userId) || isPrivileged(request.auth.uid));
+        allow create: if isAuthenticated() && callerNotBanned() && ((
+          isOwner(get(/databases/$(database)/documents/support/$(ticketId)).data.userId) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.senderRole == 'user'
+        ) || (
+          isPrivileged(request.auth.uid) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.senderRole in ['admin','moderator']
+        )) &&
+        request.resource.data.keys().hasOnly(['senderId','senderRole','text','attachments','createdAt']) &&
+        request.resource.data.createdAt is timestamp && request.resource.data.createdAt <= request.time &&
+        (!('text' in request.resource.data) || (request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000)) &&
+        (!('attachments' in request.resource.data) || (request.resource.data.attachments is list && request.resource.data.attachments.size() <= 10));
+        allow update, delete: if false;
+      }
+    }
+
+    match /admin_notifications_log/{docId} {
+      allow read: if isAuthenticated() && isPrivileged(request.auth.uid);
+      allow write: if false;
+    }
+  }
+}
