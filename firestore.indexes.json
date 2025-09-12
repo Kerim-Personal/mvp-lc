@@ -28,14 +28,6 @@
       "collectionGroup": "waiting_pool",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "gender_level_group", "order": "ASCENDING"},
-        {"fieldPath": "waitingSince", "order": "ASCENDING"}
-      ]
-    },
-    {
-      "collectionGroup": "waiting_pool",
-      "queryScope": "COLLECTION",
-      "fields": [
         {"fieldPath": "gender", "order": "ASCENDING"},
         {"fieldPath": "waitingSince", "order": "ASCENDING"}
       ]
@@ -44,7 +36,16 @@
       "collectionGroup": "waiting_pool",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "level", "order": "ASCENDING"},
+        {"fieldPath": "levelGroup", "order": "ASCENDING"},
+        {"fieldPath": "waitingSince", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "waiting_pool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "gender", "order": "ASCENDING"},
+        {"fieldPath": "levelGroup", "order": "ASCENDING"},
         {"fieldPath": "waitingSince", "order": "ASCENDING"}
       ]
     }
