@@ -515,6 +515,183 @@ exports.sendAdminNotification = functions
 
     return { success: true, sent: sentCount, failed: failCount, totalTokens: tokens.length };
   });
+// Helper to get level group
+const getLevelGroup = (level) => {
+  if (!level) return "Beginner";
+  if (["A1", "A2"].includes(level)) return "Beginner";
+  if (["B1", "B2"].includes(level)) return "Intermediate";
+  return "Advanced";
+};
+
+// Rate limiting configuration for matchmaking
+const matchmakingHits = {};
+function allowMatchmaking(uid) {
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute
+  const limit = 10; // 10 requests per minute
+
+  if (!matchmakingHits[uid]) {
+    matchmakingHits[uid] = [];
+  }
+
+  const timestamps = matchmakingHits[uid];
+  // Remove timestamps outside the window
+  while (timestamps.length > 0 && now - timestamps[0] > windowMs) {
+    timestamps.shift();
+  }
+
+  if (timestamps.length >= limit) {
+    return false; // Rate limit exceeded
+  }
+
+  timestamps.push(now);
+  return true;
+}
+
+/**
+ * Eşleştirme Fonksiyonu (Transactional)
+ * Kullanıcıları bekleme havuzundan eşleştirir veya havuza ekler.
+ * İşlemlerin atomik olmasını sağlamak için Firestore Transaction kullanır.
+ */
+exports.findMatch = functions
+  .region("us-central1")
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Authentication required."
+      );
+    }
+
+    const myId = context.auth.uid;
+
+    if (!allowMatchmaking(myId)) {
+      throw new functions.https.HttpsError(
+        "resource-exhausted",
+        "Too many matchmaking requests. Please wait a moment."
+      );
+    }
+
+    const { selectedGenderFilter, selectedLevelGroupFilter } = data;
+
+    try {
+      const result = await db.runTransaction(async (tx) => {
+        const myUserRef = db.collection("users").doc(myId);
+        const myUserDoc = await tx.get(myUserRef);
+        if (!myUserDoc.exists) {
+          throw new functions.https.HttpsError(
+            "not-found",
+            "User profile not found."
+          );
+        }
+
+        const myData = myUserDoc.data();
+        const myGender = myData.gender;
+        const myLevel = myData.level;
+        const myLevelGroup = getLevelGroup(myLevel);
+
+        // Subcollection for blocked users
+        const myBlockedUsersRef = myUserRef.collection("blockedUsers");
+        const myBlockedSnapshot = await tx.get(myBlockedUsersRef);
+        const myBlockedSet = new Set(myBlockedSnapshot.docs.map((d) => d.id));
+
+        let query = db.collection("waiting_pool");
+
+        // Apply filters
+        if (selectedGenderFilter) {
+          query = query.where("gender", "==", selectedGenderFilter);
+        }
+        if (selectedLevelGroupFilter) {
+          query = query.where("levelGroup", "==", selectedLevelGroupFilter);
+        }
+
+        query = query.orderBy("waitingSince").limit(20); // Limit query to reduce cost
+
+        const potentialMatches = await tx.get(query);
+        const otherUserDocs = potentialMatches.docs.filter(
+          (doc) => doc.id !== myId
+        );
+
+        for (const otherUserDoc of otherUserDocs) {
+          const otherId = otherUserDoc.id;
+          const otherUserData = otherUserDoc.data();
+          const otherUserFilterGender = otherUserData.filter_gender;
+          const otherUserFilterLevelGroup = otherUserData.filter_level_group;
+
+          // Check for mutual blocking
+          if (myBlockedSet.has(otherId)) {
+            continue; // I blocked them
+          }
+
+          const otherBlockedMeRef = db
+            .collection("users")
+            .doc(otherId)
+            .collection("blockedUsers")
+            .doc(myId);
+          const otherBlockedMeDoc = await tx.get(otherBlockedMeRef);
+          if (otherBlockedMeDoc.exists) {
+            continue; // They blocked me
+          }
+
+          const isMyGenderOk =
+            !otherUserFilterGender || otherUserFilterGender === myGender;
+          const isMyLevelGroupOk =
+            !otherUserFilterLevelGroup ||
+            otherUserFilterLevelGroup === myLevelGroup;
+
+          if (isMyGenderOk && isMyLevelGroupOk) {
+            // Match found!
+            const idA = myId.compareTo(otherId) < 0 ? myId : otherId;
+            const idB = myId.compareTo(otherId) < 0 ? otherId : myId;
+
+            const chatRoomRef = db.collection("chats").doc();
+            tx.set(chatRoomRef, {
+              users: [idA, idB],
+              status: "active",
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            // Update both users in the waiting pool
+            tx.update(otherUserDoc.ref, {
+              matchedChatRoomId: chatRoomRef.id,
+            });
+
+            // The current user is not in the pool yet, so we don't need to update them.
+            // The other user's client will delete their doc from the pool once they navigate.
+
+            return { status: "MATCH_FOUND", chatId: chatRoomRef.id };
+          }
+        }
+
+        // No match found, add user to the waiting pool
+        const waitingPoolRef = db.collection("waiting_pool").doc(myId);
+        tx.set(waitingPoolRef, {
+          userId: myId,
+          waitingSince: admin.firestore.FieldValue.serverTimestamp(),
+          gender: myGender,
+          level: myLevel,
+          levelGroup: myLevelGroup,
+          filter_gender: selectedGenderFilter || null,
+          filter_level_group: selectedLevelGroupFilter || null,
+          matchedChatRoomId: null,
+        });
+
+        return { status: "ADDED_TO_POOL" };
+      });
+
+      return result;
+    } catch (error) {
+      console.error("findMatch transaction error:", error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "An unexpected error occurred during matchmaking."
+      );
+    }
+  });
+
 /**
  * Sets a custom user claim to identify an admin.
  * Can only be called by an already authenticated admin.

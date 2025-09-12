@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:lingua_chat/screens/partner_found_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/filter_bottom_sheet.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
@@ -99,34 +100,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> _addUserToWaitingPool() async {
-    final myId = _currentUser!.uid;
-    final userDoc =
-    await FirebaseFirestore.instance.collection('users').doc(myId).get();
-    final userData = userDoc.data() as Map<String, dynamic>;
-    final userLevel = userData['level'] as String? ?? 'A1';
-    final userGender = userData['gender'] as String? ?? 'Male';
-    String levelGroup;
-    if (['A1', 'A2'].contains(userLevel)) {
-      levelGroup = 'Beginner';
-    } else if (['B1', 'B2'].contains(userLevel)) {
-      levelGroup = 'Intermediate';
-    } else {
-      levelGroup = 'Advanced';
-    }
-    await FirebaseFirestore.instance.collection('waiting_pool').doc(myId).set({
-      'userId': myId,
-      'waitingSince': FieldValue.serverTimestamp(),
-      'gender': userGender,
-      'level': userLevel,
-      'gender_level_group': '${userGender}_$levelGroup',
-      'filter_gender': _selectedGenderFilter,
-      'filter_level_group': _selectedLevelGroupFilter,
-      'matchedChatRoomId': null,
-    });
-    _listenForMatch();
-  }
-
   void _listenForMatch() {
     if (_currentUser == null) return;
     _matchListener?.cancel();
@@ -146,126 +119,45 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _findPracticePartner() async {
     if (_currentUser == null || !mounted) return;
+
     setState(() => _isSearching = true);
     widget.onSearchingChanged?.call(true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final myId = _currentUser.uid;
 
     try {
-      final myUserDoc =
-      await FirebaseFirestore.instance.collection('users').doc(myId).get();
-      final myData = myUserDoc.data() as Map<String, dynamic>;
-      final myGender = myData['gender'];
-      final myLevel = myData['level'];
+      final HttpsCallable callable =
+          FirebaseFunctions.instance.httpsCallable('findMatch');
+      final response = await callable.call(<String, dynamic>{
+        'selectedGenderFilter': _selectedGenderFilter,
+        'selectedLevelGroupFilter': _selectedLevelGroupFilter,
+      });
 
-      // Alt koleksiyondan engellediklerimi tek seferlik çek
-      final myBlockedSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(myId)
-          .collection('blockedUsers')
-          .get();
-      final Set<String> myBlocked = myBlockedSnap.docs.map((d) => d.id).toSet();
+      final status = response.data['status'];
 
-      String myLevelGroup;
-      if (['A1', 'A2'].contains(myLevel)) {
-        myLevelGroup = 'Beginner';
-      } else if (['B1', 'B2'].contains(myLevel)) {
-        myLevelGroup = 'Intermediate';
+      if (status == 'MATCH_FOUND') {
+        final chatId = response.data['chatId'];
+        _navigateToChat(chatId);
+      } else if (status == 'ADDED_TO_POOL') {
+        // User is in the waiting pool, start listening for a match
+        _listenForMatch();
       } else {
-        myLevelGroup = 'Advanced';
+        // Handle other statuses or errors
+        throw Exception(response.data['message'] ?? 'Unknown error');
       }
-      Query query = FirebaseFirestore.instance.collection('waiting_pool');
-      if (_selectedGenderFilter != null && _selectedLevelGroupFilter != null) {
-        query = query.where('gender_level_group',
-            isEqualTo: "${_selectedGenderFilter}_$_selectedLevelGroupFilter");
-      } else if (_selectedGenderFilter != null) {
-        query = query.where('gender', isEqualTo: _selectedGenderFilter);
-      } else if (_selectedLevelGroupFilter != null) {
-        List<String> levelsToSearch = [];
-        if (_selectedLevelGroupFilter == 'Beginner') {
-          levelsToSearch = ['A1', 'A2'];
-        } else if (_selectedLevelGroupFilter == 'Intermediate') {
-          levelsToSearch = ['B1', 'B2'];
-        } else if (_selectedLevelGroupFilter == 'Advanced') {
-          levelsToSearch = ['C1', 'C2'];
-        }
-        if (levelsToSearch.isNotEmpty) {
-          query = query.where('level', whereIn: levelsToSearch);
-        }
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(SnackBar(
+          content: Text(e.message ?? 'An error occurred.'),
+          backgroundColor: Colors.red,
+        ));
+        await _cancelSearch();
       }
-      query = query.orderBy('waitingSince');
-      final potentialMatches = await query.get();
-      final otherUserDocs =
-      potentialMatches.docs.where((doc) => doc.id != myId).toList();
-
-      for (final otherUserDoc in otherUserDocs) {
-        final otherUserData = otherUserDoc.data() as Map<String, dynamic>;
-        final otherUserFilterGender = otherUserData['filter_gender'];
-        final otherUserFilterLevelGroup = otherUserData['filter_level_group'];
-
-        // Engelleme kontrolü: Ben onu engelledim mi ya da o beni engelledi mi?
-        final otherBlockedMeDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(otherUserDoc.id)
-            .collection('blockedUsers')
-            .doc(myId)
-            .get();
-        final blockedEitherWay = myBlocked.contains(otherUserDoc.id) || otherBlockedMeDoc.exists;
-        if (blockedEitherWay) {
-          continue; // Bu adayı atla
-        }
-
-        final isMyGenderOk =
-            otherUserFilterGender == null || otherUserFilterGender == myGender;
-        final isMyLevelGroupOk = otherUserFilterLevelGroup == null ||
-            otherUserFilterLevelGroup == myLevelGroup;
-        if (isMyGenderOk && isMyLevelGroupOk) {
-          final String otherId = otherUserDoc.id;
-          final String idA = myId.compareTo(otherId) < 0 ? myId : otherId;
-          final String idB = myId.compareTo(otherId) < 0 ? otherId : myId;
-          // Yeni: Her oturum için rastgele chat ID kullan
-          final chatRoomRef = FirebaseFirestore.instance.collection('chats').doc();
-
-          try {
-            await chatRoomRef.set({
-              'users': [idA, idB],
-              'status': 'active',
-            });
-          } catch (_) {
-            rethrow; // chat oluşturulamadıysa ilerleme
-          }
-
-          try {
-            await otherUserDoc.reference.update({'matchedChatRoomId': chatRoomRef.id});
-            _navigateToChat(chatRoomRef.id);
-            return;
-          } catch (e) {
-            // Diğer taraf daha önce set etmiş olabilir; mevcut değeri al ve ona yönlen
-            final fresh = await otherUserDoc.reference.get();
-            final data = fresh.data() as Map<String, dynamic>?;
-            final existingId = data != null ? data['matchedChatRoomId'] as String? : null;
-            if (existingId != null && existingId.isNotEmpty) {
-              // Yarış sonucu: kendi oluşturduğum odayı ended yaparak pasifleştir
-              try {
-                if (chatRoomRef.id != existingId) {
-                  await chatRoomRef.update({'status': 'ended', 'leftBy': myId});
-                }
-              } catch (_) {}
-              _navigateToChat(existingId);
-              return;
-            }
-            // Aksi halde kendi oluşturduğumuza yönlenmeyi dene
-            _navigateToChat(chatRoomRef.id);
-            return;
-          }
-        }
-      }
-      await _addUserToWaitingPool();
     } catch (e) {
       if (mounted) {
         scaffoldMessenger.showSnackBar(SnackBar(
-            content: Text('An error occurred during search: ${e.toString()}'),
-            backgroundColor: Colors.red));
+          content: Text('An unexpected error occurred: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ));
         await _cancelSearch();
       }
     }
