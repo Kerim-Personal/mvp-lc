@@ -641,8 +641,8 @@ exports.findMatch = functions
 
           if (isMyGenderOk && isMyLevelGroupOk) {
             // Match found!
-            const idA = myId.compareTo(otherId) < 0 ? myId : otherId;
-            const idB = myId.compareTo(otherId) < 0 ? otherId : myId;
+            const idA = myId < otherId ? myId : otherId;
+            const idB = myId < otherId ? otherId : myId;
 
             const chatRoomRef = db.collection("chats").doc();
             tx.set(chatRoomRef, {
