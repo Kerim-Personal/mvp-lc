@@ -706,6 +706,8 @@ exports.findMatch = functions
       // --- Adım 2: Eşleştirme Mantığı (İşlem İçinde) ---
       try {
         const result = await db.runTransaction(async (tx) => {
+          let finalStatus = {status: "ADDED_TO_POOL"};
+
           // Adım 2a: Potansiyel eşleşmeleri doğrula
           for (const partnerDoc of potentialPartnerDocs) {
             const partnerId = partnerDoc.id;
@@ -755,20 +757,24 @@ exports.findMatch = functions
               const myWaitingRef = db.collection("waiting_pool").doc(myId);
               tx.delete(myWaitingRef); // Kendimi de havuzdan sil (varsa)
 
-              return {status: "MATCH_FOUND", chatId: chatRoomRef.id};
+              // Eşleşme yapıldı, durumu güncelle ve döngüden çık.
+              finalStatus = {status: "MATCH_PROCESSED"};
+              break;
             }
           }
 
-          // Adım 2c: Eşleşme bulunamadı, havuza ekle
-          const waitingPoolRef = db.collection("waiting_pool").doc(myId);
-          tx.set(waitingPoolRef, {
-            ...myPublicData,
-            waitingSince: admin.firestore.FieldValue.serverTimestamp(),
-            filter_gender: selectedGenderFilter || null,
-            filter_level_group: selectedLevelGroupFilter || null,
-          });
+          // Döngüden sonra, eğer eşleşme bulunmadıysa, kullanıcıyı havuza ekle.
+          if (finalStatus.status === "ADDED_TO_POOL") {
+            const waitingPoolRef = db.collection("waiting_pool").doc(myId);
+            tx.set(waitingPoolRef, {
+              ...myPublicData,
+              waitingSince: admin.firestore.FieldValue.serverTimestamp(),
+              filter_gender: selectedGenderFilter || null,
+              filter_level_group: selectedLevelGroupFilter || null,
+            });
+          }
 
-          return {status: "ADDED_TO_POOL"};
+          return finalStatus;
         });
         return result;
       } catch (error) {
