@@ -146,15 +146,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       final status = response.data['status'];
 
-      if (status == 'MATCH_FOUND') {
-        final chatId = response.data['chatId'];
-        _navigateToChat(chatId);
-      } else if (status == 'ADDED_TO_POOL') {
-        // User is in the waiting pool, start listening for a match
+      if (status == 'ADDED_TO_POOL' || status == 'MATCH_PROCESSED') {
+        // In both cases, the user should listen for a match document.
+        // If they were added to the pool, they wait for someone else.
+        // If a match was processed, their own match document was just created.
         _listenForMatch();
       } else {
         // Handle other statuses or errors
-        throw Exception(response.data['message'] ?? 'Unknown error');
+        throw Exception(response.data['message'] ?? 'Unknown error from server');
       }
     } on FirebaseFunctionsException catch (e) {
       if (mounted) {
