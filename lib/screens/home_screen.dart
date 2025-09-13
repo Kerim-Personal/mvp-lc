@@ -103,15 +103,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _listenForMatch() {
     if (_currentUser == null) return;
     _matchListener?.cancel();
+    // Listen on the 'matches' collection for a match document.
     _matchListener = FirebaseFirestore.instance
-        .collection('waiting_pool')
+        .collection('matches')
         .doc(_currentUser.uid)
         .snapshots()
         .listen((snapshot) async {
-      if (mounted && snapshot.exists && snapshot.data()?['matchedChatRoomId'] != null) {
-        final chatRoomId = snapshot.data()!['matchedChatRoomId'] as String;
+      // A match is found if the document exists and contains a chatId.
+      if (mounted && snapshot.exists && snapshot.data()?['chatId'] != null) {
+        final chatRoomId = snapshot.data()!['chatId'] as String;
         _matchListener?.cancel();
+
+        // The match document is temporary, delete it after consumption.
         await snapshot.reference.delete();
+
+        // Also, ensure the user is removed from the waiting pool as a safeguard.
+        FirebaseFirestore.instance
+            .collection('waiting_pool')
+            .doc(_currentUser.uid)
+            .delete()
+            .catchError((_) {});
+
         _navigateToChat(chatRoomId);
       }
     });
@@ -166,8 +178,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _cancelSearch() async {
     _matchListener?.cancel();
     if (_currentUser != null) {
+      // Remove user from the waiting pool.
       FirebaseFirestore.instance
           .collection('waiting_pool')
+          .doc(_currentUser.uid)
+          .delete()
+          .catchError((_) {});
+
+      // Also delete any pending match document, just in case a match was found
+      // right as the user cancelled.
+      FirebaseFirestore.instance
+          .collection('matches')
           .doc(_currentUser.uid)
           .delete()
           .catchError((_) {});
