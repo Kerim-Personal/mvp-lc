@@ -630,6 +630,7 @@ exports.findMatch = functions
       }
 
       const myId = context.auth.uid;
+      console.log(`findMatch triggered for user: ${myId}`);
 
       // --- Rate Limiting (İşlem Dışında) ---
       const now = Date.now();
@@ -664,17 +665,20 @@ exports.findMatch = functions
           count += 1;
           tx.set(rlRef, {lastAt: now, windowStart, count}, {merge: true});
         });
+        console.log(`[${myId}] Rate limit check passed.`);
       } catch (e) {
+        console.error(`[${myId}] Rate limit check failed:`, e);
         if (e instanceof functions.https.HttpsError) throw e;
-        console.error("Rate limit transaction error:", e);
         throw new functions.https.HttpsError("internal", "Rate limit check failed.");
       }
 
       // --- Veri Hazırlığı (İşlem Dışında) ---
       const {selectedGenderFilter, selectedLevelGroupFilter} = data;
+      console.log(`[${myId}] User filters:`, {selectedGenderFilter, selectedLevelGroupFilter});
 
       const myUserDoc = await db.collection("users").doc(myId).get();
       if (!myUserDoc.exists) {
+        console.error(`[${myId}] User document not found.`);
         throw new functions.https.HttpsError("not-found", "User profile not found.");
       }
       const myData = myUserDoc.data();
@@ -688,6 +692,7 @@ exports.findMatch = functions
       };
       const myBlockedUsersSnapshot = await db.collection("users").doc(myId).collection("blockedUsers").get();
       const myBlockedSet = new Set(myBlockedUsersSnapshot.docs.map((d) => d.id));
+      console.log(`[${myId}] User data and block list fetched.`);
 
       // --- Adım 1: Sorgu (İşlem Dışında) ---
       let query = db.collection("waiting_pool");
@@ -698,21 +703,28 @@ exports.findMatch = functions
         query = query.where("levelGroup", "==", selectedLevelGroupFilter);
       }
       query = query.orderBy("waitingSince").limit(20);
+      console.log(`[${myId}] Querying waiting pool...`);
       const potentialMatchesSnapshot = await query.get();
       const potentialPartnerDocs = potentialMatchesSnapshot.docs.filter(
           (doc) => doc.id !== myId,
       );
+      console.log(`[${myId}] Found ${potentialPartnerDocs.length} potential partners.`);
 
       // --- Adım 2: Eşleştirme Mantığı (İşlem İçinde) ---
       try {
+        console.log(`[${myId}] Starting matchmaking transaction.`);
         const result = await db.runTransaction(async (tx) => {
+          let matchFound = false;
           // Adım 2a: Potansiyel eşleşmeleri doğrula
           for (const partnerDoc of potentialPartnerDocs) {
             const partnerId = partnerDoc.id;
+            console.log(`[${myId}] Inside transaction, checking partner: ${partnerId}`);
+
             const partnerRef = db.collection("waiting_pool").doc(partnerId);
             const partnerDocInTx = await tx.get(partnerRef);
 
             if (!partnerDocInTx.exists) {
+              console.log(`[${myId}] Partner ${partnerId} already matched by another process. Skipping.`);
               continue; // Başkası tarafından eşleştirilmiş, atla
             }
 
@@ -722,19 +734,25 @@ exports.findMatch = functions
 
             // Karşılıklı filtre ve engelleme kontrolü
             if (myBlockedSet.has(partnerId)) {
+              console.log(`[${myId}] I have blocked partner ${partnerId}. Skipping.`);
               continue;
             }
             const otherBlockedMeRef = db.collection("users").doc(partnerId).collection("blockedUsers").doc(myId);
             const otherBlockedMeDoc = await tx.get(otherBlockedMeRef);
             if (otherBlockedMeDoc.exists) {
+              console.log(`[${myId}] Partner ${partnerId} has blocked me. Skipping.`);
               continue;
             }
 
             const isMyGenderOk = !partnerFilterGender || partnerFilterGender === myPublicData.gender;
             const isMyLevelGroupOk = !partnerFilterLevelGroup || partnerFilterLevelGroup === myPublicData.levelGroup;
 
+            console.log(`[${myId}] Checking filters for partner ${partnerId}: myGenderOk=${isMyGenderOk}, myLevelOk=${isMyLevelGroupOk}`);
+
             if (isMyGenderOk && isMyLevelGroupOk) {
               // Adım 2b: Eşleşme bulundu! Atomik olarak işlemleri yap.
+              console.log(`[${myId}] Match found with ${partnerId}! Creating chat and match documents.`);
+              matchFound = true;
               const chatRoomRef = db.collection("chats").doc();
               tx.set(chatRoomRef, {
                 users: [myId, partnerId].sort(),
@@ -751,6 +769,7 @@ exports.findMatch = functions
               tx.set(db.collection("matches").doc(partnerId), {...matchData, partner: myPublicData});
 
               // Her iki kullanıcıyı da havuzdan sil
+              console.log(`[${myId}] Deleting ${partnerId} and ${myId} from waiting_pool.`);
               tx.delete(partnerRef);
               const myWaitingRef = db.collection("waiting_pool").doc(myId);
               tx.delete(myWaitingRef); // Kendimi de havuzdan sil (varsa)
@@ -760,19 +779,23 @@ exports.findMatch = functions
           }
 
           // Adım 2c: Eşleşme bulunamadı, havuza ekle
-          const waitingPoolRef = db.collection("waiting_pool").doc(myId);
-          tx.set(waitingPoolRef, {
-            ...myPublicData,
-            waitingSince: admin.firestore.FieldValue.serverTimestamp(),
-            filter_gender: selectedGenderFilter || null,
-            filter_level_group: selectedLevelGroupFilter || null,
-          });
+          if (!matchFound) {
+            console.log(`[${myId}] No suitable partner found. Adding user to waiting_pool.`);
+            const waitingPoolRef = db.collection("waiting_pool").doc(myId);
+            tx.set(waitingPoolRef, {
+              ...myPublicData,
+              waitingSince: admin.firestore.FieldValue.serverTimestamp(),
+              filter_gender: selectedGenderFilter || null,
+              filter_level_group: selectedLevelGroupFilter || null,
+            });
+          }
 
           return {status: "ADDED_TO_POOL"};
         });
+        console.log(`[${myId}] Transaction successful. Result status: ${result.status}`);
         return result;
       } catch (error) {
-        console.error("Matchmaking transaction failed:", error);
+        console.error(`[${myId}] Matchmaking transaction failed:`, error);
         throw new functions.https.HttpsError("internal", "Matchmaking failed, please try again.");
       }
     });
