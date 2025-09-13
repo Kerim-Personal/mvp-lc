@@ -604,38 +604,176 @@ exports.sendAdminNotification = functions
         totalTokens: tokens.length,
       };
     });
+// Helper to get level group
+const getLevelGroup = (level) => {
+  if (!level) return "Beginner";
+  if (["A1", "A2"].includes(level)) return "Beginner";
+  if (["B1", "B2"].includes(level)) return "Intermediate";
+  return "Advanced";
+};
+
 /**
- * [DEBUG] Eşleştirme Fonksiyonu (Sadeleştirilmiş Test Versiyonu)
- * Bu fonksiyonun tek amacı, `waiting_pool` koleksiyonuna bir belge yazmaktır.
- * Bu, temel yazma işleminin çalışıp çalışmadığını doğrulamak için kullanılır.
+ * Eşleştirme Fonksiyonu (Transactional, Yeniden Yazılmış ve Düzeltilmiş)
+ * Kullanıcıları bekleme havuzundan eşleştirir veya havuza ekler.
+ * Bu fonksiyon, Firestore işlemlerinin doğru kullanımını takip eder:
+ * 1. Sorgu, işlem DIŞINDA yapılır.
+ * 2. İşlem İÇİNDE, potansiyel eşleşmelerin hala uygun olduğu doğrulanır.
+ * 3. Eşleşme, oluşturma ve silme işlemleri atomik olarak gerçekleştirilir.
  */
 exports.findMatch = functions
     .region("us-central1")
     .https.onCall(async (data, context) => {
       if (!context.auth) {
-        console.error("[DEBUG] findMatch called without authentication.");
         throw new functions.https.HttpsError(
             "unauthenticated", "Authentication required.",
         );
       }
 
       const myId = context.auth.uid;
-      console.log(`[DEBUG] SIMPLE findMatch triggered for user: ${myId}.`);
 
+      // --- Rate Limiting (İşlem Dışında) ---
+      const now = Date.now();
+      const rlRef = db.collection("rate_limits").doc(`matchmaking_${myId}`);
       try {
-        const waitingPoolRef = db.collection("waiting_pool").doc(myId);
-
-        await waitingPoolRef.set({
-          uid: myId,
-          status: "waiting_for_debug",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        await db.runTransaction(async (tx) => {
+          const rlSnap = await tx.get(rlRef);
+          const MIN_INTERVAL_MS = 2000;
+          const WINDOW_MS = 60000;
+          const WINDOW_LIMIT = 15;
+          let lastAt = 0;
+          let windowStart = now;
+          let count = 0;
+          if (rlSnap.exists) {
+            const d = rlSnap.data() || {};
+            lastAt = d.lastAt || 0;
+            windowStart = d.windowStart || now;
+            count = d.count || 0;
+            if (now - windowStart > WINDOW_MS) {
+              windowStart = now;
+              count = 0;
+            }
+            if (now - lastAt < MIN_INTERVAL_MS) {
+              throw new functions.https.HttpsError("resource-exhausted",
+                  "Too many requests. Please wait a moment.");
+            }
+            if (count >= WINDOW_LIMIT) {
+              throw new functions.https.HttpsError("resource-exhausted",
+                  "Matchmaking limit exceeded for this minute.");
+            }
+          }
+          count += 1;
+          tx.set(rlRef, {lastAt: now, windowStart, count}, {merge: true});
         });
+      } catch (e) {
+        if (e instanceof functions.https.HttpsError) throw e;
+        console.error("Rate limit transaction error:", e);
+        throw new functions.https.HttpsError("internal", "Rate limit check failed.");
+      }
 
-        console.log(`[DEBUG] SIMPLE findMatch successfully SET document for ${myId}.`);
-        return {status: "ADDED_TO_POOL_FOR_DEBUG"};
+      // --- Veri Hazırlığı (İşlem Dışında) ---
+      const {selectedGenderFilter, selectedLevelGroupFilter} = data;
+
+      const myUserDoc = await db.collection("users").doc(myId).get();
+      if (!myUserDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "User profile not found.");
+      }
+      const myData = myUserDoc.data();
+      const myPublicData = {
+        uid: myId,
+        displayName: myData.displayName,
+        avatarUrl: myData.avatarUrl,
+        level: myData.level,
+        levelGroup: getLevelGroup(myData.level),
+        gender: myData.gender,
+      };
+      const myBlockedUsersSnapshot = await db.collection("users").doc(myId).collection("blockedUsers").get();
+      const myBlockedSet = new Set(myBlockedUsersSnapshot.docs.map((d) => d.id));
+
+      // --- Adım 1: Sorgu (İşlem Dışında) ---
+      let query = db.collection("waiting_pool");
+      if (selectedGenderFilter) {
+        query = query.where("gender", "==", selectedGenderFilter);
+      }
+      if (selectedLevelGroupFilter) {
+        query = query.where("levelGroup", "==", selectedLevelGroupFilter);
+      }
+      query = query.orderBy("waitingSince").limit(20);
+      const potentialMatchesSnapshot = await query.get();
+      const potentialPartnerDocs = potentialMatchesSnapshot.docs.filter(
+          (doc) => doc.id !== myId,
+      );
+
+      // --- Adım 2: Eşleştirme Mantığı (İşlem İçinde) ---
+      try {
+        const result = await db.runTransaction(async (tx) => {
+          // Adım 2a: Potansiyel eşleşmeleri doğrula
+          for (const partnerDoc of potentialPartnerDocs) {
+            const partnerId = partnerDoc.id;
+            const partnerRef = db.collection("waiting_pool").doc(partnerId);
+            const partnerDocInTx = await tx.get(partnerRef);
+
+            if (!partnerDocInTx.exists) {
+              continue; // Başkası tarafından eşleştirilmiş, atla
+            }
+
+            const partnerData = partnerDocInTx.data();
+            const partnerFilterGender = partnerData.filter_gender;
+            const partnerFilterLevelGroup = partnerData.filter_level_group;
+
+            // Karşılıklı filtre ve engelleme kontrolü
+            if (myBlockedSet.has(partnerId)) {
+              continue;
+            }
+            const otherBlockedMeRef = db.collection("users").doc(partnerId).collection("blockedUsers").doc(myId);
+            const otherBlockedMeDoc = await tx.get(otherBlockedMeRef);
+            if (otherBlockedMeDoc.exists) {
+              continue;
+            }
+
+            const isMyGenderOk = !partnerFilterGender || partnerFilterGender === myPublicData.gender;
+            const isMyLevelGroupOk = !partnerFilterLevelGroup || partnerFilterLevelGroup === myPublicData.levelGroup;
+
+            if (isMyGenderOk && isMyLevelGroupOk) {
+              // Adım 2b: Eşleşme bulundu! Atomik olarak işlemleri yap.
+              const chatRoomRef = db.collection("chats").doc();
+              tx.set(chatRoomRef, {
+                users: [myId, partnerId].sort(),
+                userDetails: {[myId]: myPublicData, [partnerId]: partnerData},
+                status: "active",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+
+              const matchData = {
+                chatId: chatRoomRef.id,
+                matchedAt: admin.firestore.FieldValue.serverTimestamp(),
+              };
+              tx.set(db.collection("matches").doc(myId), {...matchData, partner: partnerData});
+              tx.set(db.collection("matches").doc(partnerId), {...matchData, partner: myPublicData});
+
+              // Her iki kullanıcıyı da havuzdan sil
+              tx.delete(partnerRef);
+              const myWaitingRef = db.collection("waiting_pool").doc(myId);
+              tx.delete(myWaitingRef); // Kendimi de havuzdan sil (varsa)
+
+              return {status: "MATCH_FOUND", chatId: chatRoomRef.id};
+            }
+          }
+
+          // Adım 2c: Eşleşme bulunamadı, havuza ekle
+          const waitingPoolRef = db.collection("waiting_pool").doc(myId);
+          tx.set(waitingPoolRef, {
+            ...myPublicData,
+            waitingSince: admin.firestore.FieldValue.serverTimestamp(),
+            filter_gender: selectedGenderFilter || null,
+            filter_level_group: selectedLevelGroupFilter || null,
+          });
+
+          return {status: "ADDED_TO_POOL"};
+        });
+        return result;
       } catch (error) {
-        console.error(`[DEBUG] SIMPLE findMatch FAILED for user ${myId}:`, error);
-        throw new functions.https.HttpsError("internal", "The debug operation failed.");
+        console.error("Matchmaking transaction failed:", error);
+        throw new functions.https.HttpsError("internal", "Matchmaking failed, please try again.");
       }
     });
 
