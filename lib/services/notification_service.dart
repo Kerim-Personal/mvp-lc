@@ -6,10 +6,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+// Match Found Event Stream
+// A simple stream to broadcast match events from FCM handlers to the UI.
+final _matchFoundController = StreamController<String>.broadcast();
+Stream<String> get onMatchFound => _matchFoundController.stream;
+
+
 /// Uygulama genel push bildirimi yönetimi.
-/// - İzin ister
-/// - Token'i user doc'una ekler (fcmTokens array)
-/// - Token yenilenince günceller
 class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
@@ -17,32 +20,24 @@ class NotificationService {
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   StreamSubscription<String>? _tokenSub;
   bool _initialized = false;
-  final Set<String> _allowedRoutes = {'/help','/support','/store','/profile','/practice-listening','/practice-reading','/practice-speaking','/practice-writing'}; // extend as needed
+  final Set<String> _allowedRoutes = {'/help','/support','/store','/profile','/practice-listening','/practice-reading','/practice-speaking','/practice-writing'};
 
   Future<void> init() async {
-    if (_initialized) return; // idempotent
+    if (_initialized) return;
     _initialized = true;
 
     try {
-      // iOS izin
-      await _fcm.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-      // Web'de permission flow farklı olabilir.
-      final token = await _fcm.getToken();
-      if (token != null) {
-        await _storeToken(token);
-      }
-      _tokenSub = _fcm.onTokenRefresh.listen((t) async {
-        await _storeToken(t);
-      });
+      await _fcm.requestPermission();
 
+      _fcm.getToken().then(_storeToken);
+      _tokenSub = _fcm.onTokenRefresh.listen(_storeToken);
+
+      // App is in the foreground
       FirebaseMessaging.onMessage.listen((RemoteMessage msg) {
-        if (kDebugMode) debugPrint('FCM onMessage: ${msg.notification?.title}');
-        final ctx = _NotificationOverlay.navigatorKey.currentContext;
+        debugPrint('FCM onMessage: ${msg.data}');
+        if (_handleMatchFound(msg)) return; // If it's a match, don't show a snackbar
+
+        final ctx = notificationNavigatorKey.currentContext;
         if (ctx != null && msg.notification != null) {
           final route = (msg.data['targetRoute'] ?? '').toString();
           ScaffoldMessenger.of(ctx).showSnackBar(
@@ -57,30 +52,30 @@ class NotificationService {
         }
       });
 
-      // Bildirime tıklayarak açılan (background->foreground) durum
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage msg) {
-        _handleRouteFromMessage(msg);
-      });
+      // App is in background, user taps notification
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
 
-      // Uygulama kapalıyken bildirime tıklayıp açma durumu
-      _checkInitialMessage();
+      // App is terminated, user taps notification
+      _fcm.getInitialMessage().then((msg) {
+        if (msg != null) _handleMessage(msg);
+      });
     } catch (e) {
       if (kDebugMode) debugPrint('NotificationService init error: $e');
     }
   }
 
-  Future<void> _checkInitialMessage() async {
-    try {
-      final initial = await _fcm.getInitialMessage();
-      if (initial != null) {
-        _handleRouteFromMessage(initial);
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('getInitialMessage error: $e');
+  // Returns true if the message was a match notification
+  bool _handleMatchFound(RemoteMessage msg) {
+    if (msg.data['type'] == 'MATCH_FOUND' && msg.data['chatId'] is String) {
+      _matchFoundController.add(msg.data['chatId']);
+      return true;
     }
+    return false;
   }
 
-  void _handleRouteFromMessage(RemoteMessage msg) {
+  void _handleMessage(RemoteMessage msg) {
+    if (_handleMatchFound(msg)) return;
+
     try {
       if (msg.data['kind'] == 'admin_broadcast') {
         final route = (msg.data['targetRoute'] ?? '').toString();
@@ -98,9 +93,8 @@ class NotificationService {
       if (kDebugMode) debugPrint('Route not allowed: $route');
       return;
     }
-    final nav = _NotificationOverlay.navigatorKey.currentState;
+    final nav = notificationNavigatorKey.currentState;
     if (nav == null) return;
-    // Aynı route üstüne eklemeden push
     try {
       nav.pushNamed(route);
     } catch (e) {
@@ -108,45 +102,32 @@ class NotificationService {
     }
   }
 
-  Future<void> _storeToken(String token) async {
+  Future<void> _storeToken(String? token) async {
+    if (token == null) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return; // giriş yok
+    if (uid == null) return;
     final ref = FirebaseFirestore.instance.collection('users').doc(uid);
     try {
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        final snap = await tx.get(ref);
-        final data = snap.data() ?? {};
-        List list = (data['fcmTokens'] is List) ? (data['fcmTokens'] as List) : [];
-        list = list.whereType<String>().toList();
-        if (!list.contains(token)) {
-          list.add(token);
-          // Son 10 token ile sınırla
-          if (list.length > 10) {
-            list = list.sublist(list.length - 10);
-          }
-          tx.set(ref, {'fcmTokens': list}, SetOptions(merge: true));
-        }
-      });
+      await ref.set({
+        'fcmTokens': FieldValue.arrayUnion([token])
+      }, SetOptions(merge: true));
     } catch (_) {
-      // yut
+      // ignore
     }
   }
 
   Future<void> dispose() async {
     await _tokenSub?.cancel();
+    // Do not close the broadcast controller, as it's a singleton for the app's lifecycle.
   }
 }
 
-/// Aktif uygulamada foreground mesajlar için navigator context tutacak küçük navigator wrapper
-class _NotificationOverlay {
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-}
+final GlobalKey<NavigatorState> notificationNavigatorKey = GlobalKey<NavigatorState>();
 
-GlobalKey<NavigatorState> get notificationNavigatorKey => _NotificationOverlay.navigatorKey;
-
-/// Background mesaj handler (top-level zorunlu)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Burada heavy işlem yapmayın. Gerekirse isolate / local notification.
-  debugPrint('Background FCM: ${message.messageId}');
+  debugPrint("Handling a background message: ${message.messageId}");
+  // For this app, background messages are handled when the user opens the app.
+  // The Firestore listener is the source of truth for matches when the app was terminated.
+  // The FCM is a "fast path" for foreground/background states.
 }
