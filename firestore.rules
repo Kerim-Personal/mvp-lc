@@ -317,7 +317,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // === MATCHMAKING KUYRUK & İSTATİSTİKLER ===
+    // === MATCHMAKING ===
+    match /waiting_pool/{userId} {
+      // A user can delete their own entry from the pool (e.g. when cancelling).
+      allow delete: if request.auth.uid == userId;
+      // No other client-side access is permitted.
+      allow read, create, update: if false;
+    }
+
+    match /matches/{userId} {
+      // A user can read and delete their own match document.
+      allow read, delete: if request.auth.uid == userId;
+      // The server creates the match, clients cannot create or update.
+      allow create, update: if false;
+    }
+
+    // === DEPRECATED OR SERVER-ONLY MATCHMAKING RULES ===
     // Kuyruk shard dokümanlarına istemci direkt erişemez (yalnızca Cloud Functions Admin SDK)
     match /match_queue_shards/{shardId} {
       match /entries/{userId} {
@@ -334,6 +349,5 @@ service cloud.firestore {
       allow read: if isAuthenticated() && isPrivileged(request.auth.uid);
       allow write: if false;
     }
-    // === /MATCHMAKING ===
   }
 }
