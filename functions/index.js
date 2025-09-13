@@ -613,40 +613,33 @@ const getLevelGroup = (level) => {
 };
 
 /**
- * Eşleştirme Fonksiyonu (Transactional, Optimize Edilmiş)
+ * Eşleştirme Fonksiyonu (Transactional, Yeniden Yazılmış ve Düzeltilmiş)
  * Kullanıcıları bekleme havuzundan eşleştirir veya havuza ekler.
- *
- * İyileştirmeler:
- * - Güvenilir Hız Sınırlama: Sunucu yeniden başlasa bile çalışan Firestore
- *   tabanlı hız sınırlaması.
- * - "Zombi Kullanıcı" Sorunu Çözümü: Eşleşme bulunduğunda, her iki kullanıcı
- *   da bekleme havuzundan atomik olarak kaldırılır. İstemcinin belge
- *   silmesine güvenilmez.
- * - Güvenilir Bildirim: Eşleşme bilgisi, istemcilerin dinleyebileceği geçici
- *   bir `matches` koleksiyonuna yazılır. Bu, `waiting_pool` belgesini
- *   güncellemekten daha güvenilirdir.
+ * Bu fonksiyon, Firestore işlemlerinin doğru kullanımını takip eder:
+ * 1. Sorgu, işlem DIŞINDA yapılır.
+ * 2. İşlem İÇİNDE, potansiyel eşleşmelerin hala uygun olduğu doğrulanır.
+ * 3. Eşleşme, oluşturma ve silme işlemleri atomik olarak gerçekleştirilir.
  */
 exports.findMatch = functions
     .region("us-central1")
     .https.onCall(async (data, context) => {
       if (!context.auth) {
         throw new functions.https.HttpsError(
-            "unauthenticated",
-            "Authentication required.",
+            "unauthenticated", "Authentication required.",
         );
       }
 
       const myId = context.auth.uid;
-      const now = Date.now();
-      const MIN_INTERVAL_MS = 2 * 1000; // İki arama arası min 2 sn
-      const WINDOW_MS = 60 * 1000; // 1 dakika
-      const WINDOW_LIMIT = 15; // Dakikada max 15 arama
 
-      // Güvenilir Hız Sınırlaması
+      // --- Rate Limiting (İşlem Dışında) ---
+      const now = Date.now();
       const rlRef = db.collection("rate_limits").doc(`matchmaking_${myId}`);
       try {
         await db.runTransaction(async (tx) => {
           const rlSnap = await tx.get(rlRef);
+          const MIN_INTERVAL_MS = 2000;
+          const WINDOW_MS = 60000;
+          const WINDOW_LIMIT = 15;
           let lastAt = 0;
           let windowStart = now;
           let count = 0;
@@ -673,139 +666,103 @@ exports.findMatch = functions
         });
       } catch (e) {
         if (e instanceof functions.https.HttpsError) throw e;
-        console.error("Matchmaking rate limit transaction error:", e);
-        throw new functions.https.HttpsError("internal",
-            "Rate limit check failed.");
+        console.error("Rate limit transaction error:", e);
+        throw new functions.https.HttpsError("internal", "Rate limit check failed.");
       }
 
-
+      // --- Veri Hazırlığı (İşlem Dışında) ---
       const {selectedGenderFilter, selectedLevelGroupFilter} = data;
 
+      const myUserDoc = await db.collection("users").doc(myId).get();
+      if (!myUserDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "User profile not found.");
+      }
+      const myData = myUserDoc.data();
+      const myPublicData = {
+        uid: myId,
+        displayName: myData.displayName,
+        avatarUrl: myData.avatarUrl,
+        level: myData.level,
+        levelGroup: getLevelGroup(myData.level),
+        gender: myData.gender,
+      };
+      const myBlockedUsersSnapshot = await db.collection("users").doc(myId).collection("blockedUsers").get();
+      const myBlockedSet = new Set(myBlockedUsersSnapshot.docs.map((d) => d.id));
+
+      // --- Adım 1: Sorgu (İşlem Dışında) ---
+      let query = db.collection("waiting_pool");
+      if (selectedGenderFilter) {
+        query = query.where("gender", "==", selectedGenderFilter);
+      }
+      if (selectedLevelGroupFilter) {
+        query = query.where("levelGroup", "==", selectedLevelGroupFilter);
+      }
+      query = query.orderBy("waitingSince").limit(20);
+      const potentialMatchesSnapshot = await query.get();
+      const potentialPartnerDocs = potentialMatchesSnapshot.docs.filter(
+          (doc) => doc.id !== myId,
+      );
+
+      // --- Adım 2: Eşleştirme Mantığı (İşlem İçinde) ---
       try {
         const result = await db.runTransaction(async (tx) => {
-          const myUserRef = db.collection("users").doc(myId);
-          const myUserDoc = await tx.get(myUserRef);
-          if (!myUserDoc.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "User profile not found.",
-            );
-          }
+          // Adım 2a: Potansiyel eşleşmeleri doğrula
+          for (const partnerDoc of potentialPartnerDocs) {
+            const partnerId = partnerDoc.id;
+            const partnerRef = db.collection("waiting_pool").doc(partnerId);
+            const partnerDocInTx = await tx.get(partnerRef);
 
-          const myData = myUserDoc.data();
-          // Güvenlik: myData'dan hassas verileri kaldır
-          const myPublicData = {
-            uid: myId,
-            displayName: myData.displayName,
-            avatarUrl: myData.avatarUrl,
-            level: myData.level,
-            levelGroup: getLevelGroup(myData.level),
-            gender: myData.gender,
-          };
-
-          // Engellenen kullanıcıları al
-          const myBlockedUsersRef = myUserRef.collection("blockedUsers");
-          const myBlockedSnapshot = await tx.get(myBlockedUsersRef);
-          const myBlockedSet = new Set(myBlockedSnapshot.docs.map((d) => d.id));
-
-          let query = db.collection("waiting_pool");
-
-          // Filtreleri uygula
-          if (selectedGenderFilter) {
-            query = query.where("gender", "==", selectedGenderFilter);
-          }
-          if (selectedLevelGroupFilter) {
-            query = query.where("levelGroup", "==", selectedLevelGroupFilter);
-          }
-
-          query = query.orderBy("waitingSince").limit(20);
-
-          const potentialMatches = await tx.get(query);
-          const otherUserDocs = potentialMatches.docs.filter(
-              (doc) => doc.id !== myId,
-          );
-
-          for (const otherUserDoc of otherUserDocs) {
-            const otherId = otherUserDoc.id;
-            const otherUserData = otherUserDoc.data();
-            const otherUserFilterGender = otherUserData.filter_gender;
-            const otherUserFilterLevelGroup = otherUserData.filter_level_group;
-
-            if (myBlockedSet.has(otherId)) {
-              continue; // Ben onu engellemişim.
+            if (!partnerDocInTx.exists) {
+              continue; // Başkası tarafından eşleştirilmiş, atla
             }
 
-            const otherBlockedMeRef = db
-                .collection("users")
-                .doc(otherId)
-                .collection("blockedUsers")
-                .doc(myId);
+            const partnerData = partnerDocInTx.data();
+            const partnerFilterGender = partnerData.filter_gender;
+            const partnerFilterLevelGroup = partnerData.filter_level_group;
+
+            // Karşılıklı filtre ve engelleme kontrolü
+            if (myBlockedSet.has(partnerId)) {
+              continue;
+            }
+            const otherBlockedMeRef = db.collection("users").doc(partnerId).collection("blockedUsers").doc(myId);
             const otherBlockedMeDoc = await tx.get(otherBlockedMeRef);
             if (otherBlockedMeDoc.exists) {
-              continue; // O beni engellemiş.
+              continue;
             }
 
-            const isMyGenderOk = !otherUserFilterGender ||
-              otherUserFilterGender === myPublicData.gender;
-            const isMyLevelGroupOk = !otherUserFilterLevelGroup ||
-              otherUserFilterLevelGroup === myPublicData.levelGroup;
+            const isMyGenderOk = !partnerFilterGender || partnerFilterGender === myPublicData.gender;
+            const isMyLevelGroupOk = !partnerFilterLevelGroup || partnerFilterLevelGroup === myPublicData.levelGroup;
 
             if (isMyGenderOk && isMyLevelGroupOk) {
-            // Eşleşme bulundu!
-              const idA = myId < otherId ? myId : otherId;
-              const idB = myId < otherId ? otherId : myId;
-
+              // Adım 2b: Eşleşme bulundu! Atomik olarak işlemleri yap.
               const chatRoomRef = db.collection("chats").doc();
               tx.set(chatRoomRef, {
-                users: [idA, idB],
-                userDetails: {
-                  [myId]: myPublicData,
-                  [otherId]: {
-                    uid: otherId,
-                    displayName: otherUserData.displayName,
-                    avatarUrl: otherUserData.avatarUrl,
-                    level: otherUserData.level,
-                    levelGroup: otherUserData.levelGroup,
-                    gender: otherUserData.gender,
-                  },
-                },
+                users: [myId, partnerId].sort(),
+                userDetails: {[myId]: myPublicData, [partnerId]: partnerData},
                 status: "active",
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
               });
 
-              // Eşleşme bildirimlerini oluştur
               const matchData = {
                 chatId: chatRoomRef.id,
                 matchedAt: admin.firestore.FieldValue.serverTimestamp(),
               };
-              const partnerPublicData = {
-                uid: otherId,
-                displayName: otherUserData.displayName,
-                avatarUrl: otherUserData.avatarUrl,
-                level: otherUserData.level,
-                levelGroup: otherUserData.levelGroup,
-                gender: otherUserData.gender,
-              };
-              tx.set(db.collection("matches").doc(myId),
-                  {...matchData, partner: partnerPublicData});
-              tx.set(db.collection("matches").doc(otherId),
-                  {...matchData, partner: myPublicData});
+              tx.set(db.collection("matches").doc(myId), {...matchData, partner: partnerData});
+              tx.set(db.collection("matches").doc(partnerId), {...matchData, partner: myPublicData});
 
-              // Eşleşen kullanıcıyı bekleme havuzundan sil
-              tx.delete(otherUserDoc.ref);
-
-              // Mevcut kullanıcı zaten havuzda olmadığı için,
-              // onu silmeye gerek yok.
-              // Sadece havuza eklenmesini engelliyoruz.
+              // Her iki kullanıcıyı da havuzdan sil
+              tx.delete(partnerRef);
+              const myWaitingRef = db.collection("waiting_pool").doc(myId);
+              tx.delete(myWaitingRef); // Kendimi de havuzdan sil (varsa)
 
               return {status: "MATCH_FOUND", chatId: chatRoomRef.id};
             }
           }
 
-          // Eşleşme bulunamadı, kullanıcıyı bekleme havuzuna ekle
+          // Adım 2c: Eşleşme bulunamadı, havuza ekle
           const waitingPoolRef = db.collection("waiting_pool").doc(myId);
           tx.set(waitingPoolRef, {
-            ...myPublicData, // Sadece halka açık verileri havuza ekle
+            ...myPublicData,
             waitingSince: admin.firestore.FieldValue.serverTimestamp(),
             filter_gender: selectedGenderFilter || null,
             filter_level_group: selectedLevelGroupFilter || null,
@@ -813,17 +770,10 @@ exports.findMatch = functions
 
           return {status: "ADDED_TO_POOL"};
         });
-
         return result;
       } catch (error) {
-        console.error("findMatch transaction error:", error);
-        if (error instanceof functions.https.HttpsError) {
-          throw error;
-        }
-        throw new functions.https.HttpsError(
-            "internal",
-            "An unexpected error occurred during matchmaking.",
-        );
+        console.error("Matchmaking transaction failed:", error);
+        throw new functions.https.HttpsError("internal", "Matchmaking failed, please try again.");
       }
     });
 
