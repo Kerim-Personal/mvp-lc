@@ -605,6 +605,14 @@ exports.sendAdminNotification = functions
       };
     });
 
+// Helper to get level group
+const getLevelGroup = (level) => {
+  if (!level) return "Beginner";
+  if (["A1", "A2"].includes(level)) return "Beginner";
+  if (["B1", "B2"].includes(level)) return "Intermediate";
+  return "Advanced";
+};
+
 /**
  * Eşleştirme Fonksiyonu (Transactional, Yeniden Yazılmış ve Düzeltilmiş)
  * Kullanıcıları bekleme havuzundan eşleştirir veya havuza ekler.
