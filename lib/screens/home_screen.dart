@@ -162,6 +162,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           content: Text(e.message ?? 'An error occurred.'),
           backgroundColor: Colors.red,
         ));
+        // Add a small delay before cancelling to prevent race conditions during debugging
+        await Future.delayed(const Duration(seconds: 2));
         await _cancelSearch();
       }
     } catch (e) {
@@ -170,6 +172,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           content: Text('An unexpected error occurred: ${e.toString()}'),
           backgroundColor: Colors.red,
         ));
+        // Add a small delay before cancelling to prevent race conditions during debugging
+        await Future.delayed(const Duration(seconds: 2));
         await _cancelSearch();
       }
     }
