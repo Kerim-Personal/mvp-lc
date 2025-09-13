@@ -755,7 +755,7 @@ exports.findMatch = functions
               const idA = myId < otherId ? myId : otherId;
               const idB = myId < otherId ? otherId : myId;
 
-              const chatRoomRef = db.collection("chats").doc(`${idA}_${idB}`);
+              const chatRoomRef = db.collection("chats").doc();
               tx.set(chatRoomRef, {
                 users: [idA, idB],
                 userDetails: {
@@ -771,7 +771,7 @@ exports.findMatch = functions
                 },
                 status: "active",
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
-              }, {merge: true}); // Use merge to avoid overwriting existing chat
+              });
 
               // Eşleşme bildirimlerini oluştur
               const matchData = {
