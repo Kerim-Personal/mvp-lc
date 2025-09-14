@@ -15,11 +15,6 @@ final Map<String, List<FaqItem>> faqData = {
           'LinguaChat is an AI‑powered language practice platform. It matches you with fluent or native speakers and provides real‑time AI assistance so you can improve in realistic contexts.',
     ),
     FaqItem(
-      question: 'How are practice partners selected?',
-      answer:
-          'Our matching algorithm looks at your level, interests, and goals to suggest partners who are both engaging and helpful for your progress.',
-    ),
-    FaqItem(
       question: 'What does LinguaBot do?',
       answer:
           'LinguaBot is your contextual AI assistant. It can translate instantly, highlight grammar issues, suggest better wording, propose topics, and help you stay confident while chatting.',

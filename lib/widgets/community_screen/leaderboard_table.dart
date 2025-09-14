@@ -231,18 +231,6 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
             Expanded(
               child: _buildName(baseColor),
             ),
-            // Partner Count
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.people_alt_outlined, color: Colors.blue.shade600, size: 20),
-                const SizedBox(width: 6),
-                Text(
-                  widget.user.partnerCount.toString(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ],
-            ),
           ],
         ),
       ),

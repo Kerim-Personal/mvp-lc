@@ -16,7 +16,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _displayNameController = TextEditingController();
   final _birthDateController = TextEditingController();
-  String? _gender;  // 'Male' / 'Female'
   String? _nativeLanguageCode; // ISO code
   DateTime? _birthDate;
   bool _saving = false;
@@ -25,7 +24,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   void initState() {
     super.initState();
     _displayNameController.text = widget.userData['displayName'] ?? '';
-    _gender = widget.userData['gender'];
     _nativeLanguageCode = widget.userData['nativeLanguage'];
     final ts = widget.userData['birthDate'];
     if (ts is Timestamp) {
@@ -85,7 +83,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate() || _birthDate == null || _gender == null || _nativeLanguageCode == null) {
+    if (!_formKey.currentState!.validate() || _birthDate == null || _nativeLanguageCode == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lütfen tüm alanları doldurun'), backgroundColor: Colors.red),
       );
@@ -100,7 +98,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
         'displayName': displayName,
         'username_lowercase': displayName.toLowerCase(),
         'birthDate': Timestamp.fromDate(_birthDate!),
-        'gender': _gender,
         'nativeLanguage': _nativeLanguageCode,
         'profileCompleted': true,
         'lastActivityDate': FieldValue.serverTimestamp(),
@@ -153,16 +150,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                   validator: (v) => (v==null||v.isEmpty)?'Seçiniz':null,
                 ),
                 const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: _gender,
-                  decoration: const InputDecoration(labelText: 'Cinsiyet'),
-                  items: const [
-                    DropdownMenuItem(value: 'Male', child: Text('Erkek')),
-                    DropdownMenuItem(value: 'Female', child: Text('Kadın')),
-                  ],
-                  onChanged: (v){ setState(()=>_gender=v); },
-                  validator: (v)=> v==null?'Seçiniz':null,
-                ),
                 const SizedBox(height: 10),
                 InkWell(
                   onTap: _selectLanguage,

@@ -61,14 +61,12 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         final int streak = data['streak'] is int ? data['streak'] : 0;
         final int highestStreak = data['highestStreak'] is int ? data['highestStreak'] : streak;
         final int totalPracticeTime = data['totalPracticeTime'] is int ? data['totalPracticeTime'] : 0;
-        final int partnerCount = data['partnerCount'] is int ? data['partnerCount'] : 0;
         final String level = (data['level']?.toString()) ?? '-';
 
         final computed = AchievementsSection.computeEarnedBadgeIds(
           streak: streak,
           highestStreak: highestStreak,
           totalPracticeTime: totalPracticeTime,
-          partnerCount: partnerCount,
           level: level,
         );
         final existing = (data['earnedBadges'] as List?)?.map((e) => e.toString()).toSet() ?? <String>{};
@@ -130,7 +128,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     final avatarUrl = userData['avatarUrl'] as String?;
     final streak = userData['streak'] ?? 0;
     final totalPracticeTime = userData['totalPracticeTime'] ?? 0;
-    final partnerCount = userData['partnerCount'] ?? 0;
     final isPremium = userData['isPremium'] as bool? ?? false;
     final role = (userData['role'] as String?) ?? 'user';
     final highestStreak = userData['highestStreak'] ?? (streak ?? 0);
@@ -148,7 +145,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             level: level,
             streak: streak,
             totalPracticeTime: totalPracticeTime,
-            partnerCount: partnerCount,
             highestStreak: highestStreakInt,
           ),
         ),
@@ -164,7 +160,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           streak: streak,
           highestStreak: highestStreakInt,
           totalPracticeTime: totalPracticeTime,
-            partnerCount: partnerCount,
             level: level,
         ),
       ],

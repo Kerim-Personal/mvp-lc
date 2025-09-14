@@ -6,7 +6,6 @@ class StatsGrid extends StatelessWidget {
   final String level;
   final int streak;
   final int totalPracticeTime;
-  final int partnerCount;
   // TODO: Placeholder fields for future statistics.
   final int newWords;
   final int highestStreak;
@@ -16,7 +15,6 @@ class StatsGrid extends StatelessWidget {
     required this.level,
     required this.streak,
     required this.totalPracticeTime,
-    required this.partnerCount,
     this.newWords = 0, // default 0
     this.highestStreak = 0, // default 0
   });
@@ -33,7 +31,6 @@ class StatsGrid extends StatelessWidget {
       children: [
         _buildStatCard(Icons.local_fire_department, "$streak d", "Streak", Colors.orange),
         _buildStatCard(Icons.timer, "$totalPracticeTime min", "Practice Time", Colors.blue),
-        _buildStatCard(Icons.people, "$partnerCount", "Partners", Colors.green),
         _buildStatCard(Icons.bar_chart_rounded, level, "Level", Colors.purple),
         _buildStatCard(Icons.translate, "$newWords", "New Words", Colors.redAccent),
         _buildStatCard(Icons.military_tech, "$highestStreak d", "Best Streak", Colors.amber.shade700),

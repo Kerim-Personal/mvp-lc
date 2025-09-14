@@ -28,7 +28,7 @@ class AuthService {
 
   /// Yeni kullanıcı kaydı oluşturur ve ek bilgileri Firestore'a kaydeder.
   Future<UserCredential?> signUp(String email, String password,
-      String username, DateTime birthDate, String gender, String nativeLanguage) async {
+      String username, DateTime birthDate, String nativeLanguage) async {
     try {
       // 1. Firebase Authentication ile kullanıcıyı oluştur.
       UserCredential userCredential = await _auth
@@ -62,7 +62,6 @@ class AuthService {
           username,
           'username_lowercase': username.toLowerCase(),
           'birthDate': Timestamp.fromDate(birthDate),
-          'gender': gender,
           'email': email,
           'uid': userCredential.user!.uid,
             'createdAt': FieldValue.serverTimestamp(),
@@ -281,7 +280,6 @@ class AuthService {
             'status': 'active',
             'nativeLanguage': 'en',
             'birthDate': Timestamp.fromDate(DateTime(2000,1,1)),
-            'gender': 'Male',
             'profileCompleted': false, // Google kullanıcıları tamamlamaya yönlendirilecek
           });
         } else {
