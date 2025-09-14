@@ -6,13 +6,11 @@ class StatsRow extends StatelessWidget {
   // YENİ: Dışarıdan veri almak için parametreler eklendi
   final int streak;
   final int totalTime;
-  final int partnerCount;
 
   const StatsRow({
     super.key,
     required this.streak,
     required this.totalTime,
-    required this.partnerCount,
   });
 
   @override
@@ -22,7 +20,6 @@ class StatsRow extends StatelessWidget {
       children: [
         _buildStatItem(Icons.local_fire_department_rounded, "$streak d", "Streak", Colors.orange),
         _buildStatItem(Icons.timer_rounded, "$totalTime min", "Total Time", Colors.teal),
-        _buildStatItem(Icons.people_alt_rounded, "$partnerCount", "Partners", Colors.blue),
       ],
     );
   }

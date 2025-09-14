@@ -4,19 +4,11 @@ import 'package:flutter/material.dart';
 
 class PartnerFinderSection extends StatefulWidget {
   final VoidCallback onFindPartner;
-  final VoidCallback onShowGenderFilter;
-  final VoidCallback onShowLevelFilter;
-  final String? selectedGenderFilter;
-  final String? selectedLevelGroupFilter;
   final AnimationController pulseAnimationController;
 
   const PartnerFinderSection({
     super.key,
     required this.onFindPartner,
-    required this.onShowGenderFilter,
-    required this.onShowLevelFilter,
-    required this.selectedGenderFilter,
-    required this.selectedLevelGroupFilter,
     required this.pulseAnimationController,
   });
 
@@ -87,70 +79,7 @@ class _PartnerFinderSectionState extends State<PartnerFinderSection> {
           ),
         ),
         const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildFilterButton(
-              icon: Icons.wc,
-              label: 'Gender',
-              onTap: widget.onShowGenderFilter,
-              value: widget.selectedGenderFilter == 'Male'
-                  ? 'Male'
-                  : widget.selectedGenderFilter == 'Female'
-                  ? 'Female'
-                  : null,
-            ),
-            const SizedBox(width: 20),
-            _buildFilterButton(
-              icon: Icons.bar_chart_rounded,
-              label: 'Level',
-              onTap: widget.onShowLevelFilter,
-              value: widget.selectedLevelGroupFilter,
-            ),
-          ],
-        )
       ],
-    );
-  }
-
-  Widget _buildFilterButton(
-      {required IconData icon,
-        required String label,
-        required VoidCallback onTap,
-        String? value}) {
-    final bool isActive = value != null;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(25),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.teal.withAlpha(26) : Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border:
-          Border.all(color: isActive ? Colors.teal : Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: const Color.fromARGB(20, 0, 0, 0),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.teal, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              isActive ? '$label: $value' : label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.teal.shade800 : Colors.black54,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

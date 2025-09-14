@@ -24,31 +24,6 @@
         {"fieldPath": "timestamp", "order": "DESCENDING"}
       ]
     },
-    {
-      "collectionGroup": "waiting_pool",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {"fieldPath": "gender", "order": "ASCENDING"},
-        {"fieldPath": "waitingSince", "order": "ASCENDING"}
-      ]
-    },
-    {
-      "collectionGroup": "waiting_pool",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {"fieldPath": "levelGroup", "order": "ASCENDING"},
-        {"fieldPath": "waitingSince", "order": "ASCENDING"}
-      ]
-    },
-    {
-      "collectionGroup": "waiting_pool",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {"fieldPath": "gender", "order": "ASCENDING"},
-        {"fieldPath": "levelGroup", "order": "ASCENDING"},
-        {"fieldPath": "waitingSince", "order": "ASCENDING"}
-      ]
-    }
   ],
   "fieldOverrides": []
 }

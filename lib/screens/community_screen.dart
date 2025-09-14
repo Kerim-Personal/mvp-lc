@@ -12,7 +12,6 @@ class LeaderboardUser {
   final String name;
   final String avatarUrl;
   final int rank;
-  final int partnerCount;
   final bool isPremium;
   final String role; // admin/moderator/user
 
@@ -20,7 +19,6 @@ class LeaderboardUser {
     required this.name,
     required this.avatarUrl,
     required this.rank,
-    required this.partnerCount,
     this.isPremium = false,
     this.role = 'user',
   });
@@ -106,7 +104,6 @@ class _CommunityScreenState extends State<CommunityScreen>
   // late Future<List<LeaderboardUser>> _leaderboardFuture; // Kaldırıldı
   // final String _leaderboardPeriod = 'partnerCount'; // KALDIRILDI
   String _leaderboardType = 'weekly'; // default artık weekly
-  String _leaderboardField = 'partnerCount'; // Firestore alanı (overall
 
   // Ek performans & animasyon kontrolü
   bool _leaderboardFirstAnimationDone = false; // sadece ilk liste yüklemesinde animasyon
@@ -599,44 +596,21 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
-    _leaderboardField = (_leaderboardType == 'weekly') ? 'weeklyPartnerCount' : 'partnerCount';
     Query baseQuery = FirebaseFirestore.instance
         .collection('users')
-        .orderBy(_leaderboardField, descending: true)
+        .orderBy('streak', descending: true)
         .limit(100);
 
     QuerySnapshot snapshot;
-    try {
-      snapshot = await baseQuery.get();
-    } catch (e) {
-      // weekly alanı henüz indexlenmemiş ya da hata -> overall'a düş
-      if (_leaderboardType == 'weekly') {
-        final overallSnap = await FirebaseFirestore.instance
-            .collection('users')
-            .orderBy('partnerCount', descending: true)
-            .limit(100)
-            .get();
-        return _mapUsersFromSnapshot(overallSnap, fallbackWeekly: true);
-      }
-      rethrow;
-    }
+    snapshot = await baseQuery.get();
 
     if (snapshot.docs.isEmpty) {
-      if (_leaderboardType == 'weekly') {
-        // Weekly boş -> overall fallback
-        final overallSnap = await FirebaseFirestore.instance
-            .collection('users')
-            .orderBy('partnerCount', descending: true)
-            .limit(100)
-            .get();
-        return _mapUsersFromSnapshot(overallSnap, fallbackWeekly: true);
-      }
       return [];
     }
     return _mapUsersFromSnapshot(snapshot);
   }
 
-  List<LeaderboardUser> _mapUsersFromSnapshot(QuerySnapshot snapshot, {bool fallbackWeekly = false}) {
+  List<LeaderboardUser> _mapUsersFromSnapshot(QuerySnapshot snapshot) {
     final users = snapshot.docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
       final status = data['status'];
@@ -644,21 +618,10 @@ class _CommunityScreenState extends State<CommunityScreen>
     }).toList();
     return users.asMap().entries.map((entry) {
       final data = entry.value.data() as Map<String, dynamic>;
-      final dynamic rawValue = data[_leaderboardField];
-      int value;
-      if (fallbackWeekly && _leaderboardType == 'weekly') {
-        // weekly yoksa overall değerini göster ama 0'dan büyükse işaretle
-        value = (data['weeklyPartnerCount'] is int)
-            ? data['weeklyPartnerCount']
-            : (data['partnerCount'] is int ? data['partnerCount'] : 0);
-      } else {
-        value = rawValue is int ? rawValue : 0;
-      }
       return LeaderboardUser(
         rank: entry.key + 1,
         name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown',
         avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
-        partnerCount: value,
         isPremium: data['isPremium'] == true,
         role: (data['role'] as String?) ?? 'user',
       );

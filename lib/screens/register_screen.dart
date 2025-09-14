@@ -30,7 +30,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _nativeLanguageController = TextEditingController(); // new
 
   DateTime? _selectedBirthDate;
-  String? _selectedGender;
   String? _selectedNativeLanguageCode; // new
   bool _isLoading = false;
 
@@ -253,12 +252,6 @@ class _RegisterScreenState extends State<RegisterScreen>
           );
           return false;
         }
-        if (_selectedGender == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select your gender.'), backgroundColor: Colors.red),
-          );
-          return false;
-        }
         return true;
       default:
         return true;
@@ -276,14 +269,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   void _register() async {
-    if (!_formKey.currentState!.validate() || _selectedGender == null || _selectedNativeLanguageCode == null) {
-      if (_selectedGender == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Please select your gender.'),
-              backgroundColor: Colors.red),
-        );
-      }
+    if (!_formKey.currentState!.validate() || _selectedNativeLanguageCode == null) {
       if (_selectedNativeLanguageCode == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -321,7 +307,6 @@ class _RegisterScreenState extends State<RegisterScreen>
         _passwordController.text.trim(),
         _usernameController.text.trim(),
         _selectedBirthDate!,
-        _selectedGender!,
         _selectedNativeLanguageCode!, // new
       );
 
@@ -574,7 +559,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _stepTitle('Preferences', 'Select your native language and gender'),
+        _stepTitle('Preferences', 'Select your native language'),
         _buildTextField(
           controller: _nativeLanguageController,
           readOnly: true,
@@ -584,30 +569,6 @@ class _RegisterScreenState extends State<RegisterScreen>
           validator: (value) => (value == null || value.isEmpty)
               ? 'Please select your native language'
               : null,
-        ),
-        const SizedBox(height: 20.0),
-        Text(
-          AppLocalizations.of(context)!.selectYourGender,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70, fontSize: 16),
-        ),
-        const SizedBox(height: 10.0),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            GenderSelectionBox(
-              icon: Icons.female,
-              label: AppLocalizations.of(context)!.female,
-              isSelected: _selectedGender == 'Female',
-              onTap: () => setState(() => _selectedGender = 'Female'),
-            ),
-            GenderSelectionBox(
-              icon: Icons.male,
-              label: AppLocalizations.of(context)!.male,
-              isSelected: _selectedGender == 'Male',
-              onTap: () => setState(() => _selectedGender = 'Male'),
-            ),
-          ],
         ),
         const SizedBox(height: 12.0),
       ],
@@ -799,71 +760,6 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
       );
     });
-  }
-}
-
-class GenderSelectionBox extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const GenderSelectionBox({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        width: 130,
-        height: 110,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.white.withOpacity(0.25)
-              : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? Colors.white
-                : Colors.white.withOpacity(0.3),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-            BoxShadow(
-              color: Colors.white.withOpacity(0.1),
-              blurRadius: 10,
-              spreadRadius: 2,
-            )
-          ]
-              : [],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.white),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-                fontWeight:
-                isSelected ? FontWeight.bold : FontWeight.w300,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

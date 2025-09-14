@@ -29,7 +29,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String _initialDisplayName = '';
   String? _avatarUrl;
   DateTime? _selectedBirthDate;
-  String? _selectedGender;
   String? _selectedNativeLanguageCode; // yeni
 
   @override
@@ -55,7 +54,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _birthDateController.text = DateFormat('dd/MM/yyyy').format(_selectedBirthDate!);
         }
 
-        _selectedGender = data['gender'];
         final nl = data['nativeLanguage'];
         if (nl is String && nl.isNotEmpty) {
           _selectedNativeLanguageCode = nl;
@@ -144,7 +142,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'displayName': newDisplayName,
         'username_lowercase': newDisplayName.toLowerCase(),
         'birthDate': _selectedBirthDate != null ? Timestamp.fromDate(_selectedBirthDate!) : null,
-        'gender': _selectedGender,
         'nativeLanguage': _selectedNativeLanguageCode ?? 'en',
         'avatarUrl': _avatarUrl,
       };
@@ -261,8 +258,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               onTap: _showDatePicker,
             ),
             const SizedBox(height: 24),
-            _buildGenderSelection(isDark: isDark),
-            const SizedBox(height: 24),
             _buildTextField(
               controller: _nativeLanguageController,
               label: 'Native Language',
@@ -353,107 +348,4 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildGenderSelection({required bool isDark}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Gender',
-          style: TextStyle(
-            color: isDark ? Colors.white70 : Colors.grey.shade700,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: GenderSelectionBox(
-                icon: Icons.female,
-                label: 'Female',
-                isSelected: _selectedGender == 'Female',
-                onTap: () => setState(() => _selectedGender = 'Female'),
-                isDark: isDark,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: GenderSelectionBox(
-                icon: Icons.male,
-                label: 'Male',
-                isSelected: _selectedGender == 'Male',
-                onTap: () => setState(() => _selectedGender = 'Male'),
-                isDark: isDark,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class GenderSelectionBox extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool isDark; // eklendi
-
-  const GenderSelectionBox({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isSelected
-        ? (isDark ? Colors.teal.withValues(alpha: 0.25) : Colors.teal.withValues(alpha: 0.1))
-        : (isDark ? Colors.grey.shade800 : Colors.grey.shade50);
-    final border = isSelected ? Colors.teal : (isDark ? Colors.grey.shade600 : Colors.grey.shade300);
-    final iconColor = isSelected ? Colors.teal : (isDark ? Colors.grey.shade300 : Colors.grey.shade600);
-    final textColor = isSelected
-        ? (isDark ? Colors.teal.shade200 : Colors.teal.shade800)
-        : (isDark ? Colors.grey.shade300 : Colors.grey.shade700);
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: border,
-            width: isSelected ? 2 : 1.5,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 32,
-              color: iconColor,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                color: textColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

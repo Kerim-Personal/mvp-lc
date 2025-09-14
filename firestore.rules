@@ -45,9 +45,9 @@ service cloud.firestore {
              data.username_lowercase == data.displayName.lower() &&
              !isReservedName(data.username_lowercase) &&
              ownsReservedUsername(data.username_lowercase) &&
-             data.birthDate is timestamp && data.gender in ['Male', 'Female'] &&
+             data.birthDate is timestamp &&
              data.avatarUrl is string && data.avatarUrl.matches('https://api.dicebear.com/8.x/micah/svg\\?seed=.*') &&
-             data.emailVerified == false && data.partnerCount == 0 && data.streak == 0 &&
+             data.emailVerified == false && data.streak == 0 &&
              data.totalPracticeTime == 0 && data.isPremium == false && data.createdAt == request.time &&
              data.role == 'user' && data.status == 'active' && data.profileCompleted == false;
     }
@@ -110,27 +110,11 @@ service cloud.firestore {
         (
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'displayName', 'avatarUrl', 'birthDate', 'gender', 'nativeLanguage', 'level', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak','autoTranslate'
+            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak','autoTranslate'
           ])
         ) || (
           // Elmas artışı
           isOwner(userId) && callerNotBanned() && isValidDiamondIncrement()
-        ) || (
-          // Partner count artışı (hem genel hem haftalık)
-          isAuthenticated() && callerNotBanned() &&
-          request.resource.data.diff(resource.data).changedKeys().hasAll(['partnerCount', 'weeklyPartnerCount']) &&
-          request.resource.data.partnerCount is int &&
-          request.resource.data.weeklyPartnerCount is int &&
-          request.resource.data.partnerCount >= (resource.data.partnerCount is int ? resource.data.partnerCount : 0) &&
-          request.resource.data.weeklyPartnerCount >= (resource.data.weeklyPartnerCount is int ? resource.data.weeklyPartnerCount : 0) &&
-          (request.resource.data.partnerCount - (resource.data.partnerCount is int ? resource.data.partnerCount : 0)) <= 10 &&
-          (request.resource.data.weeklyPartnerCount - (resource.data.weeklyPartnerCount is int ? resource.data.weeklyPartnerCount : 0)) <= 10
-        ) || (
-          // Haftalık partner count sıfırlama (admin/system işlemi)
-          isAuthenticated() &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['weeklyPartnerCount']) &&
-          request.resource.data.weeklyPartnerCount == 0 &&
-          (resource.data.weeklyPartnerCount is int ? resource.data.weeklyPartnerCount : 0) >= 0
         ) || (
           // Email doğrulaması
           isOwner(userId) && callerNotBanned() &&

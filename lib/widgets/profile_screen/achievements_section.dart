@@ -7,7 +7,6 @@ class AchievementsSection extends StatelessWidget {
   final int streak; // mevcut anlık streak
   final int highestStreak; // en yüksek streak
   final int totalPracticeTime; // toplam pratik süresi (dakika)
-  final int partnerCount; // partner sayısı
   final String level; // seviye (string olabilir)
 
   const AchievementsSection({
@@ -15,7 +14,6 @@ class AchievementsSection extends StatelessWidget {
     required this.streak,
     required this.highestStreak,
     required this.totalPracticeTime,
-    required this.partnerCount,
     required this.level,
   });
 
@@ -23,7 +21,6 @@ class AchievementsSection extends StatelessWidget {
     required int streak,
     required int highestStreak,
     required int totalPracticeTime,
-    required int partnerCount,
     required String level,
   }) {
     int _extractLevelNumber(String lvl) {
@@ -39,7 +36,7 @@ class AchievementsSection extends StatelessWidget {
         name: 'First Step',
         icon: Icons.flag,
         color: Colors.green,
-        earned: (totalPracticeTime > 0) || highestStreak > 0 || partnerCount > 0,
+        earned: (totalPracticeTime > 0) || highestStreak > 0,
         description: 'İlk adımı at: bir süre çalış veya etkileşim kur.',
       ),
       Achievement(
@@ -91,22 +88,6 @@ class AchievementsSection extends StatelessWidget {
         description: 'Toplam 300+ dakika pratik.',
       ),
       Achievement(
-        id: 'social_3',
-        name: 'Social 3',
-        icon: Icons.people,
-        color: Colors.green,
-        earned: partnerCount >= 3,
-        description: '3 farklı partnerle bağlantı kur.',
-      ),
-      Achievement(
-        id: 'networker_10',
-        name: 'Networker 10',
-        icon: Icons.groups,
-        color: Colors.greenAccent,
-        earned: partnerCount >= 10,
-        description: '10 farklı partnerle bağlantı kur.',
-      ),
-      Achievement(
         id: 'level_5',
         name: 'Level Up 5',
         icon: Icons.trending_up,
@@ -121,14 +102,12 @@ class AchievementsSection extends StatelessWidget {
     required int streak,
     required int highestStreak,
     required int totalPracticeTime,
-    required int partnerCount,
     required String level,
   }) {
     return buildAchievementsFromStats(
       streak: streak,
       highestStreak: highestStreak,
       totalPracticeTime: totalPracticeTime,
-      partnerCount: partnerCount,
       level: level,
     ).where((a) => a.earned).map((a) => a.id).toList();
   }
@@ -138,7 +117,6 @@ class AchievementsSection extends StatelessWidget {
       streak: streak,
       highestStreak: highestStreak,
       totalPracticeTime: totalPracticeTime,
-      partnerCount: partnerCount,
       level: level,
     );
   }
