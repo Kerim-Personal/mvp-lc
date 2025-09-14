@@ -707,7 +707,7 @@ exports.findMatch = functions
       // --- Adım 2: Eşleştirme Mantığı (İşlem İçinde) ---
       try {
         const result = await db.runTransaction(async (tx) => {
-          let finalStatus = {status: "ADDED_TO_POOL"};
+          let finalResult = {status: "ADDED_TO_POOL", fcmData: null};
 
           // Adım 2a: Potansiyel eşleşmeleri doğrula
           for (const partnerDoc of potentialPartnerDocs) {
@@ -758,14 +758,23 @@ exports.findMatch = functions
               const myWaitingRef = db.collection("waiting_pool").doc(myId);
               tx.delete(myWaitingRef);
 
-              // Eşleşme yapıldı, durumu güncelle ve döngüden çık.
-              finalStatus = {status: "MATCH_PROCESSED"};
+              // Eşleşme yapıldı, sonucu ayarla ve döngüden çık.
+              finalResult = {
+                status: "MATCH_PROCESSED",
+                fcmData: {
+                  chatId: chatRoomRef.id,
+                  tokens: [
+                    ...(myData.fcmTokens || []),
+                    ...(partnerData.fcmTokens || []),
+                  ].filter((t) => t), // Null/undefined token'ları temizle
+                },
+              };
               break;
             }
           }
 
           // Döngüden sonra, eğer eşleşme bulunmadıysa, kullanıcıyı havuza ekle.
-          if (finalStatus.status === "ADDED_TO_POOL") {
+          if (finalResult.status === "ADDED_TO_POOL") {
             const waitingPoolRef = db.collection("waiting_pool").doc(myId);
             tx.set(waitingPoolRef, {
               ...myPublicData,
@@ -775,10 +784,26 @@ exports.findMatch = functions
             });
           }
 
-          return finalStatus;
+          return finalResult;
         });
 
-        return result; // İstemciye sonucu olduğu gibi gönder
+        // Adım 3: FCM Bildirimini Gönder (İşlem Sonrası)
+        if (result.status === "MATCH_PROCESSED" && result.fcmData && result.fcmData.tokens.length > 0) {
+          const {chatId, tokens} = result.fcmData;
+          const message = {
+            data: {
+              type: "MATCH_FOUND",
+              chatId: chatId,
+              click_action: "FLUTTER_NOTIFICATION_CLICK",
+            },
+            tokens: tokens,
+          };
+          admin.messaging().sendEachForMulticast(message).catch((error) => {
+            console.error("Error sending match notification FCM:", error);
+          });
+        }
+
+        return {status: result.status}; // İstemciye sadece durumu gönder
       } catch (error) {
         console.error("Matchmaking transaction failed:", error);
         throw new functions.https.HttpsError("internal", "Matchmaking failed, please try again.");
