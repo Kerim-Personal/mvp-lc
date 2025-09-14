@@ -12,7 +12,6 @@ import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 import 'package:lingua_chat/widgets/home_screen/premium_upsell_dialog.dart';
 import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
-import 'package:lingua_chat/services/notification_service.dart';
 import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 import 'package:lingua_chat/widgets/common/safety_help_button.dart';
 
@@ -28,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSearching = false;
   StreamSubscription? _matchListener;
-  StreamSubscription? _fcmMatchSub; // FCM listener
   Stream<DocumentSnapshot<Map<String, dynamic>>>? _userStream;
 
   String? _selectedGenderFilter;
@@ -65,14 +63,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _setupAnimations();
     _startCardScrollTimer();
     _entryAnimationController.forward();
-
-    // Listen for match notifications from FCM
-    _fcmMatchSub = onMatchFound.listen((chatId) {
-      if (mounted && _isSearching) {
-        debugPrint("Match found via FCM, navigating to chat: $chatId");
-        _navigateToChat(chatId);
-      }
-    });
   }
 
   void _startCardScrollTimer() {
@@ -101,7 +91,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _matchListener?.cancel();
-    _fcmMatchSub?.cancel();
     _cardScrollTimer?.cancel();
     _entryAnimationController.dispose();
     _pulseAnimationController.dispose();
