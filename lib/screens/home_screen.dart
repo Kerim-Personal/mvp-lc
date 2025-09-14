@@ -1,5 +1,3 @@
-// lib/screens/home_screen.dart
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,6 +10,7 @@ import 'package:lingua_chat/widgets/home_screen/searching_ui.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 import 'package:lingua_chat/widgets/home_screen/premium_upsell_dialog.dart';
 import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
+import 'package:lingua_chat/services/notification_service.dart';
 import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 import 'package:lingua_chat/widgets/common/safety_help_button.dart';
 
@@ -27,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final _currentUser = FirebaseAuth.instance.currentUser;
   bool _isSearching = false;
   StreamSubscription? _matchListener;
+  StreamSubscription? _fcmMatchSub; // FCM listener
   Stream<DocumentSnapshot<Map<String, dynamic>>>? _userStream;
 
   String? _selectedGenderFilter;
@@ -35,7 +35,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   late AnimationController _entryAnimationController;
   late AnimationController _pulseAnimationController;
-  // late AnimationController _searchAnimationController; // <-- HATA DÜZELTME 1: Bu satır kaldırıldı.
   late PageController _pageController;
   double _pageOffset = 1000;
   Timer? _cardScrollTimer;
@@ -63,6 +62,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _setupAnimations();
     _startCardScrollTimer();
     _entryAnimationController.forward();
+
+    // Listen for match notifications from FCM
+    _fcmMatchSub = onMatchFound.listen((chatId) {
+      if (mounted && _isSearching) {
+        debugPrint("Match found via FCM, navigating to chat: $chatId");
+        _navigateToChat(chatId);
+      }
+    });
   }
 
   void _startCardScrollTimer() {
@@ -79,22 +86,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _setupAnimations() {
     _entryAnimationController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500)); // Hızlandırıldı (1000 -> 500)
+        vsync: this, duration: const Duration(milliseconds: 500));
     _pulseAnimationController =
     AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat(reverse: true);
-    // _searchAnimationController = // <-- HATA DÜZELTME 2: Bu blok kaldırıldı.
-    // AnimationController(vsync: this, duration: const Duration(seconds: 2))
-    //   ..repeat();
   }
 
   @override
   void dispose() {
     _matchListener?.cancel();
+    _fcmMatchSub?.cancel();
     _cardScrollTimer?.cancel();
     _entryAnimationController.dispose();
     _pulseAnimationController.dispose();
-    // _searchAnimationController.dispose(); // <-- HATA DÜZELTME 3: Bu satır kaldırıldı.
     _pageController.removeListener(() {});
     _pageController.dispose();
     super.dispose();
@@ -103,27 +107,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _listenForMatch() {
     if (_currentUser == null) return;
     _matchListener?.cancel();
-    // Listen on the 'matches' collection for a match document.
     _matchListener = FirebaseFirestore.instance
         .collection('matches')
         .doc(_currentUser.uid)
         .snapshots()
         .listen((snapshot) async {
-      // A match is found if the document exists and contains a chatId.
       if (mounted && snapshot.exists && snapshot.data()?['chatId'] != null) {
         final chatRoomId = snapshot.data()!['chatId'] as String;
         _matchListener?.cancel();
-
-        // The match document is temporary, delete it after consumption.
         await snapshot.reference.delete();
-
-        // Also, ensure the user is removed from the waiting pool as a safeguard.
         FirebaseFirestore.instance
             .collection('waiting_pool')
             .doc(_currentUser.uid)
             .delete()
             .catchError((_) {});
-
         _navigateToChat(chatRoomId);
       }
     });
@@ -147,12 +144,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final status = response.data['status'];
 
       if (status == 'ADDED_TO_POOL' || status == 'MATCH_PROCESSED') {
-        // In both cases, the user should listen for a match document.
-        // If they were added to the pool, they wait for someone else.
-        // If a match was processed, their own match document was just created.
         _listenForMatch();
       } else {
-        // Handle other statuses or errors
         throw Exception(response.data['message'] ?? 'Unknown error from server');
       }
     } on FirebaseFunctionsException catch (e) {
@@ -161,7 +154,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           content: Text(e.message ?? 'An error occurred.'),
           backgroundColor: Colors.red,
         ));
-        // Add a small delay before cancelling to prevent race conditions during debugging
         await Future.delayed(const Duration(seconds: 2));
         await _cancelSearch();
       }
@@ -171,7 +163,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           content: Text('An unexpected error occurred: ${e.toString()}'),
           backgroundColor: Colors.red,
         ));
-        // Add a small delay before cancelling to prevent race conditions during debugging
         await Future.delayed(const Duration(seconds: 2));
         await _cancelSearch();
       }
@@ -181,15 +172,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _cancelSearch() async {
     _matchListener?.cancel();
     if (_currentUser != null) {
-      // Remove user from the waiting pool.
       FirebaseFirestore.instance
           .collection('waiting_pool')
           .doc(_currentUser.uid)
           .delete()
           .catchError((_) {});
-
-      // Also delete any pending match document, just in case a match was found
-      // right as the user cancelled.
       FirebaseFirestore.instance
           .collection('matches')
           .doc(_currentUser.uid)
@@ -205,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _navigateToChat(String chatRoomId) {
     if (!mounted) return;
     _matchListener?.cancel();
+    _fcmMatchSub?.cancel();
     setState(() => _isSearching = false);
     widget.onSearchingChanged?.call(false);
     Navigator.push(
@@ -290,7 +278,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _buildHomeUI(),
           SearchingUI(
             isSearching: _isSearching,
-            // searchAnimationController: _searchAnimationController, // <-- HATA DÜZELTME 4: Bu parametre kaldırıldı.
             onCancelSearch: _cancelSearch,
             isPremium: _isProUser,
           ),
@@ -322,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final userName = userData['displayName'] ?? 'Traveler';
     final avatarUrl = userData['avatarUrl'] as String?;
     final isPremium = userData['isPremium'] as bool? ?? false;
-    final diamonds = userData['diamonds'] as int? ?? 0; // streak yerine diamonds
+    final diamonds = userData['diamonds'] as int? ?? 0;
     final role = (userData['role'] as String?) ?? 'user';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -378,17 +365,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: _buildHeaderSection(userSnap),
                     ),
                   ),
-                  // Premium panel home ekranından kaldırıldı
-                  // if (_isProUser) ...[
-                  //   const SizedBox(height: 20),
-                  //   Padding(
-                  //     padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  //     child: _buildAnimatedUI(
-                  //       interval: const Interval(0.05, 0.7),
-                  //       child: const PremiumStatusPanel(),
-                  //     ),
-                  //   ),
-                  // ],
                   const SizedBox(height: 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
