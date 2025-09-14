@@ -65,7 +65,7 @@ class _PartnerFinderSectionState extends State<PartnerFinderSection> {
                       Icon(Icons.language_sharp,
                           color: Colors.white, size: 70),
                       SizedBox(height: 8),
-                      Text('Find Partner',
+                      Text('AI Partner',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,

@@ -6,7 +6,7 @@ import 'package:lingua_chat/screens/linguabot_chat_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
-import 'package.lingua_chat/widgets/home_screen/home_cards_section.dart';
+import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 import 'package:lingua_chat/widgets/common/safety_help_button.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,25 +29,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   double _pageOffset = 1000;
   Timer? _cardScrollTimer;
 
+  // PageController listener'ını doğru şekilde kaldırabilmek için saklıyoruz
+  VoidCallback? _pageControllerListener;
+
   @override
   void initState() {
     super.initState();
-    if (_currentUser != null) {
+    // Alan tanıtımı yerine yerel değişken ile null-safety uyumlu erişim
+    final user = _currentUser;
+    if (user != null) {
       _userStream = FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(user.uid)
           .snapshots();
     }
 
-    _pageController = PageController(viewportFraction: 0.85, initialPage: 1000)
-      ..addListener(() {
-        final page = _pageController.page;
-        if (mounted && page != null) {
-          setState(() {
-            _pageOffset = page;
-          });
-        }
-      });
+    _pageController = PageController(viewportFraction: 0.85, initialPage: 1000);
+    _pageControllerListener = () {
+      final page = _pageController.page;
+      if (mounted && page != null) {
+        setState(() {
+          _pageOffset = page;
+        });
+      }
+    };
+    _pageController.addListener(_pageControllerListener!);
 
     _setupAnimations();
     _startCardScrollTimer();
@@ -58,11 +64,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _cardScrollTimer?.cancel(); // Mevcut zamanlayıcıyı iptal et
     _cardScrollTimer = Timer.periodic(const Duration(seconds: 7), (timer) {
       if (!mounted) return;
-      _pageController.animateToPage(
-        _pageController.page!.round() + 1,
-        duration: const Duration(milliseconds: 800),
-        curve: Curves.easeInOut,
-      );
+      final page = _pageController.page;
+      if (page != null) {
+        _pageController.animateToPage(
+          page.round() + 1,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+      }
     });
   }
 
@@ -70,8 +79,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _entryAnimationController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 500));
     _pulseAnimationController =
-    AnimationController(vsync: this, duration: const Duration(seconds: 2))
-      ..repeat(reverse: true);
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat(reverse: true);
   }
 
   @override
@@ -79,7 +88,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _cardScrollTimer?.cancel();
     _entryAnimationController.dispose();
     _pulseAnimationController.dispose();
-    _pageController.removeListener(() {});
+    if (_pageControllerListener != null) {
+      _pageController.removeListener(_pageControllerListener!);
+    }
     _pageController.dispose();
     super.dispose();
   }
@@ -161,46 +172,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       stream: _userStream,
       builder: (context, snapshot) {
         final userSnap = snapshot.data;
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: _buildAnimatedUI(
-                  interval: const Interval(0.0, 0.6),
-                  child: _buildHeaderSection(userSnap),
-                ),
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: _buildAnimatedUI(
+                      interval: const Interval(0.0, 0.6),
+                      child: _buildHeaderSection(userSnap),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: _buildAnimatedUI(
+                      interval: const Interval(0.1, 0.7),
+                      child: _buildStatsSection(userSnap),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildAnimatedUI(
+                    interval: const Interval(0.2, 0.8),
+                    child: PartnerFinderSection(
+                      onFindPartner: _findPracticePartner,
+                      pulseAnimationController: _pulseAnimationController,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Listener(
+                    onPointerDown: (_) => _cardScrollTimer?.cancel(),
+                    onPointerUp: (_) => _startCardScrollTimer(),
+                    child: HomeCardsSection(
+                      pageController: _pageController,
+                      pageOffset: _pageOffset,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: _buildAnimatedUI(
-                  interval: const Interval(0.1, 0.7),
-                  child: _buildStatsSection(userSnap),
-                ),
-              ),
-              const SizedBox(height: 24),
-              _buildAnimatedUI(
-                interval: const Interval(0.2, 0.8),
-                child: PartnerFinderSection(
-                  onFindPartner: _findPracticePartner,
-                  pulseAnimationController: _pulseAnimationController,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Listener(
-                onPointerDown: (_) => _cardScrollTimer?.cancel(),
-                onPointerUp: (_) => _startCardScrollTimer(),
-                child: HomeCardsSection(
-                  pageController: _pageController,
-                  pageOffset: _pageOffset,
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         );
       },
