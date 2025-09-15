@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 
 class HolographicHeader extends StatefulWidget {
   final bool isBotThinking;
-  const HolographicHeader({super.key, required this.isBotThinking});
+  final VoidCallback? onSettingsTap;
+  const HolographicHeader({super.key, required this.isBotThinking, this.onSettingsTap});
 
   @override
   State<HolographicHeader> createState() => _HolographicHeaderState();
@@ -59,10 +60,12 @@ class _HolographicHeaderState extends State<HolographicHeader> with TickerProvid
               );
             },
           ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.settings_outlined, color: Colors.white70)),
+          IconButton(
+            onPressed: widget.onSettingsTap ?? () {},
+            icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+          ),
         ],
       ),
     );
   }
 }
-

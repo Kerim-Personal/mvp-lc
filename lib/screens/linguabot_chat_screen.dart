@@ -9,11 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/services/linguabot_service.dart';
 import 'package:lingua_chat/models/grammar_analysis.dart';
 import 'package:lingua_chat/models/message_unit.dart';
-import 'package:lingua_chat/widgets/linguabot/holographic_header.dart';
-import 'package:lingua_chat/widgets/linguabot/intelligent_composer.dart';
-import 'package:lingua_chat/widgets/linguabot/message_entrance_animator.dart';
-import 'package:lingua_chat/widgets/linguabot/message_bubble.dart';
-import 'package:lingua_chat/widgets/linguabot/celestial_background.dart';
+import 'package:lingua_chat/widgets/linguabot/linguabot.dart';
+import 'package:lingua_chat/utils/text_metrics.dart';
 
 // --- MAIN SCREEN: THE HEART OF THE SIMULATOR ---
 
@@ -45,7 +42,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     _messages.add(MessageUnit(
       text: "Welcome back to the language universe. Ready to push your limits?",
       sender: MessageSender.bot,
-      grammarAnalysis: GrammarAnalysis(tense: "Present Simple", verbCount: 1, nounCount: 2, complexity: 0.3, sentiment: 0.7),
+      grammarAnalysis: const GrammarAnalysis(tense: "Present Simple", verbCount: 1, nounCount: 2, complexity: 0.3, sentiment: 0.7),
     ));
 
     _entryController.forward();
@@ -59,26 +56,42 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     super.dispose();
   }
 
+  List<String> _computeSuggestions() {
+    if (_isBotThinking) return const [];
+    if (_messages.isEmpty) {
+      return const [
+        'Hi! Can you test me with a travel topic? ✈️',
+        'Let’s practice small talk about work.',
+        'Give me a B1-level question.'
+      ];
+    }
+    final last = _messages.last;
+    if (last.sender == MessageSender.bot) {
+      return const [
+        'Could you ask me a follow-up question?',
+        'Can you correct my last sentence if needed?',
+        'How would a native say that?'
+      ];
+    } else {
+      return const [
+        'Please evaluate my grammar briefly.',
+        'Suggest a richer phrase I can use.',
+        'Ask me something tricky!'
+      ];
+    }
+  }
+
   Future<void> _sendMessage(String text) async {
     if (text.isEmpty) return;
 
-    // If premium, start the grammar analysis request immediately (to run concurrently)
-    Future<GrammarAnalysis?> analysisFuture = widget.isPremium
-        ? _botService.analyzeGrammar(text)
-        : Future.value(null);
-
-    double _computeVocabRichness(String input) {
-      final words = input.toLowerCase().split(RegExp(r'\s+')).where((w) => w.trim().isNotEmpty).toList();
-      if (words.isEmpty) return 0.0;
-      final unique = words.toSet().length;
-      return (unique / words.length).clamp(0.0, 1.0);
-    }
+    // Gramer analizi: her durumda paralel başlat
+    final Future<GrammarAnalysis?> analysisFuture = _botService.analyzeGrammar(text);
 
     final userMessage = MessageUnit(
       text: text,
       sender: MessageSender.user,
-      grammarAnalysis: null, // will remain null if not premium, will be filled later if premium
-      vocabularyRichness: _computeVocabRichness(text),
+      grammarAnalysis: null, // analiz hazır olduğunda doldurulacak
+      vocabularyRichness: TextMetrics.vocabularyRichness(text),
     );
 
     setState(() {
@@ -87,7 +100,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     });
     _scrollToBottom();
 
-    // Update the message when the analysis is ready
+    // Analiz tamamlanınca mesajı güncelle
     analysisFuture.then((analysis) {
       if (!mounted) return;
       if (analysis != null) {
@@ -98,27 +111,37 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
           }
         });
       }
+    }).catchError((_) {
+      // sessizce yoksay
     });
 
     final botStartTime = DateTime.now();
 
-    await Future.delayed(Duration(milliseconds: 1500 + Random().nextInt(1500)));
-    final botResponseText = await _botService.sendMessage(text);
-    final botResponseTime = DateTime.now().difference(botStartTime);
+    try {
+      await Future.delayed(Duration(milliseconds: 1500 + Random().nextInt(1500)));
+      final botResponseText = await _botService.sendMessage(text);
+      final botResponseTime = DateTime.now().difference(botStartTime);
 
-    final botMessage = MessageUnit(
-      text: botResponseText,
-      sender: MessageSender.bot,
-      botResponseTime: botResponseTime,
-      grammarAnalysis: null, // Bot messages are not analyzed (requirement: only the user's own message)
-      vocabularyRichness: _computeVocabRichness(botResponseText),
-    );
+      final botMessage = MessageUnit(
+        text: botResponseText,
+        sender: MessageSender.bot,
+        botResponseTime: botResponseTime,
+        grammarAnalysis: null, // bot mesajları analiz edilmez
+        vocabularyRichness: TextMetrics.vocabularyRichness(botResponseText),
+      );
 
-    setState(() {
-      _messages.add(botMessage);
-      _isBotThinking = false;
-    });
-    _scrollToBottom();
+      if (!mounted) return;
+      setState(() {
+        _messages.add(botMessage);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesaj gönderilirken bir sorun oluştu.')));
+    } finally {
+      if (!mounted) return;
+      setState(() => _isBotThinking = false);
+      _scrollToBottom();
+    }
   }
 
   void _updateMessageText(String messageId, String newText) {
@@ -128,6 +151,31 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
         _messages[messageIndex].text = newText;
       }
     });
+  }
+
+  void _openSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withAlpha(235),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('Ayarlar', style: TextStyle(color: Colors.cyanAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 12),
+              Text('• Premium analiz sohbet sırasında otomatik çalışır.', style: TextStyle(color: Colors.white70)),
+              Text('• Mesaj balonuna uzun basarak kopyalama / seslendirme / analiz seçeneklerine erişin.', style: TextStyle(color: Colors.white70)),
+              Text('• Composer üzerinden emoji ve sesle yazma kullanılabilir.', style: TextStyle(color: Colors.white70)),
+              SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -144,6 +192,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
 
   @override
   Widget build(BuildContext context) {
+    final suggestions = _computeSuggestions();
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -161,15 +210,19 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
           SafeArea(
             child: Column(
               children: [
-                HolographicHeader(isBotThinking: _isBotThinking),
+                HolographicHeader(isBotThinking: _isBotThinking, onSettingsTap: _openSettings),
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: _messages.length,
+                    itemCount: _messages.length + (_isBotThinking ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == _messages.length) {
+                        return const MessageEntranceAnimator(child: TypingIndicator());
+                      }
                       final message = _messages[index];
                       return MessageEntranceAnimator(
+                        key: ValueKey(message.id),
                         child: MessageBubble(
                           message: message,
                           onCorrect: (newText) => _updateMessageText(message.id, newText),
@@ -181,6 +234,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                 IntelligentComposer(
                   onSend: _sendMessage,
                   isThinking: _isBotThinking,
+                  suggestions: suggestions,
                 ),
               ],
             ),

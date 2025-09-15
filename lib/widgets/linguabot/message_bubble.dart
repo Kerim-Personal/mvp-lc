@@ -1,8 +1,10 @@
 // lib/widgets/linguabot/message_bubble.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lingua_chat/models/grammar_analysis.dart';
 import 'package:lingua_chat/models/message_unit.dart';
 import 'package:lingua_chat/widgets/linguabot/message_insight_dialog.dart';
+import 'package:lingua_chat/services/tts_service.dart';
 
 class MessageBubble extends StatelessWidget {
   final MessageUnit message;
@@ -43,6 +45,58 @@ class MessageBubble extends StatelessWidget {
     return TextSpan(children: spans);
   }
 
+  void _showActions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withAlpha(230),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        final tts = TtsService();
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.content_copy, color: Colors.white70),
+                title: const Text('Kopyala', style: TextStyle(color: Colors.white)),
+                onTap: () async {
+                  await Clipboard.setData(ClipboardData(text: message.text));
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesaj kopyalandı')));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.volume_up, color: Colors.white70),
+                title: const Text('Seslendir', style: TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await tts.speak(message.text, language: 'en-US');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insights, color: Colors.white70),
+                title: const Text('Analiz', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    barrierColor: Colors.black.withAlpha(128),
+                    builder: (_) => MessageInsightDialog(
+                      message: message,
+                      onCorrect: onCorrect,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isUser = message.sender == MessageSender.user;
@@ -51,22 +105,12 @@ class MessageBubble extends StatelessWidget {
     if (isUser && ga != null) {
       textWidget = RichText(text: _buildAnalyzedSpan(message.text, ga));
     } else {
-      textWidget = const SizedBox.shrink();
       textWidget = Text(message.text, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5));
     }
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onLongPress: () {
-          showDialog(
-            context: context,
-            barrierColor: Colors.black.withAlpha(128),
-            builder: (_) => MessageInsightDialog(
-              message: message,
-              onCorrect: onCorrect,
-            ),
-          );
-        },
+        onLongPress: () => _showActions(context),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -114,7 +158,51 @@ class MessageBubble extends StatelessWidget {
                       ),
                     ],
                   ),
-                )
+                ),
+              // Hızlı eylemler (küçük ikonlar)
+              Padding(
+                padding: const EdgeInsets.only(top: 6.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 18,
+                      tooltip: 'Kopyala',
+                      icon: const Icon(Icons.copy, color: Colors.white70),
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: message.text));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesaj kopyalandı')));
+                      },
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 18,
+                      tooltip: 'Seslendir',
+                      icon: const Icon(Icons.volume_up, color: Colors.white70),
+                      onPressed: () async {
+                        await TtsService().speak(message.text, language: 'en-US');
+                      },
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 18,
+                      tooltip: 'Analiz',
+                      icon: const Icon(Icons.insights, color: Colors.white70),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          barrierColor: Colors.black.withAlpha(128),
+                          builder: (_) => MessageInsightDialog(
+                            message: message,
+                            onCorrect: onCorrect,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -122,4 +210,3 @@ class MessageBubble extends StatelessWidget {
     );
   }
 }
-
