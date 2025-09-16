@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 import 'package:lingua_chat/screens/report_user_screen.dart';
 import 'package:lingua_chat/services/admin_service.dart';
 import 'package:lingua_chat/screens/ban_user_screen.dart';
@@ -627,7 +626,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
           ),
         ],
       ),
-    );
+      ),
+      );
+
+
   }
 
   Widget _buildMessageBubble(GroupMessage message, bool isMe,
@@ -645,12 +647,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       isContinuation: continuation,
     );
 
-    final avatar = CircleAvatar(
+    // Avatar sadece diğer kullanıcılar için oluşturulur
+    final otherAvatar = CircleAvatar(
       radius: 18,
       backgroundColor: Colors.grey.shade300,
       child: ClipOval(
         child: SvgPicture.network(
-          isMe ? _avatarUrl : message.senderAvatarUrl,
+          message.senderAvatarUrl,
           placeholderBuilder: (context) =>
               const Icon(Icons.person, size: 20),
         ),
@@ -669,7 +672,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isMe && !continuation) avatar,
+          if (!isMe && !continuation) otherAvatar,
           if (!isMe && continuation) const SizedBox(width: 42), // 18*2 + 6
           SizedBox(width: isMe ? 0 : 6),
           Flexible(
@@ -695,9 +698,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
               ],
             ),
           ),
-          SizedBox(width: isMe ? 6 : 0),
-          if (isMe && !continuation) avatar,
-          if (isMe && continuation) const SizedBox(width: 42),
+          // Kendi mesajlarımda avatar veya sağ boşluk EKLENMEZ
         ],
       ),
     );

@@ -33,6 +33,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   String _nativeLanguage = 'en';
   bool _isPremium = false;
   bool _allowPop = false; // allow programmatic pop after confirm
+  bool _composerEmojiOpen = false; // composer emoji panel durumu
 
   late AnimationController _backgroundController;
   late AnimationController _entryController;
@@ -246,6 +247,11 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
       canPop: _allowPop,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        // Eğer alt composer geri tuşunu emoji/klavye kapatmak için kullandıysa, onay diyaloğunu açmayalım
+        final primaryFocus = FocusManager.instance.primaryFocus;
+        if (_composerEmojiOpen || (primaryFocus != null && primaryFocus.hasFocus)) {
+          return;
+        }
         _confirmExit().then((shouldPop) {
           if (shouldPop && mounted) {
             setState(() => _allowPop = true);
@@ -321,6 +327,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                     hintText: 'Type a message...',
                     characterLimit: 1000,
                     enabled: true,
+                    onEmojiVisibilityChanged: (open) => setState(() => _composerEmojiOpen = open),
                   ),
                 ],
               ),

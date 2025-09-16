@@ -20,6 +20,8 @@ class MessageComposer extends StatefulWidget {
   final int maxLines;
   final int? characterLimit; // disable send if exceeded
   final bool showTranslationPanelInitially;
+  final ValueChanged<bool>? onEmojiVisibilityChanged; // yeni: ebeveyne emoji açık/kapalı bildir
+  final ValueChanged<bool>? onInputFocusChanged; // yeni: TextField fokus bildirimi
 
   const MessageComposer({super.key,
     required this.onSend,
@@ -32,6 +34,8 @@ class MessageComposer extends StatefulWidget {
     this.maxLines = 4,
     this.characterLimit,
     this.showTranslationPanelInitially = false,
+    this.onEmojiVisibilityChanged,
+    this.onInputFocusChanged,
   });
 
   @override
@@ -66,7 +70,9 @@ class _MessageComposerState extends State<MessageComposer> {
     _focusNode.addListener(() {
       if (_focusNode.hasFocus && _showEmojiPicker) {
         setState(() => _showEmojiPicker = false); // Klavye açılırken emoji panelini kapat
+        widget.onEmojiVisibilityChanged?.call(false);
       }
+      widget.onInputFocusChanged?.call(_focusNode.hasFocus);
     });
     if (widget.enableSpeech) _initSpeech();
     _showTranslationPanel = widget.showTranslationPanelInitially;
@@ -113,6 +119,7 @@ class _MessageComposerState extends State<MessageComposer> {
   void _toggleEmojiPicker() {
     if (!widget.enableEmojis) return;
     setState(() => _showEmojiPicker = !_showEmojiPicker);
+    widget.onEmojiVisibilityChanged?.call(_showEmojiPicker);
     if (_showEmojiPicker) {
       FocusScope.of(context).unfocus();
     } else {
@@ -298,7 +305,7 @@ class _MessageComposerState extends State<MessageComposer> {
                 padding: const EdgeInsets.all(0),
                 constraints:
                     const BoxConstraints(minWidth: 40, minHeight: 40),
-                color: iconBase.withOpacity(0.6),
+                color: iconBase.withValues(alpha: 0.6),
                 onPressed: widget.enabled ? _toggleEmojiPicker : null,
                 tooltip: 'Emoji',
               )
@@ -312,18 +319,18 @@ class _MessageComposerState extends State<MessageComposer> {
                 padding: const EdgeInsets.all(0),
                 constraints:
                     const BoxConstraints(minWidth: 40, minHeight: 40),
-                color: iconBase.withOpacity(0.6),
+                color: iconBase.withValues(alpha: 0.6),
                 onPressed: () =>
                     setState(() => _showTranslationPanel = !_showTranslationPanel),
                 tooltip: 'Translate',
               )
             : null,
         hintText: widget.hintText,
-        hintStyle: TextStyle(color: theme.hintColor.withOpacity(0.8)),
+        hintStyle: TextStyle(color: theme.hintColor.withValues(alpha: 0.8)),
         filled: true,
         fillColor: isDark
-            ? Colors.grey.shade800.withOpacity(0.8)
-            : Colors.white.withOpacity(0.9),
+            ? Colors.grey.shade800.withValues(alpha: 0.8)
+            : Colors.white.withValues(alpha: 0.9),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         border: OutlineInputBorder(
@@ -384,164 +391,179 @@ class _MessageComposerState extends State<MessageComposer> {
       ],
     );
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: Colors.transparent,
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.enableTranslation && _showTranslationPanel)
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOutCubic,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 6), // daha az boşluk
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(18), // küçültüldü
-                        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.035),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 6, 4, 4),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.translate_rounded,
-                                  size: 16,
-                                  color: _fade(theme.colorScheme.onSurface, 0.55),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Translation',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: _fade(theme.colorScheme.onSurface, 0.78),
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (_translating)
-                                  const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                IconButton(
-                                  splashRadius: 18,
-                                  iconSize: 18,
-                                  padding: EdgeInsets.zero,
-                                  icon: const Icon(Icons.close_rounded),
-                                  onPressed: () => setState(() => _showTranslationPanel = false),
-                                  tooltip: 'Close',
-                                ),
-                              ],
+    // PopScope: Geri tuşu önce emoji panelini/klavyeyi kapatsın (predictive back uyumlu)
+    return PopScope(
+      canPop: !(_showEmojiPicker || _focusNode.hasFocus),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_showEmojiPicker) {
+          setState(() => _showEmojiPicker = false);
+          return;
+        }
+        if (_focusNode.hasFocus) {
+          _focusNode.unfocus();
+          return;
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: Colors.transparent,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.enableTranslation && _showTranslationPanel)
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOutCubic,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 6), // daha az boşluk
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(18), // küçültüldü
+                          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.035),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                          ),
-                          const Divider(height: 1),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxHeight: 80), // 120 -> 80
-                              child: SingleChildScrollView(
-                                child: Text(
-                                  hasPreview ? _translatedPreview! : 'Translation will appear here...',
-                                  style: TextStyle(
-                                    color: onSurface.withValues(alpha: hasPreview ? 0.9 : 0.5),
-                                    fontSize: 13,
-                                    height: 1.35,
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 6, 4, 4),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.translate_rounded,
+                                    size: 16,
+                                    color: _fade(theme.colorScheme.onSurface, 0.55),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Translation',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: _fade(theme.colorScheme.onSurface, 0.78),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (_translating)
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  IconButton(
+                                    splashRadius: 18,
+                                    iconSize: 18,
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(Icons.close_rounded),
+                                    onPressed: () => setState(() => _showTranslationPanel = false),
+                                    tooltip: 'Close',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(height: 1),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxHeight: 80), // 120 -> 80
+                                child: SingleChildScrollView(
+                                  child: Text(
+                                    hasPreview ? _translatedPreview! : 'Translation will appear here...',
+                                    style: TextStyle(
+                                      color: onSurface.withValues(alpha: hasPreview ? 0.9 : 0.5),
+                                      fontSize: 13,
+                                      height: 1.35,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          const Divider(height: 1, indent: 12, endIndent: 12),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(child: _buildLangToggle(theme.colorScheme.onSurface)),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  height: 34,
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            const Divider(height: 1, indent: 12, endIndent: 12),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(child: _buildLangToggle(theme.colorScheme.onSurface)),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    height: 34,
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      ),
+                                      onPressed: hasPreview ? _applyTranslatedToInput : null,
+                                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                                      label: const Text('Apply', style: TextStyle(fontSize: 13)),
                                     ),
-                                    onPressed: hasPreview ? _applyTranslatedToInput : null,
-                                    icon: const Icon(Icons.check_circle_outline, size: 16),
-                                    label: const Text('Apply', style: TextStyle(fontSize: 13)),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                inputRow,
-                if (_overCharacterLimit)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6, right: 4),
-                      child: Text('Character limit exceeded (${widget.characterLimit})', style: TextStyle(fontSize: 11, color: theme.colorScheme.error)),
+                  inputRow,
+                  if (_overCharacterLimit)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6, right: 4),
+                        child: Text('Character limit exceeded (${widget.characterLimit})', style: TextStyle(fontSize: 11, color: theme.colorScheme.error)),
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        if (_showEmojiPicker && widget.enableEmojis)
-          SizedBox(
-            height: 300,
-            child: EmojiPicker(
-               onEmojiSelected: (category, emoji) {
-                 _insertEmoji(emoji.emoji);
-               },
-               config: Config(
-                 height: 300,
-                 checkPlatformCompatibility: true,
-                 emojiViewConfig: const EmojiViewConfig(
-                  emojiSizeMax: 28,
-                  backgroundColor: Colors.transparent,
-                ),
-                categoryViewConfig: CategoryViewConfig(
-                  backgroundColor: theme.cardColor,
-                  iconColor: _fade(iconBase, 0.55),
-                  iconColorSelected: theme.colorScheme.primary,
-                  indicatorColor: theme.colorScheme.primary,
-                ),
-                bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
-                skinToneConfig: const SkinToneConfig(enabled: true),
-                searchViewConfig: SearchViewConfig(
-                  backgroundColor: theme.cardColor,
-                  hintText: 'Ara',
-                ),
+                ],
               ),
             ),
           ),
-      ],
+          if (_showEmojiPicker && widget.enableEmojis)
+            SizedBox(
+              height: 300,
+              child: EmojiPicker(
+                 onEmojiSelected: (category, emoji) {
+                   _insertEmoji(emoji.emoji);
+                 },
+                 config: Config(
+                   height: 300,
+                   checkPlatformCompatibility: true,
+                   emojiViewConfig: const EmojiViewConfig(
+                    emojiSizeMax: 28,
+                    backgroundColor: Colors.transparent,
+                  ),
+                  categoryViewConfig: CategoryViewConfig(
+                    backgroundColor: theme.cardColor,
+                    iconColor: _fade(iconBase, 0.55),
+                    iconColorSelected: theme.colorScheme.primary,
+                    indicatorColor: theme.colorScheme.primary,
+                  ),
+                  bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
+                  skinToneConfig: const SkinToneConfig(enabled: true),
+                  searchViewConfig: SearchViewConfig(
+                    backgroundColor: theme.cardColor,
+                    hintText: 'Ara',
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

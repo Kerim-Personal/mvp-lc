@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:lingua_chat/services/stt_service.dart';
+import 'package:characters/characters.dart';
 
 class IntelligentComposer extends StatefulWidget {
   final Function(String) onSend;
@@ -19,6 +20,7 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
   final _stt = SttService();
   bool _showEmoji = false;
   bool _isListening = false;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -31,6 +33,7 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     _stt.stop();
     super.dispose();
   }
@@ -65,97 +68,141 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
   Widget build(BuildContext context) {
     final themeBorder = Border.all(color: Colors.purpleAccent.withAlpha(128));
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (widget.suggestions.isNotEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(left: 12, right: 12, bottom: 6),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final s in widget.suggestions.take(6)) ...[
-                    ActionChip(
-                      label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                      onPressed: widget.isThinking ? null : () => widget.onSend(s),
-                      backgroundColor: Colors.white.withAlpha(18),
-                      side: BorderSide(color: Colors.cyanAccent.withAlpha(100)),
-                    ),
-                    const SizedBox(width: 8),
+    return PopScope(
+      canPop: !(_showEmoji || _focusNode.hasFocus),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_showEmoji) {
+          setState(() => _showEmoji = false);
+          return;
+        }
+        if (_focusNode.hasFocus) {
+          _focusNode.unfocus();
+          return;
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.suggestions.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(left: 12, right: 12, bottom: 6),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final s in widget.suggestions.take(6)) ...[
+                      ActionChip(
+                        label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        onPressed: widget.isThinking ? null : () => widget.onSend(s),
+                        backgroundColor: Colors.white.withAlpha(18),
+                        side: BorderSide(color: Colors.cyanAccent.withAlpha(100)),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        Container(
-          padding: const EdgeInsets.all(10),
-          margin: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.black.withAlpha(77),
-            borderRadius: BorderRadius.circular(30),
-            border: themeBorder,
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(_showEmoji ? Icons.keyboard : Icons.emoji_emotions_outlined, color: Colors.amberAccent),
-                onPressed: widget.isThinking ? null : () => setState(() => _showEmoji = !_showEmoji),
-                tooltip: _showEmoji ? 'Klavye' : 'Emoji',
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: "Mesaj yaz...",
-                    hintStyle: TextStyle(color: Colors.white.withAlpha(128)),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(77),
+              borderRadius: BorderRadius.circular(30),
+              border: themeBorder,
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(_showEmoji ? Icons.keyboard : Icons.emoji_emotions_outlined, color: Colors.amberAccent),
+                  onPressed: widget.isThinking
+                      ? null
+                      : () => setState(() {
+                            _showEmoji = !_showEmoji;
+                            if (_showEmoji) {
+                              _focusNode.unfocus();
+                            } else {
+                              _focusNode.requestFocus();
+                            }
+                          }),
+                  tooltip: _showEmoji ? 'Klavye' : 'Emoji',
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: "Mesaj yaz...",
+                      hintStyle: TextStyle(color: Colors.white.withAlpha(128)),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: widget.isThinking ? null : (_) => _send(),
                   ),
-                  onChanged: (_) => setState(() {}),
-                  onSubmitted: widget.isThinking ? null : (_) => _send(),
                 ),
-              ),
-              IconButton(
-                icon: Icon(
-                  widget.isThinking
-                      ? Icons.hourglass_empty
-                      : (_controller.text.trim().isEmpty ? (_isListening ? Icons.stop_circle_outlined : Icons.mic_none) : Icons.send),
-                  color: widget.isThinking ? Colors.purpleAccent : (_controller.text.trim().isEmpty ? Colors.redAccent : Colors.purpleAccent),
-                ),
-                onPressed: widget.isThinking
-                    ? null
-                    : () {
-                        if (_controller.text.trim().isEmpty) {
-                          _toggleListening();
-                        } else {
-                          _send();
-                        }
-                      },
-                tooltip: _controller.text.trim().isEmpty ? (_isListening ? 'Dinlemeyi durdur' : 'Sesle yaz') : 'Gönder',
-              )
-            ],
-          ),
-        ),
-        if (_showEmoji)
-          SizedBox(
-            height: 250,
-            child: EmojiPicker(
-              onEmojiSelected: (category, emoji) {
-                _controller
-                  ..text += emoji.emoji
-                  ..selection = TextSelection.fromPosition(TextPosition(offset: _controller.text.length));
-                setState(() {}); // buton ikonunu güncellemek için
-              },
-              config: const Config(
-                emojiViewConfig: EmojiViewConfig(columns: 8, emojiSizeMax: 28),
-                categoryViewConfig: CategoryViewConfig(showBackspaceButton: true),
-              ),
+                IconButton(
+                  icon: Icon(
+                    widget.isThinking
+                        ? Icons.hourglass_empty
+                        : (_controller.text.trim().isEmpty ? (_isListening ? Icons.stop_circle_outlined : Icons.mic_none) : Icons.send),
+                    color: widget.isThinking ? Colors.purpleAccent : (_controller.text.trim().isEmpty ? Colors.redAccent : Colors.purpleAccent),
+                  ),
+                  onPressed: widget.isThinking
+                      ? null
+                      : () {
+                          if (_controller.text.trim().isEmpty) {
+                            _toggleListening();
+                          } else {
+                            _send();
+                          }
+                        },
+                  tooltip: _controller.text.trim().isEmpty ? (_isListening ? 'Dinlemeyi durdur' : 'Sesle yaz') : 'Gönder',
+                )
+              ],
             ),
           ),
-      ],
+          if (_showEmoji)
+            SizedBox(
+              height: 250,
+              child: EmojiPicker(
+                onEmojiSelected: (category, emoji) {
+                  final selection = _controller.selection;
+                  final oldText = _controller.text;
+                  String newText;
+                  int caretPos;
+                  if (selection.isValid) {
+                    newText = oldText.replaceRange(selection.start, selection.end, emoji.emoji);
+                    caretPos = selection.start + emoji.emoji.length;
+                  } else {
+                    newText = oldText + emoji.emoji;
+                    caretPos = newText.length;
+                  }
+                  _controller
+                    ..text = newText
+                    ..selection = TextSelection.fromPosition(TextPosition(offset: caretPos));
+                  setState(() {}); // buton ikonunu güncellemek için
+                },
+                onBackspacePressed: () {
+                  final text = _controller.text;
+                  if (text.isEmpty) return;
+                  final newText = text.characters.skipLast(1).toString();
+                  _controller
+                    ..text = newText
+                    ..selection = TextSelection.fromPosition(TextPosition(offset: newText.length));
+                  setState(() {});
+                },
+                config: const Config(
+                  emojiViewConfig: EmojiViewConfig(columns: 8, emojiSizeMax: 28),
+                  categoryViewConfig: CategoryViewConfig(showBackspaceButton: true),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -78,25 +78,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Firebase App Check: geliştirmede debug provider, üretimde platform-native korumalar
-  if (kIsWeb) {
-    // Web için ReCaptcha v3 site key (opsiyonel). CI/derleme zamanı değişkeni ile geçilebilir.
-    const siteKey = String.fromEnvironment('APP_CHECK_RECAPTCHA_V3_SITE_KEY', defaultValue: '');
-    if (siteKey.isNotEmpty) {
-      await FirebaseAppCheck.instance.activate(
-        webProvider: ReCaptchaV3Provider(siteKey),
-      );
-    }
-  } else {
-    await FirebaseAppCheck.instance.activate(
-      androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttestWithDeviceCheckFallback,
-    );
-  }
-
+  // ÖNEMLİ: FCM background handler uygulama başlamadan önce atanmalı
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   await ThemeService.instance.init(); // Tema tercihlerini yükle
-  FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
   runApp(const MyApp());
   // runApp sonrası ağır olmayan init görevlerini asenkron başlat
   _postAppInit();
@@ -113,6 +98,10 @@ Future<void> _postAppInit() async {
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
       NotificationService.instance.init()
           .timeout(const Duration(seconds: 8), onTimeout: () => null),
+      _initAppCheckSafely()
+          .timeout(const Duration(seconds: 8), onTimeout: () => null),
+      _configureFirestoreSafely()
+          .timeout(const Duration(seconds: 3), onTimeout: () => null),
     ]);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -121,6 +110,35 @@ Future<void> _postAppInit() async {
   } catch (e) {
     // Sessiz log; splash kilidi artık olmayacağı için kritik değil
     debugPrint('Post init hata: $e');
+  }
+}
+
+Future<void> _initAppCheckSafely() async {
+  try {
+    if (kIsWeb) {
+      const siteKey = String.fromEnvironment('APP_CHECK_RECAPTCHA_V3_SITE_KEY', defaultValue: '');
+      if (siteKey.isNotEmpty) {
+        await FirebaseAppCheck.instance.activate(
+          webProvider: ReCaptchaV3Provider(siteKey),
+        );
+      }
+    } else {
+      await FirebaseAppCheck.instance.activate(
+        androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+        appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttestWithDeviceCheckFallback,
+      );
+    }
+  } catch (e) {
+    // Bazı cihazlarda Google Play Services eksik olduğunda App Check GMS çağrıları uyarı verebilir
+    debugPrint('AppCheck init atlandı/başarısız: $e');
+  }
+}
+
+Future<void> _configureFirestoreSafely() async {
+  try {
+    FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+  } catch (e) {
+    debugPrint('Firestore settings uygulanamadı: $e');
   }
 }
 
