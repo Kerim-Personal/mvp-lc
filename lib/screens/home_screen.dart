@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/rooms_screen.dart';
-import 'package:lingua_chat/screens/linguabot_chat_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
 import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 import 'package:lingua_chat/widgets/common/safety_help_button.dart';
 import 'package:lingua_chat/widgets/common/ai_partner_button.dart';
+import 'package:lingua_chat/screens/community_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onSearchingChanged});
@@ -108,6 +108,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // Total Time -> Leaderboard
+  void _openLeaderboard() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CommunityScreen(initialTabIndex: 0),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -175,15 +185,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildStatsSection(DocumentSnapshot<Map<String, dynamic>>? snap) {
     if (_currentUser == null) {
-      return const StatsRow(streak: 0, totalTime: 0);
+      return StatsRow(streak: 0, totalTime: 0, onTotalTimeTap: _openLeaderboard);
     }
     if (snap == null || !snap.exists || snap.data() == null) {
-      return const StatsRow(streak: 0, totalTime: 0);
+      return StatsRow(streak: 0, totalTime: 0, onTotalTimeTap: _openLeaderboard);
     }
     final data = snap.data()!;
     final int streak = data['streak'] ?? 0;
     final int totalTime = data['totalPracticeTime'] ?? 0;
-    return StatsRow(streak: streak, totalTime: totalTime);
+    return StatsRow(streak: streak, totalTime: totalTime, onTotalTimeTap: _openLeaderboard);
   }
 
   Widget _buildHomeUI() {

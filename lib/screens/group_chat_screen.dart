@@ -15,6 +15,7 @@ import 'package:lingua_chat/models/group_message.dart';
 import 'package:lingua_chat/widgets/group_message_bubble.dart';
 import 'package:lingua_chat/widgets/grammar_analysis_dialog.dart';
 import 'package:lingua_chat/widgets/sender_header_label.dart';
+import 'package:lingua_chat/screens/community_screen.dart';
 
 // Mesaj veri modeli
 // class GroupMessage {
@@ -444,6 +445,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
           ),
           actions: [
             IconButton(
+              tooltip: 'Leaderboard',
+              icon: const Icon(Icons.leaderboard_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CommunityScreen(initialTabIndex: 0),
+                  ),
+                );
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.more_vert),
               onPressed: () {
                 // Burada oda ayarları veya üye listesi gibi bir menü açılabilir
@@ -617,12 +630,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
           MessageComposer(
             onSend: _sendGroupMessage,
             nativeLanguage: _nativeLanguage,
-            enableTranslation: _isCurrentUserPremium && _nativeLanguage != 'en',
+            enableTranslation: _nativeLanguage != 'en',
             enableSpeech: true,
             enableEmojis: true,
             hintText: 'Type a message…',
             characterLimit: 1000,
             enabled: currentUser != null,
+            isPremium: _isCurrentUserPremium,
           ),
         ],
       ),

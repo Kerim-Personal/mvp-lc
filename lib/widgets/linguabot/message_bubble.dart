@@ -9,9 +9,11 @@ import 'package:lingua_chat/services/tts_service.dart';
 class MessageBubble extends StatelessWidget {
   final MessageUnit message;
   final Function(String) onCorrect;
-  const MessageBubble({super.key, required this.message, required this.onCorrect});
+  // Premium kullanıcıların balonlarına özel arka plan uygulamak için
+  final bool isUserPremium;
+  const MessageBubble({super.key, required this.message, required this.onCorrect, this.isUserPremium = false});
 
-  TextSpan _buildAnalyzedSpan(String text, GrammarAnalysis ga) {
+  TextSpan _buildAnalyzedSpan(String text, GrammarAnalysis ga, {required Color baseColor}) {
     final List<InlineSpan> spans = [];
     final regex = RegExp(r'(\s+)');
     int last = 0;
@@ -39,7 +41,7 @@ class MessageBubble extends StatelessWidget {
       } else if (cleaned.isNotEmpty && errorTokens.contains(cleaned)) {
         spans.add(TextSpan(text: token, style: const TextStyle(color: Colors.orangeAccent, decoration: TextDecoration.underline)));
       } else {
-        spans.add(TextSpan(text: token, style: const TextStyle(color: Colors.white)));
+        spans.add(TextSpan(text: token, style: TextStyle(color: baseColor)));
       }
     }
     return TextSpan(children: spans);
@@ -101,12 +103,28 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     bool isUser = message.sender == MessageSender.user;
     final ga = message.grammarAnalysis;
+
+    // Premium kullanıcı balonu mu?
+    final bool premiumStyle = isUser && isUserPremium;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color baseTextColor = premiumStyle ? Colors.black87 : Colors.white;
+    final Color iconColor = premiumStyle ? Colors.black54 : Colors.white70;
+
+    // Premium gradyanını temaya göre yumuşat
+    final List<Color> premiumGradientColors = isDark
+        ? [const Color(0xFFFFF3E0).withValues(alpha: 0.86), const Color(0xFFFFE082).withValues(alpha: 0.80)]
+        : [const Color(0xFFFFF8E1).withValues(alpha: 0.95), const Color(0xFFFFE082).withValues(alpha: 0.90)];
+
     Widget textWidget;
     if (isUser && ga != null) {
-      textWidget = RichText(text: _buildAnalyzedSpan(message.text, ga));
+      textWidget = RichText(text: _buildAnalyzedSpan(message.text, ga, baseColor: baseTextColor));
     } else {
-      textWidget = Text(message.text, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5));
+      textWidget = Text(
+        message.text,
+        style: TextStyle(color: baseTextColor, fontSize: 16, height: 1.5),
+      );
     }
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
@@ -117,14 +135,35 @@ class MessageBubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isUser ? Colors.tealAccent.withAlpha(128) : Colors.purpleAccent.withAlpha(128)),
-            gradient: LinearGradient(
-              colors: isUser
-                  ? [Colors.teal.withAlpha(51), Colors.cyan.withAlpha(26)]
-                  : [Colors.purple.withAlpha(51), Colors.deepPurple.withAlpha(26)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+            border: Border.all(
+              color: premiumStyle
+                  ? const Color(0xFFFFD54F).withAlpha(180)
+                  : (isUser ? Colors.tealAccent.withAlpha(128) : Colors.purpleAccent.withAlpha(128)),
+              width: premiumStyle ? 1.1 : 1.0,
             ),
+            gradient: premiumStyle
+                ? LinearGradient(
+                    colors: premiumGradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : LinearGradient(
+                    colors: isUser
+                        ? [Colors.teal.withAlpha(51), Colors.cyan.withAlpha(26)]
+                        : [Colors.purple.withAlpha(51), Colors.deepPurple.withAlpha(26)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            boxShadow: premiumStyle
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFFD54F).withAlpha(40),
+                      blurRadius: 8,
+                      spreadRadius: 0.5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +208,7 @@ class MessageBubble extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       iconSize: 18,
                       tooltip: 'Kopyala',
-                      icon: const Icon(Icons.copy, color: Colors.white70),
+                      icon: Icon(Icons.copy, color: iconColor),
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: message.text));
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesaj kopyalandı')));
@@ -179,7 +218,7 @@ class MessageBubble extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       iconSize: 18,
                       tooltip: 'Seslendir',
-                      icon: const Icon(Icons.volume_up, color: Colors.white70),
+                      icon: Icon(Icons.volume_up, color: iconColor),
                       onPressed: () async {
                         await TtsService().speak(message.text, language: 'en-US');
                       },
@@ -188,7 +227,7 @@ class MessageBubble extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       iconSize: 18,
                       tooltip: 'Analiz',
-                      icon: const Icon(Icons.insights, color: Colors.white70),
+                      icon: Icon(Icons.insights, color: iconColor),
                       onPressed: () {
                         showDialog(
                           context: context,

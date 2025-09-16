@@ -291,6 +291,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                           child: MessageBubble(
                             message: message,
                             onCorrect: (newText) => _updateMessageText(message.id, newText),
+                            isUserPremium: _isPremium,
                           ),
                         );
                       },
@@ -321,13 +322,14 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                   MessageComposer(
                     onSend: _sendMessage,
                     nativeLanguage: _nativeLanguage,
-                    enableTranslation: _isPremium && _nativeLanguage != 'en',
+                    enableTranslation: _nativeLanguage != 'en',
                     enableSpeech: true,
                     enableEmojis: true,
                     hintText: 'Type a message...',
                     characterLimit: 1000,
                     enabled: true,
                     onEmojiVisibilityChanged: (open) => setState(() => _composerEmojiOpen = open),
+                    isPremium: _isPremium,
                   ),
                 ],
               ),

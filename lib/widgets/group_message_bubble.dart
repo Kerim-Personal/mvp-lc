@@ -62,6 +62,7 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMe = widget.isMe;
+    final bool premiumStyle = widget.message.senderIsPremium;
 
     // Renkler
     final myStart = isDark ? Colors.teal.shade700 : Colors.teal.shade500;
@@ -69,9 +70,19 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
     final otherBg = isDark ? (Colors.grey[850] ?? Colors.grey.shade800) : Colors.grey.shade100;
     final otherBorder = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
 
-    final textColor = isMe
-        ? Colors.white
-        : (isDark ? Colors.grey.shade200 : Colors.black87);
+    // Premium gradyanını temaya göre yumuşat
+    final List<Color> premiumGradientColors = isDark
+        ? [const Color(0xFFFFF3E0).withValues(alpha: 0.86), const Color(0xFFFFE082).withValues(alpha: 0.80)]
+        : [const Color(0xFFFFF8E1).withValues(alpha: 0.95), const Color(0xFFFFE082).withValues(alpha: 0.90)];
+    final Color premiumBorderColor = const Color(0xFFFFD54F).withAlpha(isDark ? 180 : 200);
+    final Color premiumShadowColor = const Color(0xFFFFD54F).withAlpha(isDark ? 40 : 48);
+
+    // Premium balonlarda açık altın zeminde koyu metin; aksi halde mevcut mantık
+    final Color textColor = premiumStyle
+        ? Colors.black87
+        : (isMe
+            ? Colors.white
+            : (isDark ? Colors.grey.shade200 : Colors.black87));
 
     final showTranslated =
         widget.canTranslate && _translated != null && _showTranslation;
@@ -84,6 +95,7 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
       bottomRight: isMe ? const Radius.circular(6) : const Radius.circular(18),
     );
 
+    // Mesaj içeriği
     Widget messageContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -111,64 +123,91 @@ class _GroupMessageBubbleState extends State<GroupMessageBubble> {
       ],
     );
 
-    // Sadece saat – görüldü ikonu KALDIRILDI
-    Widget timestamp = Padding(
-      padding: const EdgeInsets.only(top: 2, left: 8),
-      child: Text(
-        DateFormat('HH:mm').format(widget.message.createdAt!.toDate()),
-        style: TextStyle(
-          color: textColor.withValues(alpha: 0.6),
-          fontSize: 11,
-        ),
+    // Saat metni
+    final String timeText =
+        DateFormat('HH:mm').format(widget.message.createdAt!.toDate());
+    final Widget timestamp = Text(
+      timeText,
+      style: TextStyle(
+        color: textColor.withValues(alpha: 0.6),
+        fontSize: 11,
       ),
     );
 
-    // Balon kutusu – painter yerine dekorasyon
-    final BoxDecoration decoration = isMe
+    // Balon kutusu – premium ise altın gradyan; değilse eski stil
+    final BoxDecoration decoration = premiumStyle
         ? BoxDecoration(
             gradient: LinearGradient(
-              colors: [myStart, myEnd],
+              colors: premiumGradientColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: radius,
+            border: Border.all(color: premiumBorderColor, width: 1.1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
-                blurRadius: 6,
+                color: premiumShadowColor,
+                blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
             ],
           )
-        : BoxDecoration(
-            color: otherBg,
-            borderRadius: radius,
-            border: Border.all(color: otherBorder, width: 0.8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          );
+        : (isMe
+            ? BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [myStart, myEnd],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: radius,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              )
+            : BoxDecoration(
+                color: otherBg,
+                borderRadius: radius,
+                border: Border.all(color: otherBorder, width: 0.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ));
 
     // Dokununca çeviri aç/kapa
     return GestureDetector(
       onTap: widget.canTranslate ? _handleTranslate : null,
       child: Container(
         decoration: decoration,
+        // Min genişlik -> saat + iç padding için yeterli alan
+        constraints: const BoxConstraints(minWidth: 72),
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
         child: Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: messageContent,
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: timestamp,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Metin, sağda saate yer bırakmak için hafif sağ padding ile
+                Padding(
+                  padding: const EdgeInsets.only(right: 36.0),
+                  child: messageContent,
+                ),
+                const SizedBox(height: 2),
+                // Saat alt-sağda ayrı bir satırda
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [timestamp],
+                ),
+              ],
             ),
             if (_translating)
               Positioned.fill(

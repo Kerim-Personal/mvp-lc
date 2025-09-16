@@ -49,6 +49,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
   late final Stream<QuerySnapshot> _commentsStream;
   final currentUser = FirebaseAuth.instance.currentUser;
   String _nativeLanguage = 'en';
+  bool _isPremium = false; // eklendi
 
   @override
   void initState() {
@@ -75,9 +76,14 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
     try {
       if (currentUser == null) return;
       final snap = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
-      final code = (snap.data()?['nativeLanguage'] as String?)?.trim().toLowerCase();
-      if (code != null && code.isNotEmpty && code != _nativeLanguage) {
-        if (mounted) setState(() => _nativeLanguage = code);
+      final data = snap.data();
+      final code = (data?['nativeLanguage'] as String?)?.trim().toLowerCase();
+      final prem = (data?['isPremium'] as bool?) ?? false;
+      if (mounted) {
+        setState(() {
+          if (code != null && code.isNotEmpty) _nativeLanguage = code;
+          _isPremium = prem;
+        });
       }
     } catch (_) {}
   }
@@ -147,6 +153,7 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
               enableEmojis: true,
               hintText: 'Type your comment…',
               characterLimit: 1000,
+              isPremium: _isPremium,
             ),
           ],
         ),
@@ -219,34 +226,35 @@ class _CommentScreenState extends State<CommentScreen> with TickerProviderStateM
                             final end = value * 1.5;
                             return ShaderMask(
                               blendMode: BlendMode.srcIn,
-                              shaderCallback: (bounds) => LinearGradient(
-                                colors: [shimmerBase, Colors.white, shimmerBase],
-                                stops: [start, (start + end) / 2, end]
-                                    .map((e) => e.clamp(0.0, 1.0))
-                                    .toList(),
-                              ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-                              child: child!,
+                              shaderCallback: (bounds) {
+                                return LinearGradient(
+                                  colors: [
+                                    shimmerBase.withOpacity(0.2),
+                                    shimmerBase,
+                                    shimmerBase.withOpacity(0.2),
+                                  ],
+                                  stops: [start.clamp(0.0, 1.0), value.clamp(0.0, 1.0), end.clamp(0.0, 1.0)],
+                                ).createShader(bounds);
+                              },
+                              child: child,
                             );
                           },
                           child: Text(
                             displayName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isSpecialRole ? baseColor : const Color(0xFFE5B53A),
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: baseColor),
                           ),
                         );
                       }
                       return name;
                     },
                   ),
-                  const SizedBox(height: 4),
-                  Text(comment.text),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
-                    DateFormat('dd MMM yyyy, HH:mm', 'en_US').format(comment.timestamp.toDate()),
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+                    DateFormat('dd MMM yyyy, HH:mm').format(comment.timestamp.toDate()),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
+                  const SizedBox(height: 8),
+                  Text(comment.text),
                 ],
               ),
             ),

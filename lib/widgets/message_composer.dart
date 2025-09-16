@@ -15,13 +15,14 @@ class MessageComposer extends StatefulWidget {
   final bool enabled;
   final bool enableSpeech;
   final bool enableEmojis;
-  final bool enableTranslation;
+  final bool enableTranslation; // görünürlük
   final String nativeLanguage; // user native language code, e.g. 'tr'
   final int maxLines;
   final int? characterLimit; // disable send if exceeded
   final bool showTranslationPanelInitially;
   final ValueChanged<bool>? onEmojiVisibilityChanged; // yeni: ebeveyne emoji açık/kapalı bildir
   final ValueChanged<bool>? onInputFocusChanged; // yeni: TextField fokus bildirimi
+  final bool isPremium; // premium etkileşim izni
 
   const MessageComposer({super.key,
     required this.onSend,
@@ -36,6 +37,7 @@ class MessageComposer extends StatefulWidget {
     this.showTranslationPanelInitially = false,
     this.onEmojiVisibilityChanged,
     this.onInputFocusChanged,
+    this.isPremium = false,
   });
 
   @override
@@ -158,7 +160,7 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   Future<void> _selectTargetAndTranslate(String targetCode) async {
-    if (!widget.enableTranslation) return;
+    if (!widget.enableTranslation || !widget.isPremium) return; // premium değilse etkileşim yok
     final text = _controller.text.trim();
     if (text.isEmpty) {
       setState(() {
@@ -206,7 +208,7 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   void _applyTranslatedToInput() {
-    if (!widget.enableTranslation) return;
+    if (!widget.enableTranslation || !widget.isPremium) return; // premium değilse etkileşim yok
     final text = _translatedPreview?.trim();
     if (text == null || text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No translation to apply.')));
@@ -322,7 +324,7 @@ class _MessageComposerState extends State<MessageComposer> {
                 color: iconBase.withValues(alpha: 0.6),
                 onPressed: () =>
                     setState(() => _showTranslationPanel = !_showTranslationPanel),
-                tooltip: 'Translate',
+                tooltip: widget.isPremium ? 'Translate' : 'Çeviri (Premium)',
               )
             : null,
         hintText: widget.hintText,
@@ -474,46 +476,87 @@ class _MessageComposerState extends State<MessageComposer> {
                                 ],
                               ),
                             ),
-                            const Divider(height: 1),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxHeight: 80), // 120 -> 80
-                                child: SingleChildScrollView(
-                                  child: Text(
-                                    hasPreview ? _translatedPreview! : 'Translation will appear here...',
-                                    style: TextStyle(
-                                      color: onSurface.withValues(alpha: hasPreview ? 0.9 : 0.5),
-                                      fontSize: 13,
-                                      height: 1.35,
-                                    ),
+                            // Premium uyarı bandı
+                            if (!widget.isPremium)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                child: Container(
+                                  width: double.infinity,
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.lock_outline, size: 16),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Bu özellik yalnızca Premium kullanıcılar içindir.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: _fade(theme.colorScheme.onSurface, 0.8),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            ),
-                            const Divider(height: 1, indent: 12, endIndent: 12),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Flexible(child: _buildLangToggle(theme.colorScheme.onSurface)),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    height: 34,
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            const Divider(height: 1),
+                            // İçerik ve butonlar: premium değilse etkileşimsiz
+                            AbsorbPointer(
+                              absorbing: !widget.isPremium,
+                              child: Opacity(
+                                opacity: widget.isPremium ? 1.0 : 0.6,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(maxHeight: 80), // 120 -> 80
+                                        child: SingleChildScrollView(
+                                          child: Text(
+                                            hasPreview ? _translatedPreview! : 'Translation will appear here...',
+                                            style: TextStyle(
+                                              color: onSurface.withValues(alpha: hasPreview ? 0.9 : 0.5),
+                                              fontSize: 13,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      onPressed: hasPreview ? _applyTranslatedToInput : null,
-                                      icon: const Icon(Icons.check_circle_outline, size: 16),
-                                      label: const Text('Apply', style: TextStyle(fontSize: 13)),
                                     ),
-                                  ),
-                                ],
+                                    const Divider(height: 1, indent: 12, endIndent: 12),
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Flexible(child: _buildLangToggle(theme.colorScheme.onSurface)),
+                                          const SizedBox(width: 8),
+                                          SizedBox(
+                                            height: 34,
+                                            child: ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: Size.zero,
+                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                              ),
+                                              onPressed: hasPreview ? _applyTranslatedToInput : null,
+                                              icon: const Icon(Icons.check_circle_outline, size: 16),
+                                              label: const Text('Apply', style: TextStyle(fontSize: 13)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],

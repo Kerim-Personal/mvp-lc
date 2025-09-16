@@ -6,11 +6,14 @@ class StatsRow extends StatelessWidget {
   // YENİ: Dışarıdan veri almak için parametreler eklendi
   final int streak;
   final int totalTime;
+  // Yeni: Total Time tıklama callback'i
+  final VoidCallback? onTotalTimeTap;
 
   const StatsRow({
     super.key,
     required this.streak,
     required this.totalTime,
+    this.onTotalTimeTap,
   });
 
   @override
@@ -19,14 +22,14 @@ class StatsRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _buildStatItem(Icons.local_fire_department_rounded, "$streak d", "Streak", Colors.orange),
-        _buildStatItem(Icons.timer_rounded, "$totalTime min", "Total Time", Colors.teal),
+        _buildStatItem(Icons.timer_rounded, "$totalTime min", "Total Time", Colors.teal, onTap: onTotalTimeTap),
       ],
     );
   }
 
   Widget _buildStatItem(
-      IconData icon, String value, String label, Color color) {
-    return Column(
+      IconData icon, String value, String label, Color color, {VoidCallback? onTap}) {
+    final content = Column(
       children: [
         CircleAvatar(
             radius: 28,
@@ -37,6 +40,14 @@ class StatsRow extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
       ],
+    );
+
+    if (onTap == null) return content;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: content,
     );
   }
 }
