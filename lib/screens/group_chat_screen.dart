@@ -392,20 +392,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme
-        .of(context)
-        .brightness == Brightness.dark;
-    final appBarBg = isDark ? Theme
-        .of(context)
-        .colorScheme
-        .surface : Colors.white;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final fgColor = isDark ? Colors.teal.shade200 : Colors.teal.shade800;
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: AppBar(
-          elevation: 2,
-          backgroundColor: appBarBg,
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [Colors.black, Colors.grey.shade900]
+              : [Colors.teal.shade50, Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
           foregroundColor: fgColor,
           titleSpacing: 0,
           title: Row(
@@ -416,11 +420,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                 height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: isDark
-                      ? [Colors.teal.shade900, Colors.teal.shade600]
-                      : [Colors.teal.shade400, Colors.teal.shade700]),
+                  gradient: LinearGradient(
+                      colors: isDark
+                          ? [Colors.teal.shade800, Colors.teal.shade600]
+                          : [Colors.teal.shade400, Colors.teal.shade600]),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withAlpha(isDark ? 80 : 30),
+                    BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.4 : 0.2),
                         blurRadius: 4,
                         offset: const Offset(0, 2))
                   ],
@@ -428,47 +434,49 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                 child: Icon(widget.roomIcon, color: Colors.white, size: 22),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(widget.roomName, style: TextStyle(fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: fgColor)),
-                  const SizedBox(height: 2),
-                  Text('Group Chat', style: TextStyle(fontSize: 11,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey
-                          .shade600,
-                      letterSpacing: .3)),
-                ],
+              Text(
+                widget.roomName,
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: fgColor),
               ),
             ],
           ),
-          actions: const [SizedBox(width: 4)], // scroll icon kaldırıldı
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.more_vert),
+              onPressed: () {
+                // Burada oda ayarları veya üye listesi gibi bir menü açılabilir
+              },
+            ),
+          ],
         ),
-      ),
-      floatingActionButton: _showScrollToBottom
-          ? Padding(
-        padding: const EdgeInsets.only(bottom: 56.0), // composer üstünde konum
-        child: FloatingActionButton.small(
-          heroTag: 'scroll_bottom_btn',
-          backgroundColor: isDark ? Colors.teal.shade600 : Colors.teal.shade400,
-          elevation: 3,
-          onPressed: () => _scrollToBottom(immediate: true),
-          child: const Icon(
-              Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 26),
-        ),
-      )
-          : null,
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('group_chats')
-                  .doc(widget.roomId)
-                  .collection('messages')
-                  .orderBy('createdAt', descending: true)
+        floatingActionButton: _showScrollToBottom
+            ? Padding(
+                padding: const EdgeInsets.only(
+                    bottom: 60.0), // Composer üstünde konum
+                child: FloatingActionButton(
+                  heroTag: 'scroll_bottom_btn',
+                  backgroundColor:
+                      isDark ? Colors.teal.shade700 : Colors.teal.shade500,
+                  elevation: 4,
+                  onPressed: () => _scrollToBottom(immediate: true),
+                  child: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: Colors.white, size: 28),
+                  shape: const CircleBorder(),
+                ),
+              )
+            : null,
+        body: Column(
+          children: [
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('group_chats')
+                    .doc(widget.roomId)
+                    .collection('messages')
+                    .orderBy('createdAt', descending: true)
                   .limit(_messageLimit)
                   .snapshots(),
               builder: (context, snapshot) {
@@ -624,53 +632,54 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   Widget _buildMessageBubble(GroupMessage message, bool isMe,
       {GrammarAnalysis? ga, bool analyzing = false, bool continuation = false}) {
-    final alignment = isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final enableTranslation = !isMe && _isCurrentUserPremium &&
-        _nativeLanguage != 'en';
+    final enableTranslation =
+        !isMe && _isCurrentUserPremium && _nativeLanguage != 'en';
 
-    Widget messageContent = GroupMessageBubble(
+    Widget messageBubble = GroupMessageBubble(
       message: message,
       isMe: isMe,
       canTranslate: enableTranslation,
       targetLanguageCode: _nativeLanguage,
       grammarAnalysis: ga,
       analyzing: analyzing,
+      isContinuation: continuation,
     );
 
-    // Avatar placeholder genişliği (radius*2 + spacing(6))
-    const double avatarDiameter = 32; // radius 16 *2
-    const double avatarSpacing = 6;
-    const double avatarBlockWidth = avatarDiameter + avatarSpacing; // 38
+    final avatar = CircleAvatar(
+      radius: 18,
+      backgroundColor: Colors.grey.shade300,
+      child: ClipOval(
+        child: SvgPicture.network(
+          isMe ? _avatarUrl : message.senderAvatarUrl,
+          placeholderBuilder: (context) =>
+              const Icon(Icons.person, size: 20),
+        ),
+      ),
+    );
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: continuation ? 2.0 : 4.0),
+      padding: EdgeInsets.only(
+        top: continuation ? 4.0 : 12.0,
+        bottom: 4.0,
+        left: 12.0,
+        right: 12.0,
+      ),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment
-            .start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isMe)
-            (continuation
-                ? const SizedBox(width: avatarBlockWidth)
-                : CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.grey.shade300,
-              child: ClipOval(
-                child: SvgPicture.network(
-                  message.senderAvatarUrl,
-                  placeholderBuilder: (context) =>
-                  const Icon(Icons.person, size: 18),
-                ),
-              ),
-            )),
-          if (!isMe) const SizedBox(width: 6),
+          if (!isMe && !continuation) avatar,
+          if (!isMe && continuation) const SizedBox(width: 42), // 18*2 + 6
+          SizedBox(width: isMe ? 0 : 6),
           Flexible(
             child: Column(
-              crossAxisAlignment: alignment,
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 if (!isMe && !continuation)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 2.0),
+                    padding: const EdgeInsets.only(left: 4, bottom: 4),
                     child: SenderHeaderLabel(
                       name: message.senderName,
                       role: message.senderRole,
@@ -678,34 +687,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                       shimmerAnimation: _nameShimmerController,
                     ),
                   ),
-                messageContent,
-                if (message.createdAt != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2.0),
-                    child: Text(
-                      DateFormat('HH:mm').format(message.createdAt!.toDate()),
-                      style: TextStyle(
-                          fontSize: 9, color: Colors.grey.shade500),
-                    ),
-                  ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.75),
+                  child: messageBubble,
+                ),
               ],
             ),
           ),
-          if (isMe) const SizedBox(width: 6),
-          if (isMe)
-            (continuation
-                ? const SizedBox(width: avatarBlockWidth)
-                : CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.grey.shade300,
-              child: ClipOval(
-                child: SvgPicture.network(
-                  _avatarUrl,
-                  placeholderBuilder: (context) =>
-                  const Icon(Icons.person, size: 18),
-                ),
-              ),
-            )),
+          SizedBox(width: isMe ? 6 : 0),
+          if (isMe && !continuation) avatar,
+          if (isMe && continuation) const SizedBox(width: 42),
         ],
       ),
     );
