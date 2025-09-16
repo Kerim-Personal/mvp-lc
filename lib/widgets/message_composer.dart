@@ -273,7 +273,9 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bool hasPreview = _translatedPreview != null && _translatedPreview!.trim().isNotEmpty;
+    final isDark = theme.brightness == Brightness.dark;
+    final bool hasPreview =
+        _translatedPreview != null && _translatedPreview!.trim().isNotEmpty;
     final Color onSurface = theme.colorScheme.onSurface;
     final Color iconBase = theme.iconTheme.color ?? onSurface;
 
@@ -284,47 +286,57 @@ class _MessageComposerState extends State<MessageComposer> {
       textCapitalization: TextCapitalization.sentences,
       minLines: 1,
       maxLines: widget.maxLines,
-      cursorColor: theme.colorScheme.onSurface,
-      style: const TextStyle(fontSize: 16, height: 1.3),
+      cursorColor: theme.colorScheme.primary,
+      style: const TextStyle(fontSize: 16, height: 1.4),
       decoration: InputDecoration(
         prefixIcon: widget.enableEmojis
             ? IconButton(
-                icon: Icon(_showEmojiPicker ? Icons.keyboard_hide_rounded : Icons.emoji_emotions_outlined),
+                icon: Icon(_showEmojiPicker
+                    ? Icons.keyboard_hide_rounded
+                    : Icons.emoji_emotions_outlined),
                 splashRadius: 20,
                 padding: const EdgeInsets.all(0),
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                color: _fade(iconBase, 0.75),
+                constraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 40),
+                color: iconBase.withOpacity(0.6),
                 onPressed: widget.enabled ? _toggleEmojiPicker : null,
                 tooltip: 'Emoji',
               )
             : null,
         suffixIcon: widget.enableTranslation
             ? IconButton(
-                icon: Icon(_showTranslationPanel ? Icons.translate_rounded : Icons.g_translate_outlined),
+                icon: Icon(_showTranslationPanel
+                    ? Icons.translate_rounded
+                    : Icons.g_translate_outlined),
                 splashRadius: 20,
                 padding: const EdgeInsets.all(0),
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                color: _fade(iconBase, 0.75),
-                onPressed: () => setState(() => _showTranslationPanel = !_showTranslationPanel),
+                constraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 40),
+                color: iconBase.withOpacity(0.6),
+                onPressed: () =>
+                    setState(() => _showTranslationPanel = !_showTranslationPanel),
                 tooltip: 'Translate',
               )
             : null,
         hintText: widget.hintText,
-        hintStyle: TextStyle(color: theme.hintColor),
+        hintStyle: TextStyle(color: theme.hintColor.withOpacity(0.8)),
         filled: true,
-        fillColor: _fade(onSurface, 0.05),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // 14 -> 12 biraz daha kompakt
+        fillColor: isDark
+            ? Colors.grey.shade800.withOpacity(0.8)
+            : Colors.white.withOpacity(0.9),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: theme.dividerColor, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: theme.dividerColor, width: 1.5),
         ),
       ),
     );

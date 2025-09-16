@@ -18,24 +18,32 @@ class SenderHeaderLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     Color baseColor;
+    FontWeight fontWeight = FontWeight.bold;
+
     switch (role) {
       case 'admin':
-        baseColor = Colors.red;
+        baseColor = isDark ? Colors.red.shade400 : Colors.red.shade600;
         break;
       case 'moderator':
-        baseColor = Colors.orange;
+        baseColor = isDark ? Colors.orange.shade400 : Colors.orange.shade500;
         break;
       default:
-        baseColor = Colors.grey.shade600;
+        baseColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+        fontWeight = FontWeight.w600;
     }
+
+    final premiumColor = isDark ? const Color(0xFFFFD54F) : const Color(0xFFE5B53A);
 
     Widget child = Text(
       name,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: 13,
+        fontWeight: fontWeight,
         color: (isPremium && !(role == 'admin' || role == 'moderator'))
-            ? const Color(0xFFE5B53A)
+            ? premiumColor
             : baseColor,
       ),
     );
