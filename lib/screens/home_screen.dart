@@ -2,12 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lingua_chat/screens/rooms_screen.dart';
 import 'package:lingua_chat/screens/linguabot_chat_screen.dart';
 import 'package:lingua_chat/widgets/home_screen/home_header.dart';
 import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
 import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
 import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 import 'package:lingua_chat/widgets/common/safety_help_button.dart';
+import 'package:lingua_chat/widgets/common/ai_partner_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onSearchingChanged});
@@ -97,9 +99,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _findPracticePartner() async {
     if (!mounted) return;
+    // RoomsScreen'i aç
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LinguaBotChatScreen()),
+      MaterialPageRoute(
+        builder: (context) => const RoomsScreen(),
+      ),
     );
   }
 
@@ -108,7 +113,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: const SafetyHelpButton(),
-      body: _buildHomeUI(),
+      body: Stack(
+        children: [
+          _buildHomeUI(),
+          // Sağdaki FAB ile aynı hizada: SafeArea alt + 16px
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 16, bottom: 16),
+                child: AiPartnerButton(),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

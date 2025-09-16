@@ -29,15 +29,71 @@ import 'package:lingua_chat/screens/practice_reading_screen.dart';
 import 'package:lingua_chat/screens/practice_speaking_screen.dart';
 import 'package:lingua_chat/screens/practice_writing_screen.dart';
 import 'package:lingua_chat/screens/profile_screen.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+
+// YENİ: Uygulama yaşam döngüsünü dinleyip müziği yönetir
+class _AppLifecycleAudioObserver with WidgetsBindingObserver {
+  void init() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        // Arka plana/inaktif duruma geçince müziği duraklat
+        AudioService.instance.pauseMusic();
+        break;
+      case AppLifecycleState.resumed:
+        // Öne gelince kullanıcı tercihi açıksa ve ses > 0 ise kaldığı yerden devam et
+        if (AudioService.instance.isMusicEnabled && AudioService.instance.musicVolume > 0) {
+          AudioService.instance.resumeMusic();
+        }
+        break;
+      case AppLifecycleState.hidden: // Web için
+        AudioService.instance.pauseMusic();
+        break;
+    }
+  }
+}
 
 // YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
 final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
 
+// YENİ: Tekil yaşam döngüsü gözlemcisi
+final _AppLifecycleAudioObserver _lifecycleObserver = _AppLifecycleAudioObserver();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Yaşam döngüsü gözlemcisini erkenden kaydet
+  _lifecycleObserver.init();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Firebase App Check: geliştirmede debug provider, üretimde platform-native korumalar
+  if (kIsWeb) {
+    // Web için ReCaptcha v3 site key (opsiyonel). CI/derleme zamanı değişkeni ile geçilebilir.
+    const siteKey = String.fromEnvironment('APP_CHECK_RECAPTCHA_V3_SITE_KEY', defaultValue: '');
+    if (siteKey.isNotEmpty) {
+      await FirebaseAppCheck.instance.activate(
+        webProvider: ReCaptchaV3Provider(siteKey),
+      );
+    }
+  } else {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttestWithDeviceCheckFallback,
+    );
+  }
+
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await ThemeService.instance.init(); // Tema tercihlerini yükle
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);

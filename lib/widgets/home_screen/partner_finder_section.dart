@@ -62,10 +62,10 @@ class _PartnerFinderSectionState extends State<PartnerFinderSection> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.language_sharp,
+                      Icon(Icons.chat_bubble_outline_rounded,
                           color: Colors.white, size: 70),
                       SizedBox(height: 8),
-                      Text('AI Partner',
+                      Text('Rooms',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 24,

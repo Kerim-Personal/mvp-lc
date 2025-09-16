@@ -11,6 +11,9 @@ import 'package:lingua_chat/models/grammar_analysis.dart';
 import 'package:lingua_chat/models/message_unit.dart';
 import 'package:lingua_chat/widgets/linguabot/linguabot.dart';
 import 'package:lingua_chat/utils/text_metrics.dart';
+import 'package:lingua_chat/widgets/message_composer.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // --- MAIN SCREEN: THE HEART OF THE SIMULATOR ---
 
@@ -27,6 +30,9 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   final ScrollController _scrollController = ScrollController();
   final List<MessageUnit> _messages = [];
   bool _isBotThinking = false;
+  String _nativeLanguage = 'en';
+  bool _isPremium = false;
+  bool _allowPop = false; // allow programmatic pop after confirm
 
   late AnimationController _backgroundController;
   late AnimationController _entryController;
@@ -46,14 +52,23 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     ));
 
     _entryController.forward();
+    _loadNativeLanguage();
   }
 
-  @override
-  void dispose() {
-    _backgroundController.dispose();
-    _entryController.dispose();
-    _scrollController.dispose();
-    super.dispose();
+  Future<void> _loadNativeLanguage() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = snap.data();
+      if (!mounted || data == null) return;
+      setState(() {
+        _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
+        _isPremium = (data['isPremium'] as bool?) ?? false;
+      });
+    } catch (_) {
+      // sessizce geç
+    }
   }
 
   List<String> _computeSuggestions() {
@@ -136,7 +151,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesaj gönderilirken bir sorun oluştu.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('There was a problem sending the message.')));
     } finally {
       if (!mounted) return;
       setState(() => _isBotThinking = false);
@@ -165,17 +180,51 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              Text('Ayarlar', style: TextStyle(color: Colors.cyanAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Settings', style: TextStyle(color: Colors.cyanAccent, fontSize: 18, fontWeight: FontWeight.bold)),
               SizedBox(height: 12),
-              Text('• Premium analiz sohbet sırasında otomatik çalışır.', style: TextStyle(color: Colors.white70)),
-              Text('• Mesaj balonuna uzun basarak kopyalama / seslendirme / analiz seçeneklerine erişin.', style: TextStyle(color: Colors.white70)),
-              Text('• Composer üzerinden emoji ve sesle yazma kullanılabilir.', style: TextStyle(color: Colors.white70)),
+              Text('• Premium analysis runs automatically during chat.', style: TextStyle(color: Colors.white70)),
+              Text('• Long-press a bubble for copy / TTS / analysis options.', style: TextStyle(color: Colors.white70)),
+              Text('• Use emojis and voice typing from the composer.', style: TextStyle(color: Colors.white70)),
               SizedBox(height: 12),
             ],
           ),
         ),
       ),
     );
+  }
+
+  // Chat exit confirmation dialog
+  Future<bool> _confirmExit() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black.withAlpha(235),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+          title: const Text('Leave chat?', style: TextStyle(color: Colors.white)),
+          content: const Text(
+            'Are you sure you want to exit this chat screen?',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel', style: TextStyle(color: Colors.cyanAccent)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.cyanAccent,
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Exit'),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
   }
 
   void _scrollToBottom() {
@@ -193,53 +242,91 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   @override
   Widget build(BuildContext context) {
     final suggestions = _computeSuggestions();
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          CelestialBackground(controller: _backgroundController),
-          AnimatedBuilder(
-            animation: _entryController,
-            builder: (context, child) => BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: _blurAnimation.value, sigmaY: _blurAnimation.value),
-              child: child,
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit().then((shouldPop) {
+          if (shouldPop && mounted) {
+            setState(() => _allowPop = true);
+            Navigator.of(context).pop();
+          }
+        });
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            CelestialBackground(controller: _backgroundController),
+            AnimatedBuilder(
+              animation: _entryController,
+              builder: (context, child) => BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: _blurAnimation.value, sigmaY: _blurAnimation.value),
+                child: child,
+              ),
+              child: Container(color: Colors.black.withAlpha(26)),
             ),
-            // IMPROVEMENT: A slight overlay has been added for the effect to be more pronounced.
-            child: Container(color: Colors.black.withAlpha(26)),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                HolographicHeader(isBotThinking: _isBotThinking, onSettingsTap: _openSettings),
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: _messages.length + (_isBotThinking ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == _messages.length) {
-                        return const MessageEntranceAnimator(child: TypingIndicator());
-                      }
-                      final message = _messages[index];
-                      return MessageEntranceAnimator(
-                        key: ValueKey(message.id),
-                        child: MessageBubble(
-                          message: message,
-                          onCorrect: (newText) => _updateMessageText(message.id, newText),
-                        ),
-                      );
-                    },
+            SafeArea(
+              child: Column(
+                children: [
+                  HolographicHeader(isBotThinking: _isBotThinking, onSettingsTap: _openSettings),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      itemCount: _messages.length + (_isBotThinking ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _messages.length) {
+                          return const MessageEntranceAnimator(child: TypingIndicator());
+                        }
+                        final message = _messages[index];
+                        return MessageEntranceAnimator(
+                          key: ValueKey(message.id),
+                          child: MessageBubble(
+                            message: message,
+                            onCorrect: (newText) => _updateMessageText(message.id, newText),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                IntelligentComposer(
-                  onSend: _sendMessage,
-                  isThinking: _isBotThinking,
-                  suggestions: suggestions,
-                ),
-              ],
+                  if (suggestions.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 6),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: suggestions
+                              .take(6)
+                              .map((s) => Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ActionChip(
+                                      label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                                      onPressed: _isBotThinking ? null : () => _sendMessage(s),
+                                      backgroundColor: Colors.white.withAlpha(18),
+                                      side: BorderSide(color: Colors.cyanAccent.withAlpha(100)),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  MessageComposer(
+                    onSend: _sendMessage,
+                    nativeLanguage: _nativeLanguage,
+                    enableTranslation: _isPremium && _nativeLanguage != 'en',
+                    enableSpeech: true,
+                    enableEmojis: true,
+                    hintText: 'Type a message...',
+                    characterLimit: 1000,
+                    enabled: true,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

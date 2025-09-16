@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lingua_chat/widgets/community_screen/leaderboard_table.dart';
 import 'package:lingua_chat/widgets/community_screen/feed_post_card.dart';
-import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
 
 // --- DATA MODELLERİ ---
 class LeaderboardUser {
@@ -65,6 +64,7 @@ class FeedPost {
 }
 
 class GroupChatRoomInfo {
+  // GroupChatCard bunu buradan import ettiği için bu model korunuyor
   final String id;
   final String name;
   final String description;
@@ -72,7 +72,6 @@ class GroupChatRoomInfo {
   final Color color1;
   final Color color2;
   final bool isFeatured;
-  // Denormalize alanlar (maliyet azaltımı)
   final int? memberCount;
   final List<String>? avatarsPreview;
 
@@ -92,7 +91,8 @@ class GroupChatRoomInfo {
 
 // --- ANA EKRAN WIDGET'I ---
 class CommunityScreen extends StatefulWidget {
-  const CommunityScreen({super.key});
+  const CommunityScreen({super.key, this.initialTabIndex});
+  final int? initialTabIndex;
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
@@ -101,28 +101,24 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  // late Future<List<LeaderboardUser>> _leaderboardFuture; // Kaldırıldı
-  // final String _leaderboardPeriod = 'partnerCount'; // KALDIRILDI
-  String _leaderboardType = 'weekly'; // default artık weekly
+  String _leaderboardType = 'weekly';
 
   // Ek performans & animasyon kontrolü
-  bool _leaderboardFirstAnimationDone = false; // sadece ilk liste yüklemesinde animasyon
-  List<LeaderboardUser>? _overallCache; // genel cache
-  List<LeaderboardUser>? _weeklyCache;  // haftalık cache
+  bool _leaderboardFirstAnimationDone = false;
+  List<LeaderboardUser>? _overallCache;
+  List<LeaderboardUser>? _weeklyCache;
 
   late Future<QuerySnapshot> _feedFuture;
-  late Future<QuerySnapshot> _roomsFuture;
 
   // Flicker azaltma cache'leri
   List<LeaderboardUser>? _leaderboardCache;
   bool _leaderboardLoading = false;
   Object? _leaderboardError;
   List<DocumentSnapshot>? _feedPostsCache;
-  List<DocumentSnapshot>? _roomsDocsCache;
 
   // Kullanıcı rolü ve yetkileri için değişkenler
-  bool _isPrivileged = false; // admin veya moderator mu
-  bool _canBanOthers = false; // ban yetkisi
+  bool _isPrivileged = false;
+  bool _canBanOthers = false;
   bool _privilegeResolved = false;
 
   // Kullanıcı adı ve avatarı için cache
@@ -132,10 +128,13 @@ class _CommunityScreenState extends State<CommunityScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
+    final idx = widget.initialTabIndex;
+    if (idx != null && idx >= 0 && idx < 2) {
+      _tabController.index = idx;
+    }
     _tabController.addListener(() => setState(() {}));
     _feedFuture = _fetchFeedData();
-    _roomsFuture = _fetchRoomsData();
     _loadLeaderboard(initial: true);
     _resolvePrivilege();
     _prefetchCurrentUserMeta();
@@ -166,7 +165,6 @@ class _CommunityScreenState extends State<CommunityScreen>
       final isPriv = role == 'admin' || role == 'moderator';
       bool canBan = false;
       if (isPriv) {
-        // basit politika: admin her kesi banlayabilir, moderator admin dışı
         canBan = true;
       }
       if (!mounted) return;
@@ -236,27 +234,15 @@ class _CommunityScreenState extends State<CommunityScreen>
         .get();
   }
 
-  Future<QuerySnapshot> _fetchRoomsData() {
-    // Sadece 4 oda getir (ekrana sığacak modern set)
-    return FirebaseFirestore.instance.collection('group_chats').limit(4).get();
-  }
-
   Future<void> _refreshFeed() async {
     setState(() {
       _feedFuture = _fetchFeedData();
     });
   }
 
-  Future<void> _refreshRooms() async {
-    setState(() {
-      _roomsFuture = _fetchRoomsData();
-    });
-  }
-
   @override
   void dispose() {
     _tabController.dispose();
-    // KALDIRILAN controller yok
     super.dispose();
   }
 
@@ -333,7 +319,6 @@ class _CommunityScreenState extends State<CommunityScreen>
               children: [
                 _buildTabItem(title: 'Leaderboard', icon: Icons.leaderboard_outlined, index: 0),
                 _buildTabItem(title: 'Feed', icon: Icons.dynamic_feed_outlined, index: 1),
-                _buildTabItem(title: 'Rooms', icon: Icons.chat_bubble_outline_rounded, index: 2),
               ],
             ),
           ),
@@ -409,105 +394,6 @@ class _CommunityScreenState extends State<CommunityScreen>
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildRoomsTab() {
-    return FutureBuilder<QuerySnapshot>(
-      future: _roomsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData && _roomsDocsCache == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          if (_roomsDocsCache != null) {
-            return _buildRoomsListFromDocs(_roomsDocsCache!);
-          }
-          return const Center(child: Text('Rooms yüklenemedi.'));
-        }
-        if (snapshot.hasData) {
-          _roomsDocsCache = snapshot.data!.docs;
-        }
-        if (_roomsDocsCache == null || _roomsDocsCache!.isEmpty) {
-          return RefreshIndicator(
-            onRefresh: _refreshRooms,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
-                SizedBox(height: 160),
-                Center(child: Text('Henüz oda yok.')),
-              ],
-            ),
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: _refreshRooms,
-          child: _buildRoomsListFromDocs(_roomsDocsCache!),
-        );
-      },
-    );
-  }
-
-  Widget _buildRoomsListFromDocs(List<DocumentSnapshot> roomDocs) {
-    final rooms = roomDocs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      IconData getIconData(String iconName) {
-        switch (iconName) {
-          case 'music_note_outlined': return Icons.music_note_outlined;
-          case 'movie_filter_outlined': return Icons.movie_filter_outlined;
-          case 'airplanemode_active_outlined': return Icons.airplanemode_active_outlined;
-          case 'computer_outlined': return Icons.computer_outlined;
-          case 'menu_book_outlined': return Icons.menu_book_outlined;
-          default: return Icons.chat_bubble_outline_rounded;
-        }
-      }
-      return GroupChatRoomInfo(
-        id: doc.id,
-        name: data['name'] ?? 'Unknown Room',
-        description: data['description'] ?? '',
-        icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
-        color1: Color(_parseColor(data['color1'], 0xFF4E54C8)),
-        color2: Color(_parseColor(data['color2'], 0xFF8F94FB)),
-        isFeatured: false,
-        memberCount: data['memberCount'] is int ? data['memberCount'] : null,
-        avatarsPreview: (data['avatarsPreview'] is List)
-            ? (data['avatarsPreview'] as List).whereType<String>().take(3).toList()
-            : null,
-      );
-    }).toList();
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const listPadding = EdgeInsets.fromLTRB(16, 8, 16, 24);
-        const rowSpacing = 12.0;
-        final roomCount = rooms.length;
-        // Ekrandaki kullanılabilir yükseklik (ListView padding hariç)
-        final availableHeight = constraints.maxHeight - listPadding.vertical;
-        double cardHeight;
-        if (roomCount > 0) {
-          cardHeight = (availableHeight - rowSpacing * (roomCount - 1)) / roomCount;
-        } else {
-          cardHeight = 140;
-        }
-        // Alt / üst sıkışmayı engelle - minimum koy
-        const minCardHeight = 110.0;
-        if (cardHeight < minCardHeight) cardHeight = minCardHeight; // Çok küçükse kaydırma oluşur
-        // İçerik daha fazla boşluk bırakmasın diye üst limite gerek yok: tam doldurma davranışı için hesaplanan değeri kullanıyoruz.
-
-        return ListView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
-            padding: listPadding,
-            itemCount: rooms.length,
-            itemBuilder: (context, i) {
-              return Padding(
-                padding: EdgeInsets.only(bottom: i == rooms.length - 1 ? 0 : rowSpacing),
-                child: SizedBox(
-                  height: cardHeight,
-                  child: GroupChatCard(roomInfo: rooms[i], compact: true),
-                ),
-              );
-            });
-      },
     );
   }
 
@@ -664,7 +550,6 @@ class _CommunityScreenState extends State<CommunityScreen>
                 children: [
                   _buildLeaderboardTab(),
                   Container(key: const ValueKey('feed'), child: _buildFeedList()),
-                  Container(key: const ValueKey('rooms'), child: _buildRoomsTab()),
                 ],
               ),
             ),

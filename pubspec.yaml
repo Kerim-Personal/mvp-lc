@@ -44,6 +44,8 @@ dependencies:
   firebase_auth: ^4.19.0
   cloud_firestore: ^4.17.5
   firebase_storage: ^11.7.0
+  firebase_messaging: ^14.9.4
+  firebase_app_check: ^0.2.2+7
 
   # Tarih formatlama için
   intl: ^0.20.2
@@ -64,13 +66,12 @@ dependencies:
 
   # Konuşmayı yazıya çeviri
   speech_to_text: ^7.3.0
-  firebase_messaging: ^14.9.4
 
   # Uygulama içi satın alma
   in_app_purchase: ^3.2.0
   emoji_picker_flutter: ^2.2.0
 
-# Mobil hedefte sürüm uyuşmazlığını çözmek için web paketini override ediyoruz
+# Mobil hedefte sürüm uyuşmazlığın�� çözmek için web paketini override ediyoruz
 dependency_overrides:
   web: ^1.0.0
 

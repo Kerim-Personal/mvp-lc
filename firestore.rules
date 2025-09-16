@@ -110,7 +110,7 @@ service cloud.firestore {
         (
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak','autoTranslate'
+            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak'
           ])
         ) || (
           // Elmas artışı

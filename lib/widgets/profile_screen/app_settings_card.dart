@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/services/translation_service.dart';
 import 'package:lingua_chat/services/theme_service.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // added: local storage for settings
 
 class AppSettingsCard extends StatefulWidget {
   const AppSettingsCard({super.key});
@@ -14,44 +15,73 @@ class AppSettingsCard extends StatefulWidget {
 }
 
 class _AppSettingsCardState extends State<AppSettingsCard> {
-  late bool _isMusicEnabled;
+  // Music switch kaldırıldı; yalnızca volume kullanılıyor
   late bool _isClickSoundEnabled; // new: key click sound
   bool _autoTranslate = false; // new
   String _nativeLanguage = 'en';
+  // Yeni: müzik ses seviyesi (0.0 - 1.0)
+  late double _musicVolume;
+
+  static const String _kAutoTranslateKey = 'autoTranslate'; // local preference key
 
   @override
   void initState() {
     super.initState();
-    // Load current music state from service when widget initializes
-    _isMusicEnabled = AudioService.instance.isMusicEnabled;
+    // Music switch yok, sadece volume'ü servisten al
     _isClickSoundEnabled = AudioService.instance.isClickSoundEnabled; // new
+    _musicVolume = AudioService.instance.musicVolume; // mevcut ses
     _loadUserPrefs();
   }
 
   Future<void> _loadUserPrefs() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    SharedPreferences? prefs;
+    bool hasLocal = false;
+
+    // 1) autoTranslate durumunu yerelden oku (Firebase'e yazmıyoruz)
     try {
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      final data = snap.data();
-      if (data != null) {
-        setState(() {
-          _autoTranslate = (data['autoTranslate'] as bool?) ?? false;
-            _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
-        });
-        // If auto-translation enabled, pre-download models
-        if (_autoTranslate && _nativeLanguage != 'en') {
-          TranslationService.instance.preDownloadModels(_nativeLanguage);
-        }
+      prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey(_kAutoTranslateKey)) {
+        final localAuto = prefs.getBool(_kAutoTranslateKey) ?? false;
+        setState(() => _autoTranslate = localAuto);
+        hasLocal = true;
       }
     } catch (_) {}
+
+    // 2) Kullanıcının nativeLanguage değerini ve gerekiyorsa eski autoTranslate'i Firestore'dan oku (sadece okuma)
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final data = snap.data();
+        if (data != null) {
+          setState(() {
+            _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
+          });
+          // Hafif migrasyon: yerelde anahtar yoksa Firestore'daki autoTranslate'i bir kez kopyala
+          if (!hasLocal) {
+            final remoteAuto = (data['autoTranslate'] as bool?) ?? false;
+            setState(() => _autoTranslate = remoteAuto);
+            try { await prefs?.setBool(_kAutoTranslateKey, remoteAuto); } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3) Gerekirse model ön indirmeyi tetikle
+    if (_autoTranslate && _nativeLanguage != 'en') {
+      TranslationService.instance.preDownloadModels(_nativeLanguage);
+    }
   }
 
   Future<void> _updateAutoTranslate(bool value) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
     setState(() => _autoTranslate = value);
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'autoTranslate': value});
+
+    // Firebase'e YAZMA yok; sadece yerelde sakla
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kAutoTranslateKey, value);
+    } catch (_) {}
+
     if (value) {
       TranslationService.instance.preDownloadModels(_nativeLanguage);
     }
@@ -166,28 +196,56 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
-          SwitchListTile(
-            title: const Text('Music', style: TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(_isMusicEnabled ? 'On' : 'Off'),
-            value: _isMusicEnabled,
-            onChanged: (bool value) {
-              setState(() => _isMusicEnabled = value);
-              AudioService.instance.toggleMusic(value);
-              AudioService.instance.playClick();
-            },
-            secondary: Icon(
-              _isMusicEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-              color: Colors.orange,
+          // Ses seviyesi bölümü (switch kaldırıldı)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      _musicVolume <= 0.0
+                          ? Icons.volume_off_rounded
+                          : (_musicVolume < 0.34
+                              ? Icons.volume_mute_rounded
+                              : (_musicVolume < 0.67
+                                  ? Icons.volume_down_rounded
+                                  : Icons.volume_up_rounded)),
+                      color: _musicVolume > 0 ? Colors.orange : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Music Volume', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text(
+                      _musicVolume <= 0 ? 'Off' : '${(_musicVolume * 100).round()}%',
+                      style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _musicVolume.clamp(0.0, 1.0),
+                  min: 0.0,
+                  max: 1.0,
+                  divisions: 20,
+                  label: _musicVolume <= 0 ? 'Off' : '${(_musicVolume * 100).round()}%',
+                  onChanged: (v) async {
+                    setState(() => _musicVolume = v);
+                    await AudioService.instance.setMusicVolume(v);
+                  },
+                ),
+              ],
             ),
-            activeColor: Colors.teal,
           ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          // Tuş tıklama sesi anahtarı
           SwitchListTile(
             title: const Text('Key Click Sound', style: TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(_isClickSoundEnabled ? 'On' : 'Off'),
             value: _isClickSoundEnabled,
-            onChanged: (bool value) {
+            onChanged: (bool value) async {
               setState(() => _isClickSoundEnabled = value);
-              AudioService.instance.toggleClickSound(value);
+              await AudioService.instance.toggleClickSound(value);
               AudioService.instance.playClick();
             },
             secondary: Icon(

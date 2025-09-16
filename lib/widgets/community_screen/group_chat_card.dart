@@ -198,197 +198,233 @@ class _GroupChatCardState extends State<GroupChatCard> {
 
   Widget _buildCompact(BuildContext context) {
     final hasMembers = _memberCount > 0;
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GroupChatScreen(
-              roomName: widget.roomInfo.name,
-              roomIcon: widget.roomInfo.icon,
-              roomId: widget.roomInfo.id,
-            ),
-          ),
-        );
-      },
-      // onLongPress kaldırıldı
-      onHighlightChanged: (v) => setState(() => _pressed = v),
-      borderRadius: BorderRadius.circular(22),
-      splashColor: Colors.white.withValues(alpha: 0.1),
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        scale: _pressed ? 0.97 : 1.0,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Ana arka plan
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                gradient: LinearGradient(
-                  colors: [
-                    widget.roomInfo.color1.withValues(alpha: 0.92),
-                    widget.roomInfo.color2.withValues(alpha: 0.88),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.roomInfo.color2.withValues(alpha: 0.38),
-                    blurRadius: _pressed ? 10 : 18,
-                    spreadRadius: _pressed ? 0 : 2,
-                    offset: const Offset(0, 8),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 28,
-                    offset: const Offset(0, 14),
-                  ),
-                ],
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  width: 1.2,
+    return GestureDetector(
+      onPanUpdate: (details) => setState(() => _offset += details.delta),
+      onPanEnd: (_) => setState(() => _offset = Offset.zero),
+      child: Transform(
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.001)
+          ..rotateX(_offset.dy * -0.002)
+          ..rotateY(_offset.dx * 0.002),
+        alignment: FractionalOffset.center,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => GroupChatScreen(
+                  roomName: widget.roomInfo.name,
+                  roomIcon: widget.roomInfo.icon,
+                  roomId: widget.roomInfo.id,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Üst bölüm
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // İkon kabarcığı + radyal glow
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              Colors.white.withValues(alpha: 0.32),
-                              Colors.white.withValues(alpha: 0.05),
-                            ],
-                            radius: 0.95,
-                          ),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            widget.roomInfo.icon,
-                            color: Colors.white,
-                            size: 24,
-                            shadows: const [
-                              Shadow(color: Colors.black26, blurRadius: 6),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.roomInfo.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              widget.roomInfo.description.isNotEmpty
-                                  ? widget.roomInfo.description
-                                  : 'Henüz açıklama yok',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 12.8,
-                                height: 1.25,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  // Alt footer
-                  (_loadingMembers)
-                      ? Row(
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white.withValues(alpha: 0.85)),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text('Yükleniyor...',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  fontSize: 11.5,
-                                )),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            if (hasMembers) _buildMiniAvatars(),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.9),
-                              ),
-                              child: Icon(Icons.arrow_outward_rounded, size: 18, color: Colors.white.withValues(alpha: 0.95)),
-                            ),
-                          ],
-                        ),
-                ],
-              ),
-            ),
-            // Üst parlak overlay
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
+            );
+          },
+          // onLongPress kaldırıldı
+          onHighlightChanged: (v) => setState(() => _pressed = v),
+          borderRadius: BorderRadius.circular(22),
+          splashColor: Colors.white.withValues(alpha: 0.1),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            scale: _pressed ? 0.97 : 1.0,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Ana arka plan
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(22),
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withValues(alpha: 0.18),
-                        Colors.white.withValues(alpha: 0.04),
-                        Colors.transparent,
+                        widget.roomInfo.color1.withValues(alpha: 0.92),
+                        widget.roomInfo.color2.withValues(alpha: 0.88),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      stops: const [0, 0.25, 0.6],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.roomInfo.color2.withValues(alpha: 0.38),
+                        blurRadius: _pressed ? 10 : 18,
+                        spreadRadius: _pressed ? 0 : 2,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 28,
+                        offset: const Offset(0, 14),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Üst bölüm
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // İkon kabarcığı + radyal glow
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.32),
+                                  Colors.white.withValues(alpha: 0.05),
+                                ],
+                                radius: 0.95,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                widget.roomInfo.icon,
+                                color: Colors.white,
+                                size: 24,
+                                shadows: const [
+                                  Shadow(color: Colors.black26, blurRadius: 6),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.roomInfo.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  widget.roomInfo.description.isNotEmpty
+                                      ? widget.roomInfo.description
+                                      : 'Henüz açıklama yok',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontSize: 12.8,
+                                    height: 1.25,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      // Alt footer
+                      (_loadingMembers)
+                          ? Row(
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white.withValues(alpha: 0.85)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text('Yükleniyor...',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.8),
+                                      fontSize: 11.5,
+                                    )),
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                if (hasMembers) _buildMiniAvatars(),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.9),
+                                  ),
+                                  child: Icon(Icons.arrow_outward_rounded, size: 18, color: Colors.white.withValues(alpha: 0.95)),
+                                ),
+                              ],
+                            ),
+                    ],
+                  ),
+                ),
+                // Üst parlak overlay
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0.18),
+                            Colors.white.withValues(alpha: 0.04),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          stops: const [0, 0.25, 0.6],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                // Canlı pulse (üye varsa)
+                if (hasMembers)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(color: Colors.redAccent.withValues(alpha: 0.45), blurRadius: 8),
+                            ],
+                          ),
+                          child: const Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        _LivePulseDot(color: Colors.limeAccent),
+                      ],
+                    ),
+                  ),
+              ],
             ),
-            // Canlı pulse (üye varsa)
-            if (hasMembers)
-              Positioned(
-                top: 6,
-                right: 6,
-                child: _LivePulseDot(color: Colors.limeAccent.shade400),
-              ),
-          ],
+          ),
         ),
       ),
     );
