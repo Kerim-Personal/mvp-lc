@@ -26,9 +26,8 @@ class AnimatedBackground extends StatelessWidget {
                 radius: 250,
                 backgroundColor: Color.fromARGB(77, 0, 188, 212)),
           ),
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60), // 120 -> 60
-            child: Container(color: Colors.transparent),
+          Container(
+            color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.9),
           ),
         ],
       ),

@@ -25,9 +25,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   bool _isProUser = false;
 
-  late AnimationController _entryAnimationController;
-  late AnimationController _pulseAnimationController;
-  late PageController _pageController;
+  late final AnimationController _entryAnimationController =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+  late final AnimationController _pulseAnimationController =
+      AnimationController(vsync: this, duration: const Duration(seconds: 2))
+        ..repeat(reverse: true);
+  late final PageController _pageController;
   double _pageOffset = 1000;
   Timer? _cardScrollTimer;
 
@@ -57,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     };
     _pageController.addListener(_pageControllerListener!);
 
-    _setupAnimations();
     _startCardScrollTimer();
     _entryAnimationController.forward();
   }
@@ -75,14 +77,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         );
       }
     });
-  }
-
-  void _setupAnimations() {
-    _entryAnimationController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
-    _pulseAnimationController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2))
-          ..repeat(reverse: true);
   }
 
   @override
