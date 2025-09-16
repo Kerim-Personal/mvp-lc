@@ -52,11 +52,14 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
                 gradient: LinearGradient(
-                  colors: [Colors.purple.shade800.withOpacity(0.85), Colors.deepPurple.shade900.withOpacity(0.95)],
+                  colors: [
+                    Colors.purple.shade800.withValues(alpha: 0.85),
+                    Colors.deepPurple.shade900.withValues(alpha: 0.95)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -89,15 +92,15 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Unlock special features like filtering with Lingua Pro and take your learning experience to the next level.',
+                    'Unlock great perks with Lingua Pro and take your learning experience to the next level.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _buildFeatureRow(Icons.filter_alt_outlined, 'Ideal Partner Filtering'),
+                  // Filtering özelliği kaldırıldı
                   _buildFeatureRow(Icons.translate, 'In-Chat Instant Translation'),
                   _buildFeatureRow(Icons.ads_click, 'Completely Ad-Free Experience'),
                   const SizedBox(height: 24),
@@ -108,7 +111,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                       elevation: 8,
-                      shadowColor: Colors.amber.withOpacity(0.5),
+                      shadowColor: Colors.amber.withValues(alpha: 0.5),
                     ),
                     onPressed: () {
                       Navigator.of(context).pop();
@@ -140,7 +143,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
           Expanded(
             child: Text(
               text,
-              style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14),
             ),
           ),
         ],

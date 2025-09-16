@@ -85,8 +85,8 @@ class _AnimatedGoldBackground extends StatelessWidget {
               borderRadius: BorderRadius.circular(28),
               gradient: LinearGradient(
                 colors: [
-                  colors.first.withOpacity(0.88),
-                  colors.last.withOpacity(0.95),
+                  colors.first.withValues(alpha: 0.88),
+                  colors.last.withValues(alpha: 0.95),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -94,14 +94,14 @@ class _AnimatedGoldBackground extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFFE5B53A)
-                      .withOpacity(0.30 + 0.05 * wave1.abs()),
+                      .withValues(alpha: 0.30 + 0.05 * wave1.abs()),
                   blurRadius: 26 + 4 * wave1.abs(),
                   spreadRadius: 1,
                   offset: const Offset(0, 8),
                 ),
               ],
               border: Border.all(
-                  width: 1.1, color: Colors.white.withOpacity(0.16)),
+                  width: 1.1, color: Colors.white.withValues(alpha: 0.16)),
             ),
             child: Stack(children: [
               Positioned.fill(
@@ -112,7 +112,7 @@ class _AnimatedGoldBackground extends StatelessWidget {
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0xFFFFE28A)
-                              .withOpacity(0.12 + 0.08 * wave1.abs()),
+                              .withValues(alpha: 0.12 + 0.08 * wave1.abs()),
                           blurRadius: 40 + 6 * wave1.abs(),
                           spreadRadius: -4,
                         ),
@@ -138,9 +138,9 @@ class _PanelContent extends StatelessWidget {
   List<_Benefit> get _benefits => const [
     _Benefit(Icons.auto_awesome, 'Reklamsız'),
     _Benefit(Icons.translate_rounded, 'Anlık Çeviri'),
-    _Benefit(Icons.filter_alt_rounded, 'Akıllı Filtre'),
-    _Benefit(Icons.flash_on, 'Öncelikli Erişim'),
-    _Benefit(Icons.lock_clock, 'Erken Özellikler'),
+    // Akıllı Filtre kaldırıldı
+    // Öncelikli Erişim kaldırıldı
+    // Erken Özellikler kaldırıldı
     _Benefit(Icons.support_agent, 'Öncelikli Destek'),
   ];
 
@@ -165,7 +165,7 @@ class _PanelContent extends StatelessWidget {
             style: TextStyle(
               fontSize: bodySize.clamp(12.5, 15.0),
               height: 1.30,
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withValues(alpha: 0.85),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -300,14 +300,14 @@ class _BenefitChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           gradient: LinearGradient(
             colors: [
-              Colors.white.withOpacity(0.78),
-              Colors.white.withOpacity(0.06),
+              Colors.white.withValues(alpha: 0.78),
+              Colors.white.withValues(alpha: 0.06),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           border:
-          Border.all(color: Colors.white.withOpacity(0.16), width: 0.8),
+          Border.all(color: Colors.white.withValues(alpha: 0.16), width: 0.8),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
