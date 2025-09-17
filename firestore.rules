@@ -12,9 +12,22 @@ service cloud.firestore {
     }
     function myLastActiveField() { return request.auth.uid + '_lastActive'; }
 
-    function getUser(uid) { return get(/databases/$(database)/documents/users/$(uid)).data; }
-    function userRole(uid) { return (getUser(uid).role != null) ? getUser(uid).role : 'user'; }
-    function isBanned(uid) { return getUser(uid).status == 'banned'; }
+    function getUser(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) ?
+             get(/databases/$(database)/documents/users/$(uid)).data :
+             null;
+    }
+
+    function userRole(uid) {
+      let userData = getUser(uid);
+      return (userData != null && userData.role != null) ? userData.role : 'user';
+    }
+
+    function isBanned(uid) {
+      let userData = getUser(uid);
+      return userData != null && userData.status == 'banned';
+    }
+
     function isAdmin(uid) { return userRole(uid) == 'admin'; }
     function isModerator(uid) { return userRole(uid) == 'moderator'; }
     function isPrivileged(uid) { return isAdmin(uid) || isModerator(uid); }
@@ -35,21 +48,6 @@ service cloud.firestore {
     function ownsReservedUsername(uname) {
       return exists(/databases/$(database)/documents/usernames/$(uname)) &&
              get(/databases/$(database)/documents/usernames/$(uname)).data.uid == request.auth.uid;
-    }
-    function expectedChatIdFor(a, b) { return (a < b) ? (a + '_' + b) : (b + '_' + a); }
-
-    function isValidNewUser(data) {
-      return data.uid == request.auth.uid &&
-             data.email == request.auth.token.email &&
-             isValidDisplayName(data.displayName) &&
-             data.username_lowercase == data.displayName.lower() &&
-             !isReservedName(data.username_lowercase) &&
-             ownsReservedUsername(data.username_lowercase) &&
-             data.birthDate is timestamp &&
-             data.avatarUrl is string && data.avatarUrl.matches('https://api.dicebear.com/8.x/micah/svg\\?seed=.*') &&
-             data.emailVerified == false && data.streak == 0 &&
-             data.totalPracticeTime == 0 && data.isPremium == false && data.createdAt == request.time &&
-             data.role == 'user' && data.status == 'active' && data.profileCompleted == false;
     }
 
     // Elmas artışı: sadece ileri yönde, pozitif ve mantıklı bir üst limit içinde.
@@ -78,11 +76,6 @@ service cloud.firestore {
              data.status == 'open';
     }
 
-    function isValidMessage(data) {
-      return data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
-             data.userId == request.auth.uid &&
-             data.keys().hasOnly(['text','createdAt','userId']);
-    }
     function isGroupMember(roomId, uid) { return exists(/databases/$(database)/documents/group_chats/$(roomId)/members/$(uid)); }
     function isBlocked(byUid, targetUid) { return exists(/databases/$(database)/documents/users/$(byUid)/blockedUsers/$(targetUid)); }
 
@@ -172,7 +165,7 @@ service cloud.firestore {
         (!('lastActivity' in request.resource.data) || request.resource.data.lastActivity == request.time);
 
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && callerNotBanned() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users;
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users;
         allow create: if isAuthenticated() && callerNotBanned() &&
           request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users &&
           request.resource.data.keys().hasOnly(['text','createdAt','userId','serverAuth']) &&
@@ -210,11 +203,18 @@ service cloud.firestore {
     }
 
     match /group_chats/{roomId} {
-      allow read: if isAuthenticated();
+      // Tüm giriş yapmış kullanıcılar grup sohbetlerini görebilir
+      allow read: if isAuthenticated() && callerNotBanned();
       allow write: if false;
 
       match /members/{userId} {
-        allow read: if isAuthenticated() && (userId == request.auth.uid || isPrivileged(request.auth.uid) || (exists(/databases/$(database)/documents/group_chats/$(roomId)) && get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid));
+        allow read: if isAuthenticated() && (
+          userId == request.auth.uid ||
+          isPrivileged(request.auth.uid) ||
+          (exists(/databases/$(database)/documents/group_chats/$(roomId)) && get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid) ||
+          // Grup üyesi olan herkes diğer üyeleri okuyabilir
+          (exists(/databases/$(database)/documents/group_chats/$(roomId)) && isGroupMember(roomId, request.auth.uid))
+        );
         allow create: if isOwner(userId) && callerNotBanned() && exists(/databases/$(database)/documents/group_chats/$(roomId)) && (
           get(/databases/$(database)/documents/group_chats/$(roomId)).data.openJoin == true ||
           isPrivileged(request.auth.uid) ||
@@ -225,7 +225,9 @@ service cloud.firestore {
       }
 
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && (isGroupMember(roomId, request.auth.uid) || isPrivileged(request.auth.uid));
+        // Tüm giriş yapmış kullanıcılar grup mesajlarını okuyabilir
+        allow read: if isAuthenticated() && callerNotBanned();
+        // Mesaj gönderebilmek için grup üyesi olması gerekir
         allow create: if isAuthenticated() && callerNotBanned() &&
           isOwner(request.resource.data.senderId) &&
           isGroupMember(roomId, request.auth.uid) &&
@@ -265,7 +267,8 @@ service cloud.firestore {
 
     match /support/{ticketId} {
       allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isPrivileged(request.auth.uid));
-      allow create: if isAuthenticated() && callerNotBanned() && getUser(request.auth.uid).isPremium == true &&
+      allow create: if isAuthenticated() && callerNotBanned() &&
+        (getUser(request.auth.uid) != null && getUser(request.auth.uid).isPremium == true) &&
         isValidSupportCreate(request.resource.data) &&
         request.resource.data.keys().hasOnly(['userId','subject','message','status','createdAt','updatedAt','attachments','platform','email','displayName','serverAuth']) &&
         request.resource.data.serverAuth == true &&
@@ -294,44 +297,6 @@ service cloud.firestore {
         (!('attachments' in request.resource.data) || (request.resource.data.attachments is list && request.resource.data.attachments.size() <= 10));
         allow update, delete: if false;
       }
-    }
-
-    match /admin_notifications_log/{docId} {
-      allow read: if isAuthenticated() && isPrivileged(request.auth.uid);
-      allow write: if false;
-    }
-
-    // === MATCHMAKING ===
-    match /waiting_pool/{userId} {
-      // A user can delete their own entry from the pool (e.g. when cancelling).
-      allow delete: if request.auth.uid == userId;
-      // No other client-side access is permitted.
-      allow read, create, update: if false;
-    }
-
-    match /matches/{userId} {
-      // A user can read and delete their own match document.
-      allow read, delete: if request.auth.uid == userId;
-      // The server creates the match, clients cannot create or update.
-      allow create, update: if false;
-    }
-
-    // === DEPRECATED OR SERVER-ONLY MATCHMAKING RULES ===
-    // Kuyruk shard dokümanlarına istemci direkt erişemez (yalnızca Cloud Functions Admin SDK)
-    match /match_queue_shards/{shardId} {
-      match /entries/{userId} {
-        allow read, write: if false; // Tamamen sunucu kontrollü
-      }
-    }
-    // Kullanıcı kendi indeks belgesini sadece okuyabilir (istemci polling için opsiyonel)
-    match /match_queue_index/{uid} {
-      allow read: if isAuthenticated() && isOwner(uid);
-      allow write: if false; // Sunucu set / update eder
-    }
-    // Günlük eşleşme istatistikleri sadece ayrıcalıklı roller tarafından okunabilir
-    match /match_stats/{day} {
-      allow read: if isAuthenticated() && isPrivileged(request.auth.uid);
-      allow write: if false;
     }
   }
 }

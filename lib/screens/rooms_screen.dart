@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/community_screen.dart' show GroupChatRoomInfo; // modeli oradan kullanıyoruz
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lingua_chat/screens/community_screen.dart' show GroupChatRoomInfo;
 import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
 
 class RoomsScreen extends StatefulWidget {
@@ -20,8 +21,27 @@ class _RoomsScreenState extends State<RoomsScreen> {
     _roomsFuture = _fetchRoomsData();
   }
 
-  Future<QuerySnapshot> _fetchRoomsData() {
-    return FirebaseFirestore.instance.collection('group_chats').get();
+  Future<QuerySnapshot> _fetchRoomsData() async {
+    try {
+      print('Rooms yükleniyor...');
+
+      // Auth durumunu kontrol et
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('Kullanıcı giriş yapmamış');
+        throw Exception('Giriş yapmanız gerekiyor');
+      }
+
+      print('Kullanıcı ID: ${user.uid}');
+
+      final result = await FirebaseFirestore.instance.collection('group_chats').get();
+      print('${result.docs.length} oda bulundu');
+
+      return result;
+    } catch (e) {
+      print('Rooms yükleme hatası: $e');
+      rethrow;
+    }
   }
 
   Future<void> _refreshRooms() async {
@@ -63,10 +83,43 @@ class _RoomsScreenState extends State<RoomsScreen> {
             return _buildSkeletonList(pad);
           }
           if (snapshot.hasError) {
+            print('Snapshot error: ${snapshot.error}');
             if (_roomsDocsCache != null) {
               return _buildRoomsListFromDocs(_roomsDocsCache!, pad);
             }
-            return const Center(child: Text('Rooms yüklenemedi.'));
+            return RefreshIndicator(
+              onRefresh: _refreshRooms,
+              child: ListView(
+                padding: pad,
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 100),
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Rooms yüklenemedi',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Hata: ${snapshot.error}',
+                          style: const TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _refreshRooms,
+                          child: const Text('Yeniden Dene'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
           if (snapshot.hasData) {
             _roomsDocsCache = snapshot.data!.docs;
