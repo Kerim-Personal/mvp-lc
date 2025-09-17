@@ -358,243 +358,235 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fgColor = isDark ? Colors.teal.shade200 : Colors.teal.shade800;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [Colors.black, Colors.grey.shade900]
-              : [Colors.teal.shade50, Colors.white],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) {
+          // Oda'dan ayrılma işlemini güvenli şekilde yap
+          await _leaveRoom();
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [Colors.black, Colors.grey.shade900]
+                : [Colors.teal.shade50, Colors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
         ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          elevation: 0,
+        child: Scaffold(
           backgroundColor: Colors.transparent,
-          foregroundColor: fgColor,
-          titleSpacing: 0,
-          title: Row(
-            children: [
-              const SizedBox(width: 4),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                      colors: isDark
-                          ? [Colors.teal.shade800, Colors.teal.shade600]
-                          : [Colors.teal.shade400, Colors.teal.shade600]),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2))
-                  ],
+          appBar: AppBar(
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            foregroundColor: fgColor,
+            titleSpacing: 0,
+            title: Row(
+              children: [
+                const SizedBox(width: 4),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                        colors: isDark
+                            ? [Colors.teal.shade800, Colors.teal.shade600]
+                            : [Colors.teal.shade400, Colors.teal.shade600]),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2))
+                    ],
+                  ),
+                  child: Icon(widget.roomIcon, color: Colors.white, size: 22),
                 ),
-                child: Icon(widget.roomIcon, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                widget.roomName,
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: fgColor),
+                const SizedBox(width: 12),
+                Text(
+                  widget.roomName,
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: fgColor),
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.more_vert),
+                onPressed: () {
+                  // Burada oda ayarları veya üye listesi gibi bir menü açılabilir
+                },
               ),
             ],
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.more_vert),
-              onPressed: () {
-                // Burada oda ayarları veya üye listesi gibi bir menü açılabilir
-              },
-            ),
-          ],
-        ),
-        floatingActionButton: _showScrollToBottom
-            ? Padding(
-                padding: const EdgeInsets.only(
-                    bottom: 60.0), // Composer üstünde konum
-                child: FloatingActionButton(
-                  heroTag: 'scroll_bottom_btn',
-                  backgroundColor:
-                      isDark ? Colors.teal.shade700 : Colors.teal.shade500,
-                  elevation: 4,
-                  onPressed: () => _scrollToBottom(immediate: true),
-                  child: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: Colors.white, size: 28),
-                  shape: const CircleBorder(),
-                ),
-              )
-            : null,
-        body: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('group_chats')
-                    .doc(widget.roomId)
-                    .collection('messages')
-                    .orderBy('createdAt', descending: true)
-                  .limit(_messageLimit)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                // Spinner sadece ilk veri hiç gelmemişse gösterilsin; aksi halde eski veri üzerinden devam
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("Sohbeti başlat!"));
-                }
-
-                final rawDocs = snapshot.data!
-                    .docs; // descending, limit uygulanmış
-                // hasMore hesapla: limit dolmuşsa muhtemelen daha eski var
-                final bool newHasMore = rawDocs.length >= _messageLimit;
-                if (newHasMore != _hasMore) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _hasMore = newHasMore);
-                  });
-                }
-                if (_isLoadingMore) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isLoadingMore = false);
-                  });
-                }
-
-                final ordered = rawDocs.reversed.where((d) {
-                  final data = d.data() as Map<String, dynamic>;
-                  final senderId = (data['senderId'] as String?) ?? '';
-                  return !_blocked.contains(senderId);
-                }).toList();
-
-                // İlk yükleme sonrasında bir kez alta kaydır
-                if (!_didInitialScroll) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && !_didInitialScroll) {
-                      _didInitialScroll = true; // tekrar etme
-                      _scrollToBottom(immediate: true);
-                    }
-                  });
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: true,
-                  addSemanticIndexes: false,
-                  cacheExtent: 600,
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                    bottom: 16 + MediaQuery
-                        .of(context)
-                        .viewInsets
-                        .bottom * 0.0,
+          floatingActionButton: _showScrollToBottom
+              ? Padding(
+                  padding: const EdgeInsets.only(
+                      bottom: 60.0), // Composer üstünde konum
+                  child: FloatingActionButton(
+                    heroTag: 'scroll_bottom_btn',
+                    backgroundColor:
+                        isDark ? Colors.teal.shade700 : Colors.teal.shade500,
+                    elevation: 4,
+                    onPressed: () => _scrollToBottom(immediate: true),
+                    child: const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white, size: 28),
+                    shape: const CircleBorder(),
                   ),
-                  itemCount: ordered.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (_hasMore && index == 0) {
-                      // En üstte loader (daha eski mesajları yüklüyor)
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Center(
-                          child: SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: _isLoadingMore
-                                ? const CircularProgressIndicator(
-                                strokeWidth: 2)
-                                : const SizedBox.shrink(),
-                          ),
-                        ),
-                      );
+                )
+              : null,
+          body: Column(
+            children: [
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('group_chats')
+                      .doc(widget.roomId)
+                      .collection('messages')
+                      .orderBy('createdAt', descending: true)
+                      .limit(_messageLimit)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    // Spinner sadece ilk veri hiç gelmemişse gösterilsin; aksi halde eski veri üzerinden devam
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
                     }
-                    final adjIndex = _hasMore
-                        ? index - 1
-                        : index; // loader varsa index kaydır
-                    final doc = ordered[adjIndex];
-                    final message = GroupMessage.fromFirestore(doc);
-                    final isMe = message.senderId == currentUser?.uid;
-                    final msgId = doc.id;
-                    final ga = isMe ? _grammarCache[msgId] : null;
-                    final analyzing = isMe && _analyzing.contains(msgId);
-
-                    bool continuation = false;
-                    if (adjIndex > 0) {
-                      final prevDoc = ordered[adjIndex - 1];
-                      final prevMsg = GroupMessage.fromFirestore(prevDoc);
-                      if (prevMsg.senderId == message.senderId) {
-                        continuation = true; // zaman sınırı kaldırıldı
-                      }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text("Sohbeti başlat!"));
                     }
 
-                    return GestureDetector(
-                      onLongPress: () async {
-                        if (isMe) {
-                          if (analyzing) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Analyzing...')));
-                          } else if (ga != null) {
-                            showGrammarAnalysisDialog(context, ga,
-                                message.text); // mevcut analiz direkt aç
-                          } else if (_isCurrentUserPremium) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Analyzing...')));
-                            setState(() => _analyzing.add(msgId));
-                            final analysis = await _grammarService
-                                .analyzeGrammar(message.text);
-                            if (!mounted) return;
-                            setState(() {
-                              _analyzing.remove(msgId);
-                              if (analysis != null)
-                                _grammarCache[msgId] = analysis;
-                            });
-                            if (analysis == null && mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text(
-                                      'Analysis failed, try again.')));
-                            } else if (analysis != null) {
-                              showGrammarAnalysisDialog(context, analysis,
-                                  message.text); // yeni analiz otomatik aç
-                            }
-                          }
-                        } else {
-                          _showUserActionsDialog(message); // report/block
+                    final rawDocs = snapshot.data!.docs;
+                    final bool newHasMore = rawDocs.length >= _messageLimit;
+                    if (newHasMore != _hasMore) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _hasMore = newHasMore);
+                      });
+                    }
+                    if (_isLoadingMore) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _isLoadingMore = false);
+                      });
+                    }
+
+                    final ordered = rawDocs.reversed.where((d) {
+                      final data = d.data() as Map<String, dynamic>;
+                      final senderId = (data['senderId'] as String?) ?? '';
+                      return !_blocked.contains(senderId);
+                    }).toList();
+
+                    if (!_didInitialScroll) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted && !_didInitialScroll) {
+                          _didInitialScroll = true;
+                          _scrollToBottom(immediate: true);
                         }
+                      });
+                    }
+
+                    return ListView.builder(
+                      controller: _scrollController,
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: true,
+                      addSemanticIndexes: false,
+                      cacheExtent: 600,
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 16,
+                        bottom: 16 + MediaQuery.of(context).viewInsets.bottom * 0.0,
+                      ),
+                      itemCount: ordered.length + (_hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (_hasMore && index == 0) {
+                          // En üstte loader (daha eski mesajları yüklüyor)
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Center(
+                              child: SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: _isLoadingMore
+                                    ? const CircularProgressIndicator(strokeWidth: 2)
+                                    : const SizedBox.shrink(),
+                              ),
+                            ),
+                          );
+                        }
+                        final adjIndex = _hasMore ? index - 1 : index;
+                        final doc = ordered[adjIndex];
+                        final message = GroupMessage.fromFirestore(doc);
+                        final isMe = message.senderId == currentUser?.uid;
+                        final msgId = doc.id;
+                        final ga = isMe ? _grammarCache[msgId] : null;
+                        final analyzing = isMe && _analyzing.contains(msgId);
+
+                        bool continuation = false;
+                        if (adjIndex > 0) {
+                          final prevDoc = ordered[adjIndex - 1];
+                          final prevMsg = GroupMessage.fromFirestore(prevDoc);
+                          if (prevMsg.senderId == message.senderId) {
+                            continuation = true;
+                          }
+                        }
+
+                        return GestureDetector(
+                          onLongPress: () async {
+                            if (isMe) {
+                              if (analyzing) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Analyzing...')));
+                              } else if (ga != null) {
+                                showGrammarAnalysisDialog(context, ga, message.text);
+                              } else if (_isCurrentUserPremium) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Analyzing...')));
+                                setState(() => _analyzing.add(msgId));
+                                final analysis = await _grammarService.analyzeGrammar(message.text);
+                                if (!mounted) return;
+                                setState(() {
+                                  _analyzing.remove(msgId);
+                                  if (analysis != null) _grammarCache[msgId] = analysis;
+                                });
+                                if (analysis == null && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Analysis failed, try again.')));
+                                } else if (analysis != null) {
+                                  showGrammarAnalysisDialog(context, analysis, message.text);
+                                }
+                              }
+                            } else {
+                              _showUserActionsDialog(message);
+                            }
+                          },
+                          child: _buildMessageBubble(message, isMe, ga: ga,
+                              analyzing: analyzing, continuation: continuation),
+                        );
                       },
-                      child: _buildMessageBubble(message, isMe, ga: ga,
-                          analyzing: analyzing,
-                          continuation: continuation),
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+              MessageComposer(
+                onSend: _sendGroupMessage,
+                nativeLanguage: _nativeLanguage,
+                enableTranslation: _nativeLanguage != 'en',
+                enableSpeech: true,
+                enableEmojis: true,
+                hintText: 'Type a message…',
+                characterLimit: 1000,
+                enabled: currentUser != null,
+                isPremium: _isCurrentUserPremium,
+              ),
+            ],
           ),
-          MessageComposer(
-            onSend: _sendGroupMessage,
-            nativeLanguage: _nativeLanguage,
-            enableTranslation: _nativeLanguage != 'en',
-            enableSpeech: true,
-            enableEmojis: true,
-            hintText: 'Type a message…',
-            characterLimit: 1000,
-            enabled: currentUser != null,
-            isPremium: _isCurrentUserPremium,
-          ),
-        ],
+        ),
       ),
-      ),
-      );
-
-
+    );
   }
 
   Widget _buildMessageBubble(GroupMessage message, bool isMe,
@@ -670,5 +662,4 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   }
 
 }
-
 

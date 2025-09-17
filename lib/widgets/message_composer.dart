@@ -614,3 +614,4 @@ class _MessageComposerState extends State<MessageComposer> {
     return base.withValues(alpha: alpha);
   }
 }
+
