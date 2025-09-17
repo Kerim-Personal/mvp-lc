@@ -369,6 +369,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         ),
       ),
       child: Scaffold(
+        resizeToAvoidBottomInset: false, // <-- 1. DEĞİŞİKLİK
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           elevation: 0,
@@ -418,7 +419,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         floatingActionButton: _showScrollToBottom
             ? Padding(
                 padding: const EdgeInsets.only(
-                    bottom: 60.0), // Composer üstünde konum
+                    bottom: 0), // Composer artık altta olduğu için FAB padding'i ayarlandı
                 child: FloatingActionButton(
                   heroTag: 'scroll_bottom_btn',
                   backgroundColor:
@@ -431,170 +432,152 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                 ),
               )
             : null,
-        body: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('group_chats')
-                    .doc(widget.roomId)
-                    .collection('messages')
-                    .orderBy('createdAt', descending: true)
-                  .limit(_messageLimit)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                // Spinner sadece ilk veri hiç gelmemişse gösterilsin; aksi halde eski veri üzerinden devam
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('group_chats')
+              .doc(widget.roomId)
+              .collection('messages')
+              .orderBy('createdAt', descending: true)
+              .limit(_messageLimit)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const Center(child: Text("Sohbeti başlat!"));
+            }
+
+            final rawDocs = snapshot.data!.docs;
+            final bool newHasMore = rawDocs.length >= _messageLimit;
+            if (newHasMore != _hasMore) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _hasMore = newHasMore);
+              });
+            }
+            if (_isLoadingMore) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _isLoadingMore = false);
+              });
+            }
+
+            final ordered = rawDocs.reversed.where((d) {
+              final data = d.data() as Map<String, dynamic>;
+              final senderId = (data['senderId'] as String?) ?? '';
+              return !_blocked.contains(senderId);
+            }).toList();
+
+            if (!_didInitialScroll) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && !_didInitialScroll) {
+                  _didInitialScroll = true;
+                  _scrollToBottom(immediate: true);
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("Sohbeti başlat!"));
+              });
+            }
+
+            return ListView.builder(
+              controller: _scrollController,
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: true,
+              addSemanticIndexes: false,
+              cacheExtent: 600,
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                // Klavye ve Composer'ı hesaba katacak padding
+                bottom: 16 + MediaQuery.of(context).viewInsets.bottom, // <-- 2. DEĞİŞİKLİK
+              ),
+              itemCount: ordered.length + (_hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (_hasMore && index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Center(
+                      child: SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: _isLoadingMore
+                            ? const CircularProgressIndicator(strokeWidth: 2)
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                  );
+                }
+                final adjIndex = _hasMore ? index - 1 : index;
+                final doc = ordered[adjIndex];
+                final message = GroupMessage.fromFirestore(doc);
+                final isMe = message.senderId == currentUser?.uid;
+                final msgId = doc.id;
+                final ga = isMe ? _grammarCache[msgId] : null;
+                final analyzing = isMe && _analyzing.contains(msgId);
+
+                bool continuation = false;
+                if (adjIndex > 0) {
+                  final prevDoc = ordered[adjIndex - 1];
+                  final prevMsg = GroupMessage.fromFirestore(prevDoc);
+                  if (prevMsg.senderId == message.senderId) {
+                    continuation = true;
+                  }
                 }
 
-                final rawDocs = snapshot.data!
-                    .docs; // descending, limit uygulanmış
-                // hasMore hesapla: limit dolmuşsa muhtemelen daha eski var
-                final bool newHasMore = rawDocs.length >= _messageLimit;
-                if (newHasMore != _hasMore) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _hasMore = newHasMore);
-                  });
-                }
-                if (_isLoadingMore) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isLoadingMore = false);
-                  });
-                }
-
-                final ordered = rawDocs.reversed.where((d) {
-                  final data = d.data() as Map<String, dynamic>;
-                  final senderId = (data['senderId'] as String?) ?? '';
-                  return !_blocked.contains(senderId);
-                }).toList();
-
-                // İlk yükleme sonrasında bir kez alta kaydır
-                if (!_didInitialScroll) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && !_didInitialScroll) {
-                      _didInitialScroll = true; // tekrar etme
-                      _scrollToBottom(immediate: true);
-                    }
-                  });
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  addAutomaticKeepAlives: false,
-                  addRepaintBoundaries: true,
-                  addSemanticIndexes: false,
-                  cacheExtent: 600,
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                    bottom: 16 + MediaQuery
-                        .of(context)
-                        .viewInsets
-                        .bottom * 0.0,
-                  ),
-                  itemCount: ordered.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (_hasMore && index == 0) {
-                      // En üstte loader (daha eski mesajları yüklüyor)
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Center(
-                          child: SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: _isLoadingMore
-                                ? const CircularProgressIndicator(
-                                strokeWidth: 2)
-                                : const SizedBox.shrink(),
-                          ),
-                        ),
-                      );
-                    }
-                    final adjIndex = _hasMore
-                        ? index - 1
-                        : index; // loader varsa index kaydır
-                    final doc = ordered[adjIndex];
-                    final message = GroupMessage.fromFirestore(doc);
-                    final isMe = message.senderId == currentUser?.uid;
-                    final msgId = doc.id;
-                    final ga = isMe ? _grammarCache[msgId] : null;
-                    final analyzing = isMe && _analyzing.contains(msgId);
-
-                    bool continuation = false;
-                    if (adjIndex > 0) {
-                      final prevDoc = ordered[adjIndex - 1];
-                      final prevMsg = GroupMessage.fromFirestore(prevDoc);
-                      if (prevMsg.senderId == message.senderId) {
-                        continuation = true; // zaman sınırı kaldırıldı
-                      }
-                    }
-
-                    return GestureDetector(
-                      onLongPress: () async {
-                        if (isMe) {
-                          if (analyzing) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Analyzing...')));
-                          } else if (ga != null) {
-                            showGrammarAnalysisDialog(context, ga,
-                                message.text); // mevcut analiz direkt aç
-                          } else if (_isCurrentUserPremium) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Analyzing...')));
-                            setState(() => _analyzing.add(msgId));
-                            final analysis = await _grammarService
-                                .analyzeGrammar(message.text);
-                            if (!mounted) return;
-                            setState(() {
-                              _analyzing.remove(msgId);
-                              if (analysis != null)
-                                _grammarCache[msgId] = analysis;
-                            });
-                            if (analysis == null && mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text(
-                                      'Analysis failed, try again.')));
-                            } else if (analysis != null) {
-                              showGrammarAnalysisDialog(context, analysis,
-                                  message.text); // yeni analiz otomatik aç
-                            }
-                          }
-                        } else {
-                          _showUserActionsDialog(message); // report/block
+                return GestureDetector(
+                  onLongPress: () async {
+                    if (isMe) {
+                      if (analyzing) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Analyzing...')));
+                      } else if (ga != null) {
+                        showGrammarAnalysisDialog(context, ga, message.text);
+                      } else if (_isCurrentUserPremium) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Analyzing...')));
+                        setState(() => _analyzing.add(msgId));
+                        final analysis =
+                            await _grammarService.analyzeGrammar(message.text);
+                        if (!mounted) return;
+                        setState(() {
+                          _analyzing.remove(msgId);
+                          if (analysis != null) _grammarCache[msgId] = analysis;
+                        });
+                        if (analysis == null && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Analysis failed, try again.')));
+                        } else if (analysis != null) {
+                          showGrammarAnalysisDialog(
+                              context, analysis, message.text);
                         }
-                      },
-                      child: _buildMessageBubble(message, isMe, ga: ga,
-                          analyzing: analyzing,
-                          continuation: continuation),
-                    );
+                      }
+                    } else {
+                      _showUserActionsDialog(message);
+                    }
                   },
+                  child: _buildMessageBubble(message, isMe,
+                      ga: ga,
+                      analyzing: analyzing,
+                      continuation: continuation),
                 );
               },
-            ),
-          ),
-          MessageComposer(
-            onSend: _sendGroupMessage,
-            nativeLanguage: _nativeLanguage,
-            enableTranslation: _nativeLanguage != 'en',
-            enableSpeech: true,
-            enableEmojis: true,
-            hintText: 'Type a message…',
-            characterLimit: 1000,
-            enabled: currentUser != null,
-            isPremium: _isCurrentUserPremium,
-          ),
-        ],
+            );
+          },
+        ),
+        bottomNavigationBar: MessageComposer( // <-- 3. DEĞİŞİKLİK
+          onSend: _sendGroupMessage,
+          nativeLanguage: _nativeLanguage,
+          enableTranslation: _nativeLanguage != 'en',
+          enableSpeech: true,
+          enableEmojis: true,
+          hintText: 'Type a message…',
+          characterLimit: 1000,
+          enabled: currentUser != null,
+          isPremium: _isCurrentUserPremium,
+        ),
       ),
-      ),
-      );
-
-
+    );
   }
 
   Widget _buildMessageBubble(GroupMessage message, bool isMe,
