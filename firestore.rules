@@ -140,42 +140,6 @@ service cloud.firestore {
       }
     }
 
-    match /chats/{chatId} {
-      allow read: if isAuthenticated() && callerNotBanned() && request.auth.uid in resource.data.users;
-      allow update: if isAuthenticated() && callerNotBanned() && request.auth.uid in resource.data.users && (
-        request.resource.data.diff(resource.data).changedKeys().hasOnly([myLastActiveField()]) || (
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','leftBy']) &&
-          resource.data.status == 'active' && request.resource.data.status == 'ended' &&
-          request.resource.data.leftBy in resource.data.users
-        )
-      );
-      allow create: if isAuthenticated() && callerNotBanned() &&
-        request.resource.data.users.size() == 2 &&
-        request.resource.data.users[0] < request.resource.data.users[1] &&
-        request.resource.data.users[0] != request.resource.data.users[1] &&
-        !isBlocked(request.resource.data.users[0], request.resource.data.users[1]) &&
-        !isBlocked(request.resource.data.users[1], request.resource.data.users[0]) &&
-        request.auth.uid in request.resource.data.users &&
-        (
-          request.resource.data.keys().hasOnly(['users','status']) ||
-          request.resource.data.keys().hasOnly(['users','status','createdAt','lastActivity'])
-        ) &&
-        (request.resource.data.status == 'active') &&
-        (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time) &&
-        (!('lastActivity' in request.resource.data) || request.resource.data.lastActivity == request.time);
-
-      match /messages/{messageId} {
-        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users;
-        allow create: if isAuthenticated() && callerNotBanned() &&
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.users &&
-          request.resource.data.keys().hasOnly(['text','createdAt','userId','serverAuth']) &&
-          request.resource.data.serverAuth == true &&
-          request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000 &&
-          request.resource.data.userId == request.auth.uid;
-        allow update, delete: if false;
-      }
-    }
-
     match /posts/{postId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.userId);
