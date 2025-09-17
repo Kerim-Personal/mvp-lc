@@ -15,44 +15,7 @@ import 'package:lingua_chat/models/group_message.dart';
 import 'package:lingua_chat/widgets/group_message_bubble.dart';
 import 'package:lingua_chat/widgets/grammar_analysis_dialog.dart';
 import 'package:lingua_chat/widgets/sender_header_label.dart';
-import 'package:lingua_chat/screens/community_screen.dart';
 
-// Mesaj veri modeli
-// class GroupMessage {
-//   final String id; // yeni: doc id
-//   final String senderId;
-//   final String senderName;
-//   final String senderAvatarUrl;
-//   final String text;
-//   final Timestamp? createdAt; // renamed from timestamp
-//   final String? senderRole;
-//   final bool senderIsPremium;
-//
-//   GroupMessage({
-//     required this.id,
-//     required this.senderId,
-//     required this.senderName,
-//     required this.senderAvatarUrl,
-//     required this.text,
-//     required this.createdAt,
-//     required this.senderRole,
-//     required this.senderIsPremium,
-//   });
-//
-//   factory GroupMessage.fromFirestore(DocumentSnapshot doc) {
-//     Map data = doc.data() as Map<String, dynamic>;
-//     return GroupMessage(
-//       id: doc.id,
-//       senderId: data['senderId'] ?? '',
-//       senderName: data['senderName'] ?? 'Bilinmeyen',
-//       senderAvatarUrl: data['senderAvatarUrl'] ?? '',
-//       text: data['text'] ?? '',
-//       createdAt: data['createdAt'],
-//       senderRole: data['senderRole'] as String?,
-//       senderIsPremium: (data['senderIsPremium'] as bool?) ?? false,
-//     );
-//   }
-// }
 class GroupChatScreen extends StatefulWidget {
   final String roomId;
   final String roomName;
@@ -426,7 +389,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                           : [Colors.teal.shade400, Colors.teal.shade600]),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.4 : 0.2),
+                        color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.2),
                         blurRadius: 4,
                         offset: const Offset(0, 2))
                   ],
@@ -444,18 +407,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             ],
           ),
           actions: [
-            IconButton(
-              tooltip: 'Leaderboard',
-              icon: const Icon(Icons.leaderboard_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CommunityScreen(initialTabIndex: 0),
-                  ),
-                );
-              },
-            ),
             IconButton(
               icon: const Icon(Icons.more_vert),
               onPressed: () {
@@ -719,3 +670,5 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   }
 
 }
+
+

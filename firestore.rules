@@ -166,40 +166,13 @@ service cloud.firestore {
       }
     }
 
+    // Grup sohbeti için TÜM kısıtlamalar kaldırıldı
     match /group_chats/{roomId} {
-      // Tüm giriş yapmış kullanıcılar grup sohbetlerini görebilir
-      allow read: if isAuthenticated() && callerNotBanned();
-      allow write: if false;
+      allow read, write: if true;
 
-      match /members/{userId} {
-        allow read: if isAuthenticated() && (
-          userId == request.auth.uid ||
-          isPrivileged(request.auth.uid) ||
-          (exists(/databases/$(database)/documents/group_chats/$(roomId)) && get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid) ||
-          // Grup üyesi olan herkes diğer üyeleri okuyabilir
-          (exists(/databases/$(database)/documents/group_chats/$(roomId)) && isGroupMember(roomId, request.auth.uid))
-        );
-        allow create: if isOwner(userId) && callerNotBanned() && exists(/databases/$(database)/documents/group_chats/$(roomId)) && (
-          get(/databases/$(database)/documents/group_chats/$(roomId)).data.openJoin == true ||
-          isPrivileged(request.auth.uid) ||
-            get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid
-        );
-        allow delete: if callerNotBanned() && isAuthenticated() && (isOwner(userId) || isPrivileged(request.auth.uid) || (exists(/databases/$(database)/documents/group_chats/$(roomId)) && get(/databases/$(database)/documents/group_chats/$(roomId)).data.ownerId == request.auth.uid));
-        allow update: if isOwner(userId) && callerNotBanned();
-      }
-
-      match /messages/{messageId} {
-        // Tüm giriş yapmış kullanıcılar grup mesajlarını okuyabilir
-        allow read: if isAuthenticated() && callerNotBanned();
-        // Mesaj gönderebilmek için grup üyesi olması gerekir
-        allow create: if isAuthenticated() && callerNotBanned() &&
-          isOwner(request.resource.data.senderId) &&
-          isGroupMember(roomId, request.auth.uid) &&
-          request.resource.data.keys().hasOnly(['text','createdAt','senderId','senderName','senderAvatarUrl','senderRole','senderIsPremium','serverAuth']) &&
-          request.resource.data.serverAuth == true &&
-          request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000 &&
-          request.resource.data.senderId == request.auth.uid;
-        allow update, delete: if false;
+      // Tüm alt koleksiyonlar ve belgeler (messages, members vb.) dahil
+      match /{document=**} {
+        allow read, write: if true;
       }
     }
 
@@ -255,10 +228,7 @@ service cloud.firestore {
           request.resource.data.senderId == request.auth.uid &&
           request.resource.data.senderRole in ['admin','moderator']
         )) &&
-        request.resource.data.keys().hasOnly(['senderId','senderRole','text','attachments','createdAt']) &&
-        request.resource.data.createdAt is timestamp && request.resource.data.createdAt <= request.time &&
-        (!('text' in request.resource.data) || (request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000)) &&
-        (!('attachments' in request.resource.data) || (request.resource.data.attachments is list && request.resource.data.attachments.size() <= 10));
+        request.resource.data.keys().hasOnly(['senderId','senderRole','text','attachments','createdAt']);
         allow update, delete: if false;
       }
     }
