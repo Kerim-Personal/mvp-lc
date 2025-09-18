@@ -9,6 +9,7 @@ import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
 import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 import 'package:lingua_chat/widgets/common/safety_help_button.dart';
 import 'package:lingua_chat/widgets/common/ai_partner_button.dart';
+import 'package:lingua_chat/widgets/home_screen/profile_summary_content.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onSearchingChanged});
@@ -107,6 +108,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _navigateToStatsAndBadges() {
+    if (!mounted) return;
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'profile-summary',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 280),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, sec, __) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+        return Opacity(
+          opacity: anim.value,
+          child: Center(
+            child: Transform.scale(
+              scale: 0.98 + 0.02 * curved.value,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = (constraints.maxWidth - 32).clamp(320.0, 560.0);
+                  final maxH = (constraints.maxHeight * 0.88).clamp(420.0, 760.0);
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
+                    child: Material(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      elevation: 12,
+                      borderRadius: BorderRadius.circular(16),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: const [
+                          // İçerik kendi içinde scrollable
+                          Expanded(child: ProfileSummaryContent()),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final double safeBottom = MediaQuery.of(context).padding.bottom;
@@ -116,16 +161,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       body: Stack(
         children: [
           _buildHomeUI(),
-          // Solda AI Partner Button (eşit hizada)
+          // Solda AI Partner Button (yukarıya taşındı)
           Positioned(
             left: 16,
-            bottom: safeBottom + 6,
+            bottom: safeBottom + 20,
             child: AiPartnerButton(),
           ),
-          // Sağda Digital Safety Button (eşit hizada)
+          // Sağda Digital Safety Button (yukarıya taşındı)
           Positioned(
             right: 16,
-            bottom: safeBottom + 6,
+            bottom: safeBottom + 20,
             child: SafetyHelpButton(),
           ),
         ],
@@ -141,7 +186,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           diamonds: 0,
           isPremium: false,
           currentUser: _currentUser,
-          role: 'user');
+          role: 'user',
+          onTap: _navigateToStatsAndBadges); // onTap eklendi
     }
     if (snap == null || !snap.exists || snap.data() == null) {
       return HomeHeader(
@@ -150,7 +196,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           diamonds: 0,
           isPremium: false,
           currentUser: _currentUser,
-          role: 'user');
+          role: 'user',
+          onTap: _navigateToStatsAndBadges); // onTap eklendi
     }
     final userData = snap.data()!;
     final userName = userData['displayName'] ?? 'Traveler';
@@ -172,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       diamonds: diamonds,
       currentUser: _currentUser,
       role: role,
+      onTap: _navigateToStatsAndBadges, // onTap eklendi
     );
   }
 
@@ -185,7 +233,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final data = snap.data()!;
     final int streak = data['streak'] ?? 0;
     final int totalTime = data['totalPracticeTime'] ?? 0;
-    return StatsRow(streak: streak, totalTime: totalTime);
+    return StatsRow(
+      streak: streak,
+      totalTime: totalTime,
+      onTap: _navigateToStatsAndBadges, // Yönlendirme fonksiyonu eklendi
+    );
   }
 
   Widget _buildHomeUI() {
@@ -194,14 +246,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       builder: (context, snapshot) {
         final userSnap = snapshot.data;
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
+          child: SingleChildScrollView( // Column'u SingleChildScrollView ile sarmaladım
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: _buildAnimatedUI(
@@ -209,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: _buildHeaderSection(userSnap),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: _buildAnimatedUI(
@@ -217,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: _buildStatsSection(userSnap),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   _buildAnimatedUI(
                     interval: const Interval(0.2, 0.8),
                     child: PartnerFinderSection(
@@ -225,17 +277,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       pulseAnimationController: _pulseAnimationController,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Listener(
-                    onPointerDown: (_) => _cardScrollTimer?.cancel(),
-                    onPointerUp: (_) => _startCardScrollTimer(),
-                    child: HomeCardsSection(
-                      pageController: _pageController,
-                      pageOffset: _pageOffset,
+                  const SizedBox(height: 16),
+                  // HomeCardsSection için sabit yükseklik belirledim
+                  SizedBox(
+                    height: 400, // Sabit yükseklik
+                    child: Listener(
+                      onPointerDown: (_) => _cardScrollTimer?.cancel(),
+                      onPointerUp: (_) => _startCardScrollTimer(),
+                      child: HomeCardsSection(
+                        pageController: _pageController,
+                        pageOffset: _pageOffset,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const SizedBox(height: 120), // butonlarla çakışmayı önlemek için daha fazla alt boşluk
+                  const SizedBox(height: 100), // Alt boşluk artırıldı
                 ],
               ),
             ),

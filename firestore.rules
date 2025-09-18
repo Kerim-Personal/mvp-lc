@@ -145,32 +145,6 @@ service cloud.firestore {
       }
     }
 
-    match /posts/{postId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.userId);
-      allow update: if isAuthenticated() && callerNotBanned() && ((
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['likes']) && ((
-          !(request.auth.uid in resource.data.likes) &&
-          request.auth.uid in request.resource.data.likes &&
-          request.resource.data.likes.size() == resource.data.likes.size() + 1
-        ) || (
-          (request.auth.uid in resource.data.likes) &&
-          !(request.auth.uid in request.resource.data.likes) &&
-          request.resource.data.likes.size() == resource.data.likes.size() - 1
-        ))
-      ) || (
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['commentCount']) &&
-        incByOne(resource.data.commentCount, request.resource.data.commentCount)
-      ));
-      allow delete: if isAuthenticated() && callerNotBanned() && (isOwner(resource.data.userId) || isPrivileged(request.auth.uid));
-
-      match /comments/{commentId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.userId);
-        allow update, delete: if false;
-      }
-    }
-
     // Grup sohbeti için TÜM kısıtlamalar kaldırıldı
     match /group_chats/{roomId} {
       allow read, write: if true;
@@ -193,18 +167,6 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy']) &&
         request.resource.data.status in ['pending','reviewed','dismissed'];
       allow delete: if false;
-    }
-
-    match /quizzes/{quizId} {
-      allow read: if isAuthenticated();
-      allow write: if false;
-
-      match /questions/{questionId} { allow read: if isAuthenticated(); allow write: if false; }
-      match /answers/{answerId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && callerNotBanned() && answerId.matches('^' + request.auth.uid + '.*');
-        allow update, delete: if false;
-      }
     }
 
     match /support/{ticketId} {

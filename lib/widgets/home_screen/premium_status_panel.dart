@@ -37,7 +37,7 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final w = constraints.maxWidth;
-      final scale = (w / 360).clamp(0.85, 1.0);
+      final scale = (w / 360).clamp(0.75, 1.0);
       return RepaintBoundary(
         child: Stack(
           children: [
@@ -136,45 +136,48 @@ class _PanelContent extends StatelessWidget {
       {required this.shimmerController, required this.textScale});
 
   List<_Benefit> get _benefits => const [
-    _Benefit(Icons.auto_awesome, 'Reklamsız'),
-    _Benefit(Icons.translate_rounded, 'Anlık Çeviri'),
-    // Akıllı Filtre kaldırıldı
-    // Öncelikli Erişim kaldırıldı
-    // Erken Özellikler kaldırıldı
-    _Benefit(Icons.support_agent, 'Öncelikli Destek'),
+    _Benefit(Icons.auto_awesome, 'Ad-free'),
+    _Benefit(Icons.translate_rounded, 'Instant Translation'),
+    _Benefit(Icons.support_agent, 'Priority Support'),
+    _Benefit(Icons.spellcheck, 'Grammar Analysis'),
+    _Benefit(Icons.blur_on, 'Shimmer'),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final titleBaseSize = 24.0 * textScale;
-    final bodySize = 14.5 * textScale;
-    final chipFont = 12.0 * textScale;
+    final titleBaseSize = 20.0 * textScale; // Başlık boyutunu küçülttüm
+    final bodySize = 12.0 * textScale; // Açıklama boyutunu küçülttüm
+    final chipFont = 10.0 * textScale; // Chip font boyutunu küçülttüm
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
+        // Shimmer başlık en üstte
         _ShimmerTitle(
             controller: shimmerController,
-            fontSize: titleBaseSize.clamp(20, 24)),
-        const SizedBox(height: 6),
+            fontSize: titleBaseSize.clamp(16, 20)), // Max boyutu düşürdüm
+        const SizedBox(height: 3), // Boşluğu azalttım
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: Text(
-            'Pro ile hızlanmış, odaklı ve keyifli öğrenme deneyimi.',
+            'A faster, focused, and enjoyable learning experience with Pro.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: bodySize.clamp(12.5, 15.0),
-              height: 1.30,
+              fontSize: bodySize.clamp(10, 12), // Boyutu küçülttüm
+              height: 1.2, // Line height'ı azalttım
               color: Colors.white.withValues(alpha: 0.85),
               fontWeight: FontWeight.w500,
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8), // Boşluğu azalttım
+        // Özellikler ortada
         RepaintBoundary(
           child: _BenefitGrid(benefits: _benefits, chipFontSize: chipFont),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 8), // Boşluğu azalttım
+        // Teşekkür en sonda - orijinal mesajla
         const _ThanksRow(),
       ],
     );
@@ -208,8 +211,9 @@ class _ShimmerTitle extends StatelessWidget {
             stops: [start, mid, end],
           ).createShader(b),
           child: Text(
-            'Lingua Pro Üyesisiniz',
+            'You are a Lingua Pro Member',
             textAlign: TextAlign.center,
+            maxLines: 2,
             style: TextStyle(
               fontSize: fontSize,
               fontWeight: FontWeight.w800,
@@ -230,8 +234,9 @@ class _BenefitGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, c) {
       final maxW = c.maxWidth;
-      int cols = (maxW / 130).floor().clamp(2, 4);
-      final chipWidth = (maxW - (cols - 1) * 10) / cols;
+      // Dikey ve ortalı liste: tek kolon, sabit mak. genişlikli chip
+      final int cols = 1;
+      final double chipWidth = math.min(maxW, 320);
       final rows = (benefits.length / cols).ceil();
       return ConstrainedBox(
         constraints: BoxConstraints(
@@ -295,7 +300,7 @@ class _BenefitChip extends StatelessWidget {
       },
       child: Container(
         width: width,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           gradient: LinearGradient(
@@ -317,8 +322,10 @@ class _BenefitChip extends StatelessWidget {
             Flexible(
               child: Text(
                 benefit.label,
-                overflow: TextOverflow.fade,
-                softWrap: false,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                // softWrap true by default
                 style: TextStyle(
                   fontSize: fontSize.clamp(11, 13),
                   fontWeight: FontWeight.w600,
@@ -344,9 +351,9 @@ class _ThanksRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            height: 2.0,
-            width: 180,
-            margin: const EdgeInsets.only(bottom: 12),
+            height: 1.5, // Çizgi kalınlığını azalttım
+            width: 120, // Çizgi genişliğini azalttım
+            margin: const EdgeInsets.only(bottom: 6), // Margin'i azalttım
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -358,21 +365,25 @@ class _ThanksRow extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(4)),
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8, // Spacing'i azalttım
+            runSpacing: 4, // Run spacing'i azalttım
             children: [
               const Icon(Icons.workspace_premium,
-                  color: Color(0xFFFFE8A3), size: 22),
-              const SizedBox(width: 10),
-              Expanded(
+                  color: Color(0xFFFFE8A3), size: 16), // İkon boyutunu küçülttüm
+              Flexible(
                 child: Text(
-                  'Desteğin öğrenen topluluğunu güçlendiriyor. Teşekkürler Pro üye! 💛',
+                  'Your support strengthens the learning community. Thank you, Pro member!',
                   textAlign: TextAlign.center,
+                  maxLines: 2, // 2 satıra izin verdim
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13.0,
+                    fontSize: 11.0, // Font boyutunu küçülttüm
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    height: 1.25,
+                    height: 1.2, // Line height'ı azalttım
                   ),
                 ),
               ),

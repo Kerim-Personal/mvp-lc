@@ -23,77 +23,73 @@ class AchievementsSection extends StatelessWidget {
     required int totalPracticeTime,
     required String level,
   }) {
-    int _extractLevelNumber(String lvl) {
-      final match = RegExp(r'(\d+)').firstMatch(lvl);
-      if (match == null) return 0;
-      return int.tryParse(match.group(1)!) ?? 0;
-    }
-
-    final lvlNum = _extractLevelNumber(level);
     return [
+      // Streak tabanlı rozetler
       Achievement(
-        id: 'first_step',
-        name: 'First Step',
-        icon: Icons.flag,
-        color: Colors.green,
-        earned: (totalPracticeTime > 0) || highestStreak > 0,
-        description: 'İlk adımı at: bir süre çalış veya etkileşim kur.',
+        id: 'first_day',
+        name: 'First Day',
+        icon: Icons.local_fire_department,
+        color: Colors.orange,
+        earned: highestStreak >= 1,
+        description: 'Started your learning journey!',
       ),
       Achievement(
-        id: 'streak_5',
-        name: '5 Day Streak',
-        icon: Icons.filter_5,
-        color: Colors.lightBlue,
-        earned: highestStreak >= 5,
-        description: '5 günlük öğrenme serisine ulaş.',
+        id: 'streak_week',
+        name: 'Weekly Warrior',
+        icon: Icons.date_range, // calendar_week yerine date_range kullanıyorum
+        color: Colors.blue,
+        earned: highestStreak >= 7,
+        description: 'Completed a full week of learning.',
       ),
       Achievement(
-        id: 'streak_30',
-        name: '30 Day Streak',
+        id: 'streak_month',
+        name: 'Monthly Master',
         icon: Icons.calendar_month,
-        color: Colors.indigo,
+        color: Colors.green,
         earned: highestStreak >= 30,
-        description: '30 günlük kesintisiz seri.',
+        description: 'Incredible 30-day discipline!',
       ),
       Achievement(
-        id: 'streak_100',
-        name: '100 Day Streak',
-        icon: Icons.timelapse,
-        color: Colors.deepPurple,
-        earned: highestStreak >= 100,
-        description: '100 günlük efsanevi seri.',
+        id: 'streak_legend',
+        name: 'Yearly Legend',
+        icon: Icons.military_tech,
+        color: Colors.purple,
+        earned: highestStreak >= 365,
+        description: '365-day legendary streak. You are a true champion!',
       ),
+
+      // Pratik süresi tabanlı rozetler
       Achievement(
-        id: 'consistent_7',
-        name: 'Consistent',
-        icon: Icons.calendar_today,
+        id: 'practice_dedicated',
+        name: 'Dedicated',
+        icon: Icons.schedule,
         color: Colors.teal,
-        earned: streak >= 7 || highestStreak >= 7,
-        description: 'Art arda 7 gün aktif ol.',
+        earned: totalPracticeTime >= 600, // 10 hours
+        description: '10 hours of total practice time.',
       ),
       Achievement(
-        id: 'practice_60',
-        name: 'Practice 60m',
+        id: 'practice_committed',
+        name: 'Committed',
         icon: Icons.timer,
         color: Colors.orange,
-        earned: totalPracticeTime >= 60,
-        description: 'Toplam 60+ dakika pratik yap.',
+        earned: totalPracticeTime >= 1800, // 30 hours
+        description: '30 hours of total practice time.',
       ),
       Achievement(
-        id: 'practice_300',
-        name: 'Practice 300m',
-        icon: Icons.av_timer,
+        id: 'practice_expert',
+        name: 'Expert Learner',
+        icon: Icons.school,
         color: Colors.deepOrange,
-        earned: totalPracticeTime >= 300,
-        description: 'Toplam 300+ dakika pratik.',
+        earned: totalPracticeTime >= 3600, // 60 hours
+        description: '60 hours of practice. True expertise!',
       ),
       Achievement(
-        id: 'level_5',
-        name: 'Level Up 5',
-        icon: Icons.trending_up,
-        color: Colors.purple,
-        earned: lvlNum >= 5,
-        description: 'Seviyeni en az 5\'e çıkar.',
+        id: 'practice_master',
+        name: 'Practice Master',
+        icon: Icons.emoji_events,
+        color: Colors.amber,
+        earned: totalPracticeTime >= 6000, // 100 hours
+        description: '100 hours of practice! You are a language master.',
       ),
     ];
   }
@@ -125,7 +121,7 @@ class AchievementsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final achievements = _buildAchievements();
     return SizedBox(
-      height: 110,
+      height: 95, // 85'ten 95'e çıkardım - biraz daha yüksek
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -179,12 +175,12 @@ class _AchievementBadge extends StatelessWidget {
     final a = achievement;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return SizedBox(
-      width: 90,
+      width: 70, // 60'dan 70'e çıkardım - biraz daha geniş
       child: InkWell(
         borderRadius: BorderRadius.circular(50),
         onTap: () => _showInfo(context),
         child: Container(
-          margin: const EdgeInsets.only(right: 12, top: 4, bottom: 4),
+          margin: const EdgeInsets.only(right: 6, top: 2, bottom: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -194,20 +190,20 @@ class _AchievementBadge extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: a.earned ? Border.all(color: a.color.withValues(alpha: 0.5), width: 2) : null,
+                    border: a.earned ? Border.all(color: a.color.withValues(alpha: 0.5), width: 1.5) : null,
                   ),
                   child: CircleAvatar(
-                    radius: 30,
+                    radius: 22, // 20'den 22'ye büyüttüm
                     backgroundColor: a.earned ? a.color : Colors.grey.shade200,
-                    child: Icon(a.icon, color: Colors.white, size: 28),
+                    child: Icon(a.icon, color: Colors.white, size: 20), // 18'den 20'ye büyüttüm
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 5), // 4'ten 5'e artırdım
               Text(
                 a.name,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10, // 9'dan 10'a büyüttüm
                   fontWeight: a.earned ? FontWeight.w600 : FontWeight.normal,
                   color: a.earned ? onSurface.withValues(alpha: 0.9) : onSurface.withValues(alpha: 0.55),
                 ),
@@ -326,7 +322,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                                     Icon(a.earned ? Icons.check_circle : Icons.lock_clock, size: 18, color: a.earned ? Colors.green : Colors.orange),
                                     const SizedBox(width: 7),
                                     Text(
-                                      a.earned ? 'Kazanıldı' : 'Henüz değil',
+                                      a.earned ? 'Earned' : 'Not yet',
                                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: a.earned ? Colors.green : Colors.orange),
                                     ),
                                   ],
@@ -335,7 +331,7 @@ class _AchievementDialogState extends State<_AchievementDialog> with SingleTicke
                               const Spacer(),
                               TextButton(
                                 onPressed: () => Navigator.of(context).maybePop(),
-                                child: const Text('Kapat'),
+                                child: const Text('Close'),
                               ),
                             ],
                           ),

@@ -15,6 +15,7 @@ class HomeHeader extends StatefulWidget {
     this.isPremium = false,
     required this.currentUser,
     this.role = 'user',
+    this.onTap, // Tıklanabilirlik için onTap parametresi eklendi
   });
 
   final String userName;
@@ -23,6 +24,7 @@ class HomeHeader extends StatefulWidget {
   final bool isPremium;
   final User? currentUser;
   final String? role;
+  final VoidCallback? onTap; // Tıklama callback'i
 
   @override
   State<HomeHeader> createState() => _HomeHeaderState();
@@ -87,7 +89,7 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
     final now = DateTime.now();
     final palette = _selectAdaptivePalette(now, widget.isPremium, widget.role);
 
-    return ClipRRect(
+    final header = ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: Stack(
         children: [
@@ -126,9 +128,9 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(0.18),
-                      Colors.white.withOpacity(0.04),
-                      Colors.black.withOpacity(0.10),
+                      Colors.white.withValues(alpha: 0.18),
+                      Colors.white.withValues(alpha: 0.04),
+                      Colors.black.withValues(alpha: 0.10),
                     ],
                     stops: const [0.0, 0.45, 1.0],
                   ),
@@ -141,7 +143,7 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white.withOpacity(0.12), width: 0.6),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.6),
                 ),
               ),
             ),
@@ -149,6 +151,17 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
         ],
       ),
     );
+
+    // Eğer onTap varsa GestureDetector ile sarmalayalım
+    if (widget.onTap != null) {
+      return GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: header,
+      );
+    }
+
+    return header;
   }
 
   Widget _buildContent(Color baseColor) {
@@ -177,19 +190,19 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
         boxShadow: premium
             ? [
           BoxShadow(
-            color: const Color(0xFFE5B53A).withOpacity(0.55),
+            color: const Color(0xFFE5B53A).withValues(alpha: 0.55),
             blurRadius: 18,
             spreadRadius: 1.5,
           ),
           BoxShadow(
-            color: const Color(0xFF8F6A00).withOpacity(0.35),
+            color: const Color(0xFF8F6A00).withValues(alpha: 0.35),
             blurRadius: 32,
             spreadRadius: 10,
           ),
         ]
             : [
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -197,7 +210,7 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
       ),
       child: CircleAvatar(
         radius: 28,
-        backgroundColor: Colors.white.withOpacity(0.15),
+        backgroundColor: Colors.white.withValues(alpha: 0.15),
         child: widget.avatarUrl != null
             ? ClipOval(
           child: SvgPicture.network(
@@ -283,12 +296,12 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.22),
+                color: Colors.black.withValues(alpha: 0.22),
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),
             ],
-            border: Border.all(color: Colors.white.withOpacity(0.12), width: 0.5),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.5),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -304,9 +317,9 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
                 width: 16,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
+                  color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.28), width: 0.6),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.28), width: 0.6),
                 ),
                 alignment: Alignment.center,
                 child: const Icon(Icons.add, size: 12, color: Colors.white),

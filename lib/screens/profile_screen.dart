@@ -8,8 +8,6 @@ import 'dart:async';
 // Gerekli tüm widget'ları içe aktarıyoruz
 import 'package:lingua_chat/widgets/profile_screen/profile_sliver_app_bar.dart';
 import 'package:lingua_chat/widgets/profile_screen/section_title.dart';
-import 'package:lingua_chat/widgets/profile_screen/stats_grid.dart';
-import 'package:lingua_chat/widgets/profile_screen/achievements_section.dart';
 import 'package:lingua_chat/widgets/profile_screen/app_settings_card.dart';
 import 'package:lingua_chat/widgets/profile_screen/support_card.dart';
 import 'package:lingua_chat/widgets/profile_screen/account_management_card.dart';
@@ -30,7 +28,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
   bool _listening = false;
   final AuthService _authService = AuthService();
-  static final Set<String> _pendingBadgeWrites = <String>{};
 
   @override
   void initState() {
@@ -55,30 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
       final data = snap.data();
       if (data == null) return;
 
-      // Rozet hesaplama ve Firestore'a düşük maliyetli yazma
-      try {
-        final int streak = data['streak'] is int ? data['streak'] : 0;
-        final int highestStreak = data['highestStreak'] is int ? data['highestStreak'] : streak;
-        final int totalPracticeTime = data['totalPracticeTime'] is int ? data['totalPracticeTime'] : 0;
-        final String level = (data['level']?.toString()) ?? '-';
-
-        final computed = AchievementsSection.computeEarnedBadgeIds(
-          streak: streak,
-          highestStreak: highestStreak,
-          totalPracticeTime: totalPracticeTime,
-          level: level,
-        );
-        final existing = (data['earnedBadges'] as List?)?.map((e) => e.toString()).toSet() ?? <String>{};
-        final newOnes = computed.where((id) => !existing.contains(id)).toList();
-        // Tekrar yazımları azaltmak için pending filtrele
-        final toWrite = newOnes.where((id) => !_pendingBadgeWrites.contains(id)).toList();
-        if (toWrite.isNotEmpty) {
-          _pendingBadgeWrites.addAll(toWrite);
-          // Sessiz (await etmeden) yaz; hata olsa bile UI bloklanmasın
-          // arrayUnion idempotent -> yarış koşullarında sorun yok
-          docRef.update({'earnedBadges': FieldValue.arrayUnion(toWrite)}).catchError((_) {});
-        }
-      } catch (_) {}
+      // Rozet hesaplama kısmını kaldırdım çünkü artık profile'da badge yok
 
       // Küçük değişimler için gereksiz rebuild engelle (referans ya da önemli alan farkı)
       if (_cachedUserData != null) {
@@ -134,36 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
     final List<Widget> children = [];
 
-    children.add(_section(Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionTitle('My Stats'),
-        Transform.translate(
-          offset: const Offset(0, -4.0),
-          child: StatsGrid(
-            level: level,
-            streak: streak,
-            totalPracticeTime: totalPracticeTime,
-            highestStreak: highestStreakInt,
-          ),
-        ),
-      ],
-    )));
-    children.add(const SizedBox(height: 16));
-
-    children.add(_section(Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionTitle('Earned Badges'),
-        AchievementsSection(
-          streak: streak,
-          highestStreak: highestStreakInt,
-          totalPracticeTime: totalPracticeTime,
-            level: level,
-        ),
-      ],
-    )));
-    children.add(const SizedBox(height: 16));
+    // My Stats ve Earned Badges bölümlerini kaldırdım
 
     children.add(_section(Column(
       crossAxisAlignment: CrossAxisAlignment.start,

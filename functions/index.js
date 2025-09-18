@@ -28,7 +28,7 @@ exports.checkUsernameAvailable = functions
         const RESERVED = new Set([
           "admin", "administrator", "root", "support", "moderator", "mod",
           "system", "null", "undefined", "owner", "staff", "team",
-          "linguachat", "lingua", "api",
+          "vocachat", "voca", "api",
         ]);
         const VALID_RE = /^[a-z0-9_]{3,29}$/;
 
@@ -184,51 +184,6 @@ exports.deleteUserAccount = functions
       }
     });
 
-/**
- * Gönderi oluşturulduğunda tetiklenen fonksiyon
- * Yeni bir gönderi oluşturulduğunda, gönderinin ait olduğu kullanıcı
- * belgesine gönderi kimliğini ekler.
- */
-exports.onPostCreated = functions.firestore
-    .document("posts/{postId}")
-    .onCreate(async (snap, context) => {
-      const postData = snap.data();
-      const userId = postData.userId;
-      const postId = context.params.postId;
-      if (!userId) return null;
-      const userRef = db.collection("users").doc(userId);
-      try {
-        await userRef.update({
-          posts: admin.firestore.FieldValue.arrayUnion(postId),
-        });
-        return null;
-      } catch (_e) {
-        return null;
-      }
-    });
-
-/**
- * Gönderi silindiğinde tetiklenen fonksiyon
- * Bir gönderi silindiğinde, gönderinin ait olduğu kullanıcı belgesinden
- * gönderi kimliğini kaldırır.
- */
-exports.onPostDeleted = functions.firestore
-    .document("posts/{postId}")
-    .onDelete(async (snap, context) => {
-      const postData = snap.data();
-      const userId = postData.userId;
-      const postId = context.params.postId;
-      if (!userId) return null;
-      const userRef = db.collection("users").doc(userId);
-      try {
-        await userRef.update({
-          posts: admin.firestore.FieldValue.arrayRemove(postId),
-        });
-        return null;
-      } catch (_e) {
-        return null;
-      }
-    });
 /**
  * Oda üyesi eklendiğinde: memberCount artır, avatarsPreview güncelle
  * (ilk 3 avatar)
