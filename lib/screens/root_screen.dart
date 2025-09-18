@@ -8,7 +8,7 @@ import 'package:lingua_chat/screens/home_screen.dart';
 import 'package:lingua_chat/screens/profile_screen.dart';
 import 'package:lingua_chat/screens/store_screen.dart';
 import 'package:lingua_chat/screens/discover_screen.dart';
-import 'package:lingua_chat/screens/community_screen.dart';
+import 'package:lingua_chat/screens/leaderboard_screen.dart';
 import 'package:lingua_chat/widgets/shared/animated_background.dart';
 
 // Bu fonksiyon veritabanı kurulumu için, dokunulmasına gerek yok.

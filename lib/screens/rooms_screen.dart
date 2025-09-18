@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/community_screen.dart' show GroupChatRoomInfo;
+import 'package:lingua_chat/screens/leaderboard_screen.dart' show GroupChatRoomInfo;
 import 'package:lingua_chat/widgets/community_screen/group_chat_card.dart';
 
 class RoomsScreen extends StatefulWidget {

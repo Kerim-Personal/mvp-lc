@@ -13,8 +13,7 @@ import 'package:lingua_chat/widgets/profile_screen/achievements_section.dart';
 import 'package:lingua_chat/widgets/profile_screen/app_settings_card.dart';
 import 'package:lingua_chat/widgets/profile_screen/support_card.dart';
 import 'package:lingua_chat/widgets/profile_screen/account_management_card.dart';
-import 'package:lingua_chat/widgets/profile_screen/admin_panel_card.dart';
-import 'package:lingua_chat/widgets/profile_screen/admin_notification_card.dart';
+import 'package:lingua_chat/widgets/profile_screen/administration_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -202,9 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionTitle('Administration'),
-          const AdminPanelCard(),
-          if (role == 'admin') const SizedBox(height: 12),
-          if (role == 'admin') const AdminNotificationCard(),
+          AdministrationCard(role: role),
         ],
       )));
     }

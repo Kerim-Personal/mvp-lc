@@ -1,4 +1,4 @@
-// lib/screens/community_screen.dart
+// lib/screens/leaderboard_screen.dart
 
 import 'dart:ui' show ImageFilter;
 import 'package:cloud_firestore/cloud_firestore.dart';
