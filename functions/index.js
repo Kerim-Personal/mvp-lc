@@ -139,9 +139,9 @@ exports.sendVerificationCode = functions.auth.user().onCreate((user) => {
   });
 
   const mailOptions = {
-    from: `"LinguaChat Team" <${gmailEmail}>`,
+    from: `"VocaChat Team" <${gmailEmail}>`,
     to: userEmail,
-    subject: "Welcome to LinguaChat!",
+    subject: "Welcome to VocaChat!",
     html: `<h1>Welcome, ${displayName}!</h1><p>Your account is ready. ` +
           `Please verify your email to start your language learning adventure.</p>`,
   };

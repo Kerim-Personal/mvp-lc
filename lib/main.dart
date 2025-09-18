@@ -163,7 +163,7 @@ class MyApp extends StatelessWidget {
         });
         _SystemUiSynchronizer.update(isDark);
         return MaterialApp(
-          title: 'LinguaChat',
+          title: 'VocaChat',
           debugShowCheckedModeBanner: false,
           navigatorKey: notificationNavigatorKey,
           theme: ThemeService.instance.lightTheme,
@@ -255,3 +255,8 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 }
+
+
+
+
+

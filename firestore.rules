@@ -43,7 +43,7 @@ service cloud.firestore {
       return name is string && name.size() >= 3 && name.size() <= 29 && name.matches('^[A-Za-z0-9_]{3,29}$');
     }
     function isReservedName(n) {
-      return n in ['admin','administrator','root','support','moderator','mod','system','null','undefined','owner','staff','team','linguachat','lingua','api'];
+      return n in ['admin','administrator','root','support','moderator','mod','system','null','undefined','owner','staff','team','vocachat','voca','api'];
     }
     function ownsReservedUsername(uname) {
       return exists(/databases/$(database)/documents/usernames/$(uname)) &&

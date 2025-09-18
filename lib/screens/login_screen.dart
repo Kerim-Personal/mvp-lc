@@ -447,7 +447,7 @@ class _LoginScreenState extends State<LoginScreen>
             const Icon(Icons.language, size: 80, color: Colors.white),
             const SizedBox(height: 16),
             const Text(
-              'LinguaChat',
+              'VocaChat',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 45.0,

@@ -140,7 +140,7 @@ class _PanelContent extends StatelessWidget {
     _Benefit(Icons.translate_rounded, 'Instant Translation'),
     _Benefit(Icons.support_agent, 'Priority Support'),
     _Benefit(Icons.spellcheck, 'Grammar Analysis'),
-    _Benefit(Icons.smart_toy, 'Voca Bot'),
+    _Benefit(Icons.smart_toy, 'VocaBot'),
     _Benefit(Icons.blur_on, 'Shimmer'),
   ];
 
