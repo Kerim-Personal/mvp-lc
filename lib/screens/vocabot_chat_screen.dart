@@ -1,4 +1,4 @@
-// lib/screens/linguabot_chat_screen.dart
+// lib/screens/vocabot_chat_screen.dart
 // This is not a chat screen, it's a language universe simulator.
 // v2.4.0: Star animations have been calmed and naturalized. The environment is now authentic and not distracting.
 

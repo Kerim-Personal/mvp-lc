@@ -653,7 +653,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           ),
           const SizedBox(height: 26),
           const SizedBox(
-            height: 360,
+            height: 420, // 360'dan 420'ye artırdım - daha fazla yer
             child: PremiumStatusPanel(),
           ),
           const SizedBox(height: 12),

@@ -140,6 +140,7 @@ class _PanelContent extends StatelessWidget {
     _Benefit(Icons.translate_rounded, 'Instant Translation'),
     _Benefit(Icons.support_agent, 'Priority Support'),
     _Benefit(Icons.spellcheck, 'Grammar Analysis'),
+    _Benefit(Icons.smart_toy, 'Voca Bot'),
     _Benefit(Icons.blur_on, 'Shimmer'),
   ];
 
@@ -234,9 +235,9 @@ class _BenefitGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, c) {
       final maxW = c.maxWidth;
-      // Dikey ve ortalı liste: tek kolon, sabit mak. genişlikli chip
+      // Tek kolon - alt alta dizilim
       final int cols = 1;
-      final double chipWidth = math.min(maxW, 320);
+      final double chipWidth = math.min(maxW * 0.9, 280); // Daha geniş chip'ler
       final rows = (benefits.length / cols).ceil();
       return ConstrainedBox(
         constraints: BoxConstraints(
@@ -248,7 +249,7 @@ class _BenefitGrid extends StatelessWidget {
             final end = (start + cols).clamp(0, benefits.length);
             final slice = benefits.sublist(start, end);
             return Padding(
-              padding: EdgeInsets.only(bottom: r == rows - 1 ? 0 : 8),
+              padding: EdgeInsets.only(bottom: r == rows - 1 ? 0 : 8), // Normal boşluk
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

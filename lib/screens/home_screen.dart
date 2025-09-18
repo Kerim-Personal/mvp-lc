@@ -236,7 +236,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return StatsRow(
       streak: streak,
       totalTime: totalTime,
-      onTap: _navigateToStatsAndBadges, // Yönlendirme fonksiyonu eklendi
     );
   }
 
