@@ -10,11 +10,11 @@ import 'package:lingua_chat/services/translation_service.dart';
 class MessageBubble extends StatelessWidget {
   final MessageUnit message;
   final Function(String) onCorrect;
-  // Premium kullanıcıların balonlarına özel arka plan uygulamak için
+  // To apply a special background for premium users' bubbles
   final bool isUserPremium;
-  // Çeviri hedefi için kullanıcının anadil kodu (ör. 'tr')
+  // The user's native language code for the translation target (e.g., 'en')
   final String nativeLanguage;
-  // Kullanıcı premium mu? Çeviri etkileşimi buna göre açılır.
+  // Is the user premium? This enables the translation interaction.
   final bool isPremium;
   const MessageBubble({super.key, required this.message, required this.onCorrect, this.isUserPremium = false, required this.nativeLanguage, required this.isPremium});
 
@@ -54,7 +54,7 @@ class MessageBubble extends StatelessWidget {
 
   Future<void> _handleTranslate(BuildContext context) async {
     if (!isPremium) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çeviri Premium kullanıcılar içindir.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Translation is a Premium feature.')));
       return;
     }
     final src = message.text.trim();
@@ -62,11 +62,11 @@ class MessageBubble extends StatelessWidget {
 
     try {
       String detected = await TranslationService.instance.detectLanguage(src);
-      // Hedef belirleme: EN <-> anadil
+      // Determine target: EN <-> native language
       String target;
       final native = nativeLanguage.toLowerCase();
       if (detected == 'und') {
-        // Belirsiz ise: bot mesajları genelde EN olduğu için varsayılan EN -> anadil
+        // If uncertain: default to EN -> native, as bot messages are usually in English
         detected = message.sender == MessageSender.bot ? 'en' : (native == 'en' ? 'en' : native);
       }
       if (detected == 'en') {
@@ -74,12 +74,12 @@ class MessageBubble extends StatelessWidget {
       } else if (detected == native) {
         target = 'en';
       } else {
-        // Farklı bir kaynak ise EN'e çevir
+        // If it's a different source language, translate to EN
         target = 'en';
       }
 
       if (detected == target) {
-        // Zaten hedef dilde
+        // Already in the target language
         await _showTranslationSheet(context, original: message.text, translated: message.text, detected: detected, target: target);
         return;
       }
@@ -92,7 +92,7 @@ class MessageBubble extends StatelessWidget {
 
       await _showTranslationSheet(context, original: message.text, translated: translated, detected: detected, target: target);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Çeviri başarısız: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Translation failed: $e')));
     }
   }
 
@@ -113,23 +113,23 @@ class MessageBubble extends StatelessWidget {
                   children: [
                     const Icon(Icons.translate_rounded, color: Colors.cyanAccent),
                     const SizedBox(width: 8),
-                    Text('Çeviri (${detected.toUpperCase()} → ${target.toUpperCase()})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text('Translation (${detected.toUpperCase()} → ${target.toUpperCase()})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.copy_all_rounded, color: Colors.white70),
-                      tooltip: 'Çeviri metnini kopyala',
+                      tooltip: 'Copy translation',
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: translated));
                         if (context.mounted) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çeviri kopyalandı')));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Translation copied')));
                         }
                       },
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text('Orijinal', style: TextStyle(color: Colors.white70.withAlpha(200), fontSize: 12)),
+                Text('Original', style: TextStyle(color: Colors.white70.withAlpha(200), fontSize: 12)),
                 const SizedBox(height: 4),
                 Container(
                   width: double.infinity,
@@ -142,7 +142,7 @@ class MessageBubble extends StatelessWidget {
                   child: Text(original, style: const TextStyle(color: Colors.white, height: 1.4)),
                 ),
                 const SizedBox(height: 10),
-                Text('Çeviri', style: TextStyle(color: Colors.cyanAccent.withAlpha(230), fontSize: 12)),
+                Text('Translation', style: TextStyle(color: Colors.cyanAccent.withAlpha(230), fontSize: 12)),
                 const SizedBox(height: 4),
                 Container(
                   width: double.infinity,
@@ -177,16 +177,16 @@ class MessageBubble extends StatelessWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.content_copy, color: Colors.white70),
-                title: const Text('Kopyala', style: TextStyle(color: Colors.white)),
+                title: const Text('Copy', style: TextStyle(color: Colors.white)),
                 onTap: () async {
                   await Clipboard.setData(ClipboardData(text: message.text));
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesaj kopyalandı')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Message copied')));
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.volume_up, color: Colors.white70),
-                title: const Text('Seslendir', style: TextStyle(color: Colors.white)),
+                title: const Text('Speak', style: TextStyle(color: Colors.white)),
                 onTap: () async {
                   Navigator.pop(context);
                   await tts.speak(message.text, language: 'en-US');
@@ -194,7 +194,7 @@ class MessageBubble extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.translate_rounded, color: Colors.white70),
-                title: Text(isPremium ? 'Çevir' : 'Çeviri (Premium)', style: const TextStyle(color: Colors.white)),
+                title: Text(isPremium ? 'Translate' : 'Translate (Premium)', style: const TextStyle(color: Colors.white)),
                 onTap: () async {
                   Navigator.pop(context);
                   await _handleTranslate(context);
@@ -202,7 +202,7 @@ class MessageBubble extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.insights, color: Colors.white70),
-                title: const Text('Analiz', style: TextStyle(color: Colors.white)),
+                title: const Text('Analyze', style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(context);
                   showDialog(
@@ -227,16 +227,16 @@ class MessageBubble extends StatelessWidget {
     bool isUser = message.sender == MessageSender.user;
     final ga = message.grammarAnalysis;
 
-    // Premium kullanıcı balonu mu?
+    // Is it a premium user bubble?
     final bool premiumStyle = isUser && isUserPremium;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color baseTextColor = premiumStyle ? Colors.black87 : Colors.white;
     final Color iconColor = premiumStyle ? Colors.black54 : Colors.white70;
 
-    // Premium gradyanını temaya göre yumuşat
+    // Soften the premium gradient based on the theme
     final List<Color> premiumGradientColors = isDark
-        ? [const Color(0xFFFFF3E0).withValues(alpha: 0.86), const Color(0xFFFFE082).withValues(alpha: 0.80)]
-        : [const Color(0xFFFFF8E1).withValues(alpha: 0.95), const Color(0xFFFFE082).withValues(alpha: 0.90)];
+        ? [const Color(0xFFFFF3E0).withOpacity(0.86), const Color(0xFFFFE082).withOpacity(0.80)]
+        : [const Color(0xFFFFF8E1).withOpacity(0.95), const Color(0xFFFFE082).withOpacity(0.90)];
 
     Widget textWidget;
     if (isUser && ga != null) {
@@ -266,26 +266,26 @@ class MessageBubble extends StatelessWidget {
             ),
             gradient: premiumStyle
                 ? LinearGradient(
-                    colors: premiumGradientColors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
+              colors: premiumGradientColors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            )
                 : LinearGradient(
-                    colors: isUser
-                        ? [Colors.teal.withAlpha(51), Colors.cyan.withAlpha(26)]
-                        : [Colors.purple.withAlpha(51), Colors.deepPurple.withAlpha(26)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+              colors: isUser
+                  ? [Colors.teal.withAlpha(51), Colors.cyan.withAlpha(26)]
+                  : [Colors.purple.withAlpha(51), Colors.deepPurple.withAlpha(26)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             boxShadow: premiumStyle
                 ? [
-                    BoxShadow(
-                      color: const Color(0xFFFFD54F).withAlpha(40),
-                      blurRadius: 8,
-                      spreadRadius: 0.5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
+              BoxShadow(
+                color: const Color(0xFFFFD54F).withAlpha(40),
+                blurRadius: 8,
+                spreadRadius: 0.5,
+                offset: const Offset(0, 2),
+              ),
+            ]
                 : null,
           ),
           child: Column(
@@ -321,7 +321,7 @@ class MessageBubble extends StatelessWidget {
                     ],
                   ),
                 ),
-              // Hızlı eylemler (küçük ikonlar)
+              // Quick actions (small icons)
               Padding(
                 padding: const EdgeInsets.only(top: 6.0),
                 child: Row(
@@ -330,17 +330,17 @@ class MessageBubble extends StatelessWidget {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       iconSize: 18,
-                      tooltip: 'Kopyala',
+                      tooltip: 'Copy',
                       icon: Icon(Icons.copy, color: iconColor),
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: message.text));
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesaj kopyalandı')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Message copied')));
                       },
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       iconSize: 18,
-                      tooltip: 'Seslendir',
+                      tooltip: 'Speak',
                       icon: Icon(Icons.volume_up, color: iconColor),
                       onPressed: () async {
                         await TtsService().speak(message.text, language: 'en-US');
@@ -349,7 +349,7 @@ class MessageBubble extends StatelessWidget {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       iconSize: 18,
-                      tooltip: isPremium ? 'Çevir' : 'Çeviri (Premium)',
+                      tooltip: isPremium ? 'Translate' : 'Translate (Premium)',
                       icon: Icon(Icons.translate_rounded, color: iconColor),
                       onPressed: () async {
                         await _handleTranslate(context);
@@ -358,7 +358,7 @@ class MessageBubble extends StatelessWidget {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       iconSize: 18,
-                      tooltip: 'Analiz',
+                      tooltip: 'Analyze',
                       icon: Icon(Icons.insights, color: iconColor),
                       onPressed: () {
                         showDialog(

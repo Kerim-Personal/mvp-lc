@@ -28,7 +28,7 @@ class AdministrationCard extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.notifications_active, color: Colors.indigo),
           title: const Text('Notification Panel', style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text('Kullanıcılara push bildirimi gönder'),
+          subtitle: const Text('Send a push notification to users'),
           trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const AdminNotificationScreen()),
@@ -39,7 +39,7 @@ class AdministrationCard extends StatelessWidget {
 
     return Card(
       elevation: 4,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         mainAxisSize: MainAxisSize.min,

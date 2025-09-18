@@ -132,16 +132,9 @@ class AudioService {
     await prefs.setBool(_clickSoundEnabledKey, enable);
   }
 
-  /// Uygulama genelinde tuş / buton etkileşimlerinde çağrılabilir.
-  /// assets/ klasörüne koyacağınız kısa bir ses dosyasını (ör: click.mp3) çalar.
   Future<void> playClick() async {
-    if (!isClickSoundEnabled) return;
-    try {
-      await _sfxPlayer.stop(); // Hızlı ardışık tıklamalarda üst üste binmesin
-      await _sfxPlayer.play(AssetSource('click.mp3'));
-    } catch (e) {
-      debugPrint('Click ses çalınamadı: $e');
-    }
+
+    return;
   }
 
   void dispose() {

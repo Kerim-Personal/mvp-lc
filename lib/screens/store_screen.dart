@@ -532,6 +532,22 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             subtitle: 'All unlimited features, ad-free experience, and priority performance.',
             icon: Icons.workspace_premium,
           ),
+          // Önce faydalar
+          const SizedBox(height: 6),
+          const Text(
+            'Premium Benefits',
+            style: TextStyle(
+                color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          _benefit(icon: Icons.auto_awesome, title: 'Ad-free', text: 'Use the app without ads.'),
+          _benefit(icon: Icons.translate_rounded, title: 'Instant Translation', text: 'Translate instantly while learning.'),
+          _benefit(icon: Icons.support_agent, title: 'Priority Support', text: 'Get help faster with priority support.'),
+          _benefit(icon: Icons.spellcheck, title: 'Grammar Analysis', text: 'AI-powered grammar feedback and tips.'),
+          _benefit(icon: Icons.smart_toy, title: 'VocaBot', text: 'AI tutor for instant translation, grammar, and better wording.'),
+          _benefit(icon: Icons.blur_on, title: 'Shimmer', text: 'Unlock the premium shimmer theme and effects.'),
+          const SizedBox(height: 20),
+          // Sonra fiyat/planlar
           Row(
             children: [
               Expanded(
@@ -553,50 +569,45 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             ],
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
-                    foregroundColor: Colors.black,
-                    minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  ),
-                  onPressed: (monthlyProduct == null || yearlyProduct == null)
-                      ? null
-                      : () => _buy(selectedProductId),
-                  child: const Text('Go Premium Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
+          // Vurgulu tek buton
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                height: 52,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.35), width: 1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: _restorePurchases,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Restore', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.amber.withValues(alpha: 0.45),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                )
+              ],
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.workspace_premium, color: Colors.black, size: 20),
+                label: const Text(
+                  'Go Premium Now',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black),
                 ),
-              )
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Premium Benefits',
-            style: TextStyle(
-                color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                ),
+                onPressed: (monthlyProduct == null || yearlyProduct == null)
+                    ? null
+                    : () => _buy(selectedProductId),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
-          _benefit(icon: Icons.auto_awesome, title: 'Advanced Analytics', text: 'Get advanced insights for your speaking and writing skills.'),
-          _benefit(icon: Icons.lock_open, title: 'All Content', text: 'Unlimited access to all exclusive stories and quiz sets.'),
-          _benefit(icon: Icons.workspace_premium, title: 'Badge & Effects', text: 'Show a cool premium badge and animated background on your profile.'),
-          _benefit(icon: Icons.translate, title: 'Unlimited Translation', text: 'Translate words without limits while practicing.'),
-          const SizedBox(height: 12),
           Opacity(
             opacity: 0.75,
             child: Column(

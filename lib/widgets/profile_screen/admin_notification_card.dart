@@ -14,7 +14,7 @@ class AdminNotificationCard extends StatelessWidget {
       child: ListTile(
         leading: const Icon(Icons.notifications_active, color: Colors.indigo),
         title: const Text('Notification Panel', style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: const Text('Kullanıcılara push bildirimi gönder'),
+        subtitle: const Text('Send a push notification to users'),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
         onTap: () {
           Navigator.of(context).push(
@@ -25,4 +25,3 @@ class AdminNotificationCard extends StatelessWidget {
     );
   }
 }
-

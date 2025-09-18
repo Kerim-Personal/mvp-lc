@@ -1,8 +1,8 @@
 flutter_native_splash:
   color: "#FFFFFF" # Açılış ekranı arka plan rengi
-  image: assets/splash_icon.png # Gösterilecek logo
+  image: assets/splash.png # Gösterilecek logo
 
   # Android 12 ve üzeri için özel ikon
   android_12:
     color: "#FFFFFF"
-    image: assets/splash_icon.png
+    image: assets/splash.png

@@ -379,7 +379,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.teal.shade50,
+              color: Theme.of(context).colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -395,7 +395,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                   )
                 ],
                 const SizedBox(height: 4),
-                Text('User Request', style: TextStyle(fontSize: 11, color: Colors.teal.shade700, fontWeight: FontWeight.w600)),
+                Text('User Request', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
               ],
             ),
           );
@@ -436,14 +436,18 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       padding: const EdgeInsets.all(12),
                       constraints: const BoxConstraints(maxWidth: 340),
                       decoration: BoxDecoration(
-                        color: isStaff ? Colors.teal.shade600 : Colors.grey.shade200,
+                        color: isStaff
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (text.isNotEmpty)
-                            Text(text, style: TextStyle(color: isStaff ? Colors.white : Colors.black87)),
+                            Text(text, style: TextStyle(color: isStaff
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.onSurface)),
                           if (attachments.isNotEmpty) ...[
                             if (text.isNotEmpty) const SizedBox(height: 6),
                             Wrap(
@@ -453,7 +457,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                             )
                           ],
                           const SizedBox(height: 4),
-                          Text(_formatTs(d['createdAt']), style: TextStyle(fontSize: 10, color: isStaff ? Colors.white70 : Colors.black45)),
+                          Text(_formatTs(d['createdAt']), style: TextStyle(fontSize: 10, color: isStaff
+                            ? Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)
+                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                         ],
                       ),
                     ),
@@ -488,7 +494,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                       children: [
                         Text('User: ${data['displayName'] ?? ''}', style: const TextStyle(fontSize: 12)),
                         const SizedBox(width: 12),
-                        Expanded(child: Text('${data['email'] ?? ''}', style: const TextStyle(fontSize: 12, color: Colors.black54), overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text('${data['email'] ?? ''}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)), overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                   ),
@@ -566,9 +572,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                   else
                     Container(
                       width: double.infinity,
-                      color: Colors.grey.shade200,
+                      color: Theme.of(context).colorScheme.surfaceVariant,
                       padding: const EdgeInsets.all(12),
-                      child: const Center(child: Text('Ticket closed.')),
+                      child: Center(child: Text('Ticket closed.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface))),
                     ),
                 ],
               ),
@@ -816,7 +822,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
             if (details.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                child: Text('No description ("details" empty).', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic)),
+                child: Text('No description ("details" empty).', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontStyle: FontStyle.italic)),
               );
             }
             return Padding(
@@ -829,7 +835,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               if (reportedContent.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  child: Text('No reported content ("reportedContent" empty).', style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+                  child: Text('No reported content ("reportedContent" empty).', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontStyle: FontStyle.italic)),
                 );
               }
               return Padding(
@@ -838,9 +844,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: Theme.of(context).colorScheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
                   ),
                   child: Text('Reported Content:\n$reportedContent', style: const TextStyle(fontSize: 12)),
                 ),
@@ -873,20 +879,20 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                     child: FutureBuilder<String>(
                       future: _getUserName(reporterId),
-                      builder: (_, snap) => Text('Reporter: ${(snap.data ?? reporterId).isEmpty ? '—' : (snap.data ?? reporterId)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                      builder: (_, snap) => Text('Reporter: ${(snap.data ?? reporterId).isEmpty ? '—' : (snap.data ?? reporterId)}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
                     child: FutureBuilder<String>(
                       future: _getUserName(reportedUserId),
-                      builder: (_, snap) => Text('Reported: ${(snap.data ?? reportedUserId).isEmpty ? '—' : (snap.data ?? reportedUserId)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                      builder: (_, snap) => Text('Reported: ${(snap.data ?? reportedUserId).isEmpty ? '—' : (snap.data ?? reportedUserId)}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                     ),
                   ),
                   if (timestamp != null)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                      child: Text('Date: ${_formatTs(timestamp)}', style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                      child: Text('Date: ${_formatTs(timestamp)}', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
                     ),
                   buildReportedContent(),
                   const SizedBox(height: 4),

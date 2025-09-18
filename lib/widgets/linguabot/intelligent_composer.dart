@@ -96,7 +96,7 @@ class _IntelligentComposerState extends State<IntelligentComposer> {
                       ActionChip(
                         label: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12)),
                         onPressed: widget.isThinking ? null : () => widget.onSend(s),
-                        backgroundColor: Colors.white.withAlpha(18),
+                        backgroundColor: Colors.black.withAlpha(64),
                         side: BorderSide(color: Colors.cyanAccent.withAlpha(100)),
                       ),
                       const SizedBox(width: 8),

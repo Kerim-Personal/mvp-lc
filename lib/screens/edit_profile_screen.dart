@@ -26,10 +26,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nativeLanguageController;
 
   bool _isLoading = true;
+  bool _isSaving = false;
   String _initialDisplayName = '';
   String? _avatarUrl;
   DateTime? _selectedBirthDate;
-  String? _selectedNativeLanguageCode; // yeni
+  String? _selectedNativeLanguageCode;
+
+  // Ortak stil değişkenleri
+  static const _primaryColor = Colors.teal;
+  static const _cardRadius = 18.0;
+  static const _fieldRadius = 12.0;
 
   @override
   void initState() {
@@ -88,44 +94,105 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _showLanguagePicker() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: SizedBox(
-            height: 420,
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                const Text('Select Native Language', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: TranslationService.supportedLanguages.length,
-                    itemBuilder: (context, index) {
-                      final item = TranslationService.supportedLanguages[index];
-                      final code = item['code']!;
-                      final label = item['label']!;
-                      final selected = code == _selectedNativeLanguageCode;
-                      return ListTile(
-                        title: Text(label),
-                        trailing: selected ? const Icon(Icons.check, color: Colors.teal) : null,
-                        onTap: () {
-                          setState(() {
-                            _selectedNativeLanguageCode = code;
-                            _nativeLanguageController.text = label;
-                          });
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(_cardRadius),
+            topRight: Radius.circular(_cardRadius),
           ),
-        );
-      },
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(isDark ? 100 : 25),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                'Select Native Language',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : Colors.grey.shade800,
+                ),
+              ),
+            ),
+            Divider(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200, height: 1),
+            // Language list
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: TranslationService.supportedLanguages.length,
+                itemBuilder: (context, index) {
+                  final item = TranslationService.supportedLanguages[index];
+                  final code = item['code']!;
+                  final label = item['label']!;
+                  final selected = code == _selectedNativeLanguageCode;
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? (isDark ? const Color(0xFF2C2C2C) : _primaryColor.shade50)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      title: Text(
+                        label,
+                        style: TextStyle(
+                          color: selected
+                              ? (isDark ? Colors.white : _primaryColor.shade700)
+                              : (isDark ? Colors.white70 : Colors.grey.shade800),
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                      trailing: selected
+                        ? Icon(
+                            Icons.check_circle,
+                            color: isDark ? Colors.white : _primaryColor.shade600,
+                            size: 20
+                          )
+                        : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedNativeLanguageCode = code;
+                          _nativeLanguageController.text = label;
+                        });
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -133,7 +200,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
-      _isLoading = true;
+      _isSaving = true;
     });
 
     try {
@@ -149,10 +216,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (newDisplayName.toLowerCase() != _initialDisplayName.toLowerCase()) {
         final isAvailable = await _authService.isUsernameAvailable(newDisplayName);
         if (!isAvailable && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This username is already taken.'), backgroundColor: Colors.red),
-          );
-          setState(() => _isLoading = false);
+          _showError('This username is already taken.');
+          setState(() => _isSaving = false);
           return;
         }
       }
@@ -160,49 +225,157 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await FirebaseFirestore.instance.collection('users').doc(widget.userId).update(updatedData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
-        );
+        _showSuccess('Profile updated successfully!');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile update failed: $e'), backgroundColor: Colors.red),
-        );
+        _showError('Profile update failed: $e');
       }
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isSaving = false;
         });
       }
     }
   }
 
   void _showDatePicker() {
-    // Cupertino style date picker
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    DateTime? tempPickedDate = _selectedBirthDate ?? DateTime(2000);
+
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (BuildContext builder) {
-        return SizedBox(
-          height: MediaQuery.of(context).copyWith().size.height / 3,
-          child: CupertinoDatePicker(
-            mode: CupertinoDatePickerMode.date,
-            onDateTimeChanged: (picked) {
-              if (picked != _selectedBirthDate) {
-                setState(() {
-                  _selectedBirthDate = picked;
-                  _birthDateController.text = DateFormat('dd/MM/yyyy').format(picked);
-                });
-              }
-            },
-            initialDateTime: _selectedBirthDate ?? DateTime(2000),
-            minimumYear: 1940,
-            maximumYear: DateTime.now().year,
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.5,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(_cardRadius),
+              topRight: Radius.circular(_cardRadius),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(isDark ? 100 : 25),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Select Birth Date',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.grey.shade800,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedBirthDate = tempPickedDate;
+                          _birthDateController.text =
+                              DateFormat('dd/MM/yyyy').format(tempPickedDate!);
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Done',
+                        style: TextStyle(
+                          color: isDark ? Colors.white : _primaryColor.shade600,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200, height: 1),
+              // Date picker
+              Expanded(
+                child: CupertinoTheme(
+                  data: CupertinoThemeData(
+                    brightness: isDark ? Brightness.dark : Brightness.light,
+                    primaryColor: isDark ? Colors.white : Colors.teal,
+                    textTheme: CupertinoTextThemeData(
+                      dateTimePickerTextStyle: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  child: Container(
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      onDateTimeChanged: (picked) {
+                        tempPickedDate = picked;
+                      },
+                      initialDateTime: tempPickedDate,
+                      minimumYear: 1940,
+                      maximumYear: DateTime.now().year,
+                      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -216,29 +389,144 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark; // eklendi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        actions: [
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [const Color(0xFF121212), const Color(0xFF1E1E1E), const Color(0xFF2C2C2C)]
+                : [_primaryColor.shade600, _primaryColor.shade400, Colors.cyan.shade300],
+            stops: const [0.0, 0.6, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildAppBar(isDark),
+              Expanded(
+                child: _isLoading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          color: isDark ? Colors.white : Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(24.0),
+                        child: _buildContent(isDark),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
           IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _isLoading ? null : _saveProfile,
-            tooltip: 'Save',
-          )
+            onPressed: () => Navigator.pop(context),
+            icon: Icon(Icons.arrow_back_ios, color: isDark ? Colors.white : Colors.white),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withAlpha(25),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Edit Profile',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : Colors.white,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDark
+                    ? [const Color(0xFF2C2C2C), const Color(0xFF1E1E1E)]
+                    : [Colors.white, Colors.white.withAlpha(230)]
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withAlpha(100)
+                      : Colors.white.withAlpha(75),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _isSaving ? null : _saveProfile,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: isDark ? Colors.white : _primaryColor.shade600,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              icon: _isSaving
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: isDark ? Colors.white : _primaryColor.shade600,
+                      ),
+                    )
+                  : const Icon(Icons.save, size: 18),
+              label: Text(
+                _isSaving ? 'Saving...' : 'Save',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
+    );
+  }
+
+  Widget _buildContent(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(_cardRadius),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withAlpha(100)
+                : Colors.black.withAlpha(25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildAvatarSection(isDark: isDark),
-            const SizedBox(height: 24),
+            _buildAvatarSection(isDark),
+            const SizedBox(height: 32),
             _buildTextField(
               controller: _displayNameController,
               label: 'Username',
@@ -248,22 +536,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ? 'Username must be at least 3 characters.'
                   : null,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             _buildTextField(
               controller: _birthDateController,
               label: 'Birth Date',
               icon: Icons.calendar_today_outlined,
-              readOnly: true,
               isDark: isDark,
+              readOnly: true,
               onTap: _showDatePicker,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             _buildTextField(
               controller: _nativeLanguageController,
               label: 'Native Language',
-              icon: Icons.language_outlined,
-              readOnly: true,
+              icon: Icons.translate_outlined,
               isDark: isDark,
+              readOnly: true,
               onTap: _showLanguagePicker,
             ),
           ],
@@ -272,42 +560,83 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildAvatarSection({required bool isDark}) {
-    return Center(
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: isDark ? Colors.teal.withValues(alpha: 0.2) : Colors.teal.shade100,
-            child: _avatarUrl != null
-                ? ClipOval(
-              child: SvgPicture.network(
-                _avatarUrl!,
-                placeholderBuilder: (context) => const CircularProgressIndicator(),
-                width: 90,
-                height: 90,
+  Widget _buildAvatarSection(bool isDark) {
+    return Column(
+      children: [
+        Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [const Color(0xFF3C3C3C), const Color(0xFF2C2C2C)]
+                  : [_primaryColor.shade200, _primaryColor.shade400],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withAlpha(150)
+                    : _primaryColor.shade200.withAlpha(100),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
-            )
-                : Text(
-              _initialDisplayName.isNotEmpty ? _initialDisplayName[0].toUpperCase() : '?',
-              style: TextStyle(
-                fontSize: 40,
-                color: isDark ? Colors.teal.shade200 : Colors.teal,
-                fontWeight: FontWeight.bold,
-              ),
+            ],
+          ),
+          child: _avatarUrl != null
+              ? ClipOval(
+                  child: SvgPicture.network(
+                    _avatarUrl!,
+                    placeholderBuilder: (context) => CircularProgressIndicator(
+                      color: isDark ? Colors.white : _primaryColor.shade600,
+                      strokeWidth: 2,
+                    ),
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : Center(
+                  child: Text(
+                    _initialDisplayName.isNotEmpty ? _initialDisplayName[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontSize: 48,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2C2C2C) : _primaryColor.shade50,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(
+              color: isDark ? const Color(0xFF3C3C3C) : _primaryColor.shade200
             ),
           ),
-          const SizedBox(height: 12),
-          TextButton.icon(
+          child: TextButton.icon(
             onPressed: _generateNewAvatar,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Generate Random Avatar'),
-            style: TextButton.styleFrom(
-              foregroundColor: isDark ? Colors.teal.shade200 : Colors.teal,
+            icon: Icon(
+              Icons.refresh,
+              color: isDark ? Colors.white : _primaryColor.shade600,
+              size: 18
             ),
-          )
-        ],
-      ),
+            label: Text(
+              'Generate New Avatar',
+              style: TextStyle(
+                color: isDark ? Colors.white : _primaryColor.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -320,31 +649,79 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     String? Function(String?)? validator,
     VoidCallback? onTap,
   }) {
-    final fill = isDark ? Colors.grey.shade800 : Colors.grey.shade50;
-    final labelStyle = TextStyle(color: isDark ? Colors.white70 : null);
-    return TextFormField(
-      controller: controller,
-      readOnly: readOnly,
-      onTap: onTap,
-      validator: validator,
-      style: TextStyle(color: isDark ? Colors.white : null),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: labelStyle,
-        prefixIcon: Icon(icon, color: isDark ? Colors.teal.shade200 : null),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: isDark ? Colors.grey.shade600 : Colors.grey.shade300),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white70 : Colors.grey.shade700,
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.teal.shade400, width: 2),
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          readOnly: readOnly,
+          onTap: onTap,
+          validator: validator,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.grey.shade800,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Enter your ${label.toLowerCase()}',
+            hintStyle: TextStyle(
+              color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+              fontSize: 13
+            ),
+            prefixIcon: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF3C3C3C) : _primaryColor.shade50,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Icon(
+                icon,
+                color: isDark ? Colors.white : _primaryColor.shade600,
+                size: 16
+              ),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_fieldRadius),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_fieldRadius),
+              borderSide: BorderSide(
+                color: isDark ? const Color(0xFF3C3C3C) : Colors.grey.shade200,
+                width: 1.5
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_fieldRadius),
+              borderSide: BorderSide(
+                color: isDark ? Colors.white : _primaryColor.shade600,
+                width: 2
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_fieldRadius),
+              borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_fieldRadius),
+              borderSide: BorderSide(color: Colors.red.shade400, width: 2),
+            ),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade50,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+          cursorColor: isDark ? Colors.white : _primaryColor.shade600,
         ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        filled: true,
-        fillColor: fill,
-      ),
-      cursorColor: Colors.teal,
+      ],
     );
   }
 

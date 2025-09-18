@@ -494,7 +494,7 @@ class _MessageComposerState extends State<MessageComposer> {
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
-                                          'Bu özellik yalnızca Premium kullanıcılar içindir.',
+                                          'This feature is exclusive to Premium users.',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: _fade(theme.colorScheme.onSurface, 0.8),

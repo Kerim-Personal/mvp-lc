@@ -1,7 +1,6 @@
 // lib/main.dart
 // Rabbi yessir velâ tuassir Rabbi temmim bi'l-hayr.
 
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,8 +28,9 @@ import 'package:lingua_chat/screens/practice_writing_screen.dart';
 import 'package:lingua_chat/screens/profile_screen.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
-// YENİ: Uygulama yaşam döngüsünü dinleyip müziği yönetir
+// Uygulama yaşam döngüsünü dinleyip müziği yönetir
 class _AppLifecycleAudioObserver with WidgetsBindingObserver {
   void init() {
     WidgetsBinding.instance.addObserver(this);
@@ -46,42 +46,43 @@ class _AppLifecycleAudioObserver with WidgetsBindingObserver {
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        // Arka plana/inaktif duruma geçince müziği duraklat
         AudioService.instance.pauseMusic();
         break;
       case AppLifecycleState.resumed:
-        // Öne gelince kullanıcı tercihi açıksa ve ses > 0 ise kaldığı yerden devam et
         if (AudioService.instance.isMusicEnabled && AudioService.instance.musicVolume > 0) {
           AudioService.instance.resumeMusic();
         }
         break;
-      case AppLifecycleState.hidden: // Web için
+      case AppLifecycleState.hidden:
         AudioService.instance.pauseMusic();
         break;
     }
   }
 }
 
-// YENİ: RootScreen'in state'ine erişmek için global bir anahtar oluşturuldu.
+// RootScreen'in state'ine erişmek için global bir anahtar
 final GlobalKey<RootScreenState> rootScreenKey = GlobalKey<RootScreenState>();
 
-// YENİ: Tekil yaşam döngüsü gözlemcisi
+// Tekil yaşam döngüsü gözlemcisi
 final _AppLifecycleAudioObserver _lifecycleObserver = _AppLifecycleAudioObserver();
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Yaşam döngüsü gözlemcisini erkenden kaydet
+  // WidgetsBinding'i erken başlat ve splash'ı koru
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  // Yaşam döngüsü gözlemcisini kaydet
   _lifecycleObserver.init();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ÖNEMLİ: FCM background handler uygulama başlamadan önce atanmalı
+  // FCM background handler uygulama başlamadan önce atanmalı
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  await ThemeService.instance.init(); // Tema tercihlerini yükle
+  await ThemeService.instance.init();
   runApp(const MyApp());
-  // runApp sonrası ağır olmayan init görevlerini asenkron başlat
+  // runApp sonrası ağır olmayan init görevlerini başlat
   _postAppInit();
 }
 
@@ -106,7 +107,6 @@ Future<void> _postAppInit() async {
       statusBarIconBrightness: Brightness.dark,
     ));
   } catch (e) {
-    // Sessiz log; splash kilidi artık olmayacağı için kritik değil
     debugPrint('Post init hata: $e');
   }
 }
@@ -127,7 +127,6 @@ Future<void> _initAppCheckSafely() async {
       );
     }
   } catch (e) {
-    // Bazı cihazlarda Google Play Services eksik olduğunda App Check GMS çağrıları uyarı verebilir
     debugPrint('AppCheck init atlandı/başarısız: $e');
   }
 }
@@ -156,12 +155,11 @@ class MyApp extends StatelessWidget {
           ThemeMode.system => platformBrightness,
         };
         final isDark = brightness == Brightness.dark;
-        // Parlaklık değişmediği sürece system UI güncellemeyelim
-        // static değişken ile önceki durum cache'lenir
+
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          // system ui sync yalnızca değişimde _SystemUiSynchronizer tarafından yapılır
+          _SystemUiSynchronizer.update(isDark);
         });
-        _SystemUiSynchronizer.update(isDark);
+
         return MaterialApp(
           title: 'VocaChat',
           debugShowCheckedModeBanner: false,
@@ -193,16 +191,16 @@ class MyApp extends StatelessWidget {
 class _SystemUiSynchronizer {
   static bool? _lastIsDark;
   static void update(bool isDark) {
-    if (_lastIsDark == isDark) return; // sadece değişince uygula
+    if (_lastIsDark == isDark) return;
     _lastIsDark = isDark;
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
       systemNavigationBarColor: (isDark
-              ? ThemeService.instance.darkTheme.scaffoldBackgroundColor
-              : ThemeService.instance.lightTheme.scaffoldBackgroundColor)
-          .withValues(alpha: 1),
+          ? ThemeService.instance.darkTheme.scaffoldBackgroundColor
+          : ThemeService.instance.lightTheme.scaffoldBackgroundColor)
+          .withAlpha(255),
       systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       systemNavigationBarDividerColor: Colors.transparent,
     ));
@@ -212,44 +210,71 @@ class _SystemUiSynchronizer {
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
+  // Splash ekranını güvenli bir şekilde kaldırmak için yardımcı bir fonksiyon
+  void _removeSplashSafely() {
+    // Build işlemi bittikten sonra çalıştırarak `setState` hatasını önle
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FlutterNativeSplash.remove();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?> (
+    return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // Önceden spinner vardı: artık nötr boş şeffaf placeholder.
-          return const Scaffold(body: SizedBox());
+          // Başlangıçta ve veri beklenirken splash ekranı görünmeye devam eder.
+          // Bu sırada hiçbir şey çizmiyoruz, çünkü native splash zaten ekranda.
+          return const SizedBox.shrink();
         }
         if (snapshot.hasData && snapshot.data != null) {
           final user = snapshot.data!;
           final uid = user.uid;
-          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>> (
+          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
             builder: (context, userSnap) {
               if (userSnap.connectionState == ConnectionState.waiting) {
-                return const Scaffold(body: SizedBox());
+                // Kullanıcı verisi beklenirken de splash görünmeye devam eder.
+                return const SizedBox.shrink();
               }
+
+              // Kullanıcı verisi yoksa veya doküman mevcut değilse Login'e yönlendir.
               if (!userSnap.hasData || !userSnap.data!.exists) {
-                return const Scaffold(body: SizedBox());
+                _removeSplashSafely(); // Splash'ı kaldır ve Login'i göster
+                return const LoginScreen();
               }
+
               final data = userSnap.data!.data();
+              Widget screen;
+
               if (data != null) {
                 if ((data['status'] as String?) == 'banned') {
-                  return const BannedScreen();
+                  screen = const BannedScreen();
+                } else if (!user.emailVerified) {
+                  screen = VerificationScreen(email: user.email ?? '');
+                } else {
+                  final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
+                  if (isGoogle && data['profileCompleted'] != true) {
+                    screen = ProfileCompletionScreen(userData: data);
+                  } else {
+                    screen = RootScreen(key: rootScreenKey);
+                  }
                 }
-                if (!(user.emailVerified)) {
-                  return VerificationScreen(email: user.email ?? '');
-                }
-                final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
-                if (isGoogle && data['profileCompleted'] != true) {
-                  return ProfileCompletionScreen(userData: data);
-                }
+              } else {
+                // data null ise (beklenmedik bir durum) yine de Login'e yönlendir.
+                screen = const LoginScreen();
               }
-              return RootScreen(key: rootScreenKey);
+
+              // Gösterilecek ekran belirlendi, şimdi splash'ı kaldırabiliriz.
+              _removeSplashSafely();
+              return screen;
             },
           );
         }
+
+        // Oturum açmış kullanıcı yoksa Login'e yönlendir.
+        _removeSplashSafely();
         return const LoginScreen();
       },
     );
@@ -257,6 +282,27 @@ class AuthWrapper extends StatelessWidget {
 }
 
 
+// Projenizin derlenmesi için gerekli olan ancak bu dosyada tanımlanmamış
+// bazı değişken ve fonksiyonları buraya ekliyorum.
+// Kendi projenizdeki tanımlamalarla aynı olmalıdırlar.
 
+final GlobalKey<NavigatorState> notificationNavigatorKey = GlobalKey<NavigatorState>();
 
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Bu fonksiyonun içini projenize göre doldurmalısınız.
+  debugPrint("Handling a background message: ${message.messageId}");
+}
 
+// Color sınıfına 'withAlpha' metodu zaten dahil olduğu için
+// 'withValues' extension'ına gerek yoktur.
+// Eğer özel bir kullanımınız yoksa kaldırabilirsiniz.
+extension ColorValues on Color {
+  Color withValues({int? alpha, int? red, int? green, int? blue}) {
+    return Color.fromARGB(
+      alpha ?? this.alpha,
+      red ?? this.red,
+      green ?? this.green,
+      blue ?? this.blue,
+    );
+  }
+}

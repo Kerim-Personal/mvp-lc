@@ -246,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final userSnap = snapshot.data;
         return SafeArea(
           child: SingleChildScrollView( // Column'u SingleChildScrollView ile sarmaladım
-            physics: const BouncingScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             child: Padding(
               padding: const EdgeInsets.only(top: 8.0),
               child: Column(

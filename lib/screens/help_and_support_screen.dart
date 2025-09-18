@@ -26,16 +26,13 @@ class HelpAndSupportScreen extends StatelessWidget {
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  if (index == 0) {
-                    return _buildSectionHeader(context, 'Help Topics');
-                  }
-                  if (index <= categories.length) {
-                    final category = categories[index - 1];
-                    return _buildCategoryCard(context, category, index - 1);
+                  if (index < categories.length) {
+                    final category = categories[index];
+                    return _buildCategoryCard(context, category, index);
                   }
                   return _buildContactSupportSection(context);
                 },
-                childCount: categories.length + 2,
+                childCount: categories.length + 1,
               ),
             ),
           ),
@@ -72,21 +69,6 @@ class HelpAndSupportScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  // Bölüm başlığı tema uyumlu
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
-      child: Text(
-        title,
-        style: Theme.of(context)
-            .textTheme
-            .titleLarge
-            ?.copyWith(fontWeight: FontWeight.bold, color: cs.onSurface),
       ),
     );
   }

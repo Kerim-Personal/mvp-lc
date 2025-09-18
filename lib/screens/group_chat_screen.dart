@@ -15,6 +15,7 @@ import 'package:lingua_chat/models/group_message.dart';
 import 'package:lingua_chat/widgets/group_message_bubble.dart';
 import 'package:lingua_chat/widgets/grammar_analysis_dialog.dart';
 import 'package:lingua_chat/widgets/sender_header_label.dart';
+import 'package:lingua_chat/widgets/common/confirm_dialog.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String roomId;
@@ -36,7 +37,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   final ScrollController _scrollController = ScrollController();
   final currentUser = FirebaseAuth.instance.currentUser;
 
-  String _userName = 'Kullanıcı';
+  String _userName = 'User';
   String _avatarUrl = '';
   String? _userRole;
 
@@ -51,7 +52,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   final Map<String, GrammarAnalysis> _grammarCache = {};
   final Set<String> _analyzing = {};
 
-  // KALDIRILDI: Bu değişken artık gerekli değil.
+  // REMOVED: This variable is no longer needed.
   // double _lastBottomInset = 0;
 
   int _messageLimit = 50;
@@ -142,8 +143,8 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     });
   }
 
-  // KALDIRILDI: Bu metodun yerini resizeToAvoidBottomInset: false alıyor.
-  // Bu, kasma sorununu kökünden çözer ve bu metoda artık gerek kalmaz.
+  // REMOVED: This method is replaced by resizeToAvoidBottomInset: false.
+  // This resolves the jank issue at its root, so this method is no longer needed.
   /*
   @override
   void didChangeMetrics() {
@@ -168,7 +169,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       if (userDoc.exists) {
         final data = userDoc.data()!;
         setState(() {
-          _userName = data['displayName'] ?? 'Kullanıcı';
+          _userName = data['displayName'] ?? 'User';
           _avatarUrl = data['avatarUrl'] ?? '';
           _isCurrentUserPremium = (data['isPremium'] as bool?) ?? false;
           _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
@@ -188,7 +189,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Kullanıcı verisi alınamadı: $e')),
+          SnackBar(content: Text('Could not fetch user data: $e')),
         );
       }
     }
@@ -204,7 +205,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           .doc(currentUser!.uid)
           .delete();
     } catch (e) {
-      // Hata yönetimi
+      // Error handling
     }
   }
 
@@ -309,21 +310,45 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                   leading: const Icon(Icons.block, color: Colors.red),
                   title: const Text('Block User'),
                   onTap: () async {
-                    Navigator.pop(context);
                     final me = currentUser;
                     if (me == null) return;
+
+                    // Show polished confirmation dialog before blocking
+                    final confirmed = await showConfirmDialog(
+                      context,
+                      title: 'Block User',
+                      message: 'Are you sure you want to block this user?',
+                      confirmText: 'Block',
+                      cancelText: 'Cancel',
+                      icon: Icons.block,
+                      danger: true,
+                      useRootNavigator: true,
+                    );
+
+                    if (!confirmed) {
+                      return; // Do nothing if user cancels
+                    }
+
+                    // Close the bottom sheet after confirmation
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    }
+
                     try {
                       await BlockService().blockUser(
-                          currentUserId: me.uid,
-                          targetUserId: message.senderId);
+                        currentUserId: me.uid,
+                        targetUserId: message.senderId,
+                      );
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('User blocked.')));
+                          const SnackBar(content: Text('User blocked.')),
+                        );
                       }
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: ${e.toString()}')));
+                          SnackBar(content: Text('Error: ${e.toString()}')),
+                        );
                       }
                     }
                   },
@@ -354,14 +379,14 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fgColor = isDark ? Colors.teal.shade200 : Colors.teal.shade800;
-    // YENİ: Klavye yüksekliğini burada alıyoruz.
+    // NEW: Getting keyboard height here.
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return PopScope(
-      canPop: false, // Sola kaydırma problemini çözmek için false yapıyoruz
+      canPop: false, // Set to false to solve the swipe-left problem
       onPopInvokedWithResult: (didPop, result) async {
         if (!didPop) {
-          // Manuel olarak navigation yapıyoruz
+          // We're handling navigation manually
           await _leaveRoom();
           if (mounted) {
             Navigator.of(context).pop();
@@ -379,7 +404,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           ),
         ),
         child: Scaffold(
-          // YENİ: Bu özellik klavye açıldığında kasmayı (jank) önler.
+          // NEW: This property prevents jank when the keyboard opens.
           resizeToAvoidBottomInset: false,
           backgroundColor: Colors.transparent,
           appBar: AppBar(
@@ -428,12 +453,6 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                 ),
               ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.more_vert),
-                onPressed: () {},
-              ),
-            ],
           ),
           floatingActionButton: _showScrollToBottom
               ? Padding(
@@ -470,7 +489,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text("Sohbeti başlat!"));
+                        return const Center(child: Text("Start the conversation!"));
                       }
 
                       final rawDocs = snapshot.data!.docs;
@@ -607,8 +626,8 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                   enabled: currentUser != null,
                   isPremium: _isCurrentUserPremium,
                 ),
-                // YENİ: Klavye açıldığında MessageComposer'ın yukarı
-                // kayması için klavye yüksekliği kadar boşluk ekliyoruz.
+                // NEW: We add a SizedBox with the keyboard height
+                // to make the MessageComposer slide up when the keyboard opens.
                 SizedBox(height: keyboardHeight),
               ],
             ),
@@ -687,3 +706,4 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     );
   }
 }
+

@@ -16,7 +16,6 @@ class AppSettingsCard extends StatefulWidget {
 
 class _AppSettingsCardState extends State<AppSettingsCard> {
   // Music switch kaldırıldı; yalnızca volume kullanılıyor
-  late bool _isClickSoundEnabled; // new: key click sound
   bool _autoTranslate = false; // new
   String _nativeLanguage = 'en';
   // Yeni: müzik ses seviyesi (0.0 - 1.0)
@@ -28,7 +27,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
   void initState() {
     super.initState();
     // Music switch yok, sadece volume'ü servisten al
-    _isClickSoundEnabled = AudioService.instance.isClickSoundEnabled; // new
     _musicVolume = AudioService.instance.musicVolume; // mevcut ses
     _loadUserPrefs();
   }
@@ -238,22 +236,7 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
             ),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
-          // Tuş tıklama sesi anahtarı
-          SwitchListTile(
-            title: const Text('Key Click Sound', style: TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(_isClickSoundEnabled ? 'On' : 'Off'),
-            value: _isClickSoundEnabled,
-            onChanged: (bool value) async {
-              setState(() => _isClickSoundEnabled = value);
-              await AudioService.instance.toggleClickSound(value);
-              AudioService.instance.playClick();
-            },
-            secondary: Icon(
-              _isClickSoundEnabled ? Icons.touch_app : Icons.pan_tool_alt_outlined,
-              color: Colors.blueAccent,
-            ),
-            activeColor: Colors.teal,
-          ),
+          // Key Click Sound ayarı kaldırıldı
           const Divider(height: 1, indent: 16, endIndent: 16),
           _buildTranslationSection(),
           const Divider(height: 1, indent: 16, endIndent: 16),
@@ -268,8 +251,7 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
             }()),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             onTap: () {
-              AudioService.instance.playClick();
-              showModalBottomSheet(
+               showModalBottomSheet(
                 context: context,
                 showDragHandle: true,
                 // Previously semi-transparent; using opaque surface for better contrast
@@ -300,7 +282,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                       onTap: () {
                         Navigator.pop(ctx);
                         ThemeService.instance.setThemeMode(mode);
-                        AudioService.instance.playClick();
                         setState(() {});
                       },
                     );
