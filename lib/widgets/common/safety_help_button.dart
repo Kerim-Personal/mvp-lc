@@ -14,7 +14,7 @@ class _SafetyHelpButtonState extends State<SafetyHelpButton> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _sparkleController = AnimationController(vsync: this, duration: const Duration(seconds: 7))..repeat();
+    _sparkleController = AnimationController(vsync: this, duration: const Duration(seconds: 15))..repeat();
   }
 
   @override

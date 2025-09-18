@@ -14,6 +14,7 @@ import 'package:lingua_chat/utils/text_metrics.dart';
 import 'package:lingua_chat/widgets/message_composer.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:lingua_chat/services/translation_service.dart';
 
 // --- MAIN SCREEN: THE HEART OF THE SIMULATOR ---
 
@@ -67,6 +68,10 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
         _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
         _isPremium = (data['isPremium'] as bool?) ?? false;
       });
+      // Premium + EN dışı anadil için çeviri modellerini önden indir
+      if (_isPremium && _nativeLanguage.toLowerCase() != 'en') {
+        unawaited(TranslationService.instance.preDownloadModels(_nativeLanguage));
+      }
     } catch (_) {
       // sessizce geç
     }
@@ -292,6 +297,8 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                             message: message,
                             onCorrect: (newText) => _updateMessageText(message.id, newText),
                             isUserPremium: _isPremium,
+                            nativeLanguage: _nativeLanguage,
+                            isPremium: _isPremium,
                           ),
                         );
                       },

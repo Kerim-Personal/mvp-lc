@@ -125,6 +125,11 @@ service cloud.firestore {
           isAuthenticated() && isPrivileged(request.auth.uid) &&
           resource.data.status == 'banned' && request.resource.data.status == 'active' &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','bannedReason','bannedDetails','bannedAt','bannedBy','unbannedAt','unbannedBy'])
+        ) || (
+          // Seviye güncelleme (A1..C2)
+          isOwner(userId) && callerNotBanned() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['level']) &&
+          request.resource.data.level in ['A1','A2','B1','B2','C1','C2']
         );
 
       allow delete: if false;

@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
-import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Localization import
 import 'package:lingua_chat/services/translation_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -494,7 +493,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _stepTitle('Account Info', 'Set your email and password'),
         _buildTextField(
           controller: _emailController,
-          hintText: AppLocalizations.of(context)!.emailAddress,
+          hintText: 'Email Address',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           validator: (value) {
@@ -510,7 +509,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         const SizedBox(height: 12.0),
         _buildTextField(
           controller: _passwordController,
-          hintText: AppLocalizations.of(context)!.password,
+          hintText: 'Password',
           icon: Icons.lock_outline,
           obscureText: true,
           validator: (value) =>
@@ -529,7 +528,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _stepTitle('Profile Info', 'Your username and birth date'),
         _buildTextField(
           controller: _usernameController,
-          hintText: AppLocalizations.of(context)!.username,
+          hintText: 'Username',
           icon: Icons.person_outline,
           validator: (value) {
             final v = value?.trim() ?? '';
@@ -543,7 +542,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _buildTextField(
           controller: _birthDateController,
           readOnly: true,
-          hintText: AppLocalizations.of(context)!.birthDate,
+          hintText: 'Birth Date',
           icon: Icons.calendar_today_outlined,
           onTap: _showDatePicker,
           validator: (value) =>
@@ -618,10 +617,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        Text(
-          AppLocalizations.of(context)!.createAccount, // <-- UPDATED
+        const Text(
+          'Create Account',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 38.0,
             fontWeight: FontWeight.w900,
             color: Colors.white,
@@ -635,10 +634,10 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          AppLocalizations.of(context)!.joinTheAdventure, // <-- UPDATED
+        const Text(
+          'Join the adventure!',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             color: Colors.white70,
             fontWeight: FontWeight.w300,
@@ -751,10 +750,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                 color: Colors.teal,
               ),
             )
-                : Text(
-              AppLocalizations.of(context)!.register, // <-- UPDATED
-              key: const ValueKey('registerText'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                : const Text(
+              'Register',
+              key: ValueKey('registerText'),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -853,3 +852,4 @@ class ParticlePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+

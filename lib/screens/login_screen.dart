@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:lingua_chat/screens/register_screen.dart';
 import 'package:lingua_chat/services/auth_service.dart';
 import 'package:lingua_chat/screens/verification_screen.dart';
-import 'package:lingua_chat/l10n/app_localizations.dart'; // <-- Localization import
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -374,7 +373,7 @@ class _LoginScreenState extends State<LoginScreen>
                           fadeAnimation: _emailFade,
                           slideAnimation: _emailSlide,
                           controller: _emailController,
-                          hintText: AppLocalizations.of(context)!.emailAddress,
+                          hintText: 'Email Address',
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                         ),
@@ -383,7 +382,7 @@ class _LoginScreenState extends State<LoginScreen>
                           fadeAnimation: _passwordFade,
                           slideAnimation: _passwordSlide,
                           controller: _passwordController,
-                          hintText: AppLocalizations.of(context)!.password,
+                          hintText: 'Password',
                           icon: Icons.lock_outline,
                           obscureText: true,
                         ),
@@ -447,10 +446,10 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             const Icon(Icons.language, size: 80, color: Colors.white),
             const SizedBox(height: 16),
-            Text(
-              AppLocalizations.of(context)!.appName,
+            const Text(
+              'LinguaChat',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 45.0,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
@@ -464,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
             Text(
-              AppLocalizations.of(context)!.appSubtitle,
+              'Learn languages with ease',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -559,10 +558,10 @@ class _LoginScreenState extends State<LoginScreen>
                       color: Colors.teal,
                     ),
                   )
-                      : Text(
-                    AppLocalizations.of(context)!.login,
-                    key: const ValueKey('loginText'),
-                    style: const TextStyle(
+                      : const Text(
+                    'Login',
+                    key: ValueKey('loginText'),
+                    style: TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -581,7 +580,7 @@ class _LoginScreenState extends State<LoginScreen>
         position: _buttonSlide,
         child: TextButton(
           child: Text(
-            AppLocalizations.of(context)!.dontHaveAnAccount,
+            "Don't have an account? Register",
             style: TextStyle(color: Colors.white.withOpacity(0.9)),
           ),
           onPressed: () {

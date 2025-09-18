@@ -1,66 +1,32 @@
 // lib/screens/community_screen.dart
 
+import 'dart:ui' show ImageFilter;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lingua_chat/widgets/community_screen/leaderboard_table.dart';
-import 'package:lingua_chat/widgets/community_screen/feed_post_card.dart';
 
 // --- DATA MODELLERİ ---
 class LeaderboardUser {
+  final String userId;
   final String name;
   final String avatarUrl;
   final int rank;
+  final int streak;
   final bool isPremium;
   final String role; // admin/moderator/user
 
   LeaderboardUser({
+    required this.userId,
     required this.name,
     required this.avatarUrl,
     required this.rank,
+    required this.streak,
     this.isPremium = false,
     this.role = 'user',
   });
-}
-
-class FeedPost {
-  final String id;
-  final String userName;
-  final String userAvatarUrl;
-  final String userId;
-  final String postText;
-  final Timestamp timestamp;
-  final List<String> likes;
-  final int commentCount;
-
-  FeedPost({
-    required this.id,
-    required this.userName,
-    required this.userAvatarUrl,
-    required this.userId,
-    required this.postText,
-    required this.timestamp,
-    required this.likes,
-    this.commentCount = 0,
-  });
-
-  factory FeedPost.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    final List<dynamic> likesData = data['likes'] ?? [];
-    final List<String> likes =
-    likesData.map((item) => item.toString()).toList();
-
-    return FeedPost(
-      id: doc.id,
-      userName: data['userName'] ?? 'Unknown',
-      userAvatarUrl: data['userAvatarUrl'] ?? '',
-      userId: data['userId'] ?? '',
-      postText: data['postText'] ?? '',
-      timestamp: data['timestamp'] ?? Timestamp.now(),
-      likes: likes,
-      commentCount: data['commentCount'] ?? 0,
-    );
-  }
 }
 
 class GroupChatRoomInfo {
@@ -92,7 +58,7 @@ class GroupChatRoomInfo {
 // --- ANA EKRAN WIDGET'I ---
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key, this.initialTabIndex});
-  final int? initialTabIndex;
+  final int? initialTabIndex; // Artık kullanılmıyor, ancak geri uyumluluk için tutuldu
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
@@ -100,7 +66,6 @@ class CommunityScreen extends StatefulWidget {
 
 class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
   String _leaderboardType = 'weekly';
 
   // Ek performans & animasyon kontrolü
@@ -108,75 +73,15 @@ class _CommunityScreenState extends State<CommunityScreen>
   List<LeaderboardUser>? _overallCache;
   List<LeaderboardUser>? _weeklyCache;
 
-  late Future<QuerySnapshot> _feedFuture;
-
   // Flicker azaltma cache'leri
   List<LeaderboardUser>? _leaderboardCache;
   bool _leaderboardLoading = false;
   Object? _leaderboardError;
-  List<DocumentSnapshot>? _feedPostsCache;
-
-  // Kullanıcı rolü ve yetkileri için değişkenler
-  bool _isPrivileged = false;
-  bool _canBanOthers = false;
-  bool _privilegeResolved = false;
-
-  // Kullanıcı adı ve avatarı için cache
-  String? _currentUserName;
-  String? _currentUserAvatar;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    final idx = widget.initialTabIndex;
-    if (idx != null && idx >= 0 && idx < 2) {
-      _tabController.index = idx;
-    }
-    _tabController.addListener(() => setState(() {}));
-    _feedFuture = _fetchFeedData();
     _loadLeaderboard(initial: true);
-    _resolvePrivilege();
-    _prefetchCurrentUserMeta();
-  }
-
-  Future<void> _prefetchCurrentUserMeta() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    try {
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (!snap.exists) return;
-      final data = snap.data() ?? {};
-      if (!mounted) return;
-      setState(() {
-        _currentUserName = (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown User';
-        _currentUserAvatar = (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : '';
-      });
-    } catch (_) {/* sessiz */}
-  }
-
-  Future<void> _resolvePrivilege() async {
-    try {
-      final roleSnap = await FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser?.uid).get();
-      String? role;
-      if (roleSnap.exists) {
-        role = (roleSnap.data()?['role'] as String?);
-      }
-      final isPriv = role == 'admin' || role == 'moderator';
-      bool canBan = false;
-      if (isPriv) {
-        canBan = true;
-      }
-      if (!mounted) return;
-      setState(() {
-        _isPrivileged = isPriv;
-        _canBanOthers = canBan;
-        _privilegeResolved = true;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() { _privilegeResolved = true; });
-    }
   }
 
   Future<void> _loadLeaderboard({bool force = false, bool initial = false}) async {
@@ -226,44 +131,40 @@ class _CommunityScreenState extends State<CommunityScreen>
     await _loadLeaderboard(force: true);
   }
 
+  Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
+    Query baseQuery = FirebaseFirestore.instance
+        .collection('users')
+        .orderBy('streak', descending: true)
+        .limit(100);
 
-  Future<QuerySnapshot> _fetchFeedData() {
-    return FirebaseFirestore.instance
-        .collection('posts')
-        .orderBy('timestamp', descending: true)
-        .get();
+    QuerySnapshot snapshot;
+    snapshot = await baseQuery.get();
+
+    if (snapshot.docs.isEmpty) {
+      return [];
+    }
+    return _mapUsersFromSnapshot(snapshot);
   }
 
-  Future<void> _refreshFeed() async {
-    setState(() {
-      _feedFuture = _fetchFeedData();
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _showCreatePostModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => _CreatePostSheet(
-        cachedName: _currentUserName,
-        cachedAvatar: _currentUserAvatar,
-        onPosted: () {
-          Navigator.pop(context);
-          _refreshFeed();
-        },
-      ),
-    );
+  List<LeaderboardUser> _mapUsersFromSnapshot(QuerySnapshot snapshot) {
+    final users = snapshot.docs.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final status = data['status'];
+      return status == null || (status != 'banned' && status != 'deleted');
+    }).toList();
+    return users.asMap().entries.map((entry) {
+      final doc = entry.value;
+      final data = doc.data() as Map<String, dynamic>;
+      return LeaderboardUser(
+        userId: doc.id,
+        rank: entry.key + 1,
+        name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown',
+        avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
+        streak: (data['streak'] as num?)?.toInt() ?? 0,
+        isPremium: data['isPremium'] == true,
+        role: (data['role'] as String?) ?? 'user',
+      );
+    }).toList();
   }
 
   Widget _buildLeaderboardTab() {
@@ -302,257 +203,302 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  Widget _buildTabSelector() {
-    final isLeaderboard = _tabController.index == 0;
+  Widget _buildHeader() {
+    final theme = Theme.of(context);
+    final titleStyle = theme.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.2,
+    );
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, isLeaderboard ? 8 : 20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(13),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                _buildTabItem(title: 'Leaderboard', icon: Icons.leaderboard_outlined, index: 0),
-                _buildTabItem(title: 'Feed', icon: Icons.dynamic_feed_outlined, index: 1),
-              ],
-            ),
-          ),
-          if (isLeaderboard) const SizedBox(height: 10),
-          if (isLeaderboard)
-            Center(
-              child: _LeaderboardModePicker(
-                current: _leaderboardType,
-                onChanged: (val) {
-                  if (_leaderboardType == val) return;
-                  setState(() { _leaderboardType = val; });
-                  _loadLeaderboard(force: false);
-                },
+          // Başlık
+          Row(
+            children: [
+              Icon(Icons.leaderboard_rounded, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Leaderboard', style: titleStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
-            ),
+              const SizedBox(width: 24),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Yeni segment switch
+          _ModeSegmentedSwitch(
+            current: _leaderboardType,
+            onChanged: (val) {
+              if (_leaderboardType == val) return;
+              HapticFeedback.selectionClick();
+              setState(() { _leaderboardType = val; });
+              _loadLeaderboard(force: false);
+            },
+          ),
+          const SizedBox(height: 12),
+          // Top 3 Podyum
+          _buildTopPodium(),
+          const SizedBox(height: 10),
+          // Efsanevi rozetler
+          _buildLegendRow(),
+          const SizedBox(height: 10),
+          // Kullanıcı sırası veya bilgi kartı
+          _buildMyRankOrHint(),
         ],
       ),
     );
   }
 
-  Widget _buildTabItem({required String title, required IconData icon, required int index}) {
-    final bool isSelected = _tabController.index == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          if (_tabController.index != index) {
-            setState(() {
-              _tabController.index = index;
-            });
-          }
-        },
+  Widget _buildTopPodium() {
+    final data = _leaderboardCache;
+    if (data == null || data.isEmpty) return const SizedBox.shrink();
+    final top = List<LeaderboardUser>.from(data)..sort((a, b) => a.rank.compareTo(b.rank));
+    final items = top.take(3).toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    Color badgeColor(int rank) {
+      switch (rank) {
+        case 1: return Colors.amber;
+        case 2: return Colors.grey.shade400;
+        case 3: return Colors.brown.shade400;
+        default: return Theme.of(context).colorScheme.primary;
+      }
+    }
+
+    Widget pillar(LeaderboardUser u) {
+      final color = badgeColor(u.rank);
+      final isGold = u.rank == 1;
+      return Expanded(
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: isSelected
-                ? [
-              BoxShadow(
-                color: Colors.black.withAlpha(26),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              )
-            ]
-                : [],
+            gradient: LinearGradient(
+              colors: [
+                color.withValues(alpha: 0.18),
+                Theme.of(context).colorScheme.surface,
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.25), blurRadius: 14, offset: const Offset(0, 8)),
+            ],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.teal : Colors.grey.shade600,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.teal : Colors.grey.shade700,
+              Icon(isGold ? Icons.emoji_events : Icons.military_tech, color: color, size: 20),
+              const SizedBox(height: 8),
+              CircleAvatar(
+                radius: isGold ? 26 : 22,
+                backgroundColor: Colors.grey.shade200,
+                child: ClipOval(
+                  child: SvgPicture.network(
+                    u.avatarUrl,
+                    width: (isGold ? 52 : 44),
+                    height: (isGold ? 52 : 44),
+                    placeholderBuilder: (context) => const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                u.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '#${u.rank}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
                 ),
               ),
             ],
           ),
         ),
+      );
+    }
+
+    // Sıralama: 2 | 1 | 3 görünümü
+    final l2 = items.length > 1 ? items[1] : items.first;
+    final l1 = items.first;
+    final l3 = items.length > 2 ? items[2] : items.last;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          pillar(l2),
+          const SizedBox(width: 8),
+          pillar(l1),
+          const SizedBox(width: 8),
+          pillar(l3),
+        ],
       ),
     );
   }
 
-  Widget _buildFeedList() {
-    return FutureBuilder<QuerySnapshot>(
-      future: _feedFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData && _feedPostsCache == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          if (_feedPostsCache != null) {
-            return _buildFeedListFromDocs(_feedPostsCache!);
-          }
-          return const Center(child: Text('Failed to load posts.\nPlease try again.', textAlign: TextAlign.center));
-        }
-        if (snapshot.hasData) {
-          _feedPostsCache = snapshot.data!.docs; // cache
-        }
-        if (_feedPostsCache == null || _feedPostsCache!.isEmpty) {
-          return const Center(
-            child: Text(
-              'No posts yet.\nBe the first to share!',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          );
-        }
-        return _buildFeedListFromDocs(_feedPostsCache!);
-      },
+  Widget _buildLegendRow() {
+    final cs = Theme.of(context).colorScheme;
+    Widget chip(Color c, String t) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.withValues(alpha: 0.6)),
+      ),
+      child: Row(children: [
+        Icon(Icons.circle, size: 10, color: c),
+        const SizedBox(width: 6),
+        Text(t, style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface)),
+      ]),
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        chip(Colors.amber, 'Gold'),
+        const SizedBox(width: 8),
+        chip(Colors.grey.shade400, 'Silver'),
+        const SizedBox(width: 8),
+        chip(Colors.brown.shade400, 'Bronze'),
+      ],
     );
   }
 
-  Widget _buildFeedListFromDocs(List<DocumentSnapshot> posts) {
-    if (!_privilegeResolved) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Widget _buildMyRankOrHint() {
     final me = FirebaseAuth.instance.currentUser;
-    if (me == null) {
-      return RefreshIndicator(
-        onRefresh: _refreshFeed,
-        child: ListView.builder(
-          padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
-          itemCount: posts.length,
-          itemBuilder: (context, index) {
-            final post = FeedPost.fromFirestore(posts[index]);
-            return FeedPostCard(post: post, isPrivileged: _isPrivileged, canBanAccount: _canBanOthers);
-          },
+    if (me == null) return const SizedBox.shrink();
+    final list = _leaderboardCache;
+    if (list == null || list.isEmpty) return const SizedBox.shrink();
+
+    LeaderboardUser? mine;
+    for (final u in list) {
+      if (u.userId == me.uid) {
+        mine = u;
+        break;
+      }
+    }
+
+    if (mine == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            const Expanded(child: Text("You're outside Top 100. Increase your streak to climb!")),
+          ],
         ),
       );
     }
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(me.uid)
-          .collection('blockedUsers')
-          .snapshots(),
-      builder: (context, userSnap) {
-        final blocked = (userSnap.data?.docs.map((d) => d.id).toList() ?? const <String>[]);
-        final filtered = posts.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-            final authorId = (data['userId'] as String?) ?? '';
-            return !blocked.contains(authorId);
-        }).toList();
-
-        if (filtered.isEmpty) {
-          return const Center(
-            child: Text('No posts match the filters.'),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: _refreshFeed,
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 80.0),
-            itemCount: filtered.length,
-            itemBuilder: (context, index) {
-              final post = FeedPost.fromFirestore(filtered[index]);
-              return FeedPostCard(post: post, isPrivileged: _isPrivileged, canBanAccount: _canBanOthers);
-            },
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.grey.shade200,
+            child: ClipOval(
+              child: SvgPicture.network(
+                mine!.avatarUrl,
+                width: 36,
+                height: 36,
+                placeholderBuilder: (context) => const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
           ),
-        );
-      },
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your Rank',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+                ),
+                Text(
+                  '#${mine!.rank}  •  ${mine!.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 6)),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.local_fire_department, color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text('${mine!.streak}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          )
+        ],
+      ),
     );
-  }
-
-  Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
-    Query baseQuery = FirebaseFirestore.instance
-        .collection('users')
-        .orderBy('streak', descending: true)
-        .limit(100);
-
-    QuerySnapshot snapshot;
-    snapshot = await baseQuery.get();
-
-    if (snapshot.docs.isEmpty) {
-      return [];
-    }
-    return _mapUsersFromSnapshot(snapshot);
-  }
-
-  List<LeaderboardUser> _mapUsersFromSnapshot(QuerySnapshot snapshot) {
-    final users = snapshot.docs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      final status = data['status'];
-      return status == null || (status != 'banned' && status != 'deleted');
-    }).toList();
-    return users.asMap().entries.map((entry) {
-      final data = entry.value.data() as Map<String, dynamic>;
-      return LeaderboardUser(
-        rank: entry.key + 1,
-        name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown',
-        avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
-        isPremium: data['isPremium'] == true,
-        role: (data['role'] as String?) ?? 'user',
-      );
-    }).toList();
-  }
-
-  int _parseColor(dynamic value, int fallback) {
-    if (value is int) return value;
-    if (value is String) {
-      String v = value.trim();
-      if (v.startsWith('0x')) v = v.substring(2);
-      v = v.replaceAll('#', '');
-      if (v.length == 6) v = 'FF$v';
-      final parsed = int.tryParse(v, radix: 16);
-      if (parsed != null) return parsed;
-    }
-    return fallback;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: _tabController.index == 1
-          ? FloatingActionButton(
-              onPressed: () => _showCreatePostModal(context),
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.add),
-              tooltip: 'New Post',
-            )
-          : null,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTabSelector(),
-            Expanded(
-              child: IndexedStack(
-                index: _tabController.index,
-                children: [
-                  _buildLeaderboardTab(),
-                  Container(key: const ValueKey('feed'), child: _buildFeedList()),
-                ],
-              ),
-            ),
+            _buildHeader(),
+            Expanded(child: _buildLeaderboardTab()),
           ],
         ),
       ),
@@ -560,377 +506,168 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 }
 
-class _CreatePostSheet extends StatefulWidget {
-  final String? cachedName;
-  final String? cachedAvatar;
-  final VoidCallback onPosted;
-  const _CreatePostSheet({required this.cachedName, required this.cachedAvatar, required this.onPosted});
+// --- YENİ TASARIM: CAM EFEKTLI, ANIMASYONLU SEGMENT SWITCH ---
+class _ModeSegmentedSwitch extends StatefulWidget {
+  final String current; // 'weekly' | 'overall'
+  final ValueChanged<String> onChanged;
+  const _ModeSegmentedSwitch({required this.current, required this.onChanged});
 
   @override
-  State<_CreatePostSheet> createState() => _CreatePostSheetState();
+  State<_ModeSegmentedSwitch> createState() => _ModeSegmentedSwitchState();
 }
 
-class _CreatePostSheetState extends State<_CreatePostSheet> {
-  final TextEditingController _controller = TextEditingController();
-  final ValueNotifier<int> _length = ValueNotifier<int>(0);
-  bool _posting = false;
-  final int _maxLen = 280;
-  FocusNode _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() => _length.value = _controller.text.characters.length);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _length.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    final text = _controller.text.trim();
-    if (text.isEmpty || _posting) return;
-    setState(() => _posting = true);
-    try {
-      String userName = widget.cachedName ?? 'Unknown User';
-      String avatar = widget.cachedAvatar ?? '';
-      if (widget.cachedName == null) {
-        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        final data = snap.data();
-        if (data != null) {
-          userName = (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : userName;
-          avatar = (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : avatar;
-        }
-      }
-      await FirebaseFirestore.instance.collection('posts').add({
-        'postText': text,
-        'userId': user.uid,
-        'userName': userName,
-        'userAvatarUrl': avatar,
-        'timestamp': FieldValue.serverTimestamp(),
-        'likes': [],
-        'commentCount': 0,
-      });
-      if (!mounted) return;
-      widget.onPosted();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create post: $e')),
-      );
-      setState(() => _posting = false);
-    }
-  }
+class _ModeSegmentedSwitchState extends State<_ModeSegmentedSwitch> {
+  int get _index => widget.current == 'overall' ? 1 : 0;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-    final viewInsets = MediaQuery.of(context).viewInsets;
-    return Padding(
-      padding: EdgeInsets.only(bottom: viewInsets.bottom),
-      child: Material(
-        color: theme.colorScheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: onSurface.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-                Text('Create New Post', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.zero,
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      maxLines: null,
-                      minLines: 5,
-                      maxLength: _maxLen,
-                      decoration: InputDecoration(
-                        hintText: 'What are you thinking?',
-                        counterText: '',
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.25),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.all(14),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    ValueListenableBuilder<int>(
-                      valueListenable: _length,
-                      builder: (context, len, _) => Text('$len/$_maxLen', style: theme.textTheme.bodySmall),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: _posting ? null : () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: _posting ? null : _submit,
-                      child: _posting
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Text('Post'),
-                    ),
-                  ],
-                )
+    final cs = Theme.of(context).colorScheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalW = constraints.maxWidth;
+        final thumbPad = 4.0;
+        final height = 52.0;
+
+        return Container(
+          // Gradient border wrap
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                cs.primary.withValues(alpha: 0.35),
+                cs.secondary.withValues(alpha: 0.35),
               ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(22),
           ),
-        ),
-      ),
-    );
-  }
-}
+          padding: const EdgeInsets.all(1.2),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                height: height,
+                width: totalW,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withAlpha(22), blurRadius: 18, offset: const Offset(0, 10)),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Sliding thumb (half width)
+                      Padding(
+                        padding: EdgeInsets.all(thumbPad),
+                        child: AnimatedAlign(
+                          duration: const Duration(milliseconds: 280),
+                          curve: Curves.easeOutCubic,
+                          alignment: _index == 0 ? Alignment.centerLeft : Alignment.centerRight,
+                          child: FractionallySizedBox(
+                            widthFactor: 0.5,
+                            heightFactor: 1,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  colors: [cs.primary, cs.primary.withValues(alpha: 0.75)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(color: cs.primary.withValues(alpha: 0.35), blurRadius: 22, offset: const Offset(0, 8)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
 
-class _LeaderboardModePicker extends StatefulWidget {
-  final String current;
-  final ValueChanged<String> onChanged;
-  const _LeaderboardModePicker({required this.current, required this.onChanged});
-
-  @override
-  State<_LeaderboardModePicker> createState() => _LeaderboardModePickerState();
-}
-
-class _LeaderboardModePickerState extends State<_LeaderboardModePicker> {
-  final LayerLink _link = LayerLink();
-  OverlayEntry? _entry;
-  final GlobalKey _buttonKey = GlobalKey();
-  Offset _calculatedOffset = const Offset(0, 46);
-  double _popupWidth = 140; // dinamik belirlenecek minimum
-
-  bool get _isWeekly => widget.current == 'weekly';
-
-  void _toggle() {
-    if (_entry == null) {
-      _prepareAndShow();
-    } else {
-      _hide();
-    }
-  }
-
-  void _prepareAndShow() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ctx = _buttonKey.currentContext;
-      if (ctx != null) {
-        final box = ctx.findRenderObject() as RenderBox?;
-        if (box != null) {
-          final btnSize = box.size;
-          final btnWidth = btnSize.width;
-          final btnHeight = btnSize.height;
-          // Dinamik popup genişliği: butondan en az 16px fazla ya da min 140, max 220
-          _popupWidth = btnWidth + 16;
-          if (_popupWidth < 140) _popupWidth = 140;
-          if (_popupWidth > 220) _popupWidth = 220;
-          double dx = (btnWidth - _popupWidth) / 2; // merkezle
-          final screenWidth = MediaQuery.of(ctx).size.width;
-          final buttonGlobalPos = box.localToGlobal(Offset.zero);
-          final globalLeft = buttonGlobalPos.dx + dx;
-          if (globalLeft < 8) {
-            dx += (8 - globalLeft);
-          }
-          final globalRight = buttonGlobalPos.dx + dx + _popupWidth;
-          if (globalRight > screenWidth - 8) {
-            dx -= (globalRight - (screenWidth - 8));
-          }
-          final dy = btnHeight + 8;
-          _calculatedOffset = Offset(dx, dy);
-        }
-      }
-      if (mounted) _show();
-    });
-  }
-
-  void _show() {
-    final overlay = Overlay.of(context);
-    if (overlay == null) return;
-    _entry = OverlayEntry(
-      builder: (context) {
-        return Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: _hide,
-            child: Stack(
-              children: [
-                CompositedTransformFollower(
-                  link: _link,
-                  showWhenUnlinked: false,
-                  offset: _calculatedOffset,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: _buildCard(),
+                      // Content row
+                      Row(
+                        children: [
+                          _segButton(
+                            selected: _index == 0,
+                            icon: Icons.calendar_view_week_rounded,
+                            label: 'Weekly',
+                            onTap: () => widget.onChanged('weekly'),
+                          ),
+                          _segButton(
+                            selected: _index == 1,
+                            icon: Icons.public_rounded,
+                            label: 'Overall',
+                            onTap: () => widget.onChanged('overall'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         );
       },
     );
-    overlay.insert(_entry!);
   }
 
-  void _hide() {
-    _entry?.remove();
-    _entry = null;
-  }
+  Widget _segButton({
+    required bool selected,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final Color textColor = selected ? cs.onPrimary : cs.onSurfaceVariant;
 
-  Widget _buildCard() {
-    final theme = Theme.of(context);
-    return AnimatedScale(
-      duration: const Duration(milliseconds: 160),
-      scale: 1,
-      child: Container(
-        width: _popupWidth,
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(30),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            )
-          ],
-          border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4), width: 1),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _modeTile('weekly', Icons.calendar_view_week, 'Weekly'),
-            _divider(),
-            _modeTile('overall', Icons.public, 'Overall'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _divider() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    child: Divider(height: 14, thickness: 0.8, color: Theme.of(context).dividerColor.withAlpha(80)),
-  );
-
-  Widget _modeTile(String value, IconData icon, String text) {
-    final theme = Theme.of(context);
-    final selected = widget.current == value;
-    return InkWell(
-      onTap: () {
-        if (!selected) widget.onChanged(value);
-        _hide();
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
-                ),
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            splashColor: (selected ? cs.onPrimary : cs.primary).withValues(alpha: 0.08),
+            highlightColor: Colors.transparent,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 18, color: textColor),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      style: TextStyle(
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        letterSpacing: selected ? 0.3 : 0.1,
+                        color: textColor,
+                      ),
+                      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                ],
               ),
             ),
-            if (selected)
-              Icon(Icons.check_rounded, size: 18, color: theme.colorScheme.onPrimaryContainer),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _hide();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return CompositedTransformTarget(
-      link: _link,
-      child: GestureDetector(
-        onTap: _toggle,
-        child: AnimatedContainer(
-          key: _buttonKey,
-          duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.55),
-            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(25),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_isWeekly ? Icons.calendar_view_week : Icons.public, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                _isWeekly ? 'Weekly' : 'Overall',
-                style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3, color: theme.colorScheme.onSurface),
-              ),
-              const SizedBox(width: 6),
-              Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-            ],
           ),
         ),
       ),
     );
   }
 }
+
+// KALDIRILAN: _LeaderboardModePicker (overlay tabanlı açılır menü)

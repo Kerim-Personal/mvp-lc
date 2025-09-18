@@ -11,8 +11,6 @@ import 'package:lingua_chat/screens/root_screen.dart';
 import 'firebase_options.dart';
 import 'package:lingua_chat/screens/login_screen.dart';
 import 'package:lingua_chat/services/audio_service.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:lingua_chat/l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lingua_chat/screens/banned_screen.dart';
 import 'package:lingua_chat/screens/help_and_support_screen.dart';
@@ -171,15 +169,6 @@ class MyApp extends StatelessWidget {
           theme: ThemeService.instance.lightTheme,
           darkTheme: ThemeService.instance.darkTheme,
           themeMode: ThemeService.instance.themeMode,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('en', ''),
-          ],
           routes: {
             '/help': (_) => HelpAndSupportScreen(),
             '/support': (_) => const SupportRequestScreen(),

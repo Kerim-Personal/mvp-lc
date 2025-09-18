@@ -9,7 +9,6 @@ import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
 import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
 import 'package:lingua_chat/widgets/common/safety_help_button.dart';
 import 'package:lingua_chat/widgets/common/ai_partner_button.dart';
-import 'package:lingua_chat/screens/community_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onSearchingChanged});
@@ -108,33 +107,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Total Time -> Leaderboard
-  void _openLeaderboard() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const CommunityScreen(initialTabIndex: 0),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final double safeBottom = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: const SafetyHelpButton(),
+      // floatingActionButton kaldırıldı; ikisini de Stack içinde konumlandıracağız
       body: Stack(
         children: [
           _buildHomeUI(),
-          // Sağdaki FAB ile aynı hizada: SafeArea alt + 16px
-          SafeArea(
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 16, bottom: 16),
-                child: AiPartnerButton(),
-              ),
-            ),
+          // Solda AI Partner Button (eşit hizada)
+          Positioned(
+            left: 16,
+            bottom: safeBottom + 6,
+            child: AiPartnerButton(),
+          ),
+          // Sağda Digital Safety Button (eşit hizada)
+          Positioned(
+            right: 16,
+            bottom: safeBottom + 6,
+            child: SafetyHelpButton(),
           ),
         ],
       ),
@@ -185,15 +177,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildStatsSection(DocumentSnapshot<Map<String, dynamic>>? snap) {
     if (_currentUser == null) {
-      return StatsRow(streak: 0, totalTime: 0, onTotalTimeTap: _openLeaderboard);
+      return const StatsRow(streak: 0, totalTime: 0);
     }
     if (snap == null || !snap.exists || snap.data() == null) {
-      return StatsRow(streak: 0, totalTime: 0, onTotalTimeTap: _openLeaderboard);
+      return const StatsRow(streak: 0, totalTime: 0);
     }
     final data = snap.data()!;
     final int streak = data['streak'] ?? 0;
     final int totalTime = data['totalPracticeTime'] ?? 0;
-    return StatsRow(streak: streak, totalTime: totalTime, onTotalTimeTap: _openLeaderboard);
+    return StatsRow(streak: streak, totalTime: totalTime);
   }
 
   Widget _buildHomeUI() {
@@ -243,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  const SizedBox(height: 120), // butonlarla çakışmayı önlemek için daha fazla alt boşluk
                 ],
               ),
             ),

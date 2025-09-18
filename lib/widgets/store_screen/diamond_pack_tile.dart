@@ -50,8 +50,8 @@ class _DiamondPackTileState extends State<DiamondPackTile> with SingleTickerProv
     final scale = _pressed ? 0.97 : 1.0;
     final baseGradient = LinearGradient(
       colors: [
-        Colors.white.withOpacity(0.09),
-        Colors.white.withOpacity(0.03),
+        Colors.white.withValues(alpha: 0.09),
+        Colors.white.withValues(alpha: 0.03),
       ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -70,7 +70,7 @@ class _DiamondPackTileState extends State<DiamondPackTile> with SingleTickerProv
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             gradient: baseGradient,
-            border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
           ),
           child: Row(
             children: [
@@ -101,7 +101,7 @@ class _DiamondPackTileState extends State<DiamondPackTile> with SingleTickerProv
                               gradient: LinearGradient(
                                 colors: [
                                   (widget.badgeColor ?? Colors.amber),
-                                  Colors.black.withOpacity(0.55),
+                                  Colors.black.withValues(alpha: 0.55),
                                 ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
@@ -123,7 +123,7 @@ class _DiamondPackTileState extends State<DiamondPackTile> with SingleTickerProv
                     Opacity(
                       opacity: 0.72,
                       child: Text(
-                        'Anında bakiye artışı',
+                        'Instant balance boost',
                         style: const TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.1),
                       ),
                     ),
@@ -179,7 +179,7 @@ class _PriceButton extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withOpacity(0.4),
+            color: Colors.amber.withValues(alpha: 0.4),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -210,7 +210,7 @@ class _DiamondIcon extends StatelessWidget {
         boxShadow: glow
             ? [
                 BoxShadow(
-                  color: Colors.amber.withOpacity(0.55),
+                  color: Colors.amber.withValues(alpha: 0.55),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 )
@@ -221,4 +221,3 @@ class _DiamondIcon extends StatelessWidget {
     );
   }
 }
-

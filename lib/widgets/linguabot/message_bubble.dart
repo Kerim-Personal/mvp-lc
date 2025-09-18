@@ -5,13 +5,18 @@ import 'package:lingua_chat/models/grammar_analysis.dart';
 import 'package:lingua_chat/models/message_unit.dart';
 import 'package:lingua_chat/widgets/linguabot/message_insight_dialog.dart';
 import 'package:lingua_chat/services/tts_service.dart';
+import 'package:lingua_chat/services/translation_service.dart';
 
 class MessageBubble extends StatelessWidget {
   final MessageUnit message;
   final Function(String) onCorrect;
   // Premium kullanıcıların balonlarına özel arka plan uygulamak için
   final bool isUserPremium;
-  const MessageBubble({super.key, required this.message, required this.onCorrect, this.isUserPremium = false});
+  // Çeviri hedefi için kullanıcının anadil kodu (ör. 'tr')
+  final String nativeLanguage;
+  // Kullanıcı premium mu? Çeviri etkileşimi buna göre açılır.
+  final bool isPremium;
+  const MessageBubble({super.key, required this.message, required this.onCorrect, this.isUserPremium = false, required this.nativeLanguage, required this.isPremium});
 
   TextSpan _buildAnalyzedSpan(String text, GrammarAnalysis ga, {required Color baseColor}) {
     final List<InlineSpan> spans = [];
@@ -47,6 +52,116 @@ class MessageBubble extends StatelessWidget {
     return TextSpan(children: spans);
   }
 
+  Future<void> _handleTranslate(BuildContext context) async {
+    if (!isPremium) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çeviri Premium kullanıcılar içindir.')));
+      return;
+    }
+    final src = message.text.trim();
+    if (src.isEmpty) return;
+
+    try {
+      String detected = await TranslationService.instance.detectLanguage(src);
+      // Hedef belirleme: EN <-> anadil
+      String target;
+      final native = nativeLanguage.toLowerCase();
+      if (detected == 'und') {
+        // Belirsiz ise: bot mesajları genelde EN olduğu için varsayılan EN -> anadil
+        detected = message.sender == MessageSender.bot ? 'en' : (native == 'en' ? 'en' : native);
+      }
+      if (detected == 'en') {
+        target = native == 'en' ? 'en' : native;
+      } else if (detected == native) {
+        target = 'en';
+      } else {
+        // Farklı bir kaynak ise EN'e çevir
+        target = 'en';
+      }
+
+      if (detected == target) {
+        // Zaten hedef dilde
+        await _showTranslationSheet(context, original: message.text, translated: message.text, detected: detected, target: target);
+        return;
+      }
+
+      final translated = await TranslationService.instance.translatePair(
+        message.text,
+        sourceCode: detected,
+        targetCode: target,
+      );
+
+      await _showTranslationSheet(context, original: message.text, translated: translated, detected: detected, target: target);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Çeviri başarısız: $e')));
+    }
+  }
+
+  Future<void> _showTranslationSheet(BuildContext context, {required String original, required String translated, required String detected, required String target}) async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withAlpha(230),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.translate_rounded, color: Colors.cyanAccent),
+                    const SizedBox(width: 8),
+                    Text('Çeviri (${detected.toUpperCase()} → ${target.toUpperCase()})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.copy_all_rounded, color: Colors.white70),
+                      tooltip: 'Çeviri metnini kopyala',
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: translated));
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Çeviri kopyalandı')));
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('Orijinal', style: TextStyle(color: Colors.white70.withAlpha(200), fontSize: 12)),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Text(original, style: const TextStyle(color: Colors.white, height: 1.4)),
+                ),
+                const SizedBox(height: 10),
+                Text('Çeviri', style: TextStyle(color: Colors.cyanAccent.withAlpha(230), fontSize: 12)),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.cyan.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.cyan.withAlpha(80)),
+                  ),
+                  child: SingleChildScrollView(child: Text(translated, style: const TextStyle(color: Colors.white, height: 1.4))),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showActions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -75,6 +190,14 @@ class MessageBubble extends StatelessWidget {
                 onTap: () async {
                   Navigator.pop(context);
                   await tts.speak(message.text, language: 'en-US');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.translate_rounded, color: Colors.white70),
+                title: Text(isPremium ? 'Çevir' : 'Çeviri (Premium)', style: const TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _handleTranslate(context);
                 },
               ),
               ListTile(
@@ -221,6 +344,15 @@ class MessageBubble extends StatelessWidget {
                       icon: Icon(Icons.volume_up, color: iconColor),
                       onPressed: () async {
                         await TtsService().speak(message.text, language: 'en-US');
+                      },
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 18,
+                      tooltip: isPremium ? 'Çevir' : 'Çeviri (Premium)',
+                      icon: Icon(Icons.translate_rounded, color: iconColor),
+                      onPressed: () async {
+                        await _handleTranslate(context);
                       },
                     ),
                     IconButton(

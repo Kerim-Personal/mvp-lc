@@ -83,7 +83,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     final map = <String, String>{};
     for (final id in PurchaseService.diamondProductIds) {
       final p = _purchaseService.product(id);
-      if (p != null && p.price != null) map[id] = p.price;
+      if (p != null) map[id] = p.price;
     }
     _priceMap = map;
   }
@@ -140,7 +140,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     if (!ok) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Satın alma başlatılamadı.'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Could not start purchase.'), backgroundColor: Colors.red),
         );
       }
       return;
@@ -149,7 +149,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     // Başarılı işlem -> DiamondService güncellemesi artık servis tarafından yapılmalı.
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Elmaslar hesabına ekleniyor...'), backgroundColor: Colors.black87),
+        const SnackBar(content: Text('Adding diamonds to your account...'), backgroundColor: Colors.black87),
       );
     }
   }
@@ -157,19 +157,19 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   Future<void> _restorePurchases() async {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Satın alımlar geri yükleniyor...'), backgroundColor: Colors.black87),
+        const SnackBar(content: Text('Restoring purchases...'), backgroundColor: Colors.black87),
       );
     }
     try {
       await _purchaseService.restorePurchases();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mevcut satın alımlar kontrol edildi.'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Checked existing purchases.'), backgroundColor: Colors.green),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.redAccent),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
       );
     }
   }
@@ -187,13 +187,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           // Daha sade tek ton cam efekti
           gradient: LinearGradient(
             colors: [
-              Colors.white.withOpacity(0.06),
-              Colors.white.withOpacity(0.02),
+              Colors.white.withValues(alpha: 0.06),
+              Colors.white.withValues(alpha: 0.02),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         child: Row(
@@ -211,7 +211,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.amber.withOpacity(0.4),
+                      color: Colors.amber.withValues(alpha: 0.4),
                       blurRadius: 14,
                       offset: const Offset(0, 4),
                     )
@@ -239,7 +239,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.70),
+                      color: Colors.white.withValues(alpha: 0.70),
                     ),
                   ),
                 ],
@@ -306,8 +306,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            color: Colors.black.withOpacity(0.28),
-            border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+            color: Colors.black.withValues(alpha: 0.28),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
           ),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: FittedBox(
@@ -343,8 +343,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withOpacity(0.05),
-        border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+        color: Colors.white.withValues(alpha: 0.05),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
       ),
       child: TabBar(
         controller: _tabController,
@@ -360,19 +360,19 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.amber.withOpacity(0.45),
+              color: Colors.amber.withValues(alpha: 0.45),
               blurRadius: 14,
               offset: const Offset(0, 5),
             )
           ],
-          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
         ),
         labelColor: Colors.black,
         unselectedLabelColor: Colors.white70,
         labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         tabs: const [
-          Tab(text: 'Elmas', icon: Icon(Icons.diamond, size: 18)),
+          Tab(text: 'Diamonds', icon: Icon(Icons.diamond, size: 18)),
             Tab(text: 'Premium', icon: Icon(Icons.workspace_premium, size: 18)),
         ],
       ),
@@ -401,18 +401,18 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.55),
+                      color: Colors.black.withValues(alpha: 0.55),
                       blurRadius: 42,
                       spreadRadius: -4,
                       offset: const Offset(0, 28),
                     ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
+                      color: Colors.black.withValues(alpha: 0.25),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
                   ],
-                  border: Border.all(color: Colors.white.withOpacity(0.04), width: 1),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.04), width: 1),
                 ),
                 child: Container(
                   margin: const EdgeInsets.all(2.2),
@@ -421,13 +421,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     // İç panel sabit koyu cam
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withOpacity(0.04),
-                        Colors.white.withOpacity(0.02),
+                        Colors.white.withValues(alpha: 0.04),
+                        Colors.white.withValues(alpha: 0.02),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 1),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(38),
@@ -463,7 +463,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _diamondsGrid({bool shrinkWrap = false, bool outerScroll = false}) {
+  Widget _diamondsGrid() {
     final ids = PurchaseService.diamondProductIds;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -491,18 +491,18 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             String? badge;
             Color? badgeColor;
             if (id == 'diamonds_large') {
-              badge = 'EN İYİ DEĞER';
+              badge = 'BEST VALUE';
               badgeColor = Colors.greenAccent;
             } else if (id == 'diamonds_medium') {
-              badge = 'POPÜLER';
+              badge = 'POPULAR';
               badgeColor = Colors.amber;
             } else if (id == 'diamonds_mega') {
-              badge = 'DEV PAKET';
+              badge = 'MEGA PACK';
               badgeColor = Colors.deepPurpleAccent;
             }
             return DiamondPackGridTile(
               productId: id,
-              title: '$amount Elmas',
+              title: '$amount Diamonds',
               price: price,
               badge: badge,
               badgeColor: badgeColor,
@@ -528,8 +528,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       child: Column(
         children: [
           _storeSectionHeader(
-            title: 'Premium ile Kilidi Aç',
-            subtitle: 'Tüm sınırsız özellikler, reklamsız deneyim ve ayrıcalıklı hız.',
+            title: 'Unlock with Premium',
+            subtitle: 'All unlimited features, ad-free experience, and priority performance.',
             icon: Icons.workspace_premium,
           ),
           Row(
@@ -537,7 +537,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
               Expanded(
                 child: _buildPlanCard(
                   plan: PremiumPlan.monthly,
-                  title: 'Aylık',
+                  title: 'Monthly',
                   price: monthlyProduct?.price ?? '...',
                 ),
               ),
@@ -545,7 +545,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
               Expanded(
                 child: _buildPlanCard(
                   plan: PremiumPlan.yearly,
-                  title: 'Yıllık',
+                  title: 'Yearly',
                   price: yearlyProduct?.price ?? '...',
                   isBestValue: true,
                 ),
@@ -566,7 +566,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   onPressed: (monthlyProduct == null || yearlyProduct == null)
                       ? null
                       : () => _buy(selectedProductId),
-                  child: const Text('Şimdi Premium Ol', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text('Go Premium Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -575,40 +575,40 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white70,
-                    side: BorderSide(color: Colors.white.withOpacity(0.35), width: 1),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.35), width: 1),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: _restorePurchases,
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Geri Yükle', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  label: const Text('Restore', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                 ),
               )
             ],
           ),
           const SizedBox(height: 24),
           const Text(
-            'Premium Avantajları',
+            'Premium Benefits',
             style: TextStyle(
                 color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
-          _benefit(icon: Icons.auto_awesome, title: 'Gelişmiş Analiz', text: 'Konuşma & yazma yeteneklerin için ileri seviye analizler al.'),
-          _benefit(icon: Icons.lock_open, title: 'Tüm İçerik', text: 'Bütün özel hikaye ve quiz setlerine sınırsız erişim kazan.'),
-          _benefit(icon: Icons.workspace_premium, title: 'Rozet ve Efektler', text: 'Profilinde havalı premium rozeti ve animasyonlu arka plan sergile.'),
-          _benefit(icon: Icons.translate, title: 'Sınırsız Çeviri', text: 'Pratik yaparken kelimeleri sınırsızca çevir.'),
+          _benefit(icon: Icons.auto_awesome, title: 'Advanced Analytics', text: 'Get advanced insights for your speaking and writing skills.'),
+          _benefit(icon: Icons.lock_open, title: 'All Content', text: 'Unlimited access to all exclusive stories and quiz sets.'),
+          _benefit(icon: Icons.workspace_premium, title: 'Badge & Effects', text: 'Show a cool premium badge and animated background on your profile.'),
+          _benefit(icon: Icons.translate, title: 'Unlimited Translation', text: 'Translate words without limits while practicing.'),
           const SizedBox(height: 12),
           Opacity(
             opacity: 0.75,
             child: Column(
               children: const [
                 Text(
-                  'Abonelik yenilemesi otomatik olarak mağaza hesabından tahsil edilir. İstediğin zaman iptal edebilirsin.',
+                  'Subscription renews automatically and is charged to your store account. You can cancel anytime.',
                   style: TextStyle(color: Colors.white54, fontSize: 11.5, height: 1.3),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 6),
                 Text(
-                  'Satın alma işleminden sonra avantajlar birkaç saniye içinde etkinleşir.',
+                  'Benefits activate within a few seconds after purchase.',
                   style: TextStyle(color: Colors.white38, fontSize: 10.5),
                   textAlign: TextAlign.center,
                 ),
@@ -638,7 +638,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
               const SizedBox(width: 14),
               Flexible(
                 child: Text(
-                  'Premium Aktif',
+                  'Premium Active',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -702,7 +702,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     Text(
                       title,
                       style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, shadows: [
-                        Shadow(color: Colors.black.withOpacity(0.4), blurRadius: 6, offset: const Offset(0, 1))
+                        Shadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 1))
                       ]),
                     ),
                     const SizedBox(height: 8),
@@ -718,7 +718,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
-                          'Aylık ~%45 tasarruf',
+                          'Save ~45% monthly',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -744,7 +744,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                       ),
                     ),
                     child: const Text(
-                      'En Avantajlı',
+                      'Best Value',
                       style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -795,14 +795,14 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           end: Alignment.bottomRight,
         )
             : LinearGradient(colors: [
-          Colors.white.withOpacity(0.12),
-          Colors.white.withOpacity(0.05),
+          Colors.white.withValues(alpha: 0.12),
+          Colors.white.withValues(alpha: 0.05),
         ], begin: Alignment.topLeft, end: Alignment.bottomRight),
         border: Border.all(color: Colors.white.withAlpha(50), width: 1),
         boxShadow: gradient
             ? [
           BoxShadow(
-            color: Colors.amber.withOpacity(0.55),
+            color: Colors.amber.withValues(alpha: 0.55),
             blurRadius: 18,
             spreadRadius: 1,
             offset: const Offset(0, 4),

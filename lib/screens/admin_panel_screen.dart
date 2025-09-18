@@ -574,7 +574,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
               ),
             ),
           );
-        });
+              });
       },
     );
   }
@@ -850,7 +850,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
           return Padding(
             padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
             child: SizedBox(
-              height: MediaQuery.of(context).size.height * .75,
+              height: MediaQuery.sizeOf(context).height * .75,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

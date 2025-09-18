@@ -15,7 +15,7 @@ class _AiPartnerButtonState extends State<AiPartnerButton> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _sparkleController = AnimationController(vsync: this, duration: const Duration(seconds: 7))..repeat();
+    _sparkleController = AnimationController(vsync: this, duration: const Duration(seconds: 15))..repeat();
   }
 
   @override

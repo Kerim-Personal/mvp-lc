@@ -97,7 +97,7 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
           },
         );
         return _homeTab!;
-      case 3: // Community – state korunmalı
+      case 3: // Leaderboard – state korunmalı
         _communityTab ??= const CommunityScreen();
         return _communityTab!;
       case 4: // Profile – animasyon tekrar tetiklenecek
@@ -178,10 +178,16 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
-    final Color backgroundColor = (isDark ? cs.surface : Colors.white).withOpacity(isDark ? 0.94 : 0.97);
-    final Color shadowColor = isDark ? Colors.black.withOpacity(0.45) : Colors.black.withOpacity(0.06);
-    final Color inactiveColor = isDark ? cs.onSurface.withOpacity(0.65) : Colors.black87;
+    // Modern: withValues kullanımı
+    final Color backgroundColor = isDark
+        ? cs.surface.withValues(alpha: 0.94)
+        : Colors.white.withValues(alpha: 0.97);
+    final Color shadowColor = isDark
+        ? Colors.black.withValues(alpha: 0.45)
+        : Colors.black.withValues(alpha: 0.06);
+    final Color inactiveColor = isDark
+        ? cs.onSurface.withValues(alpha: 0.65)
+        : Colors.black87;
     final Color activeColor = cs.primary;
     final Color activeIconColor = cs.onPrimary;
 
@@ -189,50 +195,54 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       const _NavItemData(icon: Icons.store_mall_directory_outlined, label: 'Store'),
       const _NavItemData(icon: Icons.explore_outlined, label: 'Discover'),
       const _NavItemData(icon: Icons.home_rounded, label: 'Home'),
-      const _NavItemData(icon: Icons.groups_outlined, label: 'Community'),
+      const _NavItemData(icon: Icons.leaderboard_outlined, label: 'Leaderboard'),
       if (currentUser != null) const _NavItemData(icon: Icons.person_rounded, label: 'Profile'),
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        border: Border(
-          top: BorderSide(
-            // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
-            color: isDark
-                ? Colors.white.withOpacity(0.06)
-                : Colors.black.withOpacity(0.05),
-            width: 0.6,
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.black.withValues(alpha: 0.05),
+                width: 0.6,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 22,
+                offset: const Offset(0, -4),
+                color: shadowColor,
+              ),
+            ],
           ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 22,
-            offset: const Offset(0, -4),
-            color: shadowColor,
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 72, // kompakt
-          child: Row(
-            children: List.generate(items.length, (index) {
-              final data = items[index];
-              final selected = _selectedIndex == index;
-              return Expanded(
-                child: _NavBarItem(
-                  data: data,
-                  selected: selected,
-                  activeColor: activeColor,
-                  activeIconColor: activeIconColor,
-                  inactiveColor: inactiveColor,
-                  animation: _scaleAnimation,
-                  onTap: () => _onItemTapped(index),
-                ),
-              );
-            }),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 72, // kompakt
+              child: Row(
+                children: List.generate(items.length, (index) {
+                  final data = items[index];
+                  final selected = _selectedIndex == index;
+                  return Expanded(
+                    child: _NavBarItem(
+                      data: data,
+                      selected: selected,
+                      activeColor: activeColor,
+                      activeIconColor: activeIconColor,
+                      inactiveColor: inactiveColor,
+                      animation: _scaleAnimation,
+                      onTap: () => _onItemTapped(index),
+                    ),
+                  );
+                }),
+              ),
+            ),
           ),
         ),
       ),
@@ -272,8 +282,7 @@ class _NavBarItem extends StatelessWidget {
       label: data.label,
       child: InkWell(
         onTap: onTap,
-        // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
-        splashColor: highlightColor.withOpacity(0.15),
+        splashColor: highlightColor.withValues(alpha: 0.15),
         highlightColor: Colors.transparent,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -302,8 +311,7 @@ class _NavBarItem extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.1,
-                    // HATA DÜZELTİLDİ: .withValues yerine .withOpacity kullanıldı
-                    color: selected ? activeIconColor : inactiveColor.withOpacity(0.85),
+                    color: selected ? activeIconColor : inactiveColor.withValues(alpha: 0.85),
                   ),
                   child: Text(
                     data.label,

@@ -1,17 +1,8 @@
 {
   "@@locale": "en",
-  "appName": "LinguaChat",
-  "appSubtitle": "The most fun way to practice a language",
-  "login": "Login",
-  "emailAddress": "Your email address",
-  "password": "Your password",
-  "dontHaveAnAccount": "Don't have an account? Sign up",
-  "createAccount": "Create Account",
-  "joinTheAdventure": "Just a few steps left to join the adventure!",
-  "username": "Username",
-  "birthDate": "Birth Date",
-  "selectYourGender": "Select Your Gender",
-  "female": "Female",
-  "male": "Male",
-  "register": "Sign Up"
+  "appTitle": "Lingua Chat",
+  "@appTitle": {
+    "description": "Application title"
+  }
 }
+

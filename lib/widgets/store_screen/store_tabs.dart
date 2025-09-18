@@ -40,12 +40,12 @@ class _StoreDiamondsTabState extends State<StoreDiamondsTab> with AutomaticKeepA
           final amount = PurchaseService.diamondAmountFor(id) ?? 0;
           final price = widget.priceMap[id] ?? '...';
           String? badge; Color? badgeColor;
-          if (id == 'diamonds_large') { badge = 'EN İYİ DEĞER'; badgeColor = Colors.greenAccent; }
-          else if (id == 'diamonds_medium') { badge = 'POPÜLER'; badgeColor = Colors.amber; }
+          if (id == 'diamonds_large') { badge = 'BEST VALUE'; badgeColor = Colors.greenAccent; }
+          else if (id == 'diamonds_medium') { badge = 'POPULAR'; badgeColor = Colors.amber; }
           return DiamondPackTile(
             key: ValueKey(id),
             productId: id,
-            title: '$amount Elmas',
+            title: '$amount Diamonds',
             price: price,
             badge: badge,
             badgeColor: badgeColor,
@@ -97,8 +97,8 @@ class DiamondSkeletonList extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 32),
       itemBuilder: (_, i) => Shimmer.fromColors(
-        baseColor: Colors.white.withOpacity(0.12),
-        highlightColor: Colors.white.withOpacity(0.28),
+        baseColor: Colors.white.withValues(alpha: 0.12),
+        highlightColor: Colors.white.withValues(alpha: 0.28),
         child: Container(
           height: 74,
           decoration: BoxDecoration(
@@ -116,5 +116,5 @@ class DiamondSkeletonList extends StatelessWidget {
 class _NoGlowBehavior extends ScrollBehavior {
   const _NoGlowBehavior();
   @override
-  Widget buildViewportChrome(BuildContext context, Widget child, AxisDirection axisDirection) => child;
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
 }
