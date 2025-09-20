@@ -1,10 +1,10 @@
 // lib/screens/practice_reading_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lingua_chat/models/reading_models.dart';
-import 'package:lingua_chat/repositories/reading_repository.dart';
-import 'package:lingua_chat/screens/practice_reading_story_screen.dart';
-import 'package:lingua_chat/widgets/practice/practice_headers.dart';
+import 'package:vocachat/models/reading_models.dart';
+import 'package:vocachat/repositories/reading_repository.dart';
+import 'package:vocachat/screens/practice_reading_story_screen.dart';
+import 'package:vocachat/widgets/practice/practice_headers.dart';
 
 class PracticeReadingScreen extends StatefulWidget {
   const PracticeReadingScreen({super.key});

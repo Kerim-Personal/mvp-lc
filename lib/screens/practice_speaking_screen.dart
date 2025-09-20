@@ -1,10 +1,10 @@
 // lib/screens/practice_speaking_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lingua_chat/models/speaking_models.dart';
-import 'package:lingua_chat/repositories/speaking_repository.dart';
-import 'package:lingua_chat/screens/practice_speaking_detail_screen.dart';
-import 'package:lingua_chat/widgets/practice/practice_headers.dart';
+import 'package:vocachat/models/speaking_models.dart';
+import 'package:vocachat/repositories/speaking_repository.dart';
+import 'package:vocachat/screens/practice_speaking_detail_screen.dart';
+import 'package:vocachat/widgets/practice/practice_headers.dart';
 
 class PracticeSpeakingScreen extends StatefulWidget {
   const PracticeSpeakingScreen({super.key});

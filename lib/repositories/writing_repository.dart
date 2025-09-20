@@ -1,5 +1,5 @@
 // lib/repositories/writing_repository.dart
-import 'package:lingua_chat/models/writing_models.dart';
+import 'package:vocachat/models/writing_models.dart';
 
 class WritingRepository {
   WritingRepository._();

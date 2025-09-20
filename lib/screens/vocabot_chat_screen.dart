@@ -6,15 +6,15 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/services/linguabot_service.dart';
-import 'package:lingua_chat/models/grammar_analysis.dart';
-import 'package:lingua_chat/models/message_unit.dart';
-import 'package:lingua_chat/widgets/linguabot/linguabot.dart';
-import 'package:lingua_chat/utils/text_metrics.dart';
-import 'package:lingua_chat/widgets/message_composer.dart';
+import 'package:vocachat/services/vocabot_service.dart';
+import 'package:vocachat/models/grammar_analysis.dart';
+import 'package:vocachat/models/message_unit.dart';
+import 'package:vocachat/widgets/linguabot/linguabot.dart';
+import 'package:vocachat/utils/text_metrics.dart';
+import 'package:vocachat/widgets/message_composer.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/services/translation_service.dart';
 
 // --- MAIN SCREEN: THE HEART OF THE SIMULATOR ---
 

@@ -71,6 +71,7 @@ class TranslationService {
     {'code': 'ca', 'label': 'Català'},
     {'code': 'zh', 'label': '中文'},
     {'code': 'hr', 'label': 'Hrvatski'},
+    {'code': 'ht', 'label': 'Haitian'}, // on-device destek yok
     {'code': 'cs', 'label': 'Čeština'},
     {'code': 'da', 'label': 'Dansk'},
     {'code': 'nl', 'label': 'Nederlands'},
@@ -97,6 +98,7 @@ class TranslationService {
     {'code': 'lv', 'label': 'Latviešu'},
     {'code': 'lt', 'label': 'Lietuvių'},
     {'code': 'mk', 'label': 'Македонски'},
+    {'code': 'mr', 'label': 'Marathi'}, // yeniden eklendi (on-device destek yok)
     {'code': 'ms', 'label': 'Bahasa Melayu'},
     {'code': 'mt', 'label': 'Malti'},
     {'code': 'no', 'label': 'Norsk'},
@@ -120,6 +122,9 @@ class TranslationService {
     {'code': 'vi', 'label': 'Tiếng Việt'},
     {'code': 'cy', 'label': 'Cymraeg'},
   ];
+
+  // On-device çeviri modeli olmayan eklenen diller
+  static const Set<String> unsupportedModelLangs = {'ht','mr'};
 
   // Kod -> TranslateLanguage eşleme tablosu
   static final Map<String, TranslateLanguage> _codeMap = {
@@ -199,6 +204,7 @@ class TranslationService {
   Future<String> translateFromEnglish(String text, String targetCode) async {
     if (text.trim().isEmpty) return text;
     if (targetCode == 'en') return text; // Aynı dil
+    if (unsupportedModelLangs.contains(targetCode)) return text; // destek yok -> orijinal
     final cacheKey = '$text|$targetCode';
     if (_cache.containsKey(cacheKey)) return _cache[cacheKey]!;
     try {
@@ -263,7 +269,7 @@ class TranslationService {
         // Yaygın Türkçe ek/sonekleri
         final trSuffixes = [
           'yorum', 'yorsun', 'yoruz', 'yorsunuz', 'yorlar',
-          'iyorum', 'iyorsun', 'iyoruz', 'iyorsunuz', 'iyorlar',
+          'ıyorum', 'iyorsun', 'iyoruz', 'iyorsunuz', 'iyorlar',
           'acak', 'ecek', 'mış', 'miş', 'muş', 'müş', 'dır', 'dir', 'dur', 'dür',
           'lar', 'ler', 'dan', 'den', 'ten', 'tan', 'ında', 'inde', 'undan', 'ünden', 'dır', 'dir'
         ];
@@ -312,6 +318,9 @@ class TranslationService {
     final source = text.trim();
     if (source.isEmpty) return text;
     if (sourceCode == targetCode) return text;
+    if (unsupportedModelLangs.contains(sourceCode) || unsupportedModelLangs.contains(targetCode)) {
+      return text; // on-device destek yok
+    }
 
     // Gerekli modelleri indir: en + diğer dil yeterli; ancak ikisi de en dışındaysa ikisini de garantiye al
     if (sourceCode == 'en' && targetCode != 'en') {
@@ -337,6 +346,7 @@ class TranslationService {
   final OnDeviceTranslatorModelManager _modelManager = OnDeviceTranslatorModelManager();
 
   Future<bool> isModelReady(String targetCode) async {
+    if (unsupportedModelLangs.contains(targetCode)) return true; // model gerekmiyor
     final neededCodes = <String>{'en', targetCode};
     for (final code in neededCodes) {
       final downloaded = await _modelManager.isModelDownloaded(code);
@@ -347,6 +357,7 @@ class TranslationService {
 
   /// Model mevcut değilse indirir ve hazır olana kadar bekler. Zaman aşımı atar.
   Future<void> ensureReady(String targetCode, {Duration timeout = const Duration(seconds: 20)}) async {
+    if (unsupportedModelLangs.contains(targetCode)) return; // indirilmeyecek
     if (await isModelReady(targetCode)) return;
     await preDownloadModels(targetCode);
     final start = DateTime.now();
@@ -360,6 +371,18 @@ class TranslationService {
   }
 
   Future<void> preDownloadModels(String targetCode) async {
+    if (unsupportedModelLangs.contains(targetCode)) {
+      // Model yok, direkt completed state gönder (indirilmeyecek)
+      downloadState.value = downloadState.value.copyWith(
+        inProgress: false,
+        downloaded: 0,
+        total: 0,
+        completed: true,
+        targetCode: targetCode,
+        error: null,
+      );
+      return;
+    }
     // Eğer şu an aynı hedef için indiriliyorsa tekrar başlatma
     final current = downloadState.value;
     if (current.inProgress && current.targetCode == targetCode) return;

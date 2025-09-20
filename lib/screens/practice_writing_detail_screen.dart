@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/models/writing_models.dart';
-import 'package:lingua_chat/repositories/writing_repository.dart';
-import 'package:lingua_chat/services/writing_evaluator.dart';
-import 'package:lingua_chat/services/writing_progress_service.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/models/writing_models.dart';
+import 'package:vocachat/repositories/writing_repository.dart';
+import 'package:vocachat/services/writing_evaluator.dart';
+import 'package:vocachat/services/writing_progress_service.dart';
+import 'package:vocachat/services/translation_service.dart';
 
 class PracticeWritingDetailScreen extends StatefulWidget {
   final String promptId;

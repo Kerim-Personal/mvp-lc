@@ -6,26 +6,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:lingua_chat/screens/root_screen.dart';
+import 'package:vocachat/screens/root_screen.dart';
 import 'firebase_options.dart';
-import 'package:lingua_chat/screens/login_screen.dart';
-import 'package:lingua_chat/services/audio_service.dart';
+import 'package:vocachat/screens/login_screen.dart';
+import 'package:vocachat/services/audio_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lingua_chat/screens/banned_screen.dart';
-import 'package:lingua_chat/screens/help_and_support_screen.dart';
-import 'package:lingua_chat/screens/support_request_screen.dart';
-import 'package:lingua_chat/screens/profile_completion_screen.dart';
+import 'package:vocachat/screens/banned_screen.dart';
+import 'package:vocachat/screens/help_and_support_screen.dart';
+import 'package:vocachat/screens/support_request_screen.dart';
+import 'package:vocachat/screens/profile_completion_screen.dart';
 import 'dart:async';
-import 'package:lingua_chat/screens/verification_screen.dart';
-import 'package:lingua_chat/services/theme_service.dart';
-import 'package:lingua_chat/services/notification_service.dart';
+import 'package:vocachat/screens/verification_screen.dart';
+import 'package:vocachat/services/theme_service.dart';
+import 'package:vocachat/services/notification_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:lingua_chat/screens/store_screen.dart';
-import 'package:lingua_chat/screens/practice_listening_screen.dart';
-import 'package:lingua_chat/screens/practice_reading_screen.dart';
-import 'package:lingua_chat/screens/practice_speaking_screen.dart';
-import 'package:lingua_chat/screens/practice_writing_screen.dart';
-import 'package:lingua_chat/screens/profile_screen.dart';
+import 'package:vocachat/screens/store_screen.dart';
+import 'package:vocachat/screens/practice_listening_screen.dart';
+import 'package:vocachat/screens/practice_reading_screen.dart';
+import 'package:vocachat/screens/practice_speaking_screen.dart';
+import 'package:vocachat/screens/practice_writing_screen.dart';
+import 'package:vocachat/screens/profile_screen.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -77,6 +77,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // AppCheck *Firestore isteklerinden önce* aktive edilir
+  await _initAppCheckSafely();
+
   // FCM background handler uygulama başlamadan önce atanmalı
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
@@ -97,8 +100,8 @@ Future<void> _postAppInit() async {
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
       NotificationService.instance.init()
           .timeout(const Duration(seconds: 8), onTimeout: () => null),
-      _initAppCheckSafely()
-          .timeout(const Duration(seconds: 8), onTimeout: () => null),
+      // _initAppCheckSafely() // Artık main içinde çağrılıyor (erken başlatma)
+          // .timeout(const Duration(seconds: 8), onTimeout: () => null),
       _configureFirestoreSafely()
           .timeout(const Duration(seconds: 3), onTimeout: () => null),
     ]);

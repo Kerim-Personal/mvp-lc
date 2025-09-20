@@ -1,5 +1,5 @@
 // lib/repositories/speaking_repository.dart
-import 'package:lingua_chat/models/speaking_models.dart';
+import 'package:vocachat/models/speaking_models.dart';
 
 class SpeakingRepository {
   SpeakingRepository._();

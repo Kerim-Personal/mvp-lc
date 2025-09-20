@@ -3,16 +3,17 @@
 // Elmas paketi görünümü, modern, simetrik ve dengeli bir tasarım için tamamen yeniden düzenlendi.
 
 import 'dart:async';
+import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lingua_chat/services/diamond_service.dart';
-import 'package:lingua_chat/services/purchase_service.dart';
-import 'package:lingua_chat/widgets/shared/animated_background.dart';
-import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
-import 'package:lingua_chat/widgets/home_screen/premium_status_panel.dart';
-import 'package:lingua_chat/widgets/store_screen/diamond_pack_grid_tile.dart';
+import 'package:vocachat/services/diamond_service.dart';
+import 'package:vocachat/services/purchase_service.dart';
+import 'package:vocachat/widgets/shared/animated_background.dart';
+import 'package:vocachat/widgets/store_screen/glassmorphism.dart';
+import 'package:vocachat/widgets/home_screen/premium_status_panel.dart';
+import 'package:vocachat/widgets/store_screen/diamond_pack_grid_tile.dart';
 import 'package:shimmer/shimmer.dart';
 
 class StoreScreen extends StatefulWidget {
@@ -179,80 +180,87 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     required String subtitle,
     IconData? icon,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          // Daha sade tek ton cam efekti
-          gradient: LinearGradient(
-            colors: [
-              Colors.white.withValues(alpha: 0.06),
-              Colors.white.withValues(alpha: 0.02),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: Colors.white.withValues(alpha: 0.1),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
+              children: [
+                if (icon != null)
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.amber.withValues(alpha: 0.4),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Icon(icon, size: 26, color: Colors.black87),
+                  ),
+                if (icon != null) const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: isDark
+                            ? Colors.white.withValues(alpha: 0.70)
+                            : Colors.black.withValues(alpha: 0.70),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
           ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        child: Row(
-          children: [
-            if (icon != null)
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.amber.withValues(alpha: 0.4),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Icon(icon, size: 26, color: Colors.black87),
-              ),
-            if (icon != null) const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.70),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          ],
         ),
       ),
     );
   }
 
   Widget _header() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final diamondsText = _formatDiamonds(_diamonds);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -260,14 +268,15 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           children: [
             Expanded(
               child: Shimmer.fromColors(
-                baseColor: Colors.white,
+                baseColor: isDark ? Colors.white : Colors.black87,
                 highlightColor: Colors.amber.shade300,
-                child: const Text(
+                child: Text(
                   'Store',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 28,
                     letterSpacing: 0.8,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
@@ -298,40 +307,55 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _diamondBalanceChip(String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: () => _tabController.animateTo(0),
       borderRadius: BorderRadius.circular(24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 170),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            color: Colors.black.withValues(alpha: 0.28),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
-          ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.diamond, color: Colors.amber, size: 20),
-                const SizedBox(width: 6),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    letterSpacing: 0.6,
-                    color: Colors.white,
-                  ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                color: Colors.white.withValues(alpha: 0.1),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  width: 1
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.add, color: Colors.white70, size: 18),
-              ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.diamond, color: Colors.amber, size: 20),
+                    const SizedBox(width: 6),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        letterSpacing: 0.6,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.add,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      size: 18
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -340,47 +364,60 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _segmentedTabs() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.05),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        dividerColor: Colors.transparent,
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicatorPadding: EdgeInsets.zero,
-        indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.white.withValues(alpha: 0.08),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+              width: 1
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.amber.withValues(alpha: 0.45),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            )
-          ],
-          border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+          child: TabBar(
+            controller: _tabController,
+            dividerColor: Colors.transparent,
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicatorPadding: EdgeInsets.zero,
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.amber.withValues(alpha: 0.45),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                )
+              ],
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+            ),
+            labelColor: Colors.black,
+            unselectedLabelColor: isDark ? Colors.white70 : Colors.black54,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            tabs: const [
+              Tab(text: 'Diamonds', icon: Icon(Icons.diamond, size: 18)),
+              Tab(text: 'Premium', icon: Icon(Icons.workspace_premium, size: 18)),
+            ],
+          ),
         ),
-        labelColor: Colors.black,
-        unselectedLabelColor: Colors.white70,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        tabs: const [
-          Tab(text: 'Diamonds', icon: Icon(Icons.diamond, size: 18)),
-            Tab(text: 'Premium', icon: Icon(Icons.workspace_premium, size: 18)),
-        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -394,64 +431,56 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 height: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(42),
-                  gradient: const LinearGradient(
-                    colors: [Color(0x99121C27), Color(0x98101724)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  // Cam efekti için çok şeffaf arka plan
+                  color: isDark
+                    ? Colors.black.withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.15),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      blurRadius: 42,
-                      spreadRadius: -4,
-                      offset: const Offset(0, 28),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 20,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 8),
                     ),
                   ],
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.04), width: 1),
-                ),
-                child: Container(
-                  margin: const EdgeInsets.all(2.2),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(38),
-                    // İç panel sabit koyu cam
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: 0.04),
-                        Colors.white.withValues(alpha: 0.02),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 1),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 1
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(38),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 22, 24, 6),
-                          child: _header(),
-                        ),
-                        Expanded(
-                          child: _loadingProducts
-                              ? const Center(child: CircularProgressIndicator())
-                              : TabBarView(
-                                  controller: _tabController,
-                                  physics: const BouncingScrollPhysics(),
-                                  children: [
-                                    _diamondsGrid(),
-                                    _isPremium
-                                        ? _buildPremiumActiveView()
-                                        : _buildPremiumUpsellView(),
-                                  ],
-                                ),
-                        ),
-                      ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(42),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(42),
+                        color: isDark
+                          ? Colors.black.withValues(alpha: 0.1)
+                          : Colors.white.withValues(alpha: 0.1),
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 22, 24, 6),
+                            child: _header(),
+                          ),
+                          Expanded(
+                            child: _loadingProducts
+                                ? const Center(child: CircularProgressIndicator())
+                                : TabBarView(
+                                    controller: _tabController,
+                                    physics: const BouncingScrollPhysics(),
+                                    children: [
+                                      _diamondsGrid(),
+                                      _isPremium
+                                          ? _buildPremiumActiveView()
+                                          : _buildPremiumUpsellView(),
+                                    ],
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -516,6 +545,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _buildPremiumUpsellView({Key? key}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final monthlyProduct = _purchaseService.product(PurchaseService.monthlyProductId);
     final yearlyProduct = _purchaseService.product(PurchaseService.yearlyProductId);
     final selectedProductId = _selectedPlan == PremiumPlan.monthly
@@ -534,10 +564,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           ),
           // Önce faydalar
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Premium Benefits',
             style: TextStyle(
-                color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600),
+              color: isDark ? Colors.white70 : Colors.black54,
+              fontSize: 16,
+              fontWeight: FontWeight.w600
+            ),
           ),
           const SizedBox(height: 16),
           _benefit(icon: Icons.auto_awesome, title: 'Ad-free', text: 'Use the app without ads.'),
@@ -611,16 +644,23 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           Opacity(
             opacity: 0.75,
             child: Column(
-              children: const [
+              children: [
                 Text(
                   'Subscription renews automatically and is charged to your store account. You can cancel anytime.',
-                  style: TextStyle(color: Colors.white54, fontSize: 11.5, height: 1.3),
+                  style: TextStyle(
+                    color: isDark ? Colors.white54 : Colors.black45,
+                    fontSize: 11.5,
+                    height: 1.3
+                  ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   'Benefits activate within a few seconds after purchase.',
-                  style: TextStyle(color: Colors.white38, fontSize: 10.5),
+                  style: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.black38,
+                    fontSize: 10.5
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -768,6 +808,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _benefit({required IconData icon, required String title, required String text}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -779,12 +821,23 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15
+                  )
+                ),
                 const SizedBox(height: 4),
-                Text(text,
-                    style: const TextStyle(color: Colors.white70, height: 1.3, fontSize: 13)),
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    height: 1.3,
+                    fontSize: 13
+                  )
+                ),
               ],
             ),
           ),
@@ -794,34 +847,47 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _circleIcon(IconData icon, {bool gradient = false, double size = 48}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: gradient
-            ? const LinearGradient(
-          colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        )
-            : LinearGradient(colors: [
-          Colors.white.withValues(alpha: 0.12),
-          Colors.white.withValues(alpha: 0.05),
-        ], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        border: Border.all(color: Colors.white.withAlpha(50), width: 1),
-        boxShadow: gradient
-            ? [
-          BoxShadow(
-            color: Colors.amber.withValues(alpha: 0.55),
-            blurRadius: 18,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
-          )
-        ]
-            : null,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size / 2),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: gradient
+                ? const LinearGradient(
+              colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            )
+                : null,
+            color: gradient ? null : Colors.white.withValues(alpha: 0.1),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1
+            ),
+            boxShadow: gradient
+                ? [
+              BoxShadow(
+                color: Colors.amber.withValues(alpha: 0.55),
+                blurRadius: 18,
+                spreadRadius: 1,
+                offset: const Offset(0, 4),
+              )
+            ]
+                : null,
+          ),
+          child: Icon(
+            icon,
+            color: gradient ? Colors.black87 : (isDark ? Colors.white : Colors.black54),
+            size: size * 0.55
+          ),
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: size * 0.55),
     );
   }
 }

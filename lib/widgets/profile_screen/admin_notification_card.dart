@@ -1,6 +1,6 @@
 // lib/widgets/profile_screen/admin_notification_card.dart
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/admin_notification_screen.dart';
+import 'package:vocachat/screens/admin_notification_screen.dart';
 
 class AdminNotificationCard extends StatelessWidget {
   const AdminNotificationCard({super.key});

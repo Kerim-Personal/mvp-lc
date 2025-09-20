@@ -1,6 +1,6 @@
 // lib/models/message_unit.dart
 import 'package:flutter/foundation.dart';
-import 'package:lingua_chat/models/grammar_analysis.dart';
+import 'package:vocachat/models/grammar_analysis.dart';
 
 enum MessageSender { user, bot }
 

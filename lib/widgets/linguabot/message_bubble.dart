@@ -1,11 +1,11 @@
 // lib/widgets/linguabot/message_bubble.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lingua_chat/models/grammar_analysis.dart';
-import 'package:lingua_chat/models/message_unit.dart';
-import 'package:lingua_chat/widgets/linguabot/message_insight_dialog.dart';
-import 'package:lingua_chat/services/tts_service.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/models/grammar_analysis.dart';
+import 'package:vocachat/models/message_unit.dart';
+import 'package:vocachat/widgets/linguabot/message_insight_dialog.dart';
+import 'package:vocachat/services/tts_service.dart';
+import 'package:vocachat/services/translation_service.dart';
 
 class MessageBubble extends StatelessWidget {
   final MessageUnit message;

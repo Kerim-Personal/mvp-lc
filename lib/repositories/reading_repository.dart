@@ -1,5 +1,5 @@
 // lib/repositories/reading_repository.dart
-import 'package:lingua_chat/models/reading_models.dart';
+import 'package:vocachat/models/reading_models.dart';
 
 class ReadingRepository {
   ReadingRepository._();

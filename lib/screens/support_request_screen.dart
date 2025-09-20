@@ -3,12 +3,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/widgets/store_screen/premium_animated_background.dart';
-import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
+import 'package:vocachat/widgets/store_screen/premium_animated_background.dart';
+import 'package:vocachat/widgets/store_screen/glassmorphism.dart';
 import 'dart:math' as math;
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:lingua_chat/screens/my_support_requests_screen.dart';
+import 'package:vocachat/screens/my_support_requests_screen.dart';
 
 class SupportRequestScreen extends StatefulWidget {
   const SupportRequestScreen({super.key});

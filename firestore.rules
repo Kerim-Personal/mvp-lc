@@ -103,8 +103,14 @@ service cloud.firestore {
         (
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak'
+            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak', 'highestStreak'
           ])
+        ) || (
+          // FCM token listesi (sadece liste merge/update). Ayrı tutuldu ki diğer alanlarla aynı anda yazılamasın.
+          isOwner(userId) && callerNotBanned() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['fcmTokens']) &&
+          request.resource.data.fcmTokens is list &&
+          request.resource.data.fcmTokens.size() <= 30
         ) || (
           // Elmas artışı
           isOwner(userId) && callerNotBanned() && isValidDiamondIncrement()

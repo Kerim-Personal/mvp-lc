@@ -2,7 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/main.dart';
+import 'package:vocachat/main.dart';
 
 class PremiumUpsellDialog extends StatefulWidget {
   const PremiumUpsellDialog({super.key});

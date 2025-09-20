@@ -5,8 +5,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:lingua_chat/models/speaking_models.dart';
-import 'package:lingua_chat/repositories/speaking_repository.dart';
+import 'package:vocachat/models/speaking_models.dart';
+import 'package:vocachat/repositories/speaking_repository.dart';
 
 class PracticeSpeakingDetailScreen extends StatefulWidget {
   final String promptId;

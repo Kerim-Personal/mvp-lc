@@ -1,7 +1,7 @@
 // lib/widgets/home_screen/level_assessment_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/level_assessment_screen.dart';
+import 'package:vocachat/screens/level_assessment_screen.dart';
 
 class LevelAssessmentCard extends StatelessWidget {
   const LevelAssessmentCard({super.key});

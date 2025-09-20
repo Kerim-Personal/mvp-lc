@@ -1,12 +1,12 @@
 // lib/widgets/profile_screen/app_settings_card.dart
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/services/audio_service.dart'; // Import music service
-import 'package:lingua_chat/screens/blocked_users_screen.dart';
+import 'package:vocachat/services/audio_service.dart';
+import 'package:vocachat/screens/blocked_users_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/services/translation_service.dart';
-import 'package:lingua_chat/services/theme_service.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // added: local storage for settings
+import 'package:vocachat/services/translation_service.dart';
+import 'package:vocachat/services/theme_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSettingsCard extends StatefulWidget {
   const AppSettingsCard({super.key});
@@ -15,27 +15,21 @@ class AppSettingsCard extends StatefulWidget {
 }
 
 class _AppSettingsCardState extends State<AppSettingsCard> {
-  // Music switch kaldırıldı; yalnızca volume kullanılıyor
-  bool _autoTranslate = false; // new
+  bool _autoTranslate = false;
   String _nativeLanguage = 'en';
-  // Yeni: müzik ses seviyesi (0.0 - 1.0)
   late double _musicVolume;
-
-  static const String _kAutoTranslateKey = 'autoTranslate'; // local preference key
+  static const String _kAutoTranslateKey = 'autoTranslate';
 
   @override
   void initState() {
     super.initState();
-    // Music switch yok, sadece volume'ü servisten al
-    _musicVolume = AudioService.instance.musicVolume; // mevcut ses
+    _musicVolume = AudioService.instance.musicVolume;
     _loadUserPrefs();
   }
 
   Future<void> _loadUserPrefs() async {
     SharedPreferences? prefs;
     bool hasLocal = false;
-
-    // 1) autoTranslate durumunu yerelden oku (Firebase'e yazmıyoruz)
     try {
       prefs = await SharedPreferences.getInstance();
       if (prefs.containsKey(_kAutoTranslateKey)) {
@@ -45,17 +39,13 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
       }
     } catch (_) {}
 
-    // 2) Kullanıcının nativeLanguage değerini ve gerekiyorsa eski autoTranslate'i Firestore'dan oku (sadece okuma)
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
         final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         final data = snap.data();
         if (data != null) {
-          setState(() {
-            _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en';
-          });
-          // Hafif migrasyon: yerelde anahtar yoksa Firestore'daki autoTranslate'i bir kez kopyala
+          setState(() { _nativeLanguage = (data['nativeLanguage'] as String?) ?? 'en'; });
           if (!hasLocal) {
             final remoteAuto = (data['autoTranslate'] as bool?) ?? false;
             setState(() => _autoTranslate = remoteAuto);
@@ -65,7 +55,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
       } catch (_) {}
     }
 
-    // 3) Gerekirse model ön indirmeyi tetikle
     if (_autoTranslate && _nativeLanguage != 'en') {
       TranslationService.instance.preDownloadModels(_nativeLanguage);
     }
@@ -73,19 +62,15 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
 
   Future<void> _updateAutoTranslate(bool value) async {
     setState(() => _autoTranslate = value);
-
-    // Firebase'e YAZMA yok; sadece yerelde sakla
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_kAutoTranslateKey, value);
     } catch (_) {}
-
     if (value) {
       TranslationService.instance.preDownloadModels(_nativeLanguage);
     }
   }
 
-  // UPDATE: helper to convert language code to readable name
   String _getLanguageName(String code) {
     const languageMap = {
       'tr': 'Turkish',
@@ -103,7 +88,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
       builder: (context, state, _) {
         final showProgress = state.inProgress && state.targetCode == _nativeLanguage;
         final completed = state.completed && state.targetCode == _nativeLanguage;
-        // UPDATE: resolve language name
         final languageName = _getLanguageName(_nativeLanguage);
         return Column(
           children: [
@@ -159,7 +143,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                         ),
                       )
                     ] else if (completed) ...[
-                      // UPDATE: message includes language name
                       Row(children: [
                         const Icon(Icons.check_circle, color: Colors.green, size: 18),
                         const SizedBox(width: 8),
@@ -194,7 +177,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
-          // Ses seviyesi bölümü (switch kaldırıldı)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             child: Column(
@@ -236,7 +218,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
             ),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
-          // Key Click Sound ayarı kaldırıldı
           const Divider(height: 1, indent: 16, endIndent: 16),
           _buildTranslationSection(),
           const Divider(height: 1, indent: 16, endIndent: 16),
@@ -251,10 +232,9 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
             }()),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             onTap: () {
-               showModalBottomSheet(
+              showModalBottomSheet(
                 context: context,
                 showDragHandle: true,
-                // Previously semi-transparent; using opaque surface for better contrast
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -262,7 +242,7 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
                 builder: (ctx) {
                   final current = ThemeService.instance.themeMode;
                   final cs = Theme.of(context).colorScheme;
-                  final selectedColor = cs.primary; // Balanced highlight
+                  final selectedColor = cs.primary;
                   Color? inactiveIconColor = Theme.of(context).iconTheme.color;
                   Color subtleText = cs.onSurface.withValues(alpha: 0.75);
                   Widget buildOption(ThemeMode mode, String title, IconData icon) {

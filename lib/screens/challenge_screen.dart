@@ -3,8 +3,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lingua_chat/models/challenge_model.dart';
-import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart'; // FIX: Added missing import
+import 'package:vocachat/models/challenge_model.dart';
+import 'package:vocachat/widgets/store_screen/glassmorphism.dart'; // FIX: Added missing import
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';

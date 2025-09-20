@@ -6,8 +6,31 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/services/auth_service.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/services/auth_service.dart';
+import 'package:vocachat/services/translation_service.dart';
+import 'package:circle_flags/circle_flags.dart';
+
+// Bayrak ve gruplama (diğer ekranlarla uyumlu)
+const _flagMapEdit = <String,String>{
+  'af':'za','sq':'al','ar':'sa','be':'by','bg':'bg','bn':'bd','ca':'ad','zh':'cn','hr':'hr','cs':'cz','da':'dk','nl':'nl','en':'gb','et':'ee','fi':'fi','fr':'fr','gl':'es','ka':'ge','de':'de','el':'gr','he':'il','hi':'in','hu':'hu','is':'is','id':'id','ga':'ie','it':'it','ja':'jp','ko':'kr','lv':'lv','lt':'lt','mk':'mk','ms':'my','mt':'mt','no':'no','fa':'ir','pl':'pl','pt':'pt','ro':'ro','ru':'ru','sk':'sk','sl':'si','es':'es','sw':'tz','sv':'se','tl':'ph','ta':'lk','th':'th','tr':'tr','uk':'ua','ur':'pk','vi':'vn','ht':'ht','gu':'in','kn':'in','te':'in','mr':'in'};
+const _suppressFlagEdit = {'eo','cy'}; // sembolik bayraksız
+const _indianGroupEdit = {'hi','gu','kn','te','mr'};
+String? _countryGroupEdit(String code){
+  if (_indianGroupEdit.contains(code)) return 'in';
+  if (_flagMapEdit.containsKey(code)) return _flagMapEdit[code];
+  return null;
+}
+Widget _flagChip(String code){
+  if(!_flagMapEdit.containsKey(code) || _suppressFlagEdit.contains(code)){
+    return Container(
+      width: 28,height:28,
+      decoration: BoxDecoration(color: Colors.grey.shade300, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Text(code.toUpperCase(), style: const TextStyle(fontSize:10,fontWeight: FontWeight.w600,color: Colors.black87)),
+    );
+  }
+  return CircleFlag(_flagMapEdit[code]!, size: 28);
+}
 
 class EditProfileScreen extends StatefulWidget {
   final String userId;
@@ -95,104 +118,60 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _showLanguagePicker() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final langs = List<Map<String,String>>.from(TranslationService.supportedLanguages);
+    // Gruplu + alfabetik sıralama
+    langs.sort((a,b){
+      final ca = _countryGroupEdit(a['code']!);
+      final cb = _countryGroupEdit(b['code']!);
+      final gc = (ca ?? 'zzz').compareTo(cb ?? 'zzz');
+      if (gc!=0) return gc;
+      return a['label']!.toLowerCase().compareTo(b['label']!.toLowerCase());
+    });
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      showDragHandle: true,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(_cardRadius),
-            topRight: Radius.circular(_cardRadius),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(isDark ? 100 : 25),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'Select Native Language',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : Colors.grey.shade800,
-                ),
-              ),
-            ),
-            Divider(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200, height: 1),
-            // Language list
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: TranslationService.supportedLanguages.length,
-                itemBuilder: (context, index) {
-                  final item = TranslationService.supportedLanguages[index];
-                  final code = item['code']!;
-                  final label = item['label']!;
-                  final selected = code == _selectedNativeLanguageCode;
-
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? (isDark ? const Color(0xFF2C2C2C) : _primaryColor.shade50)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      title: Text(
-                        label,
-                        style: TextStyle(
-                          color: selected
-                              ? (isDark ? Colors.white : _primaryColor.shade700)
-                              : (isDark ? Colors.white70 : Colors.grey.shade800),
-                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      ),
-                      trailing: selected
-                        ? Icon(
-                            Icons.check_circle,
-                            color: isDark ? Colors.white : _primaryColor.shade600,
-                            size: 20
-                          )
-                        : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedNativeLanguageCode = code;
-                          _nativeLanguageController.text = label;
-                        });
-                        Navigator.pop(context);
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (ctx){
+        String? prevGroup;
+        final items = <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20,16,20,8),
+            child: Text('Select Native Language', style: TextStyle(fontSize:16,fontWeight: FontWeight.w700,color: isDark? Colors.white: Colors.grey.shade800)),
+          ),
+          Divider(height:1,color: isDark? Colors.grey.shade700: Colors.grey.shade200)
+        ];
+        for(final m in langs){
+          final code = m['code']!;
+          final label = m['label']!;
+          final group = _countryGroupEdit(code) ?? code; // sembolik -> kendi kodu ayırıcı etkisi
+          if(prevGroup!=null && group!=prevGroup){
+            items.add(Divider(height: 6, thickness: 0.6, color: isDark? Colors.grey.shade700: Colors.grey.shade200));
+          }
+          prevGroup = group;
+          final selected = code == _selectedNativeLanguageCode;
+          items.add(ListTile(
+            leading: _flagChip(code),
+            title: Text(label, style: TextStyle(fontWeight: selected? FontWeight.w600: FontWeight.w500, color: selected? (isDark? Colors.white: _primaryColor.shade700):(isDark? Colors.white70: Colors.grey.shade800))),
+            trailing: selected? Icon(Icons.check_circle, size:20, color: isDark? Colors.white: _primaryColor.shade600): null,
+            onTap: (){
+              setState(() {
+                _selectedNativeLanguageCode = code;
+                _nativeLanguageController.text = label;
+              });
+              Navigator.pop(ctx);
+            },
+          ));
+        }
+        return SafeArea(child: SizedBox(
+          height: MediaQuery.of(context).size.height*0.7,
+          child: ListView(children: items),
+        ));
+      }
     );
   }
 
@@ -649,6 +628,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     String? Function(String?)? validator,
     VoidCallback? onTap,
   }) {
+    final isLanguage = label == 'Native Language';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -663,64 +643,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         const SizedBox(height: 4),
         TextFormField(
           controller: controller,
-          readOnly: readOnly,
-          onTap: onTap,
-          validator: validator,
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.grey.shade800,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+            readOnly: readOnly,
+            onTap: onTap,
+            validator: validator,
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.grey.shade800,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Enter your ${label.toLowerCase()}',
+              hintStyle: TextStyle(
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+                fontSize: 13
+              ),
+              prefixIcon: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF3C3C3C) : _primaryColor.shade50,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: isLanguage && _selectedNativeLanguageCode != null
+                  ? Center(child: _flagChip(_selectedNativeLanguageCode!))
+                  : Icon(icon, color: isDark ? Colors.white : _primaryColor.shade600, size: 16),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(_fieldRadius),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(_fieldRadius),
+                borderSide: BorderSide(
+                  color: isDark ? const Color(0xFF3C3C3C) : Colors.grey.shade200,
+                  width: 1.5
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(_fieldRadius),
+                borderSide: BorderSide(
+                  color: isDark ? Colors.white : _primaryColor.shade600,
+                  width: 2
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(_fieldRadius),
+                borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(_fieldRadius),
+                borderSide: BorderSide(color: Colors.red.shade400, width: 2),
+              ),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade50,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            cursorColor: isDark ? Colors.white : _primaryColor.shade600,
           ),
-          decoration: InputDecoration(
-            hintText: 'Enter your ${label.toLowerCase()}',
-            hintStyle: TextStyle(
-              color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
-              fontSize: 13
-            ),
-            prefixIcon: Container(
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF3C3C3C) : _primaryColor.shade50,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Icon(
-                icon,
-                color: isDark ? Colors.white : _primaryColor.shade600,
-                size: 16
-              ),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(_fieldRadius),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(_fieldRadius),
-              borderSide: BorderSide(
-                color: isDark ? const Color(0xFF3C3C3C) : Colors.grey.shade200,
-                width: 1.5
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(_fieldRadius),
-              borderSide: BorderSide(
-                color: isDark ? Colors.white : _primaryColor.shade600,
-                width: 2
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(_fieldRadius),
-              borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(_fieldRadius),
-              borderSide: BorderSide(color: Colors.red.shade400, width: 2),
-            ),
-            filled: true,
-            fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey.shade50,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          ),
-          cursorColor: isDark ? Colors.white : _primaryColor.shade600,
-        ),
       ],
     );
   }

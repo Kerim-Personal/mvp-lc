@@ -1,6 +1,6 @@
 // lib/screens/ban_user_screen.dart
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/services/admin_service.dart';
+import 'package:vocachat/services/admin_service.dart';
 
 class BanUserScreen extends StatefulWidget {
   final String targetUserId;

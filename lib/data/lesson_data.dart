@@ -1,7 +1,7 @@
 // lib/data/lesson_data.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/models/lesson_model.dart';
+import 'package:vocachat/models/lesson_model.dart';
 
 const List<Lesson> grammarLessons = [
   // A1 Level

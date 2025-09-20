@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/widgets/community_screen/leaderboard_table.dart';
+import 'package:vocachat/widgets/community_screen/leaderboard_table.dart';
 
 // --- DATA MODELLERİ ---
 class LeaderboardUser {

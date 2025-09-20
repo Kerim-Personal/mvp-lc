@@ -1,6 +1,6 @@
 // lib/widgets/profile_screen/support_card.dart
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/help_and_support_screen.dart';
+import 'package:vocachat/screens/help_and_support_screen.dart';
 
 class SupportCard extends StatelessWidget {
   // FIX: Constructor no longer forced to be 'const'.

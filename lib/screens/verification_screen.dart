@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/login_screen.dart';
+import 'package:vocachat/screens/login_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String email;

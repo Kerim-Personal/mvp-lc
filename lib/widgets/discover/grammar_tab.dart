@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/data/lesson_data.dart';
-import 'package:lingua_chat/models/lesson_model.dart';
-import 'package:lingua_chat/navigation/lesson_router.dart';
-import 'package:lingua_chat/services/grammar_progress_service.dart';
+import 'package:vocachat/data/lesson_data.dart';
+import 'package:vocachat/models/lesson_model.dart';
+import 'package:vocachat/navigation/lesson_router.dart';
+import 'package:vocachat/services/grammar_progress_service.dart';
 
 // --- GRAMER SEKMESİ ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
 class GrammarTab extends StatefulWidget {

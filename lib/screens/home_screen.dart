@@ -2,14 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/rooms_screen.dart';
-import 'package:lingua_chat/widgets/home_screen/home_header.dart';
-import 'package:lingua_chat/widgets/home_screen/stats_row.dart';
-import 'package:lingua_chat/widgets/home_screen/partner_finder_section.dart';
-import 'package:lingua_chat/widgets/home_screen/home_cards_section.dart';
-import 'package:lingua_chat/widgets/common/safety_help_button.dart';
-import 'package:lingua_chat/widgets/common/ai_partner_button.dart';
-import 'package:lingua_chat/widgets/home_screen/profile_summary_content.dart';
+import 'package:vocachat/screens/rooms_screen.dart';
+import 'package:vocachat/widgets/home_screen/home_header.dart';
+import 'package:vocachat/widgets/home_screen/stats_row.dart';
+import 'package:vocachat/widgets/home_screen/partner_finder_section.dart';
+import 'package:vocachat/widgets/home_screen/home_cards_section.dart';
+import 'package:vocachat/widgets/common/safety_help_button.dart';
+import 'package:vocachat/widgets/common/ai_partner_button.dart';
+import 'package:vocachat/widgets/home_screen/profile_summary_content.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onSearchingChanged});

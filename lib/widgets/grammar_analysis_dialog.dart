@@ -1,7 +1,7 @@
 // lib/widgets/grammar_analysis_dialog.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/models/grammar_analysis.dart';
+import 'package:vocachat/models/grammar_analysis.dart';
 
 void showGrammarAnalysisDialog(BuildContext context, GrammarAnalysis ga, String original) {
   String formalityText(Formality f) {

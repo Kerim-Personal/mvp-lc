@@ -1,8 +1,8 @@
 // lib/widgets/home_screen/challenge_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/models/challenge_model.dart';
-import 'package:lingua_chat/screens/challenge_screen.dart';
+import 'package:vocachat/models/challenge_model.dart';
+import 'package:vocachat/screens/challenge_screen.dart';
 
 class ChallengeCard extends StatelessWidget {
   const ChallengeCard({super.key});

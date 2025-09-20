@@ -1,8 +1,8 @@
 // lib/screens/discover_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/widgets/discover/grammar_tab.dart';
-import 'package:lingua_chat/widgets/discover/vocabulary_tab.dart';
+import 'package:vocachat/widgets/discover/grammar_tab.dart';
+import 'package:vocachat/widgets/discover/vocabulary_tab.dart';
 import '../widgets/discover/practice_tab.dart';
 
 class DiscoverScreen extends StatefulWidget {

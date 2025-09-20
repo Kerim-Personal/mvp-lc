@@ -3,7 +3,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
-import 'package:lingua_chat/screens/root_screen.dart';
+import 'package:vocachat/screens/root_screen.dart';
 
 class AssessmentResultsScreen extends StatefulWidget {
   final int score;
@@ -39,8 +39,20 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final confettiColors = <Color>[
+      colorScheme.primary,
+      colorScheme.secondary,
+      if (colorScheme.tertiary != colorScheme.primary) colorScheme.tertiary,
+      colorScheme.error,
+      colorScheme.primaryContainer,
+    ].where((c) => c.a == 0xFF).toList();
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         alignment: Alignment.topCenter,
         children: [
@@ -52,7 +64,9 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
             numberOfParticles: 20,
             gravity: 0.1,
             shouldLoop: false,
-            colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+            colors: confettiColors.isEmpty
+                ? const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple]
+                : confettiColors,
           ),
           SafeArea(
             child: Padding(
@@ -62,31 +76,33 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Spacer(),
-                  Icon(Icons.military_tech_outlined, color: Colors.amber.shade700, size: 120),
+                  Icon(
+                    Icons.military_tech_outlined,
+                    color: colorScheme.secondary,
+                    size: 120,
+                  ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Test Completed!',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 32,
+                    style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: theme.textTheme.headlineMedium?.color,
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Your Score: ${widget.score} / ${widget.totalQuestions}',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: Colors.grey.shade700,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.75),
                     ),
                   ),
                   const SizedBox(height: 40),
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.teal.withOpacity(0.1),
+                      color: colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.10),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
@@ -94,19 +110,19 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
                         Text(
                           'Your Estimated English Level:',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: theme.textTheme.titleMedium?.copyWith(
                             fontSize: 18,
-                            color: Colors.teal.shade800,
                             fontWeight: FontWeight.w500,
+                            color: colorScheme.primary,
                           ),
                         ),
                         Text(
                           widget.level,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: theme.textTheme.displaySmall?.copyWith(
                             fontSize: 72,
                             fontWeight: FontWeight.w900,
-                            color: Colors.teal.shade700,
+                            color: colorScheme.primary,
                           ),
                         ),
                       ],
@@ -115,18 +131,18 @@ class _AssessmentResultsScreenState extends State<AssessmentResultsScreen> {
                   const Spacer(flex: 2),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                       elevation: 5,
-                      shadowColor: Colors.teal.withOpacity(0.5),
+                      shadowColor: colorScheme.primary.withValues(alpha: 0.4),
                     ),
                     onPressed: () {
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (context) => const RootScreen()),
-                            (route) => false,
+                        (route) => false,
                       );
                     },
                     child: const Text(

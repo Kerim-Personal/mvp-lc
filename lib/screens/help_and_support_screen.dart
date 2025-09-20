@@ -1,9 +1,9 @@
 // lib/screens/help_and_support_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/faq_category_screen.dart';
-import 'package:lingua_chat/screens/support_request_screen.dart';
-import 'package:lingua_chat/data/faq_data.dart';
+import 'package:vocachat/screens/faq_category_screen.dart';
+import 'package:vocachat/screens/support_request_screen.dart';
+import 'package:vocachat/data/faq_data.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';

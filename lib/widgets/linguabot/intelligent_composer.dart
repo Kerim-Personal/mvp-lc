@@ -1,7 +1,7 @@
 // lib/widgets/linguabot/intelligent_composer.dart
 import 'package:flutter/material.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:lingua_chat/services/stt_service.dart';
+import 'package:vocachat/services/stt_service.dart';
 import 'package:characters/characters.dart';
 
 class IntelligentComposer extends StatefulWidget {

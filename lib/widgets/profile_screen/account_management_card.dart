@@ -1,13 +1,13 @@
 // lib/widgets/profile_screen/account_management_card.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/screens/edit_profile_screen.dart';
-import 'package:lingua_chat/services/auth_service.dart';
-import 'package:lingua_chat/screens/change_password_screen.dart';
+import 'package:vocachat/screens/edit_profile_screen.dart';
+import 'package:vocachat/services/auth_service.dart';
+import 'package:vocachat/screens/change_password_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:lingua_chat/widgets/profile_screen/logout_confirmation_sheet.dart';
-import 'package:lingua_chat/widgets/profile_screen/delete_account_sheet.dart';
+import 'package:vocachat/widgets/profile_screen/logout_confirmation_sheet.dart';
+import 'package:vocachat/widgets/profile_screen/delete_account_sheet.dart';
 
 class AccountManagementCard extends StatelessWidget {
   final DateTime? memberSince;

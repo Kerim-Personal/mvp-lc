@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 

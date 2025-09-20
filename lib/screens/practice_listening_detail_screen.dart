@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:lingua_chat/models/listening_models.dart';
-import 'package:lingua_chat/repositories/listening_repository.dart';
-import 'package:lingua_chat/services/audio_service.dart';
-import 'package:lingua_chat/services/listening_progress_service.dart';
+import 'package:vocachat/models/listening_models.dart';
+import 'package:vocachat/repositories/listening_repository.dart';
+import 'package:vocachat/services/audio_service.dart';
+import 'package:vocachat/services/listening_progress_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PracticeListeningDetailScreen extends StatefulWidget {

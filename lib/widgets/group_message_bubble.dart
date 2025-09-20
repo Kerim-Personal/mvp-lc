@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/models/group_message.dart';
-import 'package:lingua_chat/services/translation_service.dart';
-import 'package:lingua_chat/models/grammar_analysis.dart';
+import 'package:vocachat/models/group_message.dart';
+import 'package:vocachat/services/translation_service.dart';
+import 'package:vocachat/models/grammar_analysis.dart';
 
 class GroupMessageBubble extends StatefulWidget {
   final GroupMessage message;

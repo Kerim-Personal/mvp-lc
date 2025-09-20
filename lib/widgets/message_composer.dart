@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/services/translation_service.dart';
 import 'package:characters/characters.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:circle_flags/circle_flags.dart';
 
 /// Reusable message / comment composer with optional:
 /// - Speech to text
@@ -63,7 +65,10 @@ class _MessageComposerState extends State<MessageComposer> {
   bool _showTranslationPanel = false;
   bool _translating = false;
   String? _translatedPreview;
-  String _selectedTargetCode = 'en';
+
+  // Geçici dil dokunma highlight
+  String? _flashLang;
+  Timer? _flashTimer;
 
   @override
   void initState() {
@@ -78,7 +83,6 @@ class _MessageComposerState extends State<MessageComposer> {
     });
     if (widget.enableSpeech) _initSpeech();
     _showTranslationPanel = widget.showTranslationPanelInitially;
-    _selectedTargetCode = widget.nativeLanguage == 'en' ? 'en' : widget.nativeLanguage; // default
   }
 
   void _onTextChanged() {
@@ -115,6 +119,7 @@ class _MessageComposerState extends State<MessageComposer> {
     _controller.dispose();
     _focusNode.dispose();
     if (_listening) _speech.stop();
+    _flashTimer?.cancel();
     super.dispose();
   }
 
@@ -164,30 +169,25 @@ class _MessageComposerState extends State<MessageComposer> {
     final text = _controller.text.trim();
     if (text.isEmpty) {
       setState(() {
-        _selectedTargetCode = targetCode;
-        _translatedPreview = null;
+        _translatedPreview = null; // boşken sadece preview temizle
       });
       return;
     }
     setState(() {
-      _selectedTargetCode = targetCode;
       _translating = true;
     });
     try {
       final native = widget.nativeLanguage.toLowerCase();
-      // Kaynak dili otomatik tespit et
       String detected = await TranslationService.instance.detectLanguage(text);
       if (detected == 'und') {
-        // Belirsizse hedefe göre mantıklı varsayım
         if (targetCode == 'en') {
-          detected = native; // muhtemelen anadil -> EN
+          detected = native;
         } else if (targetCode == native) {
-          detected = 'en'; // muhtemelen EN -> anadil
+          detected = 'en';
         } else {
-          detected = native; // varsayılan
+          detected = native;
         }
       }
-      // Kaynak ve hedef aynıysa (ör: kullanıcı sadece düğmeye bastı) çeviri gereksiz
       if (detected == targetCode) {
         if (mounted) setState(() => _translatedPreview = text);
       } else {
@@ -240,40 +240,86 @@ class _MessageComposerState extends State<MessageComposer> {
     final bool isEnNative = native == 'en';
     final theme = Theme.of(context);
 
-    Widget pillButton(String code) {
-      final bool selected = _selectedTargetCode == code;
+    String flagForLanguage(String code) {
+      final base = code.toLowerCase().split('-').first;
+      switch (base) {
+        case 'en': return 'gb'; // veya 'us' tercih edilebilir
+        case 'tr': return 'tr';
+        case 'ar': return 'sa'; // Arapça
+        case 'fa': return 'ir'; // Farsça
+        case 'ps': return 'af'; // Peştuca
+        case 'ur': return 'pk'; // Urduca
+        case 'hi': return 'in'; // Hintçe
+        case 'bn': return 'bd'; // Bengalce
+        case 'zh': return 'cn'; // Çince (basitleştirilmiş varsayılan)
+        case 'ja': return 'jp';
+        case 'ko': return 'kr';
+        case 'de': return 'de';
+        case 'fr': return 'fr';
+        case 'es': return 'es';
+        case 'pt': return 'br'; // Portekizce (Brezilya yaygın)
+        case 'it': return 'it';
+        case 'ru': return 'ru';
+        case 'uk': return 'ua';
+        case 'pl': return 'pl';
+        case 'nl': return 'nl';
+        case 'sv': return 'se';
+        case 'no': return 'no';
+        case 'da': return 'dk';
+        case 'fi': return 'fi';
+        case 'el': return 'gr';
+        case 'he': return 'il';
+        case 'vi': return 'vn';
+        case 'id': return 'id';
+        case 'ms': return 'my';
+        case 'th': return 'th';
+        default: return base; // fallback: aynı kodu dene
+      }
+    }
+
+    Widget langFlagButton(String code) {
+      final flagCode = flagForLanguage(code);
+      final bool highlight = _flashLang == code;
       return InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: _translating ? null : () => _selectTargetAndTranslate(code),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        borderRadius: BorderRadius.circular(26),
+        onTap: _translating ? null : () {
+          _flashTimer?.cancel();
+          setState(() => _flashLang = code);
+          _flashTimer = Timer(const Duration(milliseconds: 380), () {
+            if (mounted) setState(() => _flashLang = null);
+          });
+          _selectTargetAndTranslate(code);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: selected ? _fade(theme.colorScheme.primary, 0.15) : Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: selected ? Colors.transparent : theme.dividerColor),
-          ),
-          child: Text(
-            code.toUpperCase(),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: selected ? theme.colorScheme.primary : _fade(onSurface, 0.7),
+            border: Border.all(
+              color: highlight ? theme.colorScheme.primary : theme.dividerColor.withValues(alpha: 0.6),
+              width: 1, // sabit
             ),
+            borderRadius: BorderRadius.circular(26),
+            color: highlight
+                ? theme.colorScheme.primary.withValues(alpha: 0.22)
+                : theme.colorScheme.surface,
           ),
+          child: CircleFlag(flagCode, size: 24),
         ),
       );
     }
 
     if (isEnNative) {
-      return pillButton('en');
+      // Sadece EN varsa tek buton (tıklanınca yine çeviri tetiklenir)
+      return langFlagButton('en');
     }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        pillButton(native),
+        langFlagButton(native),
         const SizedBox(width: 8),
-        pillButton('en'),
+        langFlagButton('en'),
       ],
     );
   }

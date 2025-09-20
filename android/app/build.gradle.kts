@@ -19,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.codenzi.lingua_chat"
+    namespace = "com.codenzi.vocachat"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973" // ✅ BURAYI DEĞİŞTİRDİK
 
@@ -33,7 +33,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.codenzi.lingua_chat"
+        applicationId = "com.codenzi.vocachat"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

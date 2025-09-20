@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/assessment_results_screen.dart';
+import 'package:vocachat/screens/assessment_results_screen.dart';
 
 // Data model for questions
 class Question {

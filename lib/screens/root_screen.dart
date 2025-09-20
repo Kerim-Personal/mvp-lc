@@ -4,12 +4,12 @@ import 'dart:ui'; // ImageFilter için eklendi
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/home_screen.dart';
-import 'package:lingua_chat/screens/profile_screen.dart';
-import 'package:lingua_chat/screens/store_screen.dart';
-import 'package:lingua_chat/screens/discover_screen.dart';
-import 'package:lingua_chat/screens/leaderboard_screen.dart';
-import 'package:lingua_chat/widgets/shared/animated_background.dart';
+import 'package:vocachat/screens/home_screen.dart';
+import 'package:vocachat/screens/profile_screen.dart';
+import 'package:vocachat/screens/store_screen.dart';
+import 'package:vocachat/screens/discover_screen.dart';
+import 'package:vocachat/screens/leaderboard_screen.dart';
+import 'package:vocachat/widgets/shared/animated_background.dart';
 
 // Bu fonksiyon veritabanı kurulumu için, dokunulmasına gerek yok.
 Future<void> _createDefaultChatRooms() async {

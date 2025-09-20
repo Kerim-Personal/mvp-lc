@@ -1,6 +1,6 @@
 // lib/services/writing_evaluator.dart
 import 'dart:math';
-import 'package:lingua_chat/models/writing_models.dart';
+import 'package:vocachat/models/writing_models.dart';
 
 class WritingEvaluator {
   WritingEvaluator._();

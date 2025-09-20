@@ -2,9 +2,9 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/widgets/home_screen/challenge_card.dart';
-import 'package:lingua_chat/widgets/home_screen/level_assessment_card.dart';
-import 'package:lingua_chat/widgets/home_screen/vocabulary_treasure_card.dart';
+import 'package:vocachat/widgets/home_screen/challenge_card.dart';
+import 'package:vocachat/widgets/home_screen/level_assessment_card.dart';
+import 'package:vocachat/widgets/home_screen/vocabulary_treasure_card.dart';
 
 class HomeCardsSection extends StatelessWidget {
   final PageController pageController;

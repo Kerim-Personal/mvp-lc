@@ -1,11 +1,11 @@
 // lib/screens/practice_writing_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lingua_chat/models/writing_models.dart';
-import 'package:lingua_chat/repositories/writing_repository.dart';
-import 'package:lingua_chat/screens/practice_writing_detail_screen.dart';
-import 'package:lingua_chat/widgets/practice/practice_headers.dart';
-import 'package:lingua_chat/services/writing_progress_service.dart';
+import 'package:vocachat/models/writing_models.dart';
+import 'package:vocachat/repositories/writing_repository.dart';
+import 'package:vocachat/screens/practice_writing_detail_screen.dart';
+import 'package:vocachat/widgets/practice/practice_headers.dart';
+import 'package:vocachat/services/writing_progress_service.dart';
 
 class PracticeWritingScreen extends StatefulWidget {
   const PracticeWritingScreen({super.key});

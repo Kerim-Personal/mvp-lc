@@ -2,10 +2,10 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/practice_writing_screen.dart';
-import 'package:lingua_chat/screens/practice_reading_screen.dart';
-import 'package:lingua_chat/screens/practice_listening_screen.dart';
-import 'package:lingua_chat/screens/practice_speaking_screen.dart';
+import 'package:vocachat/screens/practice_writing_screen.dart';
+import 'package:vocachat/screens/practice_reading_screen.dart';
+import 'package:vocachat/screens/practice_listening_screen.dart';
+import 'package:vocachat/screens/practice_speaking_screen.dart';
 
 // --- VERİ MODELLERİ ---
 // Sınıf, "private type in a public API" hatasını çözmek için herkese açık hale getirildi.

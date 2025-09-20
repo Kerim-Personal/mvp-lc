@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/services/auth_service.dart';
-import 'package:lingua_chat/utils/password_strength.dart'; // Added: password strength helper
+import 'package:vocachat/services/auth_service.dart';
+import 'package:vocachat/utils/password_strength.dart'; // Added: password strength helper
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});

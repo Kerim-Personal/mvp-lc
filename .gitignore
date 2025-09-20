@@ -70,7 +70,7 @@ lib/firebase_options.dart
 lib/services/firebase_options.dart
 
 # Özel servis anahtarları / gizli servis dosyaları
-lib/services/linguabot_service.dart
+lib/services/vocabot_service.dart
 
 # Çevresel değişken dosyaları
 .env
@@ -106,5 +106,5 @@ logs/
 log/
 
 # Duplicate removed & canonical list below (referans)
-# lib/services/linguabot_service.dart (tekil)
+# lib/services/vocabot_service.dart (tekil)
 # /lib/firebase_options.dart (zaten yukarıda)

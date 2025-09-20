@@ -1,5 +1,5 @@
 // lib/repositories/listening_repository.dart
-import 'package:lingua_chat/models/listening_models.dart';
+import 'package:vocachat/models/listening_models.dart';
 
 /// Simple in-memory repository (can be replaced with Firestore / Remote API in the future)
 class ListeningRepository {

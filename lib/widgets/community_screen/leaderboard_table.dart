@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:lingua_chat/screens/leaderboard_screen.dart';
+import 'package:vocachat/screens/leaderboard_screen.dart';
 import 'dart:async';
 
 class LeaderboardTable extends StatefulWidget {

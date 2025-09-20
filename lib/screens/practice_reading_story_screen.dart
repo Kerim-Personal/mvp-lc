@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:lingua_chat/models/reading_models.dart';
-import 'package:lingua_chat/repositories/reading_repository.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/models/reading_models.dart';
+import 'package:vocachat/repositories/reading_repository.dart';
+import 'package:vocachat/services/translation_service.dart';
 
 class PracticeReadingStoryScreen extends StatefulWidget {
   final String storyId;

@@ -2,16 +2,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:lingua_chat/services/auth_service.dart';
+import 'package:vocachat/services/auth_service.dart';
 import 'dart:async';
 
 // Gerekli tüm widget'ları içe aktarıyoruz
-import 'package:lingua_chat/widgets/profile_screen/profile_sliver_app_bar.dart';
-import 'package:lingua_chat/widgets/profile_screen/section_title.dart';
-import 'package:lingua_chat/widgets/profile_screen/app_settings_card.dart';
-import 'package:lingua_chat/widgets/profile_screen/support_card.dart';
-import 'package:lingua_chat/widgets/profile_screen/account_management_card.dart';
-import 'package:lingua_chat/widgets/profile_screen/administration_card.dart';
+import 'package:vocachat/widgets/profile_screen/profile_sliver_app_bar.dart';
+import 'package:vocachat/widgets/profile_screen/section_title.dart';
+import 'package:vocachat/widgets/profile_screen/app_settings_card.dart';
+import 'package:vocachat/widgets/profile_screen/support_card.dart';
+import 'package:vocachat/widgets/profile_screen/account_management_card.dart';
+import 'package:vocachat/widgets/profile_screen/administration_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -59,7 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         final old = _cachedUserData!;
         bool changed = false;
         for (final k in const [
-          'displayName','email','avatarUrl','streak','totalPracticeTime','partnerCount','isPremium','role','highestStreak','level'
+          'displayName','email','avatarUrl','streak','totalPracticeTime','isPremium','role','highestStreak','level'
         ]) {
           if (old[k] != data[k]) { changed = true; break; }
         }

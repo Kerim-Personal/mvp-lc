@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/vocabot_chat_screen.dart';
+import 'package:vocachat/screens/vocabot_chat_screen.dart';
 
 class AiPartnerButton extends StatefulWidget {
   const AiPartnerButton({super.key});

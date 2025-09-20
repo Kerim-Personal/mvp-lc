@@ -1,7 +1,7 @@
 // lib/screens/faq_category_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/data/faq_data.dart';
+import 'package:vocachat/data/faq_data.dart';
 
 class FaqCategoryScreen extends StatelessWidget {
   final String category;

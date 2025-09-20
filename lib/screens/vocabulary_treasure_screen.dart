@@ -2,9 +2,9 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/models/vocabulary_model.dart';
+import 'package:vocachat/models/vocabulary_model.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:lingua_chat/widgets/store_screen/glassmorphism.dart';
+import 'package:vocachat/widgets/store_screen/glassmorphism.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';

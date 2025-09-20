@@ -4,8 +4,8 @@ import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:lingua_chat/screens/leaderboard_screen.dart';
-import 'package:lingua_chat/screens/group_chat_screen.dart';
+import 'package:vocachat/screens/leaderboard_screen.dart';
+import 'package:vocachat/screens/group_chat_screen.dart';
 
 class GroupChatCard extends StatefulWidget {
   final GroupChatRoomInfo roomInfo;

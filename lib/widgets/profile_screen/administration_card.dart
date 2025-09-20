@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/screens/admin_panel_screen.dart';
-import 'package:lingua_chat/screens/admin_notification_screen.dart';
+import 'package:vocachat/screens/admin_panel_screen.dart';
+import 'package:vocachat/screens/admin_notification_screen.dart';
 
 class AdministrationCard extends StatelessWidget {
   final String role; // 'admin', 'moderator', 'user'

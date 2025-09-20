@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:lingua_chat/screens/login_screen.dart';
+import 'package:vocachat/screens/login_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 Future<void> showDeleteAccountSheet(BuildContext context) async {

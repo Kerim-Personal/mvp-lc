@@ -1,8 +1,8 @@
 // lib/screens/practice_quiz_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/models/quiz_question_model.dart';
-import 'package:lingua_chat/screens/quiz_results_screen.dart';
+import 'package:vocachat/models/quiz_question_model.dart';
+import 'package:vocachat/screens/quiz_results_screen.dart';
 
 class PracticeQuizScreen extends StatefulWidget {
   final String title;

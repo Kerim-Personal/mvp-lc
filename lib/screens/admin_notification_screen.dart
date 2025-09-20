@@ -1,7 +1,7 @@
 // lib/screens/admin_notification_screen.dart
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/services/admin_service.dart';
+import 'package:vocachat/services/admin_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';

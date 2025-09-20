@@ -1,8 +1,8 @@
 // lib/widgets/home_screen/vocabulary_treasure_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/models/vocabulary_model.dart'; // Kelime modelini import ediyoruz
-import 'package:lingua_chat/screens/vocabulary_treasure_screen.dart';
+import 'package:vocachat/models/vocabulary_model.dart'; // Kelime modelini import ediyoruz
+import 'package:vocachat/screens/vocabulary_treasure_screen.dart';
 
 class VocabularyTreasureCard extends StatelessWidget {
   const VocabularyTreasureCard({super.key});

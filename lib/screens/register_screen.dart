@@ -3,10 +3,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lingua_chat/services/auth_service.dart';
+import 'package:vocachat/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:lingua_chat/screens/verification_screen.dart';
-import 'package:lingua_chat/services/translation_service.dart';
+import 'package:vocachat/screens/verification_screen.dart';
+import 'package:vocachat/services/translation_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

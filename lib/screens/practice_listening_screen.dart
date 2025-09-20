@@ -1,11 +1,11 @@
 // lib/screens/practice_listening_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lingua_chat/models/listening_models.dart';
-import 'package:lingua_chat/repositories/listening_repository.dart';
-import 'package:lingua_chat/services/listening_progress_service.dart';
-import 'package:lingua_chat/screens/practice_listening_detail_screen.dart';
-import 'package:lingua_chat/widgets/practice/practice_headers.dart';
+import 'package:vocachat/models/listening_models.dart';
+import 'package:vocachat/repositories/listening_repository.dart';
+import 'package:vocachat/services/listening_progress_service.dart';
+import 'package:vocachat/screens/practice_listening_detail_screen.dart';
+import 'package:vocachat/widgets/practice/practice_headers.dart';
 
 class PracticeListeningScreen extends StatefulWidget {
   const PracticeListeningScreen({super.key});

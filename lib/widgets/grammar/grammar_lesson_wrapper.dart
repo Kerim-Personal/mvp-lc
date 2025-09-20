@@ -1,6 +1,6 @@
 // lib/widgets/grammar/grammar_lesson_wrapper.dart
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/services/grammar_progress_service.dart';
+import 'package:vocachat/services/grammar_progress_service.dart';
 
 class GrammarLessonWrapper extends StatefulWidget {
   final String contentPath; // lesson_data.dart içindeki contentPath

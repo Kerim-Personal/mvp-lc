@@ -58,26 +58,23 @@ class AuthService {
       if (userCredential.user != null) {
         final docRef = _firestore.collection('users').doc(userCredential.user!.uid);
         await docRef.set({
-          'displayName':
-          username,
+          'displayName': username,
           'username_lowercase': username.toLowerCase(),
           'birthDate': Timestamp.fromDate(birthDate),
           'email': email,
           'uid': userCredential.user!.uid,
-            'createdAt': FieldValue.serverTimestamp(),
-          'emailVerified':
-          false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'emailVerified': false,
           'avatarUrl': avatarUrl,
-          'partnerCount': 0,
-          'weeklyPartnerCount': 0, // NEW weekly counter init
           'streak': 0,
+          'highestStreak': 0,
           'totalPracticeTime': 0,
           'lastActivityDate': FieldValue.serverTimestamp(),
           'isPremium': false,
           'role': 'user',
           'status': 'active',
           'nativeLanguage': nativeLanguage,
-          'profileCompleted': false, // rules gereği başlangıçta false
+          'profileCompleted': false,
         });
         // Email-password kullanıcıları profil tamamlamayı atlayacak -> hemen true yap
         try { await docRef.update({'profileCompleted': true}); } catch (_) {}
@@ -121,8 +118,6 @@ class AuthService {
             'createdAt': FieldValue.serverTimestamp(),
             'emailVerified': user.emailVerified,
             'avatarUrl': 'https://api.dicebear.com/8.x/micah/svg?seed=${user.uid.substring(0,6)}',
-            'partnerCount': 0,
-            'weeklyPartnerCount': 0, // NEW weekly init
             'streak': 0,
             'totalPracticeTime': 0,
             'lastActivityDate': FieldValue.serverTimestamp(),
@@ -165,10 +160,6 @@ class AuthService {
           // Eksik emailVerified alanı güncelle
           if (data['emailVerified'] != true && user.emailVerified) {
             await docRef.update({'emailVerified': true});
-          }
-          // Eksik weeklyPartnerCount varsa ekle
-          if (data['weeklyPartnerCount'] == null) {
-            try { await docRef.update({'weeklyPartnerCount': 0}); } catch (_) {}
           }
         }
       }
@@ -270,8 +261,6 @@ class AuthService {
             'createdAt': FieldValue.serverTimestamp(),
             'emailVerified': user.emailVerified, // Google genelde doğrulanmış gelir
             'avatarUrl': dicebear,
-            'partnerCount': 0,
-            'weeklyPartnerCount': 0, // NEW weekly init
             'streak': 0,
             'totalPracticeTime': 0,
             'lastActivityDate': FieldValue.serverTimestamp(),

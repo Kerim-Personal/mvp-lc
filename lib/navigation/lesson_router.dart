@@ -1,19 +1,19 @@
 // lib/navigation/lesson_router.dart
 
 import 'package:flutter/material.dart';
-import 'package:lingua_chat/lessons/grammar/a1/verb_to_be.dart';
-import 'package:lingua_chat/lessons/grammar/a1/present_simple.dart';
-import 'package:lingua_chat/lessons/grammar/a1/articles_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/plural_nouns_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/possessive_adjectives_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/demonstratives_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/prepositions_of_place_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/prepositions_of_time_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/can_for_ability_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/past_simple_to_be_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/past_simple_regular_verbs_lesson.dart';
-import 'package:lingua_chat/lessons/grammar/a1/question_words_lesson.dart'; // <-- YENİ: Bu satırı ekle
-import 'package:lingua_chat/widgets/grammar/grammar_lesson_wrapper.dart';
+import 'package:vocachat/lessons/grammar/a1/verb_to_be.dart';
+import 'package:vocachat/lessons/grammar/a1/present_simple.dart';
+import 'package:vocachat/lessons/grammar/a1/articles_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/plural_nouns_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/possessive_adjectives_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/demonstratives_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/prepositions_of_place_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/prepositions_of_time_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/can_for_ability_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/past_simple_to_be_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/past_simple_regular_verbs_lesson.dart';
+import 'package:vocachat/lessons/grammar/a1/question_words_lesson.dart'; // <-- YENİ: Bu satırı ekle
+import 'package:vocachat/widgets/grammar/grammar_lesson_wrapper.dart';
 
 // Ders AppBar renk eşlemesi
 const Map<String, Color> _lessonAppBarColors = {

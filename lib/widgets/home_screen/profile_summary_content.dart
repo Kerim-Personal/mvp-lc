@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:lingua_chat/widgets/profile_screen/achievements_section.dart';
-import 'package:lingua_chat/widgets/profile_screen/section_title.dart';
-import 'package:lingua_chat/widgets/profile_screen/stats_grid.dart';
+import 'package:vocachat/widgets/profile_screen/achievements_section.dart';
+import 'package:vocachat/widgets/profile_screen/section_title.dart';
+import 'package:vocachat/widgets/profile_screen/stats_grid.dart';
 
 class ProfileSummaryContent extends StatefulWidget {
   const ProfileSummaryContent({super.key});
