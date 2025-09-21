@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 class StatsGrid extends StatelessWidget {
   final String level;
   final int streak;
-  final int totalPracticeTime;
+  final int totalRoomTimeSeconds; // odalarda geçirilen toplam süre (s)
   // TODO: Placeholder fields for future statistics.
   final int highestStreak;
 
@@ -13,9 +13,19 @@ class StatsGrid extends StatelessWidget {
     super.key,
     required this.level,
     required this.streak,
-    required this.totalPracticeTime,
+    required this.totalRoomTimeSeconds,
     this.highestStreak = 0, // default 0
   });
+
+  String _format(int seconds) {
+    if (seconds <= 0) return '0s';
+    final d = Duration(seconds: seconds);
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    if (h > 0) return '${h}h ${m}m';
+    if (m > 0) return '${m}m';
+    return '${d.inSeconds.remainder(60)}s';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +38,7 @@ class StatsGrid extends StatelessWidget {
       childAspectRatio: 0.8, // 0.9'dan 0.8'e düşürdüm - biraz daha yüksek kutular
       children: [
         _buildStatCard(Icons.local_fire_department, "$streak d", "Streak", Colors.orange),
-        _buildStatCard(Icons.timer, "$totalPracticeTime min", "Practice Time", Colors.blue),
+        _buildStatCard(Icons.timer, _format(totalRoomTimeSeconds), "Room Time", Colors.blue),
         _buildStatCard(Icons.bar_chart_rounded, level, "Level", Colors.purple),
         _buildStatCard(Icons.military_tech, "$highestStreak d", "Best Streak", Colors.amber.shade700),
       ],

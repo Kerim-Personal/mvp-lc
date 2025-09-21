@@ -18,15 +18,25 @@ class FaqCategoryScreen extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final appBarGradientStart = isDark ? cs.primary.withValues(alpha: 0.30) : Colors.teal.shade400;
-    final appBarGradientEnd = isDark ? cs.secondary.withValues(alpha: 0.30) : Colors.cyan.shade600;
+    // Help and support screen ile tutarlı renk paleti
+    final appBarGradientStart = isDark ? cs.primary.withValues(alpha: 0.8) : cs.primary;
+    final appBarGradientEnd = isDark ? cs.primary.withValues(alpha: 0.6) : cs.primary.withValues(alpha: 0.8);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(category, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: isDark ? cs.onSurface : Colors.white)),
+        title: Text(
+          category,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: cs.onPrimary,
+            fontSize: 18
+          )
+        ),
         centerTitle: true,
-        elevation: isDark ? 0 : 2,
+        elevation: isDark ? 2 : 4,
+        iconTheme: IconThemeData(color: cs.onPrimary),
+        backgroundColor: cs.primary,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -36,8 +46,6 @@ class FaqCategoryScreen extends StatelessWidget {
             ),
           ),
         ),
-        foregroundColor: isDark ? cs.onSurface : Colors.white,
-        backgroundColor: isDark ? cs.surface : Colors.teal.shade400,
       ),
       body: faqs.isEmpty
           ? _buildEmptyState(context)

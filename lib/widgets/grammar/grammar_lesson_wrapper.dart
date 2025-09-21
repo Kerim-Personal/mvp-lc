@@ -1,5 +1,6 @@
 // lib/widgets/grammar/grammar_lesson_wrapper.dart
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:vocachat/services/grammar_progress_service.dart';
 
 class GrammarLessonWrapper extends StatefulWidget {
@@ -12,16 +13,26 @@ class GrammarLessonWrapper extends StatefulWidget {
   State<GrammarLessonWrapper> createState() => _GrammarLessonWrapperState();
 }
 
-class _GrammarLessonWrapperState extends State<GrammarLessonWrapper> {
+class _GrammarLessonWrapperState extends State<GrammarLessonWrapper> with SingleTickerProviderStateMixin {
   bool _completed = false;
   bool _loading = true;
   bool _updating = false;
   bool _atEnd = false; // sayfa sonuna ulaşıldı mı
+  bool _playCelebration = false; // tamamlanınca animasyon oynat
+  late final AnimationController _lottieController;
+  bool _lottieListenerAdded = false; // tekrar listener eklemeyi engelle
 
   @override
   void initState() {
     super.initState();
+    _lottieController = AnimationController(vsync: this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _lottieController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -37,7 +48,13 @@ class _GrammarLessonWrapperState extends State<GrammarLessonWrapper> {
       if (mounted) setState(() { _completed = false; });
     } else {
       await GrammarProgressService.instance.markCompleted(widget.contentPath);
-      if (mounted) setState(() { _completed = true; });
+      if (mounted) {
+        setState(() {
+          _completed = true;
+          _playCelebration = true; // animasyonu tetikle
+        });
+        // Animasyon kontrolü (composition yüklendikten sonra süre ayarlanacak)
+      }
     }
     if (mounted) setState(() { _updating = false; });
   }
@@ -58,6 +75,27 @@ class _GrammarLessonWrapperState extends State<GrammarLessonWrapper> {
     return false; // olayı yaymaya devam et
   }
 
+  Widget _buildSuccessAnimation() {
+    return Lottie.asset(
+      'assets/animations/success.json',
+      controller: _lottieController,
+      fit: BoxFit.contain,
+      onLoaded: (comp) {
+        _lottieController
+          ..duration = comp.duration
+          ..forward(from: 0);
+        if (!_lottieListenerAdded) {
+          _lottieController.addStatusListener((status) {
+            if (status == AnimationStatus.completed && mounted) {
+              setState(() { _playCelebration = false; });
+            }
+          });
+          _lottieListenerAdded = true;
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final btnDisabled = _loading || _updating;
@@ -70,6 +108,19 @@ class _GrammarLessonWrapperState extends State<GrammarLessonWrapper> {
       child: Stack(
         children: [
           widget.child,
+          if (_playCelebration)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.3),
+                child: Center(
+                  child: SizedBox(
+                    width: 300,
+                    height: 300,
+                    child: _buildSuccessAnimation(),
+                  ),
+                ),
+              ),
+            ),
           // Buton sadece scroll sonuna gelince görünür
           Positioned.fill(
             child: IgnorePointer(

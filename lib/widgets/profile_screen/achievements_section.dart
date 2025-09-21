@@ -6,21 +6,21 @@ import 'package:confetti/confetti.dart';
 class AchievementsSection extends StatelessWidget {
   final int streak; // mevcut anlık streak
   final int highestStreak; // en yüksek streak
-  final int totalPracticeTime; // toplam pratik süresi (dakika)
+  final int totalRoomTimeSeconds; // odalarda geçirilen toplam süre (saniye)
   final String level; // seviye (string olabilir)
 
   const AchievementsSection({
     super.key,
     required this.streak,
     required this.highestStreak,
-    required this.totalPracticeTime,
+    required this.totalRoomTimeSeconds,
     required this.level,
   });
 
   static List<Achievement> buildAchievementsFromStats({
     required int streak,
     required int highestStreak,
-    required int totalPracticeTime,
+    required int totalRoomTimeSeconds,
     required String level,
   }) {
     return [
@@ -36,7 +36,7 @@ class AchievementsSection extends StatelessWidget {
       Achievement(
         id: 'streak_week',
         name: 'Weekly Warrior',
-        icon: Icons.date_range, // calendar_week yerine date_range kullanıyorum
+        icon: Icons.date_range,
         color: Colors.blue,
         earned: highestStreak >= 7,
         description: 'Completed a full week of learning.',
@@ -58,38 +58,38 @@ class AchievementsSection extends StatelessWidget {
         description: '365-day legendary streak. You are a true champion!',
       ),
 
-      // Pratik süresi tabanlı rozetler
+      // Oda süresi tabanlı rozetler (önceki dakikalık eşikler saniyeye çevrildi)
       Achievement(
         id: 'practice_dedicated',
         name: 'Dedicated',
         icon: Icons.schedule,
         color: Colors.teal,
-        earned: totalPracticeTime >= 600, // 10 hours
-        description: '10 hours of total practice time.',
+        earned: totalRoomTimeSeconds >= 600 * 60, // 10 saat
+        description: '10 hours of total room time.',
       ),
       Achievement(
         id: 'practice_committed',
         name: 'Committed',
         icon: Icons.timer,
         color: Colors.orange,
-        earned: totalPracticeTime >= 1800, // 30 hours
-        description: '30 hours of total practice time.',
+        earned: totalRoomTimeSeconds >= 1800 * 60, // 30 saat
+        description: '30 hours of total room time.',
       ),
       Achievement(
         id: 'practice_expert',
         name: 'Expert Learner',
         icon: Icons.school,
         color: Colors.deepOrange,
-        earned: totalPracticeTime >= 3600, // 60 hours
-        description: '60 hours of practice. True expertise!',
+        earned: totalRoomTimeSeconds >= 3600 * 60, // 60 saat
+        description: '60 hours of room engagement.',
       ),
       Achievement(
         id: 'practice_master',
-        name: 'Practice Master',
+        name: 'Room Master',
         icon: Icons.emoji_events,
         color: Colors.amber,
-        earned: totalPracticeTime >= 6000, // 100 hours
-        description: '100 hours of practice! You are a language master.',
+        earned: totalRoomTimeSeconds >= 6000 * 60, // 100 saat
+        description: '100 hours spent in rooms! Master level.',
       ),
     ];
   }
@@ -97,13 +97,13 @@ class AchievementsSection extends StatelessWidget {
   static List<String> computeEarnedBadgeIds({
     required int streak,
     required int highestStreak,
-    required int totalPracticeTime,
+    required int totalRoomTimeSeconds,
     required String level,
   }) {
     return buildAchievementsFromStats(
       streak: streak,
       highestStreak: highestStreak,
-      totalPracticeTime: totalPracticeTime,
+      totalRoomTimeSeconds: totalRoomTimeSeconds,
       level: level,
     ).where((a) => a.earned).map((a) => a.id).toList();
   }
@@ -112,7 +112,7 @@ class AchievementsSection extends StatelessWidget {
     return buildAchievementsFromStats(
       streak: streak,
       highestStreak: highestStreak,
-      totalPracticeTime: totalPracticeTime,
+      totalRoomTimeSeconds: totalRoomTimeSeconds,
       level: level,
     );
   }

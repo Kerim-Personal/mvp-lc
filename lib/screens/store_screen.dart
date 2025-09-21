@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lottie/lottie.dart';
 import 'package:vocachat/services/diamond_service.dart';
 import 'package:vocachat/services/purchase_service.dart';
 import 'package:vocachat/widgets/shared/animated_background.dart';
@@ -43,12 +44,45 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   late final TabController _tabController;
   late final VoidCallback _tabListener; // Eklenen: listener referansı
+  late final PageController _benefitPageController; // Premium benefits için PageController
+  int _currentBenefitPage = 0; // Aktif benefit sayfası
 
   final Set<String> _purchasing = {};
   Map<String, String> _priceMap = {};
-  // Dinamik accent renkleri kaldırıldı
-  // Color _headerAccentStart = const Color(0x22FFD54F);
-  // Color _headerAccentEnd = const Color(0x2200172A);
+
+  // Premium benefits data
+  static const List<_BenefitData> _premiumBenefits = [
+    _BenefitData(
+      'assets/animations/no ads icon.json',
+      'Ad-free',
+      'Zero distractions. Completely ad‑free interface for uninterrupted focus.',
+    ),
+    _BenefitData(
+      'assets/animations/Translate.json',
+      'Instant Translation',
+      'Inline, instant message translation—stay immersed without switching apps.',
+    ),
+    _BenefitData(
+      'assets/animations/Support.json',
+      'Priority Support',
+      'Priority issue resolution: faster responses and direct escalation when something breaks.',
+    ),
+    _BenefitData(
+      'assets/animations/Data Analysis.json',
+      'Grammar Analysis',
+      'Real‑time grammar and clarity suggestions to tighten every message as you type.',
+    ),
+    _BenefitData(
+      'assets/animations/Robot says hello.json',
+      'VocaBot',
+      'AI practice companion offering contextual replies and gentle guidance while you learn.',
+    ),
+    _BenefitData(
+      'assets/animations/Happy SUN.json',
+      'Shimmer',
+      'Exclusive visual polish and subtle premium animations that reinforce progress and motivation.',
+    ),
+  ];
 
   @override
   void initState() {
@@ -56,6 +90,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     _tabController = TabController(length: 2, vsync: this);
     _tabListener = () => setState(() {}); // Listener referansını sakla
     _tabController.addListener(_tabListener); // Anonim yerine referans ekle
+    _benefitPageController = PageController(); // PageController'ı başlat
     _init();
   }
 
@@ -111,6 +146,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       _tabController.removeListener(_tabListener); // Doğru şekilde kaldır
     } catch (_) {}
     _tabController.dispose();
+    _benefitPageController.dispose(); // PageController'ı dispose et
     _purchaseService.dispose();
     super.dispose();
   }
@@ -500,7 +536,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         if (constraints.maxWidth < 380) crossAxisCount = 2;
         final usableWidth = constraints.maxWidth.clamp(0.0, double.infinity);
         final itemWidth = (usableWidth - (16 * (crossAxisCount - 1))).clamp(1.0, double.infinity) / crossAxisCount;
-        final itemHeight = 168.0;
+        final itemHeight = 200.0; // önceki 168.0 yerine daha ferah yükseklik
         final aspectRatio = (itemWidth.isFinite && itemHeight > 0) ? (itemWidth / itemHeight) : 1.0;
         return GridView.builder(
           key: const PageStorageKey('diamonds_grid'),
@@ -557,30 +593,63 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         children: [
-          _storeSectionHeader(
-            title: 'Unlock with Premium',
-            subtitle: 'All unlimited features, ad-free experience, and priority performance.',
-            icon: Icons.workspace_premium,
-          ),
-          // Önce faydalar
-          const SizedBox(height: 6),
+          // Premium Benefits başlığı - ortada ve şık
           Text(
             'Premium Benefits',
             style: TextStyle(
-              color: isDark ? Colors.white70 : Colors.black54,
-              fontSize: 16,
-              fontWeight: FontWeight.w600
+              color: isDark ? Colors.white : Colors.black87,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Premium faydaları için sayfa görünümü - daha büyük
+          SizedBox(
+            height: 220, // Yüksekliği artırdım
+            child: PageView.builder(
+              controller: _benefitPageController,
+              itemCount: _premiumBenefits.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentBenefitPage = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                final benefit = _premiumBenefits[index];
+                return _buildBenefitCard(benefit);
+              },
             ),
           ),
           const SizedBox(height: 16),
-          _benefit(icon: Icons.auto_awesome, title: 'Ad-free', text: 'Use the app without ads.'),
-          _benefit(icon: Icons.translate_rounded, title: 'Instant Translation', text: 'Translate instantly while learning.'),
-          _benefit(icon: Icons.support_agent, title: 'Priority Support', text: 'Get help faster with priority support.'),
-          _benefit(icon: Icons.spellcheck, title: 'Grammar Analysis', text: 'AI-powered grammar feedback and tips.'),
-          _benefit(icon: Icons.smart_toy, title: 'VocaBot', text: 'AI tutor for instant translation, grammar, and better wording.'),
-          _benefit(icon: Icons.blur_on, title: 'Shimmer', text: 'Unlock the premium shimmer theme and effects.'),
+          // Sayfa göstergesi
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _premiumBenefits.length,
+              (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: index == _currentBenefitPage ? 18 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: index == _currentBenefitPage ? Colors.amber : Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: index == _currentBenefitPage
+                      ? [
+                          BoxShadow(
+                            color: Colors.amber.withValues(alpha: 0.5),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          )
+                        ]
+                      : null,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 20),
-          // Sonra fiyat/planlar
+          // Fiyat/planlar
           Row(
             children: [
               Expanded(
@@ -807,6 +876,87 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
+  Widget _buildBenefitCard(_BenefitData benefit) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.white.withValues(alpha: 0.1),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Daha büyük ve ortalı Lottie animasyonu
+                Center(
+                  child: SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Lottie.asset(
+                      benefit.iconPath,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.contain,
+                      repeat: true,
+                      animate: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Başlık - ortalı
+                Text(
+                  benefit.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Açıklama - ortalı ve esnek
+                Flexible(
+                  child: Text(
+                    benefit.description,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark ? Colors.white.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.85),
+                      height: 1.3,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: null,
+                    overflow: TextOverflow.visible,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _benefit({required IconData icon, required String title, required String text}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -892,3 +1042,10 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 }
 
+class _BenefitData {
+  final String iconPath;
+  final String title;
+  final String description;
+
+  const _BenefitData(this.iconPath, this.title, this.description);
+}

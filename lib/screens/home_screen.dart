@@ -154,27 +154,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final double safeBottom = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      // floatingActionButton kaldırıldı; ikisini de Stack içinde konumlandıracağız
-      body: Stack(
-        children: [
-          _buildHomeUI(),
-          // Solda AI Partner Button (yukarıya taşındı)
-          Positioned(
-            left: 16,
-            bottom: safeBottom + 20,
-            child: AiPartnerButton(),
-          ),
-          // Sağda Digital Safety Button (yukarıya taşındı)
-          Positioned(
-            right: 16,
-            bottom: safeBottom + 20,
-            child: SafetyHelpButton(),
-          ),
-        ],
-      ),
+      // floatingActionButton kaldırıldı; butonlar içerikte konumlandırıldı
+      body: _buildHomeUI(),
     );
   }
 
@@ -232,10 +215,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
     final data = snap.data()!;
     final int streak = data['streak'] ?? 0;
-    final int totalTime = data['totalPracticeTime'] ?? 0;
+    // totalRoomTime (seconds) öncelikli; yoksa eski totalPracticeTime (minutes) -> seconds çevir.
+    int totalTimeSeconds = 0;
+    if (data['totalRoomTime'] != null) {
+      totalTimeSeconds = (data['totalRoomTime'] as num).toInt();
+    } else if (data['totalPracticeTime'] != null) {
+      totalTimeSeconds = ((data['totalPracticeTime'] as num).toInt()) * 60;
+    }
     return StatsRow(
       streak: streak,
-      totalTime: totalTime,
+      totalTime: totalTimeSeconds,
     );
   }
 
@@ -268,15 +257,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: _buildStatsSection(userSnap),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildAnimatedUI(
-                    interval: const Interval(0.2, 0.8),
-                    child: PartnerFinderSection(
-                      onFindPartner: _findPracticePartner,
-                      pulseAnimationController: _pulseAnimationController,
+                  const SizedBox(height: 24),
+                  // PartnerFinderSection üstte
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: _buildAnimatedUI(
+                      interval: const Interval(0.2, 0.8),
+                      child: PartnerFinderSection(
+                        onFindPartner: _findPracticePartner,
+                        pulseAnimationController: _pulseAnimationController,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  // Butonlar: kartların hemen üstüne alınacak, araya 10px bırakılacak
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        AiPartnerButton(),
+                        SafetyHelpButton(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10), // Kartların 10px üstü
                   // HomeCardsSection için sabit yükseklik belirledim
                   SizedBox(
                     height: 400, // Sabit yükseklik

@@ -1,5 +1,3 @@
-// lib/widgets/home_screen/profile_summary_content.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -108,26 +106,26 @@ class _ProfileSummaryContentState extends State<ProfileSummaryContent> {
 
     final premiumChip = isPremium
         ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5B53A).withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE5B53A), width: 1),
-            ),
-            child: const Text('PREMIUM', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-          )
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5B53A).withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5B53A), width: 1),
+      ),
+      child: const Text('PREMIUM', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+    )
         : const SizedBox.shrink();
 
     final roleChip = (role == 'admin' || role == 'moderator')
         ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: (role == 'admin' ? Colors.red : Colors.orange).withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: role == 'admin' ? Colors.red : Colors.orange, width: 1),
-            ),
-            child: Text(role.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-          )
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: (role == 'admin' ? Colors.red : Colors.orange).withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: role == 'admin' ? Colors.red : Colors.orange, width: 1),
+      ),
+      child: Text(role.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+    )
         : const SizedBox.shrink();
 
     return LayoutBuilder(
@@ -158,19 +156,19 @@ class _ProfileSummaryContentState extends State<ProfileSummaryContent> {
 
         final content = isCompact
             ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [avatar, const SizedBox(width: 12), Expanded(child: headerMain)]),
-                ],
-              )
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [avatar, const SizedBox(width: 12), Expanded(child: headerMain)]),
+          ],
+        )
             : Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  avatar,
-                  const SizedBox(width: 14),
-                  Expanded(child: headerMain),
-                ],
-              );
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            avatar,
+            const SizedBox(width: 14),
+            Expanded(child: headerMain),
+          ],
+        );
 
         return Container(
           decoration: BoxDecoration(
@@ -219,7 +217,7 @@ class _ProfileSummaryContentState extends State<ProfileSummaryContent> {
           StatsGrid(
             level: level,
             streak: streak,
-            totalPracticeTime: totalPracticeTime,
+            totalRoomTimeSeconds: totalPracticeTime,
             highestStreak: highestStreakInt,
           ),
           const SizedBox(height: 16),
@@ -230,9 +228,10 @@ class _ProfileSummaryContentState extends State<ProfileSummaryContent> {
           AchievementsSection(
             streak: streak,
             highestStreak: highestStreakInt,
-            totalPracticeTime: totalPracticeTime,
+            totalRoomTimeSeconds: totalPracticeTime,
             level: level,
           ),
+          const SizedBox(height: 20),
           const SizedBox(height: 60),
           SizedBox(
             width: double.infinity,
@@ -251,3 +250,4 @@ class _ProfileSummaryContentState extends State<ProfileSummaryContent> {
     );
   }
 }
+

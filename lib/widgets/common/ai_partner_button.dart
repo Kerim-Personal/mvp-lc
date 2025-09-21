@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:vocachat/screens/vocabot_chat_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vocachat/widgets/home_screen/premium_upsell_dialog.dart';
 
 class AiPartnerButton extends StatefulWidget {
   const AiPartnerButton({super.key});
@@ -24,10 +27,33 @@ class _AiPartnerButtonState extends State<AiPartnerButton> with SingleTickerProv
     super.dispose();
   }
 
-  void _openAiPartner() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LinguaBotChatScreen()),
-    );
+  void _openAiPartner() async {
+    if (!mounted) return;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // Oturum yoksa direkt upsell göster
+        if (!mounted) return;
+        showDialog(context: context, barrierDismissible: true, builder: (_) => const PremiumUpsellDialog());
+        return;
+      }
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = doc.data();
+      final isPremium = data != null && (data['isPremium'] == true);
+      if (isPremium) {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LinguaBotChatScreen()),
+        );
+      } else {
+        if (!mounted) return;
+        showDialog(context: context, barrierDismissible: true, builder: (_) => const PremiumUpsellDialog());
+      }
+    } catch (_) {
+      if (!mounted) return;
+      // Hata halinde güvenli default: upsell göster
+      showDialog(context: context, barrierDismissible: true, builder: (_) => const PremiumUpsellDialog());
+    }
   }
 
   @override
@@ -85,4 +111,3 @@ class _AiPartnerButtonState extends State<AiPartnerButton> with SingleTickerProv
     );
   }
 }
-

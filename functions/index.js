@@ -25,10 +25,11 @@ exports.checkUsernameAvailable = functions
         if (!allowUsernameCheck(ipOrUid)) {
           return {available: false, reason: "rate_limited"};
         }
+        // Reserved list hizalı ve sadeleştirildi; 'administrator' artık serbest
         const RESERVED = new Set([
-          "admin", "administrator", "root", "support", "moderator", "mod",
+          "admin", "root", "support", "moderator", "mod",
           "system", "null", "undefined", "owner", "staff", "team",
-          "vocachat", "voca", "api",
+          "vocachat", "voca", "api"
         ]);
         const VALID_RE = /^[a-z0-9_]{3,29}$/;
 
@@ -65,10 +66,11 @@ exports.reserveUsername = functions
       }
       const raw = data && data.username ? String(data.username) : "";
       const username = raw.trim().toLowerCase();
+      // Aynı RESERVED seti burada da kullanılıyor
       const RESERVED = new Set([
-        "admin", "administrator", "root", "support", "moderator", "mod",
+        "admin", "root", "support", "moderator", "mod",
         "system", "null", "undefined", "owner", "staff", "team",
-        "linguachat", "lingua", "api",
+        "vocachat", "voca", "api"
       ]);
       const VALID_RE = /^[a-z0-9_]{3,29}$/;
       if (!VALID_RE.test(username)) {
@@ -237,7 +239,7 @@ exports.onGroupMemberRemoved = functions.firestore
         const needsRebuild = removedAvatar &&
           avPreview.includes(removedAvatar);
         if (needsRebuild) {
-        // İlk 3 üyeyi tekrar oku (en az okuma için limit 3)
+          // İlk 3 üyeyi tekrar oku (en az okuma için limit 3)
           const membersSnap = await db.collection("group_chats").doc(roomId)
               .collection("members").limit(3).get();
           avPreview = [];
@@ -252,6 +254,7 @@ exports.onGroupMemberRemoved = functions.firestore
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, {merge: true});
       });
+
       return null;
     });
 /** Rapor oluşturulduğunda içerik bazlı rapor sayacını artır */

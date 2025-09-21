@@ -103,7 +103,7 @@ service cloud.firestore {
         (
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted', 'totalPracticeTime','streak', 'highestStreak'
+            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime'
           ])
         ) || (
           // FCM token listesi (sadece liste merge/update). Ayrı tutuldu ki diğer alanlarla aynı anda yazılamasın.

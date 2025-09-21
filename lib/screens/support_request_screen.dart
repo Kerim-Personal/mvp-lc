@@ -80,7 +80,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
     }
     if (!isPremium) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This feature is only available to Lingua Pro users.')),
+        const SnackBar(content: Text('This feature is only available to VocaChat Pro users.')),
       );
       return;
     }
@@ -260,7 +260,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                   children: const [
                     Icon(Icons.lock, size: 48, color: Colors.grey),
                     SizedBox(height: 12),
-                    Text('This feature is only available to Lingua Pro users.',
+                    Text('This feature is only available to VocaChat Pro users.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ],
@@ -307,7 +307,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                     stops: stops,
                                   ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
                                   child: const Text(
-                                    'Lingua Pro Support',
+                                    'VocaChat Pro Support',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 28,

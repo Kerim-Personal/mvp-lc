@@ -1,6 +1,7 @@
 // lib/widgets/home_screen/premium_status_panel.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 
 /// Premium kullanıcıya değer hissettiren, faydaları özetleyen panel.
 class PremiumStatusPanel extends StatefulWidget {
@@ -136,12 +137,12 @@ class _PanelContent extends StatelessWidget {
       {required this.shimmerController, required this.textScale});
 
   List<_Benefit> get _benefits => const [
-    _Benefit(Icons.auto_awesome, 'Ad-free'),
-    _Benefit(Icons.translate_rounded, 'Instant Translation'),
-    _Benefit(Icons.support_agent, 'Priority Support'),
-    _Benefit(Icons.spellcheck, 'Grammar Analysis'),
-    _Benefit(Icons.smart_toy, 'VocaBot'),
-    _Benefit(Icons.blur_on, 'Shimmer'),
+    _Benefit('assets/animations/no ads icon.json', 'Ad-free'),
+    _Benefit('assets/animations/Translate.json', 'Instant Translation'),
+    _Benefit('assets/animations/Support.json', 'Priority Support'),
+    _Benefit('assets/animations/Data Analysis.json', 'Grammar Analysis'),
+    _Benefit('assets/animations/Robot says hello.json', 'VocaBot'),
+    _Benefit('assets/animations/Happy SUN.json', 'Shimmer'),
   ];
 
   @override
@@ -212,7 +213,7 @@ class _ShimmerTitle extends StatelessWidget {
             stops: [start, mid, end],
           ).createShader(b),
           child: Text(
-            'You are a Lingua Pro Member',
+            'You are a VocaChat Pro Member',
             textAlign: TextAlign.center,
             maxLines: 2,
             style: TextStyle(
@@ -318,7 +319,13 @@ class _BenefitChip extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(benefit.icon, size: 18, color: const Color(0xFFFFE28A)),
+            Lottie.asset(
+              benefit.animationPath,
+              width: 18,
+              height: 18,
+              fit: BoxFit.cover,
+              // color: const Color(0xFFFFE28A)
+            ),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -397,7 +404,7 @@ class _ThanksRow extends StatelessWidget {
 }
 
 class _Benefit {
-  final IconData icon;
+  final String animationPath; // IconData yerine animasyon dosya yolu
   final String label;
-  const _Benefit(this.icon, this.label);
+  const _Benefit(this.animationPath, this.label);
 }

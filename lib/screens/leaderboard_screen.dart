@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/widgets/community_screen/leaderboard_table.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // --- DATA MODELLERİ ---
 class LeaderboardUser {
@@ -14,7 +15,8 @@ class LeaderboardUser {
   final String name;
   final String avatarUrl;
   final int rank;
-  final int streak;
+  final int streak; // legacy: eskiden sıralama streak'e dayanıyordu
+  final int totalRoomSeconds; // yeni: odalarda geçirilen toplam süre (saniye)
   final bool isPremium;
   final String role; // admin/moderator/user
 
@@ -24,6 +26,7 @@ class LeaderboardUser {
     required this.avatarUrl,
     required this.rank,
     required this.streak,
+    this.totalRoomSeconds = 0,
     this.isPremium = false,
     this.role = 'user',
   });
@@ -132,14 +135,13 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
+    // Artık leaderboard toplam oda zamanına göre (totalRoomTime alanı) sıralanıyor
     Query baseQuery = FirebaseFirestore.instance
         .collection('users')
-        .orderBy('streak', descending: true)
+        .orderBy('totalRoomTime', descending: true)
         .limit(100);
 
-    QuerySnapshot snapshot;
-    snapshot = await baseQuery.get();
-
+    QuerySnapshot snapshot = await baseQuery.get();
     if (snapshot.docs.isEmpty) {
       return [];
     }
@@ -161,6 +163,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown',
         avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
         streak: (data['streak'] as num?)?.toInt() ?? 0,
+        totalRoomSeconds: (data['totalRoomTime'] as num?)?.toInt() ?? 0,
         isPremium: data['isPremium'] == true,
         role: (data['role'] as String?) ?? 'user',
       );
@@ -180,7 +183,7 @@ class _CommunityScreenState extends State<CommunityScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('An error occurred: ' + _leaderboardError.toString()),
+                  Text('An error occurred: ${_leaderboardError}'),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => _loadLeaderboard(force: true),
@@ -205,9 +208,11 @@ class _CommunityScreenState extends State<CommunityScreen>
 
   Widget _buildHeader() {
     final theme = Theme.of(context);
-    final titleStyle = theme.textTheme.titleLarge?.copyWith(
-      fontWeight: FontWeight.w800,
-      letterSpacing: 0.2,
+    final titleStyle = GoogleFonts.montserrat(
+      fontSize: theme.textTheme.titleLarge?.fontSize ?? 22,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 0.8,
+      color: theme.textTheme.titleLarge?.color ?? theme.colorScheme.onSurface,
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -215,15 +220,37 @@ class _CommunityScreenState extends State<CommunityScreen>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Başlık
-          Row(
-            children: [
-              Icon(Icons.leaderboard_rounded, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text('Leaderboard', style: titleStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-              const SizedBox(width: 24),
-            ],
+          SizedBox(
+            height: 40,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Icon(
+                    Icons.leaderboard_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                Center(
+                  child: Text(
+                    'Leaderboard',
+                    style: titleStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                // Sağ tarafta görünmez ikon ile dengeleme -> gerçek ortalama
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: Opacity(
+                    opacity: 0,
+                    child: Icon(Icons.leaderboard_rounded),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           // Yeni segment switch
@@ -414,7 +441,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           children: [
             Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
-            const Expanded(child: Text("You're outside Top 100. Increase your streak to climb!")),
+            const Expanded(child: Text("You're outside Top 100. Spend more time in rooms to climb!")),
           ],
         ),
       );
@@ -442,7 +469,7 @@ class _CommunityScreenState extends State<CommunityScreen>
             backgroundColor: Colors.grey.shade200,
             child: ClipOval(
               child: SvgPicture.network(
-                mine!.avatarUrl,
+                mine.avatarUrl,
                 width: 36,
                 height: 36,
                 placeholderBuilder: (context) => const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
@@ -459,7 +486,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                   style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
                 ),
                 Text(
-                  '#${mine!.rank}  •  ${mine!.name}',
+                  '#${mine.rank}  •  ${mine.name}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -479,15 +506,30 @@ class _CommunityScreenState extends State<CommunityScreen>
             ),
             child: Row(
               children: [
-                const Icon(Icons.local_fire_department, color: Colors.white, size: 16),
+                const Icon(Icons.access_time_filled, color: Colors.white, size: 16),
                 const SizedBox(width: 6),
-                Text('${mine!.streak}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(_formatDuration(mine.totalRoomSeconds), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ],
             ),
           )
         ],
       ),
     );
+  }
+
+  String _formatDuration(int totalSeconds) {
+    if (totalSeconds <= 0) return '0s';
+    final d = Duration(seconds: totalSeconds);
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    if (h > 0) {
+      return '${h}h ${m}m';
+    }
+    if (m > 0) {
+      return '${m}m ${s}s';
+    }
+    return '${s}s';
   }
 
   @override

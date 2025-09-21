@@ -224,7 +224,7 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: FirebaseAuth.instance.userChanges(), // emailVerified degisimi icin userChanges
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           // Başlangıçta ve veri beklenirken splash ekranı görünmeye devam eder.

@@ -7,6 +7,22 @@ import 'package:vocachat/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/screens/verification_screen.dart';
 import 'package:vocachat/services/translation_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:circle_flags/circle_flags.dart';
+
+// Bayrak eşleme ve bastırma setleri tek yerde tanımlandı
+const _flagMap = <String,String>{
+  'af':'za','sq':'al','ar':'sa','be':'by','bg':'bg','bn':'bd','ca':'ad','zh':'cn','hr':'hr','cs':'cz','da':'dk','nl':'nl','en':'gb','et':'ee','fi':'fi','fr':'fr','gl':'es','ka':'ge','de':'de','el':'gr','he':'il','hi':'in','hu':'hu','is':'is','id':'id','ga':'ie','it':'it','ja':'jp','ko':'kr','lv':'lv','lt':'lt','mk':'mk','ms':'my','mt':'mt','no':'no','fa':'ir','pl':'pl','pt':'pt','ro':'ro','ru':'ru','sk':'sk','sl':'si','es':'es','sw':'tz','sv':'se','tl':'ph','ta':'lk','th':'th','tr':'tr','uk':'ua','ur':'pk','vi':'vn','ht':'ht','gu':'in','kn':'in','te':'in','mr':'in'};
+// Sadece bayrağı olmayan/sembolik diller
+const _suppressFlag = {'eo','cy'};
+// Hindistan grubu (aynı bayrak gösterilecek)
+const _indianGroup = {'hi','gu','kn','te','mr'};
+
+String? _countryGroup(String code){
+  if (_indianGroup.contains(code)) return 'in';
+  if (_flagMap.containsKey(code)) return _flagMap[code];
+  return null; // sembolik ya da özel
+}
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -36,8 +52,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   // Multi-step state
   int _currentStep = 0;
-  late PageController _pageController;
-  late AnimationController _animationController;
 
   // Ortak stil değişkenleri
   static const _primaryColor = Colors.teal;
@@ -47,11 +61,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
   }
 
   @override
@@ -61,8 +70,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     _usernameController.dispose();
     _birthDateController.dispose();
     _nativeLanguageController.dispose();
-    _pageController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -188,102 +195,176 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(_cardRadius),
-            topRight: Radius.circular(_cardRadius),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(25),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                'Select Native Language',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade800,
-                ),
-              ),
-            ),
-            Divider(color: Colors.grey.shade200, height: 1),
-            // Language list
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: TranslationService.supportedLanguages.length,
-                itemBuilder: (context, index) {
-                  final item = TranslationService.supportedLanguages[index];
-                  final code = item['code']!;
-                  final label = item['label']!;
-                  final selected = code == _selectedNativeLanguageCode;
+      builder: (ctx) {
+        // Kopya ve sıralama
+        final langs = List<Map<String,String>>.from(TranslationService.supportedLanguages);
+        langs.sort((a,b){
+          final ca = _countryGroup(a['code']!);
+          final cb = _countryGroup(b['code']!);
+          final gc = (ca ?? 'zzz').compareTo(cb ?? 'zzz'); // null'lar sona
+          if (gc != 0) return gc;
+          return a['label']!.toLowerCase().compareTo(b['label']!.toLowerCase());
+        });
 
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: selected ? _primaryColor.shade50 : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      title: Text(
-                        label,
-                        style: TextStyle(
-                          color: selected ? _primaryColor.shade700 : Colors.grey.shade800,
-                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      ),
-                      trailing: selected
-                        ? Icon(Icons.check_circle, color: _primaryColor.shade600, size: 20)
-                        : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedNativeLanguageCode = code;
-                          _nativeLanguageController.text = label;
-                        });
-                        Navigator.pop(context);
-                      },
-                    ),
-                  );
+        String? prevGroup;
+        final tiles = <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Select Native Language',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade800,
+              ),
+            ),
+          ),
+          Divider(color: Colors.grey.shade200, height: 1),
+        ];
+
+        for (final m in langs){
+          final code = m['code']!;
+          final label = m['label']!;
+          final group = _countryGroup(code) ?? code; // sembolikler kendi koduyla ayırıcı
+          if (prevGroup != null && group != prevGroup){
+            tiles.add(const Divider(height: 4, thickness: 0.5));
+          }
+          prevGroup = group;
+          final selected = code == _selectedNativeLanguageCode;
+
+          tiles.add(
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              decoration: BoxDecoration(
+                color: selected ? _primaryColor.shade50 : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                leading: _Flag(code: code),
+                title: Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? _primaryColor.shade700 : Colors.grey.shade800,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+                trailing: selected
+                  ? Icon(Icons.check, color: Colors.teal, size: 20)
+                  : null,
+                onTap: () {
+                  setState(() {
+                    _selectedNativeLanguageCode = code;
+                    _nativeLanguageController.text = label;
+                  });
+                  Navigator.pop(context);
                 },
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(_cardRadius),
+              topRight: Radius.circular(_cardRadius),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(25),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Language list
+              Expanded(
+                child: SafeArea(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children: tiles,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
+  Future<void> _validateUsernameAndProceed() async {
+    final username = _usernameController.text.trim();
+    if (username.isEmpty) return; // mevcut validator zaten uyaracak
+    setState(() { _isLoading = true; });
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable('checkUsernameAvailable');
+      final res = await callable.call({'username': username});
+      final data = res.data;
+      bool available = false;
+      String? reason;
+      if (data is Map) {
+        available = data['available'] == true;
+        reason = data['reason']?.toString();
+      }
+      if (!available) {
+        String msg;
+        switch (reason) {
+          case 'invalid_format':
+            msg = 'Kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir (3-29 karakter).';
+            break;
+          case 'reserved':
+            msg = 'Bu kullanıcı adı rezerve edilmiş. Lütfen başka bir tane seçin.';
+            break;
+          case 'taken':
+          case 'taken_legacy':
+            msg = 'Bu kullanıcı adı zaten alınmış. Başka bir tane deneyin.';
+            break;
+          case 'rate_limited':
+            msg = 'Çok fazla deneme yaptınız. Lütfen biraz sonra tekrar deneyin.';
+            break;
+          default:
+            msg = 'Kullanıcı adı doğrulanamadı. Tekrar deneyin.';
+        }
+        if (mounted) _showError(msg);
+        return; // ilerleme yok
+      }
+      // Uygun -> bir sonraki adıma geç
+      if (mounted) setState(() { _currentStep++; });
+    } catch (e) {
+      if (mounted) _showError('Kullanıcı adı kontrolü başarısız: $e');
+    } finally {
+      if (mounted) setState(() { _isLoading = false; });
+    }
+  }
+
   void _nextStep() {
+    if (_isLoading) return;
+    if (_currentStep == 0) {
+      if (_formKeys[0].currentState!.validate()) {
+        _validateUsernameAndProceed();
+      }
+      return;
+    }
     if (_currentStep < 2) {
       if (_formKeys[_currentStep].currentState!.validate()) {
         setState(() => _currentStep++);
-        _pageController.nextPage(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
       }
     } else {
       _register();
@@ -293,10 +374,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   void _previousStep() {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
     }
   }
 
@@ -341,6 +418,18 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       message = 'Password is too weak. Please choose a stronger password.';
     } else if (e.code == 'invalid-email') {
       message = 'Please enter a valid email address.';
+    } else if (e.code == 'username-taken') {
+      message = 'This username is already taken. Please choose another one.';
+    } else if (e.code == 'invalid-username') {
+      message = 'Invalid username format.';
+    } else if (e.code == 'username-reservation-failed') {
+      message = 'Username could not be reserved. Please try again.';
+    } else if (e.code == 'network-request-failed') {
+      message = 'Network error. Check your internet connection.';
+    } else if (e.code == 'too-many-requests') {
+      message = 'Too many attempts. Please wait a moment and retry.';
+    } else if (e.code == 'operation-not-allowed') {
+      message = 'Email/password sign up is disabled. Contact support.';
     }
     _showError(message);
   }
@@ -498,12 +587,15 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         children: [
           _buildStepTitle(),
           SizedBox(height: isCompact ? 12 : 16),
-          SizedBox(
-            height: isCompact ? 220 : 260,
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
+          // Replaced fixed-height PageView with AnimatedSize + IndexedStack so içerik yükseklik kadar olsun, overflow azalır
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: IndexedStack(
+              index: _currentStep,
               children: [
+                // Her adımı doğal boyutuyla göstermek için tek tek wrap edildi
                 _buildStep1(),
                 _buildStep2(),
                 _buildStep3(),
@@ -883,5 +975,23 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         ),
       ],
     );
+  }
+}
+
+class _Flag extends StatelessWidget {
+  final String code;
+  const _Flag({required this.code});
+  @override
+  Widget build(BuildContext context) {
+    if (!_flagMap.containsKey(code) || _suppressFlag.contains(code)) {
+      return Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(color: Colors.grey.shade300, shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: Text(code.toUpperCase(), style: const TextStyle(fontSize: 10,fontWeight: FontWeight.w600,color: Colors.black87)),
+      );
+    }
+    return CircleFlag(_flagMap[code]!.toLowerCase(), size: 28);
   }
 }

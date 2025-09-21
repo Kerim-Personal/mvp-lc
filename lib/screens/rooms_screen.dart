@@ -1,8 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:vocachat/screens/leaderboard_screen.dart' show GroupChatRoomInfo;
-import 'package:vocachat/widgets/community_screen/group_chat_card.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vocachat/screens/group_chat_screen.dart';
 
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
@@ -11,283 +9,468 @@ class RoomsScreen extends StatefulWidget {
   State<RoomsScreen> createState() => _RoomsScreenState();
 }
 
-class _RoomsScreenState extends State<RoomsScreen> {
-  late Future<QuerySnapshot> _roomsFuture;
-  List<DocumentSnapshot>? _roomsDocsCache;
+class _RoomsScreenState extends State<RoomsScreen> with TickerProviderStateMixin {
+  late AnimationController _entryAnimationController;
+  late Animation<double> _fadeInAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  Map<String, Map<String, dynamic>> _roomStats = {};
+
+  // Static rooms data including your music room
+  final List<Map<String, dynamic>> _staticRooms = [
+    {
+      'id': 'music_room_001',
+      'name': 'Music Lovers',
+      'description': 'Share your favorite songs and discover new music',
+      'icon': Icons.music_note_rounded,
+      'color': Colors.purple,
+    },
+    {
+      'id': 'general_chat_001',
+      'name': 'General Chat',
+      'description': 'Talk about anything and everything',
+      'icon': Icons.chat_bubble_rounded,
+      'color': Colors.blue,
+    },
+    {
+      'id': 'english_practice_001',
+      'name': 'English Practice',
+      'description': 'Practice English with other learners',
+      'icon': Icons.language_rounded,
+      'color': Colors.green,
+    },
+    {
+      'id': 'grammar_help_001',
+      'name': 'Grammar Help',
+      'description': 'Get help with grammar questions',
+      'icon': Icons.auto_fix_high_rounded,
+      'color': Colors.orange,
+    },
+    {
+      'id': 'vocabulary_001',
+      'name': 'Vocabulary Building',
+      'description': 'Learn new words together',
+      'icon': Icons.book_rounded,
+      'color': Colors.teal,
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    _roomsFuture = _fetchRoomsData();
+    _setupAnimations();
+    _entryAnimationController.forward();
+    _loadRoomStats();
   }
 
-  Future<QuerySnapshot> _fetchRoomsData() async {
-    try {
-      print('Rooms yükleniyor...');
+  void _loadRoomStats() async {
+    for (var room in _staticRooms) {
+      final roomId = room['id'];
+      try {
+        // Get real member count from Firebase
+        final roomDoc = await FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(roomId)
+            .get();
 
-      // Auth durumunu kontrol et
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('Kullanıcı giriş yapmamış');
-        throw Exception('Giriş yapmanız gerekiyor');
+        int memberCount = 0;
+        bool isActive = false;
+
+        if (roomDoc.exists) {
+          final data = roomDoc.data()!;
+          memberCount = (data['members'] as List?)?.length ?? 0;
+
+          // Check if there are recent messages (last 24 hours)
+          final lastMessageTime = data['lastMessageTime'] as Timestamp?;
+          if (lastMessageTime != null) {
+            final now = DateTime.now();
+            final messageTime = lastMessageTime.toDate();
+            final difference = now.difference(messageTime);
+            isActive = difference.inHours < 24;
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _roomStats[roomId] = {
+              'memberCount': memberCount,
+              'isActive': isActive,
+            };
+          });
+        }
+      } catch (e) {
+        // If room doesn't exist in Firebase, show default values
+        if (mounted) {
+          setState(() {
+            _roomStats[roomId] = {
+              'memberCount': 0,
+              'isActive': false,
+            };
+          });
+        }
       }
-
-      print('Kullanıcı ID: ${user.uid}');
-
-      final result = await FirebaseFirestore.instance.collection('group_chats').get();
-      print('${result.docs.length} oda bulundu');
-
-      return result;
-    } catch (e) {
-      print('Rooms yükleme hatası: $e');
-      rethrow;
     }
   }
 
-  Future<void> _refreshRooms() async {
-    setState(() {
-      _roomsFuture = _fetchRoomsData();
-    });
-  }
+  void _setupAnimations() {
+    _entryAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
 
-  int _parseColor(dynamic value, int fallback) {
-    if (value is int) return value;
-    if (value is String) {
-      String v = value.trim();
-      if (v.startsWith('0x')) v = v.substring(2);
-      v = v.replaceAll('#', '');
-      if (v.length == 6) v = 'FF$v';
-      final parsed = int.tryParse(v, radix: 16);
-      if (parsed != null) return parsed;
-    }
-    return fallback;
-  }
+    _fadeInAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _entryAnimationController,
+      curve: Curves.easeOutCubic,
+    ));
 
-  EdgeInsets _listPadding(BuildContext context) {
-    final inset = MediaQuery.of(context).padding.bottom;
-    return EdgeInsets.fromLTRB(16, 12, 16, 24 + inset);
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _entryAnimationController,
+      curve: Curves.easeOutCubic,
+    ));
   }
 
   @override
-  Widget build(BuildContext context) {
-    final pad = _listPadding(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rooms'),
-      ),
-      body: FutureBuilder<QuerySnapshot>(
-        future: _roomsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData && _roomsDocsCache == null) {
-            // Yükleme göstergesi yerine iskelet kartlar
-            return _buildSkeletonList(pad);
-          }
-          if (snapshot.hasError) {
-            print('Snapshot error: ${snapshot.error}');
-            if (_roomsDocsCache != null) {
-              return _buildRoomsListFromDocs(_roomsDocsCache!, pad);
-            }
-            return RefreshIndicator(
-              onRefresh: _refreshRooms,
-              child: ListView(
-                padding: pad,
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  const SizedBox(height: 100),
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: Column(
-                      children: [
-                        const Text(
-                          'Rooms yüklenemedi',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Hata: ${snapshot.error}',
-                          style: const TextStyle(color: Colors.grey),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _refreshRooms,
-                          child: const Text('Yeniden Dene'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-          if (snapshot.hasData) {
-            _roomsDocsCache = snapshot.data!.docs;
-          }
-          if (_roomsDocsCache == null || _roomsDocsCache!.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: _refreshRooms,
-              child: ListView(
-                padding: pad,
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 160),
-                  Center(child: Text('Henüz oda yok.')),
-                ],
-              ),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: _refreshRooms,
-            child: _buildRoomsListFromDocs(_roomsDocsCache!, pad),
-          );
-        },
-      ),
-    );
+  void dispose() {
+    _entryAnimationController.dispose();
+    super.dispose();
   }
-
-  Widget _buildRoomsListFromDocs(List<DocumentSnapshot> roomDocs, EdgeInsets pad) {
-    final rooms = roomDocs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      IconData getIconData(String iconName) {
-        switch (iconName) {
-          case 'music_note_outlined': return Icons.music_note_outlined;
-          case 'movie_filter_outlined': return Icons.movie_filter_outlined;
-          case 'airplanemode_active_outlined': return Icons.airplanemode_active_outlined;
-          case 'computer_outlined': return Icons.computer_outlined;
-          case 'menu_book_outlined': return Icons.menu_book_outlined;
-          default: return Icons.chat_bubble_outline_rounded;
-        }
-      }
-      return GroupChatRoomInfo(
-        id: doc.id,
-        name: data['name'] ?? 'Unknown Room',
-        description: data['description'] ?? '',
-        icon: getIconData(data['iconName'] ?? 'chat_bubble_outline_rounded'),
-        color1: Color(_parseColor(data['color1'], 0xFF4E54C8)),
-        color2: Color(_parseColor(data['color2'], 0xFF8F94FB)),
-        isFeatured: false,
-        memberCount: data['memberCount'] is int ? data['memberCount'] : null,
-        avatarsPreview: (data['avatarsPreview'] is List)
-            ? (data['avatarsPreview'] as List).whereType<String>().take(3).toList()
-            : null,
-      );
-    }).toList();
-
-    const rowSpacing = 12.0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableHeight = constraints.maxHeight - pad.vertical;
-        double cardHeight;
-        if (rooms.isNotEmpty) {
-          cardHeight = (availableHeight - rowSpacing * (rooms.length - 1)) / rooms.length;
-        } else {
-          cardHeight = 140;
-        }
-        const minCard = 120.0;
-        const maxCard = 220.0;
-        cardHeight = cardHeight.clamp(minCard, maxCard);
-
-        return ListView.builder(
-          padding: pad,
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: rooms.length,
-          itemBuilder: (context, i) => Padding(
-            padding: EdgeInsets.only(bottom: i == rooms.length - 1 ? 0 : rowSpacing),
-            child: SizedBox(
-              height: cardHeight,
-              child: GroupChatCard(roomInfo: rooms[i], compact: true),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSkeletonList(EdgeInsets pad) {
-    const count = 3;
-    const rowSpacing = 12.0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableHeight = constraints.maxHeight - pad.vertical;
-        double cardHeight = (availableHeight - rowSpacing * (count - 1)) / count;
-        const minCard = 120.0;
-        const maxCard = 220.0;
-        cardHeight = cardHeight.clamp(minCard, maxCard);
-
-        return ListView.builder(
-          padding: pad,
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: count,
-          itemBuilder: (context, i) => Padding(
-            padding: EdgeInsets.only(bottom: i == count - 1 ? 0 : rowSpacing),
-            child: _SkeletonRoomCard(height: cardHeight),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SkeletonRoomCard extends StatelessWidget {
-  final double height;
-  const _SkeletonRoomCard({required this.height});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final base = theme.colorScheme.surfaceContainerHighest.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.5);
-    final fg = theme.colorScheme.onSurface.withValues(alpha: 0.08);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        height: height,
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Scaffold(
+      body: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
-            colors: [base, base.withValues(alpha: (theme.brightness == Brightness.dark ? 0.18 : 0.35))],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    cs.surface,
+                    cs.surface.withValues(alpha: 0.8),
+                    cs.primary.withValues(alpha: 0.1),
+                  ]
+                : [
+                    cs.primary.withValues(alpha: 0.1),
+                    cs.surface,
+                    cs.primary.withValues(alpha: 0.05),
+                  ],
           ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: fg,
-                    shape: BoxShape.circle,
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeInAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Column(
+                children: [
+                  _buildHeader(context, cs, isDark),
+                  Expanded(
+                    child: _buildRoomsList(context, cs, isDark),
                   ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, ColorScheme cs, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(height: 16, width: 140, decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(6))),
-                      const SizedBox(height: 8),
-                      Container(height: 12, width: 200, decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(6))),
-                    ],
-                  ),
-                )
               ],
             ),
-            const Spacer(),
-            Row(
+            child: Icon(
+              Icons.forum_rounded,
+              color: cs.onPrimary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(height: 32, width: 100, decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(16))),
-                const Spacer(),
-                Container(height: 28, width: 28, decoration: BoxDecoration(color: fg, shape: BoxShape.circle)),
+                Text(
+                  'Chat Rooms',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurface,
+                  ),
+                ),
+                Text(
+                  'Join conversations with other learners',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
               ],
-            )
-          ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoomsList(BuildContext context, ColorScheme cs, bool isDark) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      itemCount: _staticRooms.length,
+      itemBuilder: (context, index) {
+        final roomData = _staticRooms[index];
+        final roomId = roomData['id'];
+        final stats = _roomStats[roomId];
+
+        return AnimatedContainer(
+          duration: Duration(milliseconds: 300 + (index * 100)),
+          curve: Curves.easeOutCubic,
+          child: _buildRoomCard(context, cs, isDark, roomData, stats),
+        );
+      },
+    );
+  }
+
+  Widget _buildRoomCard(BuildContext context, ColorScheme cs, bool isDark,
+      Map<String, dynamic> roomData, Map<String, dynamic>? stats) {
+    final String roomName = roomData['name'];
+    final String description = roomData['description'];
+    final IconData roomIcon = roomData['icon'];
+    final Color roomColor = roomData['color'];
+
+    // Use real stats if available, otherwise show loading or default
+    final int memberCount = stats?['memberCount'] ?? 0;
+    final bool isActive = stats?['isActive'] ?? false;
+    final bool isLoading = stats == null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        elevation: 0,
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      cs.surface.withValues(alpha: 0.9),
+                      cs.surface.withValues(alpha: 0.7),
+                    ]
+                  : [
+                      Colors.white.withValues(alpha: 0.9),
+                      Colors.white.withValues(alpha: 0.8),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: cs.outline.withValues(alpha: 0.1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _joinRoom(context, roomData['id'], roomName, roomIcon),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          roomColor,
+                          roomColor.withValues(alpha: 0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: roomColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      roomIcon,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                roomName,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: cs.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isActive)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: cs.onSurface.withValues(alpha: 0.7),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_rounded,
+                              size: 16,
+                              color: roomColor,
+                            ),
+                            const SizedBox(width: 4),
+                            if (isLoading)
+                              SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(roomColor),
+                                ),
+                              )
+                            else
+                              Text(
+                                memberCount == 0 ? 'No members' :
+                                memberCount == 1 ? '1 member' : '$memberCount members',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: roomColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            const Spacer(),
+                            if (!isLoading)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? Colors.green.withValues(alpha: 0.1)
+                                      : Colors.grey.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  isActive ? 'Active' : 'Quiet',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isActive ? Colors.green : Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: roomColor,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
+      ),
+    );
+  }
+
+  void _joinRoom(BuildContext context, String roomId, String roomName, IconData roomIcon) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            GroupChatScreen(
+              roomId: roomId,
+              roomName: roomName,
+              roomIcon: roomIcon,
+            ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }

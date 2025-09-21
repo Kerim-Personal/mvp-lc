@@ -195,7 +195,7 @@ class _StatsBadgesSheetState extends State<StatsBadgesSheet> {
     final data = _userData ?? {};
     final level = data['level'] ?? '-';
     final streak = data['streak'] ?? 0;
-    final totalPracticeTime = data['totalPracticeTime'] ?? 0;
+    final int totalRoomTimeSeconds = (data['totalRoomTime'] as num?)?.toInt() ?? 0;
     final highestStreak = data['highestStreak'] ?? streak;
     final int highestStreakInt = highestStreak is int ? highestStreak : 0;
 
@@ -210,7 +210,7 @@ class _StatsBadgesSheetState extends State<StatsBadgesSheet> {
           StatsGrid(
             level: level,
             streak: streak,
-            totalPracticeTime: totalPracticeTime,
+            totalRoomTimeSeconds: totalRoomTimeSeconds,
             highestStreak: highestStreakInt,
           ),
           const SizedBox(height: 16),
@@ -219,7 +219,7 @@ class _StatsBadgesSheetState extends State<StatsBadgesSheet> {
           AchievementsSection(
             streak: streak,
             highestStreak: highestStreakInt,
-            totalPracticeTime: totalPracticeTime,
+            totalRoomTimeSeconds: totalRoomTimeSeconds,
             level: level,
           ),
         ],

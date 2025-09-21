@@ -59,7 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         final old = _cachedUserData!;
         bool changed = false;
         for (final k in const [
-          'displayName','email','avatarUrl','streak','totalPracticeTime','isPremium','role','highestStreak','level'
+          'displayName','email','avatarUrl','streak','totalRoomTime','isPremium','role','highestStreak','level'
         ]) {
           if (old[k] != data[k]) { changed = true; break; }
         }
@@ -100,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     final memberSince = (userData['createdAt'] as Timestamp?)?.toDate();
     final avatarUrl = userData['avatarUrl'] as String?;
     final streak = userData['streak'] ?? 0;
-    final totalPracticeTime = userData['totalPracticeTime'] ?? 0;
+    final totalRoomTimeSeconds = userData['totalRoomTime'] ?? 0;
     final isPremium = userData['isPremium'] as bool? ?? false;
     final role = (userData['role'] as String?) ?? 'user';
     final highestStreak = userData['highestStreak'] ?? (streak ?? 0);

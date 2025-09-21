@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/screens/login_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String email;
@@ -17,6 +18,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
   bool _isSending = false;
   String? _errorMessage;
   bool _checking = false; // new: verification check state
+
+  // Email doğrulandıktan sonra Firestore alanını güncellemek için token refresh + retry
+  Future<bool> _forceUpdateEmailVerified(User user) async {
+    final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        // ID token içindeki email_verified claim'ini tazele
+        await user.getIdToken(true);
+        await docRef.update({'emailVerified': true});
+        // Debug log
+        // ignore: avoid_print
+        print('emailVerified Firestore update success (attempt ${attempt + 1})');
+        return true;
+      } catch (e) {
+        // ignore: avoid_print
+        print('emailVerified update failed attempt ${attempt + 1}: $e');
+        await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+      }
+    }
+    return false;
+  }
 
   Future<void> _resendVerificationEmail() async {
     setState(() {
@@ -55,8 +77,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
       await FirebaseAuth.instance.currentUser?.reload();
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && user.emailVerified) {
+        // Firestore'da emailVerified alanını güncelle (token refresh ile)
+        await _forceUpdateEmailVerified(user);
         if (!mounted) return;
-        // Go back to the root route (AuthWrapper will re-evaluate and open the RootScreen)
         Navigator.of(context).popUntil((route) => route.isFirst);
         return;
       }

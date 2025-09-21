@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.0
 
 environment:
-  sdk: '>=3.8.1 <4.0.0' # Genellikle bu şekilde bir aralık belirtmek daha sağlıklıdır.
+  sdk: '>=3.8.1 <4.0.0'
 
 dependencies:
   flutter:
@@ -22,6 +22,8 @@ dependencies:
   confetti: ^0.8.0
   emoji_picker_flutter: ^2.2.0
   circle_flags: ^2.0.1
+  lottie: ^3.3.1
+  google_fonts: ^6.2.1
 
   # Firebase Services
   firebase_core: ^2.31.0
@@ -76,6 +78,15 @@ flutter:
     - assets/
     - assets/practice/
     - assets/appicon.png
+    - assets/animations/success.json
+    - assets/animations/Data Analysis.json
+    - assets/animations/diamonds.json
+    - assets/animations/no ads icon.json
+    - assets/animations/Robot says hello.json
+    - assets/animations/Happy SUN.json
+    - assets/animations/Support.json
+    - assets/animations/Translate.json
+    - assets/animations/chat.json # Sohbet animasyonu açıkça eklendi
 
 flutter_intl:
   enabled: false

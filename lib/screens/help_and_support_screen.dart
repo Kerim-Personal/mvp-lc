@@ -46,19 +46,27 @@ class HelpAndSupportScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cs = theme.colorScheme;
-    final start = isDark ? cs.surface.withValues(alpha: 0.85) : Colors.teal.shade400;
-    final end = isDark ? cs.surface.withValues(alpha: 0.60) : Colors.cyan.shade600;
-    final titleColor = isDark ? cs.onSurface : Colors.white;
+
+    // Tutarlı renk paleti
+    final start = isDark ? cs.primary.withValues(alpha: 0.8) : cs.primary;
+    final end = isDark ? cs.primary.withValues(alpha: 0.6) : cs.primary.withValues(alpha: 0.8);
+    final titleColor = isDark ? cs.onPrimary : cs.onPrimary;
+
     return SliverAppBar(
       expandedHeight: 150.0,
       pinned: true,
-      backgroundColor: isDark ? cs.surface : Colors.teal.shade400,
-      elevation: isDark ? 0 : 2,
+      backgroundColor: cs.primary,
+      elevation: isDark ? 2 : 4,
+      iconTheme: IconThemeData(color: cs.onPrimary),
       flexibleSpace: FlexibleSpaceBar(
         centerTitle: true,
         title: Text(
           'Help Center',
-          style: TextStyle(fontWeight: FontWeight.bold, color: titleColor, fontSize: 18),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: titleColor,
+            fontSize: 18
+          ),
         ),
         background: Container(
           decoration: BoxDecoration(

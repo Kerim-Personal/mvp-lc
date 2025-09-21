@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:vocachat/screens/register_screen.dart';
 import 'package:vocachat/services/auth_service.dart';
 import 'package:vocachat/screens/verification_screen.dart';
+import 'package:vocachat/screens/root_screen.dart';
+import 'package:vocachat/main.dart' show rootScreenKey, AuthWrapper; // AuthWrapper'a gerekirse
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,6 +45,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
+      // Basarili ise routing
+      if (!mounted) return;
+      await _postLoginRouting();
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _handleAuthError(e);
@@ -54,11 +59,37 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _postLoginRouting() async {
+    final user = FirebaseAuth.instance.currentUser;
+    await user?.reload();
+    final refreshed = FirebaseAuth.instance.currentUser;
+    if (refreshed == null) return;
+    if (!refreshed.emailVerified) {
+      // Eger dogrulanmadiysa VerificationScreen'e git (ayni ekranda degilsen)
+      if (ModalRoute.of(context)?.settings.name != 'verification') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            settings: const RouteSettings(name: 'verification'),
+            builder: (_) => VerificationScreen(email: refreshed.email ?? _emailController.text.trim()),
+          ),
+        );
+      }
+    } else {
+      // Email dogrulanmis -> root'a sifirla
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => RootScreen(key: rootScreenKey)),
+        (_) => false,
+      );
+    }
+  }
+
   void _handleAuthError(FirebaseAuthException e) {
     if (e.code == 'email-not-verified') {
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
+          settings: const RouteSettings(name: 'verification'),
           builder: (context) => VerificationScreen(email: _emailController.text.trim()),
         ),
       );
@@ -88,8 +119,11 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       final cred = await _authService.signInWithGoogle();
-      if (cred == null && mounted) {
+      if (!mounted) return;
+      if (cred == null) {
         _showSnackBar('Google sign-in was cancelled', Colors.orange);
+      } else {
+        await _postLoginRouting();
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;

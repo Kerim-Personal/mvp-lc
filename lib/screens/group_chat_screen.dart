@@ -16,6 +16,8 @@ import 'package:vocachat/widgets/group_message_bubble.dart';
 import 'package:vocachat/widgets/grammar_analysis_dialog.dart';
 import 'package:vocachat/widgets/sender_header_label.dart';
 import 'package:vocachat/widgets/common/confirm_dialog.dart';
+import 'dart:async';
+import 'package:vocachat/screens/chat_rules_screen.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String roomId;
@@ -63,10 +65,15 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   bool _showScrollToBottom = false;
   bool _didInitialScroll = false;
 
+  DateTime? _sessionStart; // istemci tabanlı süre ölçümü
+  bool _sessionCommitted = false;
+  static const int _maxSessionSeconds = 6 * 60 * 60; // 6 saat güvenlik sınırı
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _sessionStart = DateTime.now();
     _loadUserDataAndJoinRoom();
     _listenMyBlocked();
     _nameShimmerController = AnimationController(
@@ -124,6 +131,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _commitRoomTime();
     _leaveRoom();
     _scrollController.removeListener(_onScrollLoadMore);
     _scrollController.removeListener(_updateScrollToBottomVisibility);
@@ -195,8 +203,35 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     }
   }
 
+  Future<void> _commitRoomTime() async {
+    if (_sessionCommitted) return; // tekrar engelle
+    if (currentUser == null) return;
+    if (_sessionStart == null) return;
+    final seconds = DateTime.now().difference(_sessionStart!).inSeconds;
+    if (seconds <= 0) return;
+    final safeSeconds = seconds > _maxSessionSeconds ? _maxSessionSeconds : seconds;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).update({
+        'totalRoomTime': FieldValue.increment(safeSeconds),
+      });
+      _sessionCommitted = true;
+    } catch (_) {
+      // sessiz: security rule veya offline durumda başarısız olabilir
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _commitRoomTime();
+      _leaveRoom();
+    }
+    super.didChangeAppLifecycleState(state);
+  }
+
   Future<void> _leaveRoom() async {
     if (currentUser == null) return;
+    await _commitRoomTime();
     try {
       await FirebaseFirestore.instance
           .collection('group_chats')
@@ -204,9 +239,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           .collection('members')
           .doc(currentUser!.uid)
           .delete();
-    } catch (e) {
-      // Error handling
-    }
+    } catch (_) {}
   }
 
   Future<void> _sendGroupMessage(String text) async {
@@ -453,6 +486,20 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                 ),
               ],
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Chat Rules',
+                icon: const Icon(Icons.rule),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChatRulesScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           floatingActionButton: _showScrollToBottom
               ? Padding(

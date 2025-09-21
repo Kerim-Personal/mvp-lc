@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
 
   // Login tarafında ek bekleyen credential tutmuyoruz; linking sadece profilden yapılır.
 
@@ -19,7 +20,7 @@ class AuthService {
   /// Kullanıcı adının veritabanında daha önce alınıp alınmadığını kontrol eder.
   /// Artık Callable Cloud Function kullanır; kimlik doğrulaması gerektirmez.
   Future<bool> isUsernameAvailable(String username) async {
-    final callable = FirebaseFunctions.instance.httpsCallable('checkUsernameAvailable');
+    final callable = _functions.httpsCallable('checkUsernameAvailable');
     final res = await callable.call({'username': username});
     final data = res.data;
     if (data is Map && data['available'] is bool) return data['available'] as bool;
@@ -36,15 +37,33 @@ class AuthService {
 
       // 1.5: Kullanıcı adı rezervasyonu – yarış koşullarını engelle
       try {
-        final callable = FirebaseFunctions.instance.httpsCallable('reserveUsername');
+        final callable = _functions.httpsCallable('reserveUsername');
         await callable.call({'username': username});
       } catch (e) {
         // Rezervasyon başarısız: oluşturulan auth kullanıcısını geri al
         try { await userCredential.user?.delete(); } catch (_) {}
         try { await _auth.signOut(); } catch (_) {}
+        if (e is FirebaseFunctionsException) {
+          if (e.code == 'already-exists') {
+            throw FirebaseAuthException(
+              code: 'username-taken',
+              message: 'Kullanıcı adı zaten alınmış. Lütfen başka bir ad deneyin.',
+            );
+          } else if (e.code == 'invalid-argument') {
+            throw FirebaseAuthException(
+              code: 'invalid-username',
+              message: 'Geçersiz kullanıcı adı formatı.',
+            );
+          } else if (e.code == 'unauthenticated') {
+            throw FirebaseAuthException(
+              code: 'requires-recent-login',
+              message: 'Oturum doğrulanamadı, lütfen tekrar deneyin.',
+            );
+          }
+        }
         throw FirebaseAuthException(
-          code: 'username-taken',
-          message: 'Kullanıcı adı zaten alınmış. Lütfen başka bir ad deneyin.',
+          code: 'username-reservation-failed',
+          message: 'Kullanıcı adı rezerve edilemedi. Tekrar deneyin.',
         );
       }
 
@@ -159,7 +178,10 @@ class AuthService {
           }
           // Eksik emailVerified alanı güncelle
           if (data['emailVerified'] != true && user.emailVerified) {
-            await docRef.update({'emailVerified': true});
+            try {
+              await user.getIdToken(true); // claim yenile
+              await docRef.update({'emailVerified': true});
+            } catch (_) {}
           }
         }
       }
@@ -239,7 +261,7 @@ class AuthService {
 
           // Kullanıcı adı rezervasyonu: çakışırsa küçük varyasyonlar dene
           String reservedName = baseName;
-          final reserveFn = FirebaseFunctions.instance.httpsCallable('reserveUsername');
+          final reserveFn = _functions.httpsCallable('reserveUsername');
           bool reserved = false;
           for (int i = 0; i < 3 && !reserved; i++) {
             final tryName = (i == 0) ? reservedName : '${baseName}_${user.uid.substring(0, 2 + i)}';
@@ -272,10 +294,16 @@ class AuthService {
             'profileCompleted': false, // Google kullanıcıları tamamlamaya yönlendirilecek
           });
         } else {
-          await docRef.update({
-            'lastActivityDate': FieldValue.serverTimestamp(),
-            if (user.emailVerified) 'emailVerified': true,
-          });
+          // lastActivityDate ayrı güncelle
+          try {
+            await docRef.update({'lastActivityDate': FieldValue.serverTimestamp()});
+          } catch (_) {}
+          if (user.emailVerified) {
+            try {
+              await user.getIdToken(true);
+              await docRef.update({'emailVerified': true});
+            } catch (_) {}
+          }
           // Eski 'blockedUsers' array -> alt koleksiyona migrasyon (best-effort)
           final data = snap.data();
           if (data != null) {
@@ -316,7 +344,6 @@ class AuthService {
       throw FirebaseAuthException(code: 'no-current-user', message: 'Oturum bulunamadı.');
     }
     if (user.providerData.any((p) => p.providerId == 'google.com')) {
-      // Zaten bağlı; hata yerine başarı gibi davranabiliriz
       return true;
     }
 
@@ -356,12 +383,14 @@ class AuthService {
     }
 
     // Firestore dokümanını hafifçe güncelle
-    try {
-      await _firestore.collection('users').doc(user.uid).update({
-        'lastActivityDate': FieldValue.serverTimestamp(),
-        if (user.emailVerified) 'emailVerified': true,
-      });
-    } catch (_) {}
+    final docRef = _firestore.collection('users').doc(user.uid);
+    try { await docRef.update({'lastActivityDate': FieldValue.serverTimestamp()}); } catch (_) {}
+    if (user.emailVerified) {
+      try {
+        await user.getIdToken(true);
+        await docRef.update({'emailVerified': true});
+      } catch (_) {}
+    }
 
     return true;
   }

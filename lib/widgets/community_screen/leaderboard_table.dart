@@ -22,62 +22,72 @@ class _LeaderboardTableState extends State<LeaderboardTable> with TickerProvider
 
   bool get _useAnimation => widget.animate && widget.users.isNotEmpty;
 
+  void _initListAnimations() {
+    _listAnimationController?.dispose();
+    final totalDuration = 500 + widget.users.length * 30;
+    _listAnimationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: totalDuration > 1600 ? 1600 : totalDuration),
+    );
+    _slideAnimations = List.generate(
+      widget.users.length,
+          (index) => Tween<Offset>(
+        begin: const Offset(0, 0.5),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _listAnimationController!,
+          curve: Interval(
+            (index * 0.015),
+            (0.4 + (index * 0.015)).clamp(0.0, 1.0),
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+      ),
+    );
+    _fadeAnimations = List.generate(
+      widget.users.length,
+          (index) => Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(
+        CurvedAnimation(
+          parent: _listAnimationController!,
+          curve: Interval(
+            (index * 0.015),
+            (0.5 + (index * 0.015)).clamp(0.0, 1.0),
+            curve: Curves.easeOut,
+          ),
+        ),
+      ),
+    );
+    _listAnimationController!.forward();
+  }
+
   @override
   void initState() {
     super.initState();
     if (_useAnimation) {
-      final totalDuration = 500 + widget.users.length * 30;
-      _listAnimationController = AnimationController(
-        vsync: this,
-        duration: Duration(milliseconds: totalDuration > 1600 ? 1600 : totalDuration),
-      );
-      _slideAnimations = List.generate(
-        widget.users.length,
-            (index) => Tween<Offset>(
-          begin: const Offset(0, 0.5),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(
-            parent: _listAnimationController!,
-            curve: Interval(
-              (index * 0.015),
-              (0.4 + (index * 0.015)).clamp(0.0, 1.0),
-              curve: Curves.easeOutCubic,
-            ),
-          ),
-        ),
-      );
-      _fadeAnimations = List.generate(
-        widget.users.length,
-            (index) => Tween<double>(
-          begin: 0.0,
-          end: 1.0,
-        ).animate(
-          CurvedAnimation(
-            parent: _listAnimationController!,
-            curve: Interval(
-              (index * 0.015),
-              (0.5 + (index * 0.015)).clamp(0.0, 1.0),
-              curve: Curves.easeOut,
-            ),
-          ),
-        ),
-      );
-      _listAnimationController!.forward();
+      _initListAnimations();
     }
   }
 
   @override
   void didUpdateWidget(covariant LeaderboardTable oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Animasyon sadece ilk yüklemede; animate false'dan true'ya geçiş olursa tekrar başlat.
-    if (_useAnimation && _listAnimationController == null) {
-      final totalDuration = 500 + widget.users.length * 30;
-      _listAnimationController = AnimationController(
-        vsync: this,
-        duration: Duration(milliseconds: totalDuration > 1600 ? 1600 : totalDuration),
-      );
-      _listAnimationController!.forward();
+    if (_useAnimation) {
+      final needsReinit = _listAnimationController == null || _slideAnimations.length != widget.users.length;
+      if (needsReinit) {
+        _initListAnimations();
+      }
+    } else {
+      // Animasyon artık kullanılmıyorsa controller'ı bırak.
+      if (_listAnimationController != null) {
+        _listAnimationController!.dispose();
+        _listAnimationController = null;
+        _slideAnimations = const [];
+        _fadeAnimations = const [];
+      }
     }
   }
 
@@ -89,7 +99,7 @@ class _LeaderboardTableState extends State<LeaderboardTable> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
-    if (!_useAnimation) {
+    if (!_useAnimation || _listAnimationController == null) {
       return ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: widget.users.length,
@@ -101,6 +111,10 @@ class _LeaderboardTableState extends State<LeaderboardTable> with TickerProvider
       itemCount: widget.users.length,
       itemBuilder: (context, index) {
         final user = widget.users[index];
+        // Güvenlik: animasyon listesi boyutu tutmuyorsa fallback
+        if (index >= _fadeAnimations.length || index >= _slideAnimations.length) {
+          return _UserRankCard(user: user);
+        }
         return FadeTransition(
           opacity: _fadeAnimations[index],
           child: SlideTransition(
@@ -147,7 +161,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
       _shimmerController!.addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           Future.delayed(const Duration(milliseconds: 600), () {
-            if (mounted) _shimmerController?.forward(from: 0);
+            if (mounted && _shimmerController != null) _shimmerController!.forward(from: 0);
           });
         }
       });
@@ -159,6 +173,17 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
   void dispose() {
     _shimmerController?.dispose();
     super.dispose();
+  }
+
+  String _formatDuration(int totalSeconds) {
+    if (totalSeconds <= 0) return '0s';
+    final d = Duration(seconds: totalSeconds);
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    if (h > 0) return '${h}h ${m}m';
+    final s = d.inSeconds.remainder(60);
+    if (m > 0) return '${m}m ${s}s';
+    return '${s}s';
   }
 
   @override
@@ -227,9 +252,22 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
               ),
             ),
             const SizedBox(width: 12),
-            // User Name and Premium Icon
+            // User Name and Premium Icon + Time
             Expanded(
-              child: _buildName(baseColor),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildName(baseColor),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(_formatDuration(widget.user.totalRoomSeconds), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -250,12 +288,12 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
       overflow: TextOverflow.ellipsis,
     );
 
-    if (!_shouldShimmer) return textWidget;
+    if (!_shouldShimmer || _shimmerController == null) return textWidget;
 
     return AnimatedBuilder(
       animation: _shimmerController!,
       builder: (context, child) {
-        final v = _shimmerController!.value; // 0..1
+        final v = _shimmerController?.value ?? 0.0; // 0..1
         final start = (v - 0.3).clamp(0.0, 1.0);
         final mid = v.clamp(0.0, 1.0);
         final end = (v + 0.3).clamp(0.0, 1.0);
@@ -263,8 +301,8 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
           blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) => LinearGradient(
             colors: normalPremium
-                ? const [Color(0xFFE5B53A), Colors.white, Color(0xFFE5B53A)] // Normal premium: altın
-                : [baseColor, Colors.white, baseColor], // Admin / moderator premium: rol rengi
+                ? const [Color(0xFFE5B53A), Colors.white, Color(0xFFE5B53A)]
+                : [baseColor, Colors.white, baseColor],
              stops: [start, mid, end],
              begin: Alignment.topLeft,
              end: Alignment.bottomRight,
