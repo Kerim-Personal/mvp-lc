@@ -65,29 +65,50 @@ class _RoomsScreenState extends State<RoomsScreen> with TickerProviderStateMixin
 
   void _loadRoomStats() async {
     for (var room in _staticRooms) {
-      final roomId = room['id'];
+      final String roomId = room['id'];
       try {
-        // Get real member count from Firebase
-        final roomDoc = await FirebaseFirestore.instance
-            .collection('rooms')
+        // Read member count from group_chats/{roomId}/members
+        final membersRef = FirebaseFirestore.instance
+            .collection('group_chats')
             .doc(roomId)
-            .get();
+            .collection('members');
 
         int memberCount = 0;
+        try {
+          final agg = await membersRef.count().get();
+          memberCount = (agg.count ?? 0);
+        } catch (_) {
+          // Fallback: approximate by fetching a small page
+          final snap = await membersRef.limit(20).get();
+          memberCount = snap.size;
+        }
+
+        // Determine activity from latest message timestamp within last 24h
         bool isActive = false;
+        try {
+          final latestMsgSnap = await FirebaseFirestore.instance
+              .collection('group_chats')
+              .doc(roomId)
+              .collection('messages')
+              .orderBy('createdAt', descending: true)
+              .limit(1)
+              .get();
 
-        if (roomDoc.exists) {
-          final data = roomDoc.data()!;
-          memberCount = (data['members'] as List?)?.length ?? 0;
-
-          // Check if there are recent messages (last 24 hours)
-          final lastMessageTime = data['lastMessageTime'] as Timestamp?;
-          if (lastMessageTime != null) {
-            final now = DateTime.now();
-            final messageTime = lastMessageTime.toDate();
-            final difference = now.difference(messageTime);
-            isActive = difference.inHours < 24;
+          if (latestMsgSnap.docs.isNotEmpty) {
+            final data = latestMsgSnap.docs.first.data();
+            final ts = data['createdAt'];
+            DateTime? last;
+            if (ts is Timestamp) {
+              last = ts.toDate();
+            } else if (ts is DateTime) {
+              last = ts;
+            }
+            if (last != null) {
+              isActive = DateTime.now().difference(last).inHours < 24;
+            }
           }
+        } catch (_) {
+          // ignore activity failures
         }
 
         if (mounted) {
@@ -98,8 +119,7 @@ class _RoomsScreenState extends State<RoomsScreen> with TickerProviderStateMixin
             };
           });
         }
-      } catch (e) {
-        // If room doesn't exist in Firebase, show default values
+      } catch (_) {
         if (mounted) {
           setState(() {
             _roomStats[roomId] = {

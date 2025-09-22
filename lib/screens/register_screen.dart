@@ -10,18 +10,18 @@ import 'package:vocachat/services/translation_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:circle_flags/circle_flags.dart';
 
-// Bayrak eşleme ve bastırma setleri tek yerde tanımlandı
+// Flag mapping and suppression sets are defined in one place
 const _flagMap = <String,String>{
   'af':'za','sq':'al','ar':'sa','be':'by','bg':'bg','bn':'bd','ca':'ad','zh':'cn','hr':'hr','cs':'cz','da':'dk','nl':'nl','en':'gb','et':'ee','fi':'fi','fr':'fr','gl':'es','ka':'ge','de':'de','el':'gr','he':'il','hi':'in','hu':'hu','is':'is','id':'id','ga':'ie','it':'it','ja':'jp','ko':'kr','lv':'lv','lt':'lt','mk':'mk','ms':'my','mt':'mt','no':'no','fa':'ir','pl':'pl','pt':'pt','ro':'ro','ru':'ru','sk':'sk','sl':'si','es':'es','sw':'tz','sv':'se','tl':'ph','ta':'lk','th':'th','tr':'tr','uk':'ua','ur':'pk','vi':'vn','ht':'ht','gu':'in','kn':'in','te':'in','mr':'in'};
-// Sadece bayrağı olmayan/sembolik diller
+// Languages without a flag/symbolic only
 const _suppressFlag = {'eo','cy'};
-// Hindistan grubu (aynı bayrak gösterilecek)
+// Indian group (will show the same flag)
 const _indianGroup = {'hi','gu','kn','te','mr'};
 
 String? _countryGroup(String code){
   if (_indianGroup.contains(code)) return 'in';
   if (_flagMap.containsKey(code)) return _flagMap[code];
-  return null; // sembolik ya da özel
+  return null; // symbolic or special
 }
 
 class RegisterScreen extends StatefulWidget {
@@ -53,7 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   // Multi-step state
   int _currentStep = 0;
 
-  // Ortak stil değişkenleri
+  // Common style variables
   static const _primaryColor = Colors.teal;
   static const _cardRadius = 18.0;
   static const _fieldRadius = 12.0;
@@ -196,12 +196,12 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
-        // Kopya ve sıralama
+        // Copy and sort
         final langs = List<Map<String,String>>.from(TranslationService.supportedLanguages);
         langs.sort((a,b){
           final ca = _countryGroup(a['code']!);
           final cb = _countryGroup(b['code']!);
-          final gc = (ca ?? 'zzz').compareTo(cb ?? 'zzz'); // null'lar sona
+          final gc = (ca ?? 'zzz').compareTo(cb ?? 'zzz'); // nulls go to the end
           if (gc != 0) return gc;
           return a['label']!.toLowerCase().compareTo(b['label']!.toLowerCase());
         });
@@ -225,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         for (final m in langs){
           final code = m['code']!;
           final label = m['label']!;
-          final group = _countryGroup(code) ?? code; // sembolikler kendi koduyla ayırıcı
+          final group = _countryGroup(code) ?? code; // symbolics use their own code as a separator
           if (prevGroup != null && group != prevGroup){
             tiles.add(const Divider(height: 4, thickness: 0.5));
           }
@@ -250,8 +250,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                   ),
                 ),
                 trailing: selected
-                  ? Icon(Icons.check, color: Colors.teal, size: 20)
-                  : null,
+                    ? const Icon(Icons.check, color: Colors.teal, size: 20)
+                    : null,
                 onTap: () {
                   setState(() {
                     _selectedNativeLanguageCode = code;
@@ -310,7 +310,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   Future<void> _validateUsernameAndProceed() async {
     final username = _usernameController.text.trim();
-    if (username.isEmpty) return; // mevcut validator zaten uyaracak
+    if (username.isEmpty) return; // The existing validator will already warn
     setState(() { _isLoading = true; });
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
@@ -327,28 +327,28 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         String msg;
         switch (reason) {
           case 'invalid_format':
-            msg = 'Kullanıcı adı yalnızca a-z, 0-9 ve _ içerebilir (3-29 karakter).';
+            msg = 'Username can only contain a-z, 0-9 and _ (3-29 characters).';
             break;
           case 'reserved':
-            msg = 'Bu kullanıcı adı rezerve edilmiş. Lütfen başka bir tane seçin.';
+            msg = 'This username is reserved. Please choose another one.';
             break;
           case 'taken':
           case 'taken_legacy':
-            msg = 'Bu kullanıcı adı zaten alınmış. Başka bir tane deneyin.';
+            msg = 'This username is already taken. Try another one.';
             break;
           case 'rate_limited':
-            msg = 'Çok fazla deneme yaptınız. Lütfen biraz sonra tekrar deneyin.';
+            msg = 'You have made too many attempts. Please try again later.';
             break;
           default:
-            msg = 'Kullanıcı adı doğrulanamadı. Tekrar deneyin.';
+            msg = 'Username could not be verified. Please try again.';
         }
         if (mounted) _showError(msg);
-        return; // ilerleme yok
+        return; // no progression
       }
-      // Uygun -> bir sonraki adıma geç
+      // Suitable -> proceed to the next step
       if (mounted) setState(() { _currentStep++; });
     } catch (e) {
-      if (mounted) _showError('Kullanıcı adı kontrolü başarısız: $e');
+      if (mounted) _showError('Username check failed: $e');
     } finally {
       if (mounted) setState(() { _isLoading = false; });
     }
@@ -467,7 +467,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 minHeight: MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.vertical - keyboardHeight,
+                    MediaQuery.of(context).padding.vertical - keyboardHeight,
               ),
               child: IntrinsicHeight(
                 child: Column(
@@ -529,8 +529,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                 height: 24,
                 decoration: BoxDecoration(
                   color: isCompleted
-                    ? Colors.white
-                    : isActive
+                      ? Colors.white
+                      : isActive
                       ? Colors.white
                       : Colors.transparent,
                   border: Border.all(
@@ -540,17 +540,17 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: isCompleted
-                  ? Icon(Icons.check, size: 14, color: _primaryColor.shade600)
-                  : Center(
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          color: isActive ? _primaryColor.shade600 : Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                    ? Icon(Icons.check, size: 14, color: _primaryColor.shade600)
+                    : Center(
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: isActive ? _primaryColor.shade600 : Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                ),
               ),
               if (index < 2) ...[
                 const SizedBox(width: 8),
@@ -587,7 +587,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         children: [
           _buildStepTitle(),
           SizedBox(height: isCompact ? 12 : 16),
-          // Replaced fixed-height PageView with AnimatedSize + IndexedStack so içerik yükseklik kadar olsun, overflow azalır
+          // Replaced fixed-height PageView with AnimatedSize + IndexedStack so the content determines the height, reducing overflow
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
@@ -595,7 +595,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
             child: IndexedStack(
               index: _currentStep,
               children: [
-                // Her adımı doğal boyutuyla göstermek için tek tek wrap edildi
+                // Each step is wrapped individually to be shown with its natural height
                 _buildStep1(),
                 _buildStep2(),
                 _buildStep3(),
@@ -929,18 +929,18 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
               ),
               child: _isLoading
                   ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
                   : Text(
-                      _currentStep < 2 ? 'Next' : 'Create Account',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                _currentStep < 2 ? 'Next' : 'Create Account',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ),

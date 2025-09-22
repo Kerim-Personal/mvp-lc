@@ -569,3 +569,4 @@ exports.setAdminClaim = functions
         );
       }
     });
+
