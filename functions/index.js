@@ -176,6 +176,19 @@ exports.deleteUserAccount = functions
           status: "deleted",
           deletedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+
+        // Bu kullanıcıya ait rezerve kullanıcı adlarını serbest bırak
+        try {
+          const usernamesSnap = await db.collection("usernames").where("uid", "==", uid).get();
+          if (!usernamesSnap.empty) {
+            const batch = db.batch();
+            usernamesSnap.forEach((doc) => batch.delete(doc.ref));
+            await batch.commit();
+          }
+        } catch (cleanupErr) {
+          console.error("username cleanup failed:", cleanupErr);
+        }
+
         await admin.auth().deleteUser(uid);
         return {success: true};
       } catch (error) {
@@ -569,4 +582,66 @@ exports.setAdminClaim = functions
         );
       }
     });
+/** Kullanıcı adını güvenli şekilde değiştirme (atomik) */
+exports.changeUsername = functions
+  .region("us-central1")
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Giriş gerekli");
+    }
+    const raw = data && data.username ? String(data.username) : "";
+    const newUsername = raw.trim().toLowerCase();
 
+    const RESERVED = new Set([
+      "admin", "root", "support", "moderator", "mod",
+      "system", "null", "undefined", "owner", "staff", "team",
+      "vocachat", "voca", "api"
+    ]);
+    const VALID_RE = /^[a-z0-9_]{3,29}$/;
+    if (!VALID_RE.test(newUsername)) {
+      throw new functions.https.HttpsError("invalid-argument", "Geçersiz format");
+    }
+    if (RESERVED.has(newUsername)) {
+      throw new functions.https.HttpsError("already-exists", "Rezerve isim");
+    }
+
+    const uid = context.auth.uid;
+    const userRef = db.collection("users").doc(uid);
+    const newRef = db.collection("usernames").doc(newUsername);
+
+    // Kullanıcının mevcut tüm rezervasyonlarını önceden oku (silmek için)
+    const prevSnap = await db.collection("usernames").where("uid", "==", uid).get();
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const taken = await tx.get(newRef);
+        if (taken.exists) {
+          const owner = (taken.data() && taken.data().uid) || null;
+          if (owner !== uid) {
+            throw new functions.https.HttpsError("already-exists", "Alınmış");
+          }
+          // Aynı kullanıcıya aitse idempotent kabul; yine de devam edip temizlik yapalım
+        }
+        // Yeni kullanıcı adını rezerve et
+        tx.set(newRef, {
+          uid,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // Eski tüm kayıtları sil (yeni olan hariç)
+        prevSnap.forEach((doc) => {
+          if (doc.id !== newUsername) tx.delete(doc.ref);
+        });
+        // Kullanıcı profilini güncelle
+        tx.set(userRef, {
+          displayName: newUsername,
+          username_lowercase: newUsername,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+      });
+      return {success: true};
+    } catch (e) {
+      if (e instanceof functions.https.HttpsError) throw e;
+      console.error("changeUsername error", e);
+      throw new functions.https.HttpsError("internal", "Kullanıcı adı değiştirilemedi");
+    }
+  });

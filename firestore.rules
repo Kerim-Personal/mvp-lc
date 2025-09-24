@@ -43,7 +43,7 @@ service cloud.firestore {
       return name is string && name.size() >= 3 && name.size() <= 29 && name.matches('^[A-Za-z0-9_]{3,29}$');
     }
     function isReservedName(n) {
-      return n in ['admin','administrator','root','support','moderator','mod','system','null','undefined','owner','staff','team','vocachat','voca','api'];
+      return n in ['admin','root','support','moderator','mod','system','null','undefined','owner','staff','team','vocachat','voca','api'];
     }
     function ownsReservedUsername(uname) {
       return exists(/databases/$(database)/documents/usernames/$(uname)) &&
@@ -101,10 +101,24 @@ service cloud.firestore {
 
       allow update: if
         (
+          // Profil alanları + username_lowercase birlikte güncellenebilir
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'displayName', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime'
-          ])
+            'displayName', 'username_lowercase', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime'
+          ]) &&
+          (
+            // username_lowercase değişiyorsa geçerli ve rezerve edilmiş olmalı
+            (
+              request.resource.data.username_lowercase is string &&
+              request.resource.data.username_lowercase.matches('^[a-z0-9_]{3,29}$') &&
+              !isReservedName(request.resource.data.username_lowercase) &&
+              ownsReservedUsername(request.resource.data.username_lowercase)
+            ) || (
+              // username_lowercase alanı bu güncellemede yoksa veya değişmiyorsa, diğer profil alanlarına izin ver
+              !(request.resource.data.diff(resource.data).changedKeys().hasOnly(['username_lowercase'])) &&
+              !(request.resource.data.diff(resource.data).changedKeys().hasAny(['username_lowercase']))
+            )
+          )
         ) || (
           // FCM token listesi (sadece liste merge/update). Ayrı tutuldu ki diğer alanlarla aynı anda yazılamasın.
           isOwner(userId) && callerNotBanned() &&
@@ -199,9 +213,11 @@ service cloud.firestore {
         ) || (
           isPrivileged(request.auth.uid) &&
           request.resource.data.senderId == request.auth.uid &&
-          request.resource.data.senderRole in ['admin','moderator']
+          request.resource.data.senderRole == 'admin'
         )) &&
-        request.resource.data.keys().hasOnly(['senderId','senderRole','text','attachments','createdAt']);
+        request.resource.data.keys().hasOnly(['senderId','senderRole','message','timestamp','attachments']) &&
+        request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 5000 &&
+        (request.resource.data.attachments == null || (request.resource.data.attachments is list));
         allow update, delete: if false;
       }
     }

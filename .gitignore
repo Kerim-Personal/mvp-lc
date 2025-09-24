@@ -108,3 +108,5 @@ log/
 # Duplicate removed & canonical list below (referans)
 # lib/services/vocabot_service.dart (tekil)
 # /lib/firebase_options.dart (zaten yukarıda)
+
+/android/key.properties

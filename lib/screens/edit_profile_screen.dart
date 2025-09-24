@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:vocachat/services/auth_service.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:circle_flags/circle_flags.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 // Bayrak ve gruplama (diğer ekranlarla uyumlu)
 const _flagMapEdit = <String,String>{
@@ -184,22 +185,47 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       final newDisplayName = _displayNameController.text.trim();
-      Map<String, dynamic> updatedData = {
-        'displayName': newDisplayName,
-        'username_lowercase': newDisplayName.toLowerCase(),
-        'birthDate': _selectedBirthDate != null ? Timestamp.fromDate(_selectedBirthDate!) : null,
-        'nativeLanguage': _selectedNativeLanguageCode ?? 'en',
-        'avatarUrl': _avatarUrl,
-      };
+      final usernameChanged = newDisplayName.toLowerCase() != _initialDisplayName.toLowerCase();
 
-      if (newDisplayName.toLowerCase() != _initialDisplayName.toLowerCase()) {
+      // Önce kullanıcı adı değişecekse atomik sunucu çağrısı yap
+      if (usernameChanged) {
+        // İsteğe bağlı ön kontrol (kullanıcı dostu mesaj için)
         final isAvailable = await _authService.isUsernameAvailable(newDisplayName);
         if (!isAvailable && mounted) {
           _showError('This username is already taken.');
           setState(() => _isSaving = false);
           return;
         }
+        // Eski usernames kaydını temizleyip yenisini set eden sunucu fonksiyonu
+        try {
+          final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+          final callable = functions.httpsCallable('changeUsername');
+          await callable.call({'username': newDisplayName});
+        } on FirebaseFunctionsException catch (e) {
+          String msg = 'Username change failed.';
+          if (e.code == 'already-exists') msg = 'This username is already taken.';
+          if (e.code == 'invalid-argument') msg = 'Invalid username format.';
+          if (mounted) {
+            _showError(msg);
+            setState(() => _isSaving = false);
+          }
+          return;
+        } catch (_) {
+          if (mounted) {
+            _showError('Username change failed.');
+            setState(() => _isSaving = false);
+          }
+          return;
+        }
       }
+
+      // Diğer profil alanlarını güncelle (kullanıcı adı alanlarını sunucu zaten güncelledi)
+      final Map<String, dynamic> updatedData = {
+        // 'displayName' ve 'username_lowercase' burada kasıtlı olarak yok
+        'birthDate': _selectedBirthDate != null ? Timestamp.fromDate(_selectedBirthDate!) : null,
+        'nativeLanguage': _selectedNativeLanguageCode ?? 'en',
+        'avatarUrl': _avatarUrl,
+      };
 
       await FirebaseFirestore.instance.collection('users').doc(widget.userId).update(updatedData);
 
@@ -222,7 +248,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _showDatePicker() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 18+ için maksimum tarih: bugünden 18 yıl öncesi
+    final now = DateTime.now();
+    final adultThresholdDate = DateTime(now.year - 18, now.month, now.day);
+
     DateTime? tempPickedDate = _selectedBirthDate ?? DateTime(2000);
+    if (tempPickedDate.isAfter(adultThresholdDate)) {
+      tempPickedDate = adultThresholdDate;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -325,7 +358,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       },
                       initialDateTime: tempPickedDate,
                       minimumYear: 1940,
-                      maximumYear: DateTime.now().year,
+                      maximumYear: adultThresholdDate.year,
+                      // 18 yaşından küçük tarihleri engelle
+                      maximumDate: adultThresholdDate,
                       backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                     ),
                   ),
@@ -523,6 +558,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               isDark: isDark,
               readOnly: true,
               onTap: _showDatePicker,
+              // 18+ doğrulaması
+              validator: (_) {
+                if (_selectedBirthDate == null) return 'Birth Date is required.';
+                final now = DateTime.now();
+                final adultThreshold = DateTime(now.year - 18, now.month, now.day);
+                if (_selectedBirthDate!.isAfter(adultThreshold)) {
+                  return 'You must be at least 18 years old.';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 20),
             _buildTextField(

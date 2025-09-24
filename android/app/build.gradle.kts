@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -9,14 +12,18 @@ plugins {
 }
 
 // Keystore özelliklerini yükle (varsa)
-import java.util.Properties
-import java.io.FileInputStream
-
 val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("android/keystore.properties")
-if (keystorePropertiesFile.exists()) {
+val keystorePropertiesFileCandidates = listOf(
+    rootProject.file("key.properties"),              // önerilen konum
+    rootProject.file("android/key.properties"),      // geriye dönük uyumluluk
+    rootProject.file("android/keystore.properties")  // eski isimle geriye dönük uyumluluk
+)
+val keystorePropertiesFile = keystorePropertiesFileCandidates.firstOrNull { it.exists() }
+if (keystorePropertiesFile != null) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+val hasReleaseKeystore = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { (keystoreProperties.getProperty(it)?.isNotBlank()) == true }
 
 android {
     namespace = "com.codenzi.vocachat"
@@ -55,12 +62,22 @@ android {
 
     buildTypes {
         release {
-            // keystore.properties yoksa debug imzasına düş
-            signingConfig = if (keystorePropertiesFile.exists()) {
+            // keystore tam değilse debug imzasına düş
+            signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
             }
+
+            // R8 ile küçültme ve kaynak kırpma
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            // Optimize edilmiş varsayılan proguard kuralları + proje kuralları
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                file("proguard-rules.pro")
+            )
         }
     }
 }

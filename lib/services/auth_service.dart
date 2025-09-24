@@ -255,7 +255,9 @@ class AuthService {
         if (!snap.exists) {
           // Firestore security rules isValidNewUser gereksinimlerini sağlamak için zorunlu alanları dolduruyoruz.
           final rawName = (user.displayName ?? user.email?.split('@').first ?? 'User').trim();
-          String baseName = rawName;
+          // Boşlukları otomatik kaldır ve geçersiz karakterleri '_' ile değiştir
+          String baseName = rawName.replaceAll(RegExp(r'\s+'), '');
+          baseName = baseName.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '_');
           if (baseName.length < 3) baseName = (baseName + '___').substring(0, 3); // min 3
           if (baseName.length > 29) baseName = baseName.substring(0,29);
 

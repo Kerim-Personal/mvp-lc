@@ -9,6 +9,7 @@ import 'package:vocachat/screens/verification_screen.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:circle_flags/circle_flags.dart';
+import 'package:flutter/services.dart';
 
 // Flag mapping and suppression sets are defined in one place
 const _flagMap = <String,String>{
@@ -74,7 +75,14 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   }
 
   void _showDatePicker() {
+    // 18+ için maksimum tarih: bugünden 18 yıl öncesi
+    final now = DateTime.now();
+    final adultThresholdDate = DateTime(now.year - 18, now.month, now.day);
+
     DateTime? tempPickedDate = _selectedBirthDate ?? DateTime(2000);
+    if (tempPickedDate.isAfter(adultThresholdDate)) {
+      tempPickedDate = adultThresholdDate;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -177,7 +185,9 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                       },
                       initialDateTime: tempPickedDate,
                       minimumYear: 1940,
-                      maximumYear: DateTime.now().year,
+                      maximumYear: adultThresholdDate.year,
+                      // 18 yaşından küçük tarihleri engelle
+                      maximumDate: adultThresholdDate,
                       backgroundColor: Colors.white,
                     ),
                   ),
@@ -699,6 +709,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   }
 
   Widget _buildTextField(String label, TextEditingController controller, TextInputType type, IconData icon) {
+    final isUsername = label == 'Username';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -714,13 +725,25 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         TextFormField(
           controller: controller,
           keyboardType: type,
+          textInputAction: TextInputAction.next,
+          autocorrect: !isUsername,
+          enableSuggestions: !isUsername,
+          textCapitalization: TextCapitalization.none,
+          inputFormatters: isUsername
+              ? <TextInputFormatter>[
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9_]')),
+                  LengthLimitingTextInputFormatter(29),
+                ]
+              : null,
           style: TextStyle(
             color: Colors.grey.shade800,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
           validator: (value) => _validateField(value, label),
-          decoration: _inputDecoration('Enter your ${label.toLowerCase()}', icon),
+          decoration: isUsername
+              ? _inputDecoration('Enter a username (A-Z, a-z, 0-9, _)', icon)
+              : _inputDecoration('Enter your ${label.toLowerCase()}', icon),
         ),
       ],
     );
@@ -861,7 +884,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   String? _validateField(String? value, String fieldName) {
     if (value == null || value.isEmpty) return '$fieldName is required';
-    if (fieldName == 'Email Address' && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+    if (fieldName == 'Email Address' && !RegExp(r'^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
       return 'Please enter a valid email';
     }
     if (fieldName == 'Password' && value.length < 6) {
@@ -869,6 +892,15 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     }
     if (fieldName == 'Username' && value.length < 3) {
       return 'Username must be at least 3 characters';
+    }
+    // 18+ kuralı: doğum tarihi zorunlu ve en az 18 yaş
+    if (fieldName == 'Birth Date') {
+      if (_selectedBirthDate == null) return 'Birth Date is required';
+      final now = DateTime.now();
+      final adultThreshold = DateTime(now.year - 18, now.month, now.day);
+      if (_selectedBirthDate!.isAfter(adultThreshold)) {
+        return 'You must be at least 18 years old';
+      }
     }
     return null;
   }
