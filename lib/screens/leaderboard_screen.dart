@@ -1,6 +1,7 @@
 // lib/screens/leaderboard_screen.dart
 
 import 'dart:ui' show ImageFilter;
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -241,12 +242,12 @@ class _CommunityScreenState extends State<CommunityScreen>
                     textAlign: TextAlign.center,
                   ),
                 ),
-                // Sağ tarafta görünmez ikon ile dengeleme -> gerçek ortalama
-                const Align(
+                // Sağ üst: ödül bilgi butonu
+                Align(
                   alignment: Alignment.centerRight,
-                  child: Opacity(
-                    opacity: 0,
-                    child: Icon(Icons.leaderboard_rounded),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: _RewardInfoButton(onTap: _showWeeklyRewardDialog),
                   ),
                 ),
               ],
@@ -274,6 +275,111 @@ class _CommunityScreenState extends State<CommunityScreen>
           _buildMyRankOrHint(),
         ],
       ),
+    );
+  }
+
+  void _showWeeklyRewardDialog() {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87.withValues(alpha: 0.55),
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [cs.primary, cs.primaryContainer.withValues(alpha: 0.85)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+                        ),
+                        child: const Icon(Icons.construction_rounded, color: Colors.white, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          'Weekly Rewards',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: .3,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        tooltip: 'Close',
+                      )
+                    ],
+                  ),
+                ),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 26, 24, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(Icons.construction, size: 54, color: cs.secondary),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Weekly Reward System Under Maintenance',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          height: 1.32,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'The weekly reward system is currently under maintenance. We\'ll notify you once it\'s back online. Thank you for your patience!',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.75),
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.check_circle_outline, size: 20),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          label: const Text('OK'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -712,4 +818,91 @@ class _ModeSegmentedSwitchState extends State<_ModeSegmentedSwitch> {
   }
 }
 
-// KALDIRILAN: _LeaderboardModePicker (overlay tabanlı açılır menü)
+// Reward info button with animation
+class _RewardInfoButton extends StatefulWidget {
+  const _RewardInfoButton({required this.onTap});
+  final VoidCallback onTap;
+  @override
+  State<_RewardInfoButton> createState() => _RewardInfoButtonState();
+}
+
+class _RewardInfoButtonState extends State<_RewardInfoButton> with SingleTickerProviderStateMixin {
+  late final AnimationController _sparkleController;
+
+  @override
+  void initState() {
+    super.initState();
+    _sparkleController = AnimationController(vsync: this, duration: const Duration(seconds: 7))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _sparkleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Reward Information',
+      button: true,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedBuilder(
+          animation: _sparkleController,
+          builder: (context, child) {
+            final v = _sparkleController.value;
+            double local(double start, double end) {
+              if (v < start || v > end) return 0.0;
+              final t = (v - start) / (end - start);
+              return math.sin(t * math.pi).clamp(0.0, 1.0);
+            }
+            final glow = math.max(local(0, 0.08), local(0.55, 0.63));
+            final base = Colors.tealAccent;
+            final fg = Color.lerp(base, Colors.white, glow) ?? Colors.white;
+            final shadow = base.withValues(alpha: glow * 0.8);
+            return Container(
+              padding: const EdgeInsets.all(0),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: 0.35),
+                boxShadow: glow > 0 ? [
+                  BoxShadow(
+                    color: shadow,
+                    blurRadius: 14 + 8 * glow,
+                    spreadRadius: 1 + glow,
+                  ),
+                ] : null,
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: Center(
+                      child: Icon(Icons.card_giftcard_rounded, size: 30, color: fg),
+                    ),
+                  ),
+                  if (glow > 0.25)
+                    Positioned(
+                      left: 2,
+                      top: 2,
+                      child: Transform.rotate(
+                        angle: -glow * math.pi,
+                        child: Icon(
+                          Icons.auto_awesome,
+                          size: 18 + glow * 4,
+                          color: Colors.amberAccent.withValues(alpha: 0.5 + glow * 0.4),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

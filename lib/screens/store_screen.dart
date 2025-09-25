@@ -14,7 +14,6 @@ import 'package:vocachat/services/purchase_service.dart';
 import 'package:vocachat/widgets/shared/animated_background.dart';
 import 'package:vocachat/widgets/store_screen/glassmorphism.dart';
 import 'package:vocachat/widgets/home_screen/premium_status_panel.dart';
-import 'package:vocachat/widgets/store_screen/diamond_pack_grid_tile.dart';
 import 'package:shimmer/shimmer.dart';
 
 class StoreScreen extends StatefulWidget {
@@ -48,7 +47,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   int _currentBenefitPage = 0; // Aktif benefit sayfası
 
   final Set<String> _purchasing = {};
-  Map<String, String> _priceMap = {};
+  Timer? _benefitsAutoScrollTimer; // 5 sn'de bir otomatik kaydırma
 
   // Premium benefits data
   static const List<_BenefitData> _premiumBenefits = [
@@ -87,11 +86,26 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabListener = () => setState(() {}); // Listener referansını sakla
-    _tabController.addListener(_tabListener); // Anonim yerine referans ekle
-    _benefitPageController = PageController(); // PageController'ı başlat
+    _tabController = TabController(length: 1, vsync: this); // sadece Premium tabı
+    _tabListener = () => setState(() {});
+    _tabController.addListener(_tabListener);
+    _benefitPageController = PageController();
+    // 5 saniyede bir faydaları döngüsel kaydır
+    _benefitsAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _autoScrollBenefits());
     _init();
+  }
+
+  void _autoScrollBenefits() {
+    if (!mounted) return;
+    if (!_benefitPageController.hasClients) return;
+    final total = _premiumBenefits.length;
+    if (total <= 1) return;
+    final next = (_currentBenefitPage + 1) % total;
+    _benefitPageController.animateToPage(
+      next,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<void> _init() async {
@@ -99,7 +113,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     _initTried = true;
     await _purchaseService.init();
     if (!mounted) return;
-    _buildPriceMap();
     if (mounted) setState(() => _loadingProducts = false);
 
     _listenUser();
@@ -113,15 +126,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         setState(() => _diamonds = 0);
       }
     });
-  }
-
-  void _buildPriceMap() {
-    final map = <String, String>{};
-    for (final id in PurchaseService.diamondProductIds) {
-      final p = _purchaseService.product(id);
-      if (p != null) map[id] = p.price;
-    }
-    _priceMap = map;
   }
 
   void _listenUser() {
@@ -145,6 +149,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     try {
       _tabController.removeListener(_tabListener); // Doğru şekilde kaldır
     } catch (_) {}
+    _benefitsAutoScrollTimer?.cancel(); // timer iptali
     _tabController.dispose();
     _benefitPageController.dispose(); // PageController'ı dispose et
     _purchaseService.dispose();
@@ -165,13 +170,10 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     }
 
     if (!mounted) {
-      // Eğer widget artık mount değilse, satın alma işlemi tamamlanmış olsa da
-      // UI üzerinde değişiklik yapma. Burada yine de log tut.
       debugPrint('StoreScreen disposed before purchase completed.');
       return;
     }
 
-    // satın alma bitince UI'daki loading durumunu kaldır
     if (mounted) setState(() => _purchasing.remove(productId));
 
     if (!ok) {
@@ -183,10 +185,14 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       return;
     }
 
-    // Başarılı işlem -> DiamondService güncellemesi artık servis tarafından yapılmalı.
+    // Başarılı işlem -> mesajı ürün tipine göre göster
     if (mounted) {
+      final isPremium = productId == PurchaseService.monthlyProductId || productId == PurchaseService.yearlyProductId;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adding diamonds to your account...'), backgroundColor: Colors.black87),
+        SnackBar(
+          content: Text(isPremium ? 'Activating Premium...' : 'Adding diamonds to your account...'),
+          backgroundColor: Colors.black87,
+        ),
       );
     }
   }
@@ -294,33 +300,10 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _header() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final diamondsText = _formatDiamonds(_diamonds);
-
+    // Store başlığı ve elmas sayacı kullanıcı isteğiyle kaldırıldı.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Shimmer.fromColors(
-                baseColor: isDark ? Colors.white : Colors.black87,
-                highlightColor: Colors.amber.shade300,
-                child: Text(
-                  'Store',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 28,
-                    letterSpacing: 0.8,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-            Flexible(child: _diamondBalanceChip(diamondsText)),
-          ],
-        ),
-        const SizedBox(height: 18),
         _segmentedTabs(),
         const SizedBox(height: 8),
       ],
@@ -345,9 +328,9 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   Widget _diamondBalanceChip(String value) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return InkWell(
-      onTap: () => _tabController.animateTo(0),
-      borderRadius: BorderRadius.circular(24),
+    return Container(
+      // tıklanabilirlik kaldırıldı
+      decoration: const BoxDecoration(),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 170),
         child: ClipRRect(
@@ -383,12 +366,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                         color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.add,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                      size: 18
-                    ),
+                    // Satın alma çağrışımı yapan '+' simgesi kaldırıldı
                   ],
                 ),
               ),
@@ -441,7 +419,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
             labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             tabs: const [
-              Tab(text: 'Diamonds', icon: Icon(Icons.diamond, size: 18)),
               Tab(text: 'Premium', icon: Icon(Icons.workspace_premium, size: 18)),
             ],
           ),
@@ -467,7 +444,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 height: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(42),
-                  // Cam efekti için çok şeffaf arka plan
                   color: isDark
                     ? Colors.black.withValues(alpha: 0.15)
                     : Colors.white.withValues(alpha: 0.15),
@@ -508,7 +484,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                                     controller: _tabController,
                                     physics: const BouncingScrollPhysics(),
                                     children: [
-                                      _diamondsGrid(),
                                       _isPremium
                                           ? _buildPremiumActiveView()
                                           : _buildPremiumUpsellView(),
@@ -528,58 +503,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _diamondsGrid() {
-    final ids = PurchaseService.diamondProductIds;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int crossAxisCount = 3;
-        if (constraints.maxWidth < 380) crossAxisCount = 2;
-        final usableWidth = constraints.maxWidth.clamp(0.0, double.infinity);
-        final itemWidth = (usableWidth - (16 * (crossAxisCount - 1))).clamp(1.0, double.infinity) / crossAxisCount;
-        final itemHeight = 200.0; // önceki 168.0 yerine daha ferah yükseklik
-        final aspectRatio = (itemWidth.isFinite && itemHeight > 0) ? (itemWidth / itemHeight) : 1.0;
-        return GridView.builder(
-          key: const PageStorageKey('diamonds_grid'),
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
-            physics: const BouncingScrollPhysics(parent: ClampingScrollPhysics()),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: aspectRatio,
-          ),
-          itemCount: ids.length,
-          itemBuilder: (context, index) {
-            final id = ids[index];
-            final amount = PurchaseService.diamondAmountFor(id) ?? 0;
-            final price = _priceMap[id] ?? '...';
-            String? badge;
-            Color? badgeColor;
-            if (id == 'diamonds_large') {
-              badge = 'BEST VALUE';
-              badgeColor = Colors.greenAccent;
-            } else if (id == 'diamonds_medium') {
-              badge = 'POPULAR';
-              badgeColor = Colors.amber;
-            } else if (id == 'diamonds_mega') {
-              badge = 'MEGA PACK';
-              badgeColor = Colors.deepPurpleAccent;
-            }
-            return DiamondPackGridTile(
-              productId: id,
-              title: '$amount Diamonds',
-              price: price,
-              badge: badge,
-              badgeColor: badgeColor,
-              loading: _purchasing.contains(id),
-              onTap: _priceMap[id] == null ? null : () => _buy(id),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildPremiumUpsellView({Key? key}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final monthlyProduct = _purchaseService.product(PurchaseService.monthlyProductId);
@@ -593,17 +516,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         children: [
-          // Premium Benefits başlığı - ortada ve şık
-          Text(
-            'Premium Benefits',
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black87,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 20),
+          // Premium Benefits başlığı kaldırıldı
+          // const SizedBox(height: 20), // ek boşluk gereksiz
           // Premium faydaları için sayfa görünümü - daha büyük
           SizedBox(
             height: 220, // Yüksekliği artırdım

@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vocachat/screens/leaderboard_screen.dart';
-import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:vocachat/screens/report_user_screen.dart';
+import 'package:vocachat/screens/user_profile_summary_screen.dart';
 
 class LeaderboardTable extends StatefulWidget {
   final List<LeaderboardUser> users;
@@ -209,67 +211,76 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
             ? BorderSide(color: rankColor, width: 1.5)
             : BorderSide.none,
       ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: isTop3 ? LinearGradient(
-            stops: const [0.02, 0.02],
-            colors: [rankColor, Theme.of(context).colorScheme.surface],
-          ) : null,
-          color: isTop3 ? null : Theme.of(context).colorScheme.surface,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => UserProfileSummaryScreen(user: widget.user),
+          ),
         ),
-        child: Row(
-          children: [
-            // Rank
-            SizedBox(
-              width: 45,
-              child: Column(
-                children: [
-                  if (isTop3) Icon(rankIcon, color: rankColor, size: 22),
-                  Text(
-                    '#${widget.user.rank}',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: rankColor,
-                        fontSize: isTop3 ? 18 : 16),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-            // Avatar
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: Colors.grey.shade200,
-              child: ClipOval(
-                child: SvgPicture.network(
-                  widget.user.avatarUrl,
-                  width: 44,
-                  height: 44,
-                  placeholderBuilder: (context) => const CircularProgressIndicator(strokeWidth: 2),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: isTop3 ? LinearGradient(
+              stops: const [0.02, 0.02],
+              colors: [rankColor, Theme.of(context).colorScheme.surface],
+            ) : null,
+            color: isTop3 ? null : Theme.of(context).colorScheme.surface,
+          ),
+          child: Row(
+            children: [
+              // Rank
+              SizedBox(
+                width: 45,
+                child: Column(
+                  children: [
+                    if (isTop3) Icon(rankIcon, color: rankColor, size: 22),
+                    Text(
+                      '#${widget.user.rank}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: rankColor,
+                          fontSize: isTop3 ? 18 : 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            // User Name and Premium Icon + Time
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildName(baseColor),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(_formatDuration(widget.user.totalRoomSeconds), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                    ],
+              // Avatar
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.grey.shade200,
+                child: ClipOval(
+                  child: SvgPicture.network(
+                    widget.user.avatarUrl,
+                    width: 44,
+                    height: 44,
+                    placeholderBuilder: (context) => const CircularProgressIndicator(strokeWidth: 2),
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              // User Name and Premium Icon + Time
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildName(baseColor),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(_formatDuration(widget.user.totalRoomSeconds), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              _ReportUserButton(targetUser: widget.user),
+            ],
+          ),
         ),
       ),
     );
@@ -311,6 +322,33 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
         );
       },
       child: textWidget,
+    );
+  }
+}
+
+class _ReportUserButton extends StatelessWidget {
+  final LeaderboardUser targetUser;
+  const _ReportUserButton({required this.targetUser});
+  @override
+  Widget build(BuildContext context) {
+    final current = FirebaseAuth.instance.currentUser;
+    if (current == null || current.uid == targetUser.userId) return const SizedBox.shrink();
+    return IconButton(
+      tooltip: 'Raporla',
+      icon: const Icon(Icons.flag_outlined, size: 20, color: Colors.redAccent),
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ReportUserScreen(
+              reportedUserId: targetUser.userId,
+              reportedContent: targetUser.name,
+              reportedContentId: 'leaderboard_${targetUser.userId}',
+              reportedContentType: 'leaderboard',
+              reportedContentParentId: null,
+            ),
+          ),
+        );
+      },
     );
   }
 }

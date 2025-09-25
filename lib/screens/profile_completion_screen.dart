@@ -49,7 +49,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> with 
   @override
   void initState() {
     super.initState();
-    _displayNameController.text = widget.userData['displayName'] ?? '';
+    // Google'dan gelen displayName otomatik doldurulmasın; kullanıcı kendisi girsin.
+    // _displayNameController.text = widget.userData['displayName'] ?? '';
+    _displayNameController.text = '';
     _nativeLanguageCode = widget.userData['nativeLanguage'];
     final ts = widget.userData['birthDate'];
     if (ts is Timestamp) {

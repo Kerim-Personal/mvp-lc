@@ -275,9 +275,10 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
   }
 
   Widget _buildCompactDiamondsChip() {
-    final amount = widget.diamonds;
-    final rich = amount >= 1000;
-    final txt = _formatDiamonds(amount);
+    final isPremiumUser = widget.isPremium;
+    final statusText = isPremiumUser ? 'Premium' : 'Starter';
+    final statusIcon = isPremiumUser ? Icons.workspace_premium : Icons.stars;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -285,12 +286,12 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
         onTap: _openStore,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          constraints: const BoxConstraints(minHeight: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          constraints: const BoxConstraints(minHeight: 32),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: LinearGradient(
-              colors: rich
+              colors: isPremiumUser
                   ? const [Color(0xFF7F5DFF), Color(0xFFE5B53A)]
                   : const [Color(0xFF545B62), Color(0xFF6B7280)],
             ),
@@ -306,23 +307,15 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.diamond, size: 15, color: Colors.white),
-              const SizedBox(width: 4),
-              Text(
-                txt,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
-              ),
+              Icon(statusIcon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.28), width: 0.6),
+              Text(
+                statusText,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
-                alignment: Alignment.center,
-                child: const Icon(Icons.add, size: 12, color: Colors.white),
               ),
             ],
           ),

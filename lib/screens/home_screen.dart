@@ -2,14 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:vocachat/screens/rooms_screen.dart';
+import 'package:vocachat/screens/vocabot_chat_screen.dart';
+import 'package:vocachat/screens/user_profile_summary_screen.dart';
+import 'package:vocachat/screens/leaderboard_screen.dart';
 import 'package:vocachat/widgets/home_screen/home_header.dart';
 import 'package:vocachat/widgets/home_screen/stats_row.dart';
-import 'package:vocachat/widgets/home_screen/partner_finder_section.dart';
+import 'package:vocachat/widgets/home_screen/vocabot_ai_button.dart';
 import 'package:vocachat/widgets/home_screen/home_cards_section.dart';
 import 'package:vocachat/widgets/common/safety_help_button.dart';
-import 'package:vocachat/widgets/common/ai_partner_button.dart';
-import 'package:vocachat/widgets/home_screen/profile_summary_content.dart';
+import '../widgets/common/usage_guide_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onSearchingChanged});
@@ -99,57 +100,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _findPracticePartner() async {
     if (!mounted) return;
-    // RoomsScreen'i aç
+    // LinguaBotChatScreen'i aç
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const RoomsScreen(),
+        builder: (context) => const LinguaBotChatScreen(),
+      ),
+    );
+  }
+
+  void _navigateToUserProfile(DocumentSnapshot<Map<String, dynamic>>? snap) {
+    if (!mounted || _currentUser == null || snap?.data() == null) return;
+
+    final userData = snap!.data()!;
+    final userName = userData['displayName'] ?? 'User';
+    final avatarUrl = userData['avatarUrl'] as String? ?? '';
+    final isPremium = userData['isPremium'] as bool? ?? false;
+    final role = userData['role'] as String? ?? 'user';
+    final streak = userData['streak'] as int? ?? 0;
+
+    // Kullanıcının toplam oda süresini hesapla
+    int totalRoomSeconds = 0;
+    if (userData['totalRoomTime'] != null) {
+      totalRoomSeconds = (userData['totalRoomTime'] as num).toInt();
+    } else if (userData['totalPracticeTime'] != null) {
+      totalRoomSeconds = ((userData['totalPracticeTime'] as num).toInt()) * 60;
+    }
+
+    // LeaderboardUser objesi oluştur
+    final currentUserProfile = LeaderboardUser(
+      userId: _currentUser!.uid,
+      name: userName,
+      avatarUrl: avatarUrl,
+      rank: 1, // Kendi profili için sıralama önemli değil
+      streak: streak,
+      totalRoomSeconds: totalRoomSeconds,
+      isPremium: isPremium,
+      role: role,
+    );
+
+    // UserProfileSummaryScreen'i aç
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserProfileSummaryScreen(user: currentUserProfile),
       ),
     );
   }
 
   void _navigateToStatsAndBadges() {
-    if (!mounted) return;
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'profile-summary',
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      transitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
-      transitionBuilder: (ctx, anim, sec, __) {
-        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
-        return Opacity(
-          opacity: anim.value,
-          child: Center(
-            child: Transform.scale(
-              scale: 0.98 + 0.02 * curved.value,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxW = (constraints.maxWidth - 32).clamp(320.0, 560.0);
-                  final maxH = (constraints.maxHeight * 0.88).clamp(420.0, 760.0);
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
-                    child: Material(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      elevation: 12,
-                      borderRadius: BorderRadius.circular(16),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: const [
-                          // İçerik kendi içinde scrollable
-                          Expanded(child: ProfileSummaryContent()),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    // Profile summary disabled.
+    return;
   }
 
   @override
@@ -170,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           isPremium: false,
           currentUser: _currentUser,
           role: 'user',
-          onTap: _navigateToStatsAndBadges); // onTap eklendi
+          onTap: null);
     }
     if (snap == null || !snap.exists || snap.data() == null) {
       return HomeHeader(
@@ -180,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           isPremium: false,
           currentUser: _currentUser,
           role: 'user',
-          onTap: _navigateToStatsAndBadges); // onTap eklendi
+          onTap: null);
     }
     final userData = snap.data()!;
     final userName = userData['displayName'] ?? 'Traveler';
@@ -202,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       diamonds: diamonds,
       currentUser: _currentUser,
       role: role,
-      onTap: _navigateToStatsAndBadges, // onTap eklendi
+      onTap: () => _navigateToUserProfile(snap), // Buraya tıklama fonksiyonu eklendi
     );
   }
 
@@ -276,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
-                        AiPartnerButton(),
+                        UsageGuideButton(),
                         SafetyHelpButton(),
                       ],
                     ),

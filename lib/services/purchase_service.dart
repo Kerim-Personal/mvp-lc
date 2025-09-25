@@ -19,25 +19,11 @@ class PurchaseService {
   static const String monthlyProductId = 'premium_monthly';
   static const String yearlyProductId = 'premium_yearly';
 
-  // Elmas paketleri (örnek kimlikler)
-  static const List<String> diamondProductIds = [
-    'diamonds_small', // 100
-    'diamonds_medium', // 550
-    'diamonds_large', // 1200
-    'diamonds_mega', // 3000 (yeni)
-  ];
+  // Elmas paketleri devre dışı: boş liste
+  static const List<String> diamondProductIds = [];
 
   static int? diamondAmountFor(String id) {
-    switch (id) {
-      case 'diamonds_small':
-        return 100;
-      case 'diamonds_medium':
-        return 550;
-      case 'diamonds_large':
-        return 1200;
-      case 'diamonds_mega':
-        return 3000;
-    }
+    // Diamonds satışları kapalı, miktar dönmüyoruz
     return null;
   }
 
@@ -55,14 +41,7 @@ class PurchaseService {
   }
 
   void _registerDummyProducts() {
-    // Sahte / örnek fiyatlar. Gerçek uygulamada locale & currency gelir.
-    for (final id in diamondProductIds) {
-      final amount = diamondAmountFor(id) ?? 0;
-      // Basit fiyatlama: amount / 20, mega için küçük indirim uygula
-      double base = amount / 20;
-      if (id == 'diamonds_mega') base *= 0.92; // indirim
-      _products[id] = StoreProduct(id, '₺${base.toStringAsFixed(2)}');
-    }
+    // Diamonds ürünleri eklenmiyor.
     _products[monthlyProductId] = const StoreProduct(monthlyProductId, '₺59,90');
     _products[yearlyProductId] = const StoreProduct(yearlyProductId, '₺399,90');
   }
@@ -73,10 +52,9 @@ class PurchaseService {
     if (!isAvailable) return false;
     try {
       await Future.delayed(const Duration(milliseconds: 350));
+      // Diamonds satın alımı devre dışı
       if (diamondProductIds.contains(productId)) {
-        final add = diamondAmountFor(productId) ?? 0;
-        final added = await _addDiamonds(add);
-        return added; // merkezi servis üzerinden optimistik artış
+        return false;
       }
       if (productId == monthlyProductId || productId == yearlyProductId) {
         await _activateSubscription(productId);

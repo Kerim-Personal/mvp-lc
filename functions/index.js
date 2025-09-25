@@ -152,10 +152,11 @@ exports.sendVerificationCode = functions.auth.user().onCreate((user) => {
 });
 
 /**
- * Kullanıcı hesabı silme
- * Kullanıcı, hesabını sildiğinde bu fonksiyon tetiklenir.
- * Hesap silindikten sonra, kullanıcıya ait veriler "Silinmiş Kullanıcı"
- * olarak güncellenir.
+ * Kullanıcı hesabı silme (HARD DELETE)
+ * - Rezerve kullanıcı adları serbest bırakılır
+ * - Kullanıcı dokümanının alt koleksiyonları silinir
+ * - Kullanıcı dokümanı tamamen silinir
+ * - Auth kullanıcısı silinir
  */
 exports.deleteUserAccount = functions
     .region("us-central1")
@@ -167,108 +168,79 @@ exports.deleteUserAccount = functions
         );
       }
       const uid = context.auth.uid;
+      const userRef = db.collection("users").doc(uid);
       try {
-        const userRef = db.collection("users").doc(uid);
-        await userRef.update({
-          displayName: "Silinmiş Kullanıcı",
-          email: `${uid}@deleted.lingua.chat`,
-          avatarUrl: "",
-          status: "deleted",
-          deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        // Bu kullanıcıya ait rezerve kullanıcı adlarını serbest bırak
+        // 1) Rezerve kullanıcı adlarını serbest bırak
         try {
           const usernamesSnap = await db.collection("usernames").where("uid", "==", uid).get();
           if (!usernamesSnap.empty) {
-            const batch = db.batch();
-            usernamesSnap.forEach((doc) => batch.delete(doc.ref));
-            await batch.commit();
+            const batchArray = [];
+            let batch = db.batch();
+            let opCount = 0;
+            usernamesSnap.forEach((doc) => {
+              batch.delete(doc.ref);
+              opCount++;
+              if (opCount === 450) { // güvenli sınır
+                batchArray.push(batch.commit());
+                batch = db.batch();
+                opCount = 0;
+              }
+            });
+            if (opCount > 0) batchArray.push(batch.commit());
+            await Promise.all(batchArray);
           }
         } catch (cleanupErr) {
           console.error("username cleanup failed:", cleanupErr);
         }
 
-        await admin.auth().deleteUser(uid);
-        return {success: true};
+        // 2) Kullanıcı dokümanının alt koleksiyonlarını temizle (küçük ölçek varsayımı)
+        try {
+          const subCollections = await userRef.listCollections();
+          for (const col of subCollections) {
+            const colSnap = await col.get();
+            if (colSnap.empty) continue;
+            const deletions = [];
+            let batch = db.batch();
+            let count = 0;
+            for (const doc of colSnap.docs) {
+              batch.delete(doc.ref);
+              count++;
+              if (count === 450) {
+                deletions.push(batch.commit());
+                batch = db.batch();
+                count = 0;
+              }
+            }
+            if (count > 0) deletions.push(batch.commit());
+            if (deletions.length) await Promise.all(deletions);
+          }
+        } catch (subErr) {
+          console.error("subcollection cleanup failed:", subErr);
+        }
+
+        // 3) Kullanıcı dokümanını sil (soft delete yerine tam silme)
+        try {
+          await userRef.delete();
+        } catch (docDelErr) {
+          console.error("user doc delete failed:", docDelErr);
+        }
+
+        // 4) Auth kullanıcısını sil
+        try {
+          await admin.auth().deleteUser(uid);
+        } catch (authErr) {
+          console.error("auth user delete failed:", authErr);
+          throw new functions.https.HttpsError("internal", "Auth kullanıcı silinemedi.");
+        }
+
+        return {success: true, hardDeleted: true};
       } catch (error) {
+        console.error("deleteUserAccount hard delete error:", error);
         throw new functions.https.HttpsError(
             "internal",
             "Hesap silinirken bir sunucu hatası oluştu.",
         );
       }
-    });
-
-/**
- * Oda üyesi eklendiğinde: memberCount artır, avatarsPreview güncelle
- * (ilk 3 avatar)
- */
-exports.onGroupMemberAdded = functions.firestore
-    .document("group_chats/{roomId}/members/{memberId}")
-    .onCreate(async (snap, context) => {
-      const roomId = context.params.roomId;
-      const memberData = snap.data() || {};
-      const avatarUrl = memberData.avatarUrl || null;
-      const roomRef = db.collection("group_chats").doc(roomId);
-
-      await db.runTransaction(async (tx) => {
-        const roomDoc = await tx.get(roomRef);
-        const current = roomDoc.exists ? roomDoc.data() : {};
-        const currentCount = current.memberCount || 0;
-        const avPreview = Array.isArray(current.avatarsPreview) ?
-          current.avatarsPreview.slice(0, 3) : [];
-        if (avatarUrl && !avPreview.includes(avatarUrl) &&
-            avPreview.length < 3) {
-          avPreview.push(avatarUrl);
-        }
-        tx.set(roomRef, {
-          memberCount: currentCount + 1,
-          avatarsPreview: avPreview,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        }, {merge: true});
-      });
-      return null;
-    });
-
-/**
- * Oda üyesi silindiğinde: memberCount azalt, gerekirse avatarsPreview
- * yeniden oluştur
- */
-exports.onGroupMemberRemoved = functions.firestore
-    .document("group_chats/{roomId}/members/{memberId}")
-    .onDelete(async (snap, context) => {
-      const roomId = context.params.roomId;
-      const removedData = snap.data() || {};
-      const removedAvatar = removedData.avatarUrl || null;
-      const roomRef = db.collection("group_chats").doc(roomId);
-
-      await db.runTransaction(async (tx) => {
-        const roomDoc = await tx.get(roomRef);
-        const current = roomDoc.exists ? roomDoc.data() : {};
-        const currentCount = current.memberCount || 0;
-        let avPreview = Array.isArray(current.avatarsPreview) ?
-          current.avatarsPreview.slice(0, 3) : [];
-
-        const needsRebuild = removedAvatar &&
-          avPreview.includes(removedAvatar);
-        if (needsRebuild) {
-          // İlk 3 üyeyi tekrar oku (en az okuma için limit 3)
-          const membersSnap = await db.collection("group_chats").doc(roomId)
-              .collection("members").limit(3).get();
-          avPreview = [];
-          membersSnap.forEach((d) => {
-            const data = d.data();
-            if (data.avatarUrl) avPreview.push(data.avatarUrl);
-          });
-        }
-        tx.set(roomRef, {
-          memberCount: Math.max(0, currentCount - 1),
-          avatarsPreview: avPreview,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        }, {merge: true});
-      });
-
-      return null;
     });
 /** Rapor oluşturulduğunda içerik bazlı rapor sayacını artır */
 exports.onReportCreated = functions.firestore
@@ -590,24 +562,29 @@ exports.changeUsername = functions
       throw new functions.https.HttpsError("unauthenticated", "Giriş gerekli");
     }
     const raw = data && data.username ? String(data.username) : "";
-    const newUsername = raw.trim().toLowerCase();
+    // Orijinal girilen (trim + boşlukları kaldır)
+    let originalUsername = raw.trim();
+    // İç boşlukları tamamen kaldır (UI zaten engelliyor ama ekstra güvenlik)
+    originalUsername = originalUsername.replace(/\s+/g, "");
+
+    const usernameLower = originalUsername.toLowerCase();
 
     const RESERVED = new Set([
       "admin", "root", "support", "moderator", "mod",
       "system", "null", "undefined", "owner", "staff", "team",
       "vocachat", "voca", "api"
     ]);
-    const VALID_RE = /^[a-z0-9_]{3,29}$/;
-    if (!VALID_RE.test(newUsername)) {
+    const VALID_RE = /^[A-Za-z0-9_]{3,29}$/; // Büyük/küçük harf serbest
+    if (!VALID_RE.test(originalUsername)) {
       throw new functions.https.HttpsError("invalid-argument", "Geçersiz format");
     }
-    if (RESERVED.has(newUsername)) {
+    if (RESERVED.has(usernameLower)) {
       throw new functions.https.HttpsError("already-exists", "Rezerve isim");
     }
 
     const uid = context.auth.uid;
     const userRef = db.collection("users").doc(uid);
-    const newRef = db.collection("usernames").doc(newUsername);
+    const newRef = db.collection("usernames").doc(usernameLower); // benzersizlik lowercase
 
     // Kullanıcının mevcut tüm rezervasyonlarını önceden oku (silmek için)
     const prevSnap = await db.collection("usernames").where("uid", "==", uid).get();
@@ -620,21 +597,21 @@ exports.changeUsername = functions
           if (owner !== uid) {
             throw new functions.https.HttpsError("already-exists", "Alınmış");
           }
-          // Aynı kullanıcıya aitse idempotent kabul; yine de devam edip temizlik yapalım
+          // Aynı kullanıcıya aitse idempotent kabul
         }
-        // Yeni kullanıcı adını rezerve et
+        // Yeni kullanıcı adını rezerve et (lowercase key)
         tx.set(newRef, {
           uid,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         // Eski tüm kayıtları sil (yeni olan hariç)
         prevSnap.forEach((doc) => {
-          if (doc.id !== newUsername) tx.delete(doc.ref);
+          if (doc.id !== usernameLower) tx.delete(doc.ref);
         });
-        // Kullanıcı profilini güncelle
+        // Kullanıcı profilini güncelle (displayName orijinal case korunur)
         tx.set(userRef, {
-          displayName: newUsername,
-          username_lowercase: newUsername,
+          displayName: originalUsername,
+          username_lowercase: usernameLower,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, {merge: true});
       });

@@ -1,4 +1,4 @@
-// lib/widgets/home_screen/partner_finder_section.dart
+// lib/widgets/home_screen/vocabot_ai_button.dart
 
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
@@ -35,7 +35,7 @@ class _PartnerFinderSectionState extends State<PartnerFinderSection>
 
   // Theme constants
   static const double _defaultSize = 180.0;
-  static const String _defaultButtonText = 'Rooms';
+  static const String _defaultButtonText = 'Chat';
   static const double _shadowBlurRadius = 30.0;
   static const double _shadowSpreadRadius = 5.0;
   static const Offset _shadowOffset = Offset(0, 15);

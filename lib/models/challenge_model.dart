@@ -16,7 +16,7 @@ class Challenge {
 const List<Challenge> challenges = [
   Challenge(
     title: "Describe Your Favorite Movie",
-    description: "Tell your partner about your favorite movie today and why you love it.",
+    description: "Tell your AI Partner about your favorite movie today and why you love it.",
     exampleSentences: [
       "Have you ever seen the movie '[Movie Title]'? It's my favorite.",
       "I really love '[Movie Title]' because the story is amazing.",
@@ -34,7 +34,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Describe Your Dream Vacation",
-    description: "Close your eyes and describe that perfect vacation you want to go on to your partner.",
+    description: "Close your eyes and describe that perfect vacation you want to go on to your AI Partner.",
     exampleSentences: [
       "My dream vacation would be a trip to Japan.",
       "I would love to relax on a beach in the Maldives.",
@@ -43,7 +43,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Choose a Superpower",
-    description: "If you had a superpower, what would it be? Share the reason with your partner.",
+    description: "If you had a superpower, what would it be? Share the reason with your AI Partner.",
     exampleSentences: [
       "If I could have any superpower, I would choose to be able to fly.",
       "I think teleportation would be the most useful superpower.",
@@ -52,7 +52,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "The Last Book You Read",
-    description: "Tell your partner about the last book you finished or the one you are currently reading.",
+    description: "Tell your AI Partner about the last book you finished or the one you are currently reading.",
     exampleSentences: [
       "I've just finished reading a book called '[Book Title]'.",
       "Currently, I'm reading a fantastic novel by [Author Name].",
@@ -61,7 +61,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Talk About Your Hobbies",
-    description: "What do you enjoy doing in your free time? Share your hobbies with your partner.",
+    description: "What do you enjoy doing in your free time? Share your hobbies with your AI Partner.",
     exampleSentences: [
       "In my free time, I really enjoy playing the guitar.",
       "One of my hobbies is hiking in the mountains.",
@@ -70,7 +70,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Your Most Unforgettable Memory",
-    description: "Tell your partner one of the most unforgettable memories of your life.",
+    description: "Tell your AI Partner one of the most unforgettable memories of your life.",
     exampleSentences: [
       "The most unforgettable moment of my life was when I graduated.",
       "I'll never forget the time I traveled to Paris for the first time.",
@@ -88,7 +88,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Ask About Favorite Music",
-    description: "Ask your partner about their favorite music genre and favorite artist.",
+    description: "Ask your AI Partner about their favorite music genre and favorite artist.",
     exampleSentences: [
       "What kind of music do you usually listen to?",
       "My favorite band is [Band Name]. Have you heard of them?",
@@ -115,7 +115,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "The Definition of Happiness",
-    description: "Ask your partner what the word 'happiness' means to them.",
+    description: "Ask your AI Partner what the word 'happiness' means to them.",
     exampleSentences: [
       "For me, happiness is spending time with my family.",
       "What does the word 'happiness' mean to you?",
@@ -151,7 +151,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Your Biggest Dream",
-    description: "Share your biggest dream with your partner.",
+    description: "Share your biggest dream with your AI Partner.",
     exampleSentences: [
       "My biggest dream is to write a book one day.",
       "I dream of traveling the world and seeing different cultures.",
@@ -160,7 +160,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "A Famous Dish",
-    description: "Ask your partner about the most famous dish from their country or city.",
+    description: "Ask your AI Partner about the most famous dish from their country or city.",
     exampleSentences: [
       "What is a famous dish from your country?",
       "You should try 'Kebab' if you ever visit Turkey.",
@@ -187,7 +187,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Hypothetical Questions",
-    description: "Ask your partner 3 hypothetical questions starting with 'if'.",
+    description: "Ask your AI Partner 3 hypothetical questions starting with 'if'.",
     exampleSentences: [
       "If you could live anywhere in the world, where would it be?",
       "What would you do if you won the lottery?",
@@ -214,7 +214,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Your Favorite Color",
-    description: "Ask your partner about their favorite color and how that color makes them feel.",
+    description: "Ask your AI Partner about their favorite color and how that color makes them feel.",
     exampleSentences: [
       "What is your favorite color and why?",
       "I love the color blue because it feels calm and peaceful.",
@@ -223,7 +223,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Describe the Word",
-    description: "Choose a word (e.g., 'adventure') and ask your partner to describe it to you without using the word itself.",
+    description: "Choose a word (e.g., 'adventure') and ask your AI Partner to describe it to you without using the word itself.",
     exampleSentences: [
       "Let's play a game. Can you describe the word 'adventure' without using the word itself?",
       "I'm thinking of a word. It's a feeling of great happiness and excitement...",
@@ -232,7 +232,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "A Funny Incident",
-    description: "Ask your partner to tell you about a funny incident that made them laugh recently.",
+    description: "Ask your AI Partner to tell you about a funny incident that made them laugh recently.",
     exampleSentences: [
       "What's the funniest thing that has happened to you recently?",
       "Tell me about a time you laughed a lot.",
@@ -250,7 +250,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Teach Something",
-    description: "Teach your partner a simple word or phrase in your native language.",
+    description: "Teach your AI Partner a simple word or phrase in your native language.",
     exampleSentences: [
       "In Turkish, we say 'Merhaba' for 'Hello'. Can you try it?",
       "Let me teach you a useful phrase from my language.",
@@ -268,7 +268,7 @@ const List<Challenge> challenges = [
   ),
   Challenge(
     title: "Recommend Something",
-    description: "Recommend a movie, book, or music album to your partner and explain why.",
+    description: "Recommend a movie, book, or music album to your AI Partner and explain why.",
     exampleSentences: [
       "I would highly recommend the series 'The Crown' on Netflix.",
       "You should listen to the album '[Album Name]' by [Artist Name]; it's a masterpiece.",

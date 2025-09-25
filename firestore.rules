@@ -76,7 +76,6 @@ service cloud.firestore {
              data.status == 'open';
     }
 
-    function isGroupMember(roomId, uid) { return exists(/databases/$(database)/documents/group_chats/$(roomId)/members/$(uid)); }
     function isBlocked(byUid, targetUid) { return exists(/databases/$(database)/documents/users/$(byUid)/blockedUsers/$(targetUid)); }
 
     // --- KOLEKSİYON KURALLARI ---
@@ -162,16 +161,6 @@ service cloud.firestore {
         allow update: if isAuthenticated() && isOwner(userId) &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['blockedAt']);
         allow delete: if isAuthenticated() && isOwner(userId);
-      }
-    }
-
-    // Grup sohbeti için TÜM kısıtlamalar kaldırıldı
-    match /group_chats/{roomId} {
-      allow read, write: if true;
-
-      // Tüm alt koleksiyonlar ve belgeler (messages, members vb.) dahil
-      match /{document=**} {
-        allow read, write: if true;
       }
     }
 

@@ -35,12 +35,9 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
 
   // Eksik olan rapor nedenleri listesi geri eklendi
   final List<String> _reportReasons = const [
-    'Spam or misleading content',
-    'Harassment or bullying',
-    'Hate speech or symbols',
-    'Misinformation',
-    'Violence or dangerous organizations',
-    'Inappropriate content',
+    'Cheating / Unfair Advantage',
+    'Inappropriate Username',
+    'Impersonation',
     'Other',
   ];
 
@@ -261,7 +258,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Please choose the reason. This action cannot be undone.',
+                    'Select the most accurate reason (e.g. cheating, inappropriate name, impersonation). This action cannot be undone.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(color: textMuted),
                   ),

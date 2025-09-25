@@ -26,7 +26,7 @@ class LinguaBotChatScreen extends StatefulWidget {
   State<LinguaBotChatScreen> createState() => _LinguaBotChatScreenState();
 }
 
-class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerProviderStateMixin {
+class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   final LinguaBotService _botService = LinguaBotService();
   final ScrollController _scrollController = ScrollController();
   final List<MessageUnit> _messages = [];
@@ -40,9 +40,16 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   late AnimationController _entryController;
   late Animation<double> _blurAnimation;
 
+  // Oturum süresi takibi (leaderboard için totalRoomTime)
+  DateTime? _sessionStart;
+  static const int _maxSessionSeconds = 6 * 60 * 60; // 6 saat güvenlik sınırı
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _sessionStart = DateTime.now();
+
     _backgroundController = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
     _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
     _blurAnimation = Tween<double>(begin: 20.0, end: 0.0).animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOut));
@@ -55,6 +62,51 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
 
     _entryController.forward();
     _loadNativeLanguage();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _commitAndResetSessionTime();
+    _backgroundController.dispose();
+    _entryController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _commitAndResetSessionTime();
+    } else if (state == AppLifecycleState.resumed) {
+      // Yeni dilim için başlangıcı sıfırla
+      _sessionStart = DateTime.now();
+    }
+    super.didChangeAppLifecycleState(state);
+  }
+
+  Future<void> _commitAndResetSessionTime() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final start = _sessionStart;
+    if (start == null) {
+      _sessionStart = DateTime.now();
+      return;
+    }
+    final seconds = DateTime.now().difference(start).inSeconds;
+    if (seconds > 0) {
+      final safeSeconds = seconds > _maxSessionSeconds ? _maxSessionSeconds : seconds;
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'totalRoomTime': FieldValue.increment(safeSeconds)});
+      } catch (_) {
+        // sessiz: offline veya yetki hatası olabilir
+      }
+    }
+    // Yeni dilim için başlangıcı sıfırla
+    _sessionStart = DateTime.now();
   }
 
   Future<void> _loadNativeLanguage() async {
@@ -257,8 +309,9 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
         if (_composerEmojiOpen || (primaryFocus != null && primaryFocus.hasFocus)) {
           return;
         }
-        _confirmExit().then((shouldPop) {
+        _confirmExit().then((shouldPop) async {
           if (shouldPop && mounted) {
+            await _commitAndResetSessionTime();
             setState(() => _allowPop = true);
             Navigator.of(context).pop();
           }
