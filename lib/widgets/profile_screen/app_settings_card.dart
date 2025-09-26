@@ -1,7 +1,7 @@
 // lib/widgets/profile_screen/app_settings_card.dart
 import 'package:flutter/material.dart';
 import 'package:vocachat/services/audio_service.dart';
-import 'package:vocachat/screens/blocked_users_screen.dart';
+// KALDIRILDI: BlockedUsersScreen import'u
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/services/translation_service.dart';
@@ -298,16 +298,7 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
             },
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
-          ListTile(
-            leading: const Icon(Icons.block, color: Colors.redAccent),
-            title: const Text('Blocked Users', style: TextStyle(fontWeight: FontWeight.w600)),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const BlockedUsersScreen()),
-              );
-            },
-          ),
+          // KALDIRILDI: Blocked Users ListTile
         ],
       ),
     );

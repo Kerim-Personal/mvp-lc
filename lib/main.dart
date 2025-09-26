@@ -29,6 +29,7 @@ import 'package:vocachat/screens/profile_screen.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:vocachat/utils/restart_app.dart';
 
 // Uygulama yaşam döngüsünü dinleyip müziği yönetir
 class _AppLifecycleAudioObserver with WidgetsBindingObserver {
@@ -84,7 +85,7 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   await ThemeService.instance.init();
-  runApp(const MyApp());
+  runApp(RestartWidget(child: const MyApp()));
   // runApp sonrası ağır olmayan init görevlerini başlat
   _postAppInit();
 }

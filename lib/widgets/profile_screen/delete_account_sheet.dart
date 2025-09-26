@@ -2,8 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:vocachat/screens/login_screen.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:vocachat/utils/restart_app.dart';
 
 Future<void> showDeleteAccountSheet(BuildContext context) async {
   final theme = Theme.of(context);
@@ -29,7 +28,6 @@ class _DeleteAccountSheet extends StatefulWidget {
 }
 
 class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
-  final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -37,22 +35,8 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
   bool _acknowledged = false;
   String? _error;
 
-  bool _isGoogleProvider = false;
-  bool _isPasswordProvider = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      _isGoogleProvider = user.providerData.any((p) => p.providerId == 'google.com');
-      _isPasswordProvider = user.providerData.any((p) => p.providerId == 'password');
-    }
-  }
-
   @override
   void dispose() {
-    _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
   }
@@ -74,55 +58,28 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
         throw Exception('User not found.');
       }
 
-      // 1) Re-authenticate depending on provider
-      if (_isPasswordProvider && _passwordController.text.isNotEmpty) {
-        final cred = EmailAuthProvider.credential(
-          email: user.email!,
-          password: _passwordController.text,
-        );
-        await user.reauthenticateWithCredential(cred);
-      } else if (_isGoogleProvider) {
-        final googleSignIn = GoogleSignIn();
-        var gAccount = await googleSignIn.signInSilently();
-        gAccount ??= await googleSignIn.signIn();
-        if (gAccount == null) {
-          setState(() => _error = 'Google re-authentication cancelled.');
-          return;
-        }
-        final gAuth = await gAccount.authentication;
-        final gCred = GoogleAuthProvider.credential(
-          accessToken: gAuth.accessToken,
-          idToken: gAuth.idToken,
-        );
-        await user.reauthenticateWithCredential(gCred);
-      } else {
-        setState(() => _error = 'No suitable authentication method available to complete this action.');
-        return;
-      }
-
-      // 2) Server: permanently delete user & related data (privileged function)
+      // Server: permanently delete user & related data (privileged function)
       final callable = FirebaseFunctions.instanceFor(region: 'us-central1').httpsCallable('deleteUserAccount');
       await callable.call();
 
-      // 3) Client: sign out (ignore errors)
+      // Client: sign out (ignore errors)
       try { await FirebaseAuth.instance.signOut(); } catch (_) {}
 
-      // 4) Navigation: clear stack and go to Login (sheet closes automatically)
+      // Sheet'i kapat ve ardından uygulamayı yeniden başlat
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-              (_) => false,
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        setState(() => _error = 'Incorrect password.');
-      } else if (e.code == 'requires-recent-login') {
-        setState(() => _error = 'Please reauthenticate and try again.');
-      } else if (e.code == 'user-mismatch') {
-        setState(() => _error = 'Selected Google account does not match current session. Please use the same account.');
-      } else {
-        setState(() => _error = 'Authentication error: ${e.message}');
+        final rootNavigator = Navigator.of(context, rootNavigator: true);
+        final rootContext = rootNavigator.context; // restart ve snackbar için
+        rootNavigator.pop(); // bottom sheet'i kapat
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          RestartWidget.restartApp(rootContext);
+          Future.delayed(const Duration(milliseconds: 80), () {
+            final messenger = ScaffoldMessenger.maybeOf(rootContext);
+            messenger?.showSnackBar(const SnackBar(
+              content: Text('Your account has been deleted successfully.'),
+              backgroundColor: Colors.green,
+            ));
+          });
+        });
       }
     } on FirebaseFunctionsException catch (e) {
       setState(() => _error = 'Server error: ${e.message}');
@@ -169,8 +126,8 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
               Align(
                 alignment: Alignment.center,
                 child: Container(
-                  width: 64,
-                  height: 64,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer,
                     shape: BoxShape.circle,
@@ -178,79 +135,41 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                   child: Icon(
                     Icons.warning_rounded,
                     color: colorScheme.onErrorContainer,
-                    size: 32,
+                    size: 28,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
 
               Text(
-                'Permanently delete account',
+                'Delete Account',
                 textAlign: TextAlign.center,
                 style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'This action cannot be undone. Your account and associated data will be permanently deleted.',
+                'This action cannot be undone. Your account and all data will be permanently deleted.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
                   color: textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Password field (only if password provider)
-              if (_isPasswordProvider)
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  autofillHints: const [AutofillHints.password],
-                  decoration: const InputDecoration(
-                    labelText: 'Password (email/password accounts only)',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => null,
-                ),
-
-              if (_isPasswordProvider) const SizedBox(height: 12),
-
-              // Google provider info
-              if (_isGoogleProvider)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.verified_user_rounded, color: Colors.teal),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'You will be asked to verify with your Google account.',
-                          maxLines: 3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              if (_isGoogleProvider) const SizedBox(height: 12),
+              const SizedBox(height: 24),
 
               // Confirmation code field
               TextFormField(
                 controller: _confirmController,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Type "DELETE" to confirm',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.delete_forever, color: colorScheme.error),
                 ),
                 validator: (v) => (v == null || v.trim().toUpperCase() != 'DELETE')
                     ? 'You must type DELETE to proceed.'
                     : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
               // Acknowledge checkbox
               Row(
@@ -262,7 +181,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                   const Expanded(
                     child: Text(
                       'I understand this action cannot be undone.',
-                      maxLines: 2,
+                      style: TextStyle(fontSize: 14),
                     ),
                   ),
                 ],
@@ -270,11 +189,21 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
 
               if (_error != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(_error!, style: TextStyle(color: colorScheme.error)),
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: colorScheme.error, fontSize: 13),
+                    ),
+                  ),
                 ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
 
               Row(
                 children: [

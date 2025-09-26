@@ -152,28 +152,12 @@ class AuthService {
         } else {
           final data = snap.data() as Map<String, dynamic>;
 
-          // Eski 'blockedUsers' array -> alt koleksiyona migrasyon (best-effort)
-          final List<dynamic>? legacyBlocked = data['blockedUsers'] as List<dynamic>?;
-          if (legacyBlocked != null && legacyBlocked.isNotEmpty) {
-            final batch = _firestore.batch();
-            for (final id in legacyBlocked) {
-              final uid = id?.toString();
-              if (uid == null || uid.isEmpty) continue;
-              final ref = docRef.collection('blockedUsers').doc(uid);
-              batch.set(ref, {
-                'blockedAt': FieldValue.serverTimestamp(),
-                'targetUserId': uid,
-              }, SetOptions(merge: true));
-            }
-            try { await batch.commit(); } catch (_) {}
-          }
-
           final status = data['status'] as String?;
           if (status == 'deleted') {
             await _auth.signOut();
             throw FirebaseAuthException(
-              code: 'user-deleted',
-              message: 'Bu hesap silinmiş durumda.'
+                code: 'user-deleted',
+                message: 'Bu hesap silinmiş durumda.'
             );
           }
           // Eksik emailVerified alanı güncelle
@@ -193,7 +177,15 @@ class AuthService {
   }
 
   /// Mevcut kullanıcının oturumunu kapatır.
+  /// DEĞİŞİKLİK: Google oturumu da kapatılıyor.
   Future<void> signOut() async {
+    try {
+      final googleSignIn = GoogleSignIn();
+      await googleSignIn.signOut();
+      await googleSignIn.disconnect();
+    } catch (_) {
+      // Hata olsa bile devam et, kritik değil
+    }
     await _auth.signOut();
   }
 
@@ -251,7 +243,8 @@ class AuthService {
       final user = userCredential.user;
       if (user != null) {
         final docRef = _firestore.collection('users').doc(user.uid);
-        final snap = await docRef.get();
+        // DEĞİŞİKLİK: Önbellek sorununu önlemek için veri doğrudan sunucudan okunuyor.
+        final snap = await docRef.get(const GetOptions(source: Source.server));
         if (!snap.exists) {
           // Firestore security rules isValidNewUser gereksinimlerini sağlamak için zorunlu alanları dolduruyoruz.
           final rawName = (user.displayName ?? user.email?.split('@').first ?? 'User').trim();
@@ -305,24 +298,6 @@ class AuthService {
               await user.getIdToken(true);
               await docRef.update({'emailVerified': true});
             } catch (_) {}
-          }
-          // Eski 'blockedUsers' array -> alt koleksiyona migrasyon (best-effort)
-          final data = snap.data();
-          if (data != null) {
-            final List<dynamic>? legacyBlocked = data['blockedUsers'] as List<dynamic>?;
-            if (legacyBlocked != null && legacyBlocked.isNotEmpty) {
-              final batch = _firestore.batch();
-              for (final id in legacyBlocked) {
-                final uid = id?.toString();
-                if (uid == null || uid.isEmpty) continue;
-                final ref = docRef.collection('blockedUsers').doc(uid);
-                batch.set(ref, {
-                  'blockedAt': FieldValue.serverTimestamp(),
-                  'targetUserId': uid,
-                }, SetOptions(merge: true));
-              }
-              try { await batch.commit(); } catch (_) {}
-            }
           }
         }
       }

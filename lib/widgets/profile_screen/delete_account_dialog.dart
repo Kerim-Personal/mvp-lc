@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:vocachat/screens/login_screen.dart';
+import 'package:vocachat/utils/restart_app.dart';
 
 class DeleteAccountDialog extends StatefulWidget {
   const DeleteAccountDialog({super.key});
@@ -81,16 +81,19 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
       }
 
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (route) => false,
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Your account has been deleted successfully.'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        final rootNavigator = Navigator.of(context, rootNavigator: true);
+        final rootContext = rootNavigator.context;
+        rootNavigator.pop(); // dialog kapat
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          RestartWidget.restartApp(rootContext);
+          Future.delayed(const Duration(milliseconds: 80), () {
+            final messenger = ScaffoldMessenger.maybeOf(rootContext);
+            messenger?.showSnackBar(const SnackBar(
+              content: Text('Your account has been deleted successfully.'),
+              backgroundColor: Colors.green,
+            ));
+          });
+        });
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
