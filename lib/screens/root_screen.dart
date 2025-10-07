@@ -83,7 +83,7 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
       case 0: // Store – her açılışta animasyon tazelensin
         return StoreScreen(
           key: ValueKey('store_$_storeReplay'),
-          // embedded: true, // HATA DÜZELTİLDİ: Bu satır kaldırıldı.
+          embedded: true,
         );
       case 1: // Discover (Grammar alt sekmesi açıldığında tetiklenecek)
         return DiscoverScreen(
@@ -97,8 +97,14 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
           },
         );
         return _homeTab!;
-      case 3: // Leaderboard – state korunmalı
-        _communityTab ??= const CommunityScreen();
+      case 3: // Leaderboard – state korunmalı, sadece seçilince oluştur
+        if (_communityTab == null) {
+          if (_selectedIndex == 3) {
+            _communityTab = const CommunityScreen();
+          } else {
+            return const SizedBox.shrink();
+          }
+        }
         return _communityTab!;
       case 4: // Profile – animasyon tekrar tetiklenecek
         if (currentUser != null) {

@@ -86,7 +86,6 @@ class HelpAndSupportScreen extends StatelessWidget {
     const categoryIcons = {
       'Explore the App': Icons.explore_outlined,
       'Account & Profile': Icons.account_circle_outlined,
-      'Security & Privacy': Icons.shield_outlined,
       'Premium & Billing': Icons.star_border_purple500_sharp,
     };
     final theme = Theme.of(context);

@@ -1,11 +1,21 @@
 // lib/widgets/linguabot/holographic_header.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:circle_flags/circle_flags.dart';
 
 class HolographicHeader extends StatefulWidget {
   final bool isBotThinking;
   final VoidCallback? onSettingsTap;
-  const HolographicHeader({super.key, required this.isBotThinking, this.onSettingsTap});
+  final String? selectedLanguage;
+  final Map<String, String>? languageFlags;
+
+  const HolographicHeader({
+    super.key,
+    required this.isBotThinking,
+    this.onSettingsTap,
+    this.selectedLanguage,
+    this.languageFlags,
+  });
 
   @override
   State<HolographicHeader> createState() => _HolographicHeaderState();
@@ -60,10 +70,26 @@ class _HolographicHeaderState extends State<HolographicHeader> with TickerProvid
               );
             },
           ),
-          IconButton(
-            onPressed: widget.onSettingsTap ?? () {},
-            icon: const Icon(Icons.settings_outlined, color: Colors.white70),
-          ),
+          // Settings ikonu yerine seçili dil bayrağı
+          widget.selectedLanguage != null && widget.languageFlags != null
+              ? GestureDetector(
+                  onTap: widget.onSettingsTap ?? () {},
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white38, width: 1),
+                    ),
+                    child: CircleFlag(
+                      widget.languageFlags![widget.selectedLanguage!] ?? widget.selectedLanguage!,
+                      size: 24,
+                    ),
+                  ),
+                )
+              : IconButton(
+                  onPressed: widget.onSettingsTap ?? () {},
+                  icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+                ),
         ],
       ),
     );

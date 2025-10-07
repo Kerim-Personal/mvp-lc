@@ -100,7 +100,6 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
       backgroundColor: Colors.teal.shade800,
       elevation: 0,
       centerTitle: true,
-      title: _buildCollapsedTitle(),
       flexibleSpace: FlexibleSpaceBar(
         background: LayoutBuilder(
           builder: (context, constraints) {
@@ -135,37 +134,6 @@ class _ProfileSliverAppBarState extends State<ProfileSliverAppBar> with TickerPr
     }
   }
 
-  Widget _buildCollapsedTitle() {
-    final baseColor = _roleColor(widget.role);
-    if (widget.isPremium) {
-      return AnimatedBuilder(
-        animation: _shimmerController,
-        builder: (context, child) {
-          final highlightColor = Colors.white;
-          final value = _shimmerController.value;
-            final start = value * 1.5 - 0.5;
-            final end = value * 1.5;
-          return ShaderMask(
-            blendMode: BlendMode.srcIn,
-            shaderCallback: (bounds) => LinearGradient(
-              colors: [baseColor, highlightColor, baseColor],
-              stops: [start, (start + end) / 2, end].map((e)=>e.clamp(0.0,1.0)).toList(),
-            ).createShader(Rect.fromLTWH(0,0,bounds.width,bounds.height)),
-            child: child,
-          );
-        },
-        child: Text(
-          widget.displayName,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0, color: baseColor),
-          overflow: TextOverflow.ellipsis,
-        ),
-      );
-    }
-    return Text(
-      widget.displayName,
-      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.0, color: baseColor),
-    );
-  }
 
   Widget _buildUserInfo(double scrollProgress) {
     final avatarScale = lerpDouble(0.4, 1.0, scrollProgress) ?? 1.0;

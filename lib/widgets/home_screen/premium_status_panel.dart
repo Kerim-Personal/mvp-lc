@@ -139,6 +139,7 @@ class _PanelContent extends StatelessWidget {
   List<_Benefit> get _benefits => const [
     _Benefit('assets/animations/no ads icon.json', 'Ad-free'),
     _Benefit('assets/animations/Translate.json', 'Instant Translation'),
+    _Benefit('assets/animations/Flags.json', 'Language Diversity'),
     _Benefit('assets/animations/Support.json', 'Priority Support'),
     _Benefit('assets/animations/Data Analysis.json', 'Grammar Analysis'),
     _Benefit('assets/animations/Robot says hello.json', 'VocaBot'),
@@ -147,42 +148,45 @@ class _PanelContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleBaseSize = 20.0 * textScale; // Başlık boyutunu küçülttüm
-    final bodySize = 12.0 * textScale; // Açıklama boyutunu küçülttüm
-    final chipFont = 10.0 * textScale; // Chip font boyutunu küçülttüm
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      mainAxisAlignment: MainAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Shimmer başlık en üstte
-        _ShimmerTitle(
-            controller: shimmerController,
-            fontSize: titleBaseSize.clamp(16, 20)), // Max boyutu düşürdüm
-        const SizedBox(height: 3), // Boşluğu azalttım
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Text(
-            'A faster, focused, and enjoyable learning experience with Pro.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: bodySize.clamp(10, 12), // Boyutu küçülttüm
-              height: 1.2, // Line height'ı azalttım
-              color: Colors.white.withValues(alpha: 0.85),
-              fontWeight: FontWeight.w500,
+    final titleBaseSize = 20.0 * textScale;
+    final bodySize = 12.0 * textScale;
+    final chipFont = 10.0 * textScale;
+
+    // Scroll edilebilir hale getirildi; küçük ekranlarda overflow engellenir.
+    return LayoutBuilder(builder: (context, constraints) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ShimmerTitle(
+              controller: shimmerController,
+              fontSize: titleBaseSize.clamp(16, 20),
             ),
-          ),
+            const SizedBox(height: 2),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Text(
+                'A faster, focused, and enjoyable learning experience with Pro.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: bodySize.clamp(10, 12),
+                  height: 1.15,
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            _BenefitGrid(benefits: _benefits, chipFontSize: chipFont),
+            const SizedBox(height: 6),
+            const _ThanksRow(),
+          ],
         ),
-        const SizedBox(height: 8), // Boşluğu azalttım
-        // Özellikler ortada
-        RepaintBoundary(
-          child: _BenefitGrid(benefits: _benefits, chipFontSize: chipFont),
-        ),
-        const SizedBox(height: 8), // Boşluğu azalttım
-        // Teşekkür en sonda - orijinal mesajla
-        const _ThanksRow(),
-      ],
-    );
+      );
+    });
   }
 }
 
@@ -294,17 +298,17 @@ class _BenefitChip extends StatelessWidget {
       builder: (context, t, child) {
         return Opacity(
           opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, (1 - t) * 8),
-            child: child,
-          ),
+            child: Transform.translate(
+              offset: Offset(0, (1 - t) * 6),
+              child: child,
+            ),
         );
       },
       child: Container(
         width: width,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // dikey padding azaltıldı
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20), // biraz küçültüldü
           gradient: LinearGradient(
             colors: [
               Colors.white.withValues(alpha: 0.78),
@@ -313,32 +317,32 @@ class _BenefitChip extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border:
-          Border.all(color: Colors.white.withValues(alpha: 0.16), width: 0.8),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.16),
+            width: 0.8,
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Lottie.asset(
               benefit.animationPath,
-              width: 18,
-              height: 18,
+              width: 17,
+              height: 17,
               fit: BoxFit.cover,
-              // color: const Color(0xFFFFE28A)
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Flexible(
               child: Text(
                 benefit.label,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                // softWrap true by default
                 style: TextStyle(
-                  fontSize: fontSize.clamp(11, 13),
+                  fontSize: fontSize.clamp(10.5, 12.5),
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
-                  letterSpacing: 0.2,
+                  letterSpacing: 0.15,
                 ),
               ),
             ),

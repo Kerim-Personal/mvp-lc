@@ -12,24 +12,7 @@ class MessageInsightDialog extends StatelessWidget {
 
   const MessageInsightDialog({super.key, required this.message, required this.onCorrect});
 
-  String _scoreLabel(double v){
-    if(v>=0.9) return 'Near flawless';
-    if(v>=0.75) return 'Very good';
-    if(v>=0.6) return 'Good';
-    if(v>=0.45) return 'Improving';
-    if(v>=0.3) return 'Basic';
-    return 'Beginner';
-  }
-  String _cefrExplain(String c){
-    switch(c){
-      case 'A1': return 'Basic beginner';
-      case 'A2': return 'Expanding foundation';
-      case 'B1': return 'Intermediate';
-      case 'B2': return 'Upper intermediate';
-      case 'C1': return 'Advanced';
-      case 'C2': return 'Proficient';
-      default: return c; }
-  }
+  // Kullanılmayan ayrıntılı etiket fonksiyonları kaldırıldı (score/cefr/tense). Sade yapı.
   String _formalityToString(Formality f){
     switch(f){
       case Formality.informal: return 'Informal';
@@ -42,36 +25,7 @@ class MessageInsightDialog extends StatelessWidget {
     if(s<-0.35) return 'negative';
     return 'neutral';
   }
-  String _tenseExplain(String t){
-    final l = t.toLowerCase();
-    if(l.contains('present perfect continuous')) return 'Continuous action from the past up to now';
-    if(l.contains('past perfect continuous')) return 'Long action continuing until a point in the past';
-    if(l.contains('future perfect continuous')) return 'Will be continuing until a point in the future';
-    if(l.contains('present perfect')) return 'Started in the past; result/effect now';
-    if(l.contains('past perfect')) return 'Completed before another past action';
-    if(l.contains('future perfect')) return 'Will be completed by a future time';
-    if(l.contains('present continuous') || l.contains('present progressive')) return 'Happening right now';
-    if(l.contains('past continuous') || l.contains('past progressive')) return 'Ongoing at a specific moment in the past';
-    if(l.contains('future continuous') || l.contains('future progressive')) return 'Ongoing at a specific moment in the future';
-    if(l.contains('simple present') || l== 'present simple' || (l.contains('present') && l.contains('simple'))) return 'General fact / habit';
-    if(l.contains('simple past') || l== 'past simple' || (l.contains('past') && l.contains('simple'))) return 'Completed in the past';
-    if(l.contains('simple future') || l== 'future simple' || (l.contains('future') && l.contains('simple'))) return 'Will occur in the future';
-    if(l.contains('infinitive')) return 'Infinitive form';
-    if(l.contains('imperative')) return 'Imperative mood';
-    if(l.contains('conditional')) return 'Conditional structure';
-    return t;
-  }
-  String _summaryText(GrammarAnalysis a){
-    final percent = (a.grammarScore*100).round();
-    final errorCount = a.errors.length;
-    final errorPart = errorCount==0? 'No errors.' : errorCount==1? '1 error.' : '$errorCount errors.';
-    final complexityPct = (a.complexity*100).round();
-    final tenseShort = _tenseExplain(a.tense);
-    final form = _formalityToString(a.formality);
-    final cefrExp = _cefrExplain(a.cefr);
-    final sentiment = _sentimentLabel(a.sentiment);
-    return 'Level ${a.cefr} ($cefrExp), grammar accuracy $percent%. $errorPart\nTense: $tenseShort; form: $form; structural complexity $complexityPct%; sentiment: $sentiment.';
-  }
+
   Widget _statLine({required IconData icon, required Color color, required String title, required String value, String? subtitle}){
     return Container(
       margin: const EdgeInsets.symmetric(vertical:4),
@@ -139,33 +93,8 @@ class MessageInsightDialog extends StatelessWidget {
                   const Divider(color: Colors.cyan, height: 20),
 
                   if (analysis != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha((255*0.05).round()),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.cyan.withAlpha((255*0.3).round())),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Overall Evaluation', style: TextStyle(color: Colors.cyanAccent.shade100, fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height:6),
-                          Text(
-                            _summaryText(analysis),
-                            style: const TextStyle(color: Colors.white70, height:1.3),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height:14),
                     StatsSection(
                       analysis: analysis,
-                      vocabRichness: message.vocabularyRichness,
-                      scoreLabel: _scoreLabel,
-                      cefrExplain: _cefrExplain,
-                      tenseExplain: _tenseExplain,
-                      formalityToString: _formalityToString,
                       statLineBuilder: ({required icon, required color, required title, required value, subtitle}) => _statLine(icon: icon, color: color, title: title, value: value, subtitle: subtitle),
                     ),
                     const SizedBox(height:18),
@@ -277,4 +206,3 @@ class MessageInsightDialog extends StatelessWidget {
     );
   }
 }
-

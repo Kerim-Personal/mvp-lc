@@ -2,11 +2,13 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:vocachat/screens/register_screen.dart';
 import 'package:vocachat/services/auth_service.dart';
 import 'package:vocachat/screens/verification_screen.dart';
 import 'package:vocachat/screens/root_screen.dart';
 import 'package:vocachat/main.dart' show rootScreenKey, AuthWrapper; // AuthWrapper'a gerekirse
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -417,6 +419,8 @@ class _LoginScreenState extends State<LoginScreen> {
               _buildDivider(),
               const SizedBox(height: 14),
               _buildGoogleButton(),
+              const SizedBox(height: 10),
+              _buildPrivacyNotice(),
             ],
           ],
         ),
@@ -656,6 +660,65 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPrivacyNotice() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+            height: 1.3,
+          ),
+          children: [
+            const TextSpan(text: 'By signing in with Google, you agree to the '),
+            TextSpan(
+              text: 'Privacy Policy',
+              style: TextStyle(
+                color: _primaryColor.shade600,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.underline,
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () async {
+                  final uri = Uri.parse('https://www.codenzi.com/vocachat-privacy.html');
+                  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open Privacy Policy')),
+                      );
+                    }
+                  }
+                },
+            ),
+            const TextSpan(text: ' and '),
+            TextSpan(
+              text: 'Terms of Service',
+              style: TextStyle(
+                color: _primaryColor.shade600,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.underline,
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () async {
+                  final uri = Uri.parse('https://www.codenzi.com/vocachat-terms.html');
+                  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open Terms of Service')),
+                      );
+                    }
+                  }
+                },
+            ),
+            const TextSpan(text: '.'),
+          ],
+        ),
+      ),
     );
   }
 }

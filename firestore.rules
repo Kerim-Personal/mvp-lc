@@ -103,7 +103,7 @@ service cloud.firestore {
           // Profil alanları + username_lowercase birlikte güncellenebilir
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'displayName', 'username_lowercase', 'avatarUrl', 'birthDate', 'nativeLanguage', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime'
+            'displayName', 'username_lowercase', 'avatarUrl', 'birthDate', 'nativeLanguage', 'learningLanguage', 'learningLanguageLevel', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime'
           ]) &&
           (
             // username_lowercase değişiyorsa geçerli ve rezerve edilmiş olmalı

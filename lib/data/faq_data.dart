@@ -47,28 +47,6 @@ final Map<String, List<FaqItem>> faqData = {
       'All data (profile, chat history, vocabulary) is permanently removed and cannot be restored afterward.',
     ),
   ],
-  'Security & Privacy': [
-    FaqItem(
-      question: 'How do I block a user?',
-      answer:
-      'Open their profile or use the menu in the chat header and tap Block. Blocked users cannot message you or view your profile.',
-    ),
-    FaqItem(
-      question: 'How do I report inappropriate behavior?',
-      answer:
-      'Use the Report option in the profile or chat menu. Our trust & safety team reviews reports carefully and takes appropriate action.',
-    ),
-    FaqItem(
-      question: 'Is my location shared?',
-      answer:
-      'No. We respect your privacy and never share your location with other users.',
-    ),
-    FaqItem(
-      question: 'Are my chats secure?',
-      answer:
-      'We safeguard your conversations using industry standard security controls. We do not access or review chats arbitrarily. Two exceptions apply: (1) Valid legal requests from competent authorities. (2) Confirmed user reports of serious policy violations (e.g. harassment, hate). Outside of these cases, chat content remains private.',
-    ),
-  ],
   'Premium & Billing': [
     FaqItem(
       question: 'What are the benefits of Premium?',

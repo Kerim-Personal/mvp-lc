@@ -17,7 +17,8 @@ import 'package:vocachat/widgets/home_screen/premium_status_panel.dart';
 import 'package:shimmer/shimmer.dart';
 
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({super.key});
+  const StoreScreen({super.key, this.embedded = false});
+  final bool embedded;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
@@ -32,6 +33,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
 
   StreamSubscription<int?>? _diamondsSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
+  // Hata mesajları için abonelik
+  StreamSubscription<String>? _purchaseErrorsSub;
 
   int? _diamonds;
   PremiumPlan _selectedPlan = PremiumPlan.yearly;
@@ -41,10 +44,11 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   bool _loadingProducts = true;
   bool _initTried = false;
 
-  late final TabController _tabController;
-  late final VoidCallback _tabListener; // Eklenen: listener referansı
   late final PageController _benefitPageController; // Premium benefits için PageController
   int _currentBenefitPage = 0; // Aktif benefit sayfası
+
+  late final TabController _tabController; // Geri eklendi
+  late final VoidCallback _tabListener;    // Geri eklendi
 
   final Set<String> _purchasing = {};
   Timer? _benefitsAutoScrollTimer; // 5 sn'de bir otomatik kaydırma
@@ -60,6 +64,11 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       'assets/animations/Translate.json',
       'Instant Translation',
       'Inline, instant message translation—stay immersed without switching apps.',
+    ),
+    _BenefitData(
+      'assets/animations/Flags.json',
+      'Language Diversity',
+      'Over 100 languages supported in Vocabot for speech synthesis, translation and grammar analysis.',
     ),
     _BenefitData(
       'assets/animations/Support.json',
@@ -86,12 +95,21 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 1, vsync: this); // sadece Premium tabı
+    _tabController = TabController(length: 1, vsync: this); // Tek sekme
     _tabListener = () => setState(() {});
     _tabController.addListener(_tabListener);
     _benefitPageController = PageController();
     // 5 saniyede bir faydaları döngüsel kaydır
     _benefitsAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _autoScrollBenefits());
+
+    // PurchaseService hata akışını dinle ve kullanıcıya göster
+    _purchaseErrorsSub = _purchaseService.errors.listen((msg) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+      );
+    });
+
     _init();
   }
 
@@ -146,12 +164,11 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   void dispose() {
     _diamondsSub?.cancel();
     _userSub?.cancel();
-    try {
-      _tabController.removeListener(_tabListener); // Doğru şekilde kaldır
-    } catch (_) {}
-    _benefitsAutoScrollTimer?.cancel(); // timer iptali
+    _purchaseErrorsSub?.cancel();
+    _benefitsAutoScrollTimer?.cancel();
+    try { _tabController.removeListener(_tabListener); } catch (_) {}
     _tabController.dispose();
-    _benefitPageController.dispose(); // PageController'ı dispose et
+    _benefitPageController.dispose();
     _purchaseService.dispose();
     super.dispose();
   }
@@ -217,163 +234,13 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     }
   }
 
-  Widget _storeSectionHeader({
-    required String title,
-    required String subtitle,
-    IconData? icon,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              color: Colors.white.withValues(alpha: 0.1),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-                width: 1
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            child: Row(
-              children: [
-                if (icon != null)
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.amber.withValues(alpha: 0.4),
-                          blurRadius: 14,
-                          offset: const Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: Icon(icon, size: 26, color: Colors.black87),
-                  ),
-                if (icon != null) const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isDark
-                            ? Colors.white.withValues(alpha: 0.70)
-                            : Colors.black.withValues(alpha: 0.70),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _header() {
-    // Store başlığı ve elmas sayacı kullanıcı isteğiyle kaldırıldı.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _segmentedTabs(),
         const SizedBox(height: 8),
       ],
-    );
-  }
-
-  String _formatDiamonds(int? v) {
-    if (v == null) return '...';
-    if (v < 1000) return v.toString();
-    if (v < 1000000) {
-      final k = v / 1000;
-      return k.toStringAsFixed(k >= 100 ? 0 : 1) + 'K';
-    }
-    if (v < 1000000000) {
-      final m = v / 1000000;
-      return m.toStringAsFixed(m >= 100 ? 0 : 1) + 'M';
-    }
-    final b = v / 1000000000;
-    return b.toStringAsFixed(b >= 100 ? 0 : 1) + 'B';
-  }
-
-  Widget _diamondBalanceChip(String value) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      // tıklanabilirlik kaldırıldı
-      decoration: const BoxDecoration(),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 170),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                color: Colors.white.withValues(alpha: 0.1),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  width: 1
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.diamond, color: Colors.amber, size: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        letterSpacing: 0.6,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    // Satın alma çağrışımı yapan '+' simgesi kaldırıldı
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -432,7 +299,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: widget.embedded ? Colors.transparent : (isDark ? Colors.black : Colors.white),
       body: Stack(
         children: [
           const Positioned.fill(child: AnimatedBackground()),
@@ -444,9 +311,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 height: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(42),
-                  color: isDark
-                    ? Colors.black.withValues(alpha: 0.15)
-                    : Colors.white.withValues(alpha: 0.15),
+                  color: isDark ? Colors.black.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.15),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.1),
@@ -455,10 +320,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                       offset: const Offset(0, 8),
                     ),
                   ],
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    width: 1
-                  ),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(42),
@@ -467,9 +329,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(42),
-                        color: isDark
-                          ? Colors.black.withValues(alpha: 0.1)
-                          : Colors.white.withValues(alpha: 0.1),
+                        color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.1),
                       ),
                       child: Column(
                         children: [
@@ -484,9 +344,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                                     controller: _tabController,
                                     physics: const BouncingScrollPhysics(),
                                     children: [
-                                      _isPremium
-                                          ? _buildPremiumActiveView()
-                                          : _buildPremiumUpsellView(),
+                                      _isPremium ? _buildPremiumActiveView() : _buildPremiumUpsellView(),
                                     ],
                                   ),
                           ),
@@ -617,9 +475,17 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
-                onPressed: (monthlyProduct == null || yearlyProduct == null)
-                    ? null
-                    : () => _buy(selectedProductId),
+                onPressed: () {
+                  final selectedProduct = _selectedPlan == PremiumPlan.monthly
+                      ? monthlyProduct
+                      : yearlyProduct;
+                  final selectedProductIdLocal = _selectedPlan == PremiumPlan.monthly
+                      ? PurchaseService.monthlyProductId
+                      : PurchaseService.yearlyProductId;
+                  if (selectedProduct != null) {
+                    _buy(selectedProductIdLocal);
+                  }
+                },
               ),
             ),
           ),
@@ -645,6 +511,11 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                     fontSize: 10.5
                   ),
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _restorePurchases,
+                  child: const Text('Restore purchases'),
                 ),
               ],
             ),
@@ -687,10 +558,17 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
           ),
           const SizedBox(height: 26),
           const SizedBox(
-            height: 420, // 360'dan 420'ye artırdım - daha fazla yer
+            height: 420, // Sabit yükseklik eski hali
             child: PremiumStatusPanel(),
           ),
           const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.center,
+            child: TextButton(
+              onPressed: _restorePurchases,
+              child: const Text('Restore purchases'),
+            ),
+          ),
         ],
       ),
     );
@@ -865,90 +743,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _benefit({required IconData icon, required String title, required String text}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _circleIcon(icon, gradient: false, size: 40),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15
-                  )
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: isDark ? Colors.white70 : Colors.black54,
-                    height: 1.3,
-                    fontSize: 13
-                  )
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _circleIcon(IconData icon, {bool gradient = false, double size = 48}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(size / 2),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: gradient
-                ? const LinearGradient(
-              colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-                : null,
-            color: gradient ? null : Colors.white.withValues(alpha: 0.1),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
-              width: 1
-            ),
-            boxShadow: gradient
-                ? [
-              BoxShadow(
-                color: Colors.amber.withValues(alpha: 0.55),
-                blurRadius: 18,
-                spreadRadius: 1,
-                offset: const Offset(0, 4),
-              )
-            ]
-                : null,
-          ),
-          child: Icon(
-            icon,
-            color: gradient ? Colors.black87 : (isDark ? Colors.white : Colors.black54),
-            size: size * 0.55
           ),
         ),
       ),

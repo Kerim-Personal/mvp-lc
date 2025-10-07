@@ -19,6 +19,7 @@ class NotificationService {
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   StreamSubscription<String>? _tokenSub;
+  StreamSubscription<User?>? _authSub; // yeni: auth değişimini dinle
   bool _initialized = false;
   final Set<String> _allowedRoutes = {'/help','/support','/store','/profile','/practice-listening','/practice-reading','/practice-speaking','/practice-writing'};
 
@@ -27,19 +28,38 @@ class NotificationService {
     _initialized = true;
 
     try {
-      await _fcm.requestPermission();
+      // iOS foreground görünürlüğü (Android etkilenmez)
+      await _fcm.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
+      final settings = await _fcm.requestPermission();
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        if (kDebugMode) debugPrint('FCM izin verilmedi');
+      }
+
+      // Uygulama açılışında mevcut kullanıcı varsa token kaydet
       _fcm.getToken().then(_storeToken);
       _tokenSub = _fcm.onTokenRefresh.listen(_storeToken);
 
-      // App is in the foreground
+      // Kullanıcı sonradan login olursa token yeniden kaydet (önceden kaçmış olabilir)
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+        if (user != null) {
+          _fcm.getToken().then(_storeToken);
+        }
+      });
+
+      // App foreground
       FirebaseMessaging.onMessage.listen((RemoteMessage msg) {
         debugPrint('FCM onMessage: ${msg.data}');
-        if (_handleMatchFound(msg)) return; // If it's a match, don't show a snackbar
+        if (_handleMatchFound(msg)) return; // eşleşme ise snackbar gösterme
 
         final ctx = notificationNavigatorKey.currentContext;
         if (ctx != null && msg.notification != null) {
           final route = (msg.data['targetRoute'] ?? '').toString();
+          if (!ctx.mounted) return; // güvenlik
           ScaffoldMessenger.of(ctx).showSnackBar(
             SnackBar(
               content: Text('${msg.notification!.title ?? ''}\n${msg.notification!.body ?? ''}'.trim()),
@@ -52,10 +72,10 @@ class NotificationService {
         }
       });
 
-      // App is in background, user taps notification
+      // Background -> kullanıcı tıklayınca
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
 
-      // App is terminated, user taps notification
+      // Terminated state
       _fcm.getInitialMessage().then((msg) {
         if (msg != null) _handleMessage(msg);
       });
@@ -108,8 +128,9 @@ class NotificationService {
     if (uid == null) return;
     final ref = FirebaseFirestore.instance.collection('users').doc(uid);
     try {
+      // Eski davranış: arrayUnion ile biriktiriyordu. Artık sadece tek token sakla.
       await ref.set({
-        'fcmTokens': FieldValue.arrayUnion([token])
+        'fcmTokens': [token] // her seferinde alanı tamamen bu tek token ile değiştir
       }, SetOptions(merge: true));
     } catch (_) {
       // ignore
@@ -118,7 +139,8 @@ class NotificationService {
 
   Future<void> dispose() async {
     await _tokenSub?.cancel();
-    // Do not close the broadcast controller, as it's a singleton for the app's lifecycle.
+    await _authSub?.cancel();
+    // Broadcast controller kapatılmıyor (uygulama yaşam döngüsü boyunca kullanılacak)
   }
 }
 

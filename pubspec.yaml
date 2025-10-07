@@ -1,7 +1,7 @@
 name: vocachat
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.0
+version: 1.0.2+3
 
 environment:
   sdk: '>=3.8.1 <4.0.0'
@@ -86,7 +86,10 @@ flutter:
     - assets/animations/Happy SUN.json
     - assets/animations/Support.json
     - assets/animations/Translate.json
+    - assets/animations/Flags.json
     - assets/animations/chat.json # Sohbet animasyonu açıkça eklendi
+    - assets/animations/The winner receives gold medal.json
+    - assets/animations/Trophy.json
 
 flutter_intl:
   enabled: false

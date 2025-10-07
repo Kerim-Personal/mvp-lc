@@ -4,6 +4,9 @@ import 'package:vocachat/data/lesson_data.dart';
 import 'package:vocachat/models/lesson_model.dart';
 import 'package:vocachat/navigation/lesson_router.dart';
 import 'package:vocachat/services/grammar_progress_service.dart';
+import 'package:vocachat/repositories/vocabulary_progress_repository.dart';
+import 'package:vocachat/data/vocabulary_level_map.dart';
+import 'package:vocachat/data/vocabulary_data_clean.dart';
 
 // --- GRAMER SEKMESİ ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
 class GrammarTab extends StatefulWidget {
@@ -32,6 +35,10 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
   // Dinamik ilerleme
   Map<String, double> _levelProgress = {};
   bool _progressLoading = true;
+  // Vocabulary (CEFR) seviye ilerlemesi
+  Map<String, double> _vocabLevelProgress = {};
+  bool _vocabLoading = true;
+  Map<String, int> _vocabLevelTotals = {};
 
   @override
   void initState() {
@@ -49,6 +56,9 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
 
     _entryAnimationController.forward();
     _computeProgress();
+    _computeVocabProgress();
+    // Vocab progress değişince kilitleri tazele
+    VocabularyProgressRepository.instance.progressNotifier.addListener(_computeVocabProgress);
   }
 
   Future<void> _computeProgress() async {
@@ -71,8 +81,32 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     if (mounted) setState(() { _levelProgress = result; _progressLoading = false; });
   }
 
+  Future<void> _computeVocabProgress() async {
+    final progressMap = await VocabularyProgressRepository.instance.fetchAllProgress();
+    // CEFR seviye bazında toplam/öğrenilen kelimeyi topla
+    final totals = <String, int>{ for (final l in cefrLevels) l: 0 };
+    final learned = <String, int>{ for (final l in cefrLevels) l: 0 };
+
+    vocabularyDataClean.forEach((category, words) {
+      final level = vocabularyPackLevel[category];
+      if (level == null) return; // eşlenmemiş paketleri yok say
+      totals[level] = (totals[level] ?? 0) + words.length;
+      final learnedSet = progressMap[category] ?? const <String>{};
+      learned[level] = (learned[level] ?? 0) + learnedSet.length;
+    });
+
+    final result = <String, double>{};
+    for (final l in cefrLevels) {
+      final t = totals[l] ?? 0;
+      final d = learned[l] ?? 0;
+      result[l] = t == 0 ? 0.0 : (d / t).clamp(0.0, 1.0);
+    }
+    if (mounted) setState(() { _vocabLevelProgress = result; _vocabLevelTotals = totals; _vocabLoading = false; });
+  }
+
   @override
   void dispose() {
+    VocabularyProgressRepository.instance.progressNotifier.removeListener(_computeVocabProgress);
     _entryAnimationController.dispose();
     super.dispose();
   }
@@ -83,6 +117,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     if (oldWidget.replayTrigger != widget.replayTrigger) {
       _entryAnimationController.forward(from: 0);
       _computeProgress();
+      _computeVocabProgress();
     }
   }
 
@@ -103,6 +138,21 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     final Map<String, List<Lesson>> lessonsByLevel = {};
     for (var lesson in grammarLessons) {
       lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
+    }
+
+    // Kilit mantığı: A1 her zaman açık. Diğer seviye, bir önceki %100 tamamlanmadan kilitli.
+    bool isLevelLocked(int index) {
+      if (index == 0) return false; // Yalnızca A1 daima açık
+      // Yükleniyorken kilitli tut
+      if (_progressLoading || _vocabLoading) return true;
+      final prevLevel = levels[index - 1];
+      // Gramer: önceki seviye tamamen bitti mi?
+      final prevHasLessons = (lessonsByLevel[prevLevel] ?? const <Lesson>[]).isNotEmpty;
+      final prevGrammarOk = !prevHasLessons ? true : ((_levelProgress[prevLevel] ?? 0.0) >= 1.0);
+      // Sözlük: önceki CEFR seviyesinde hiç paket/kelime yoksa serbest, varsa %100 olmalı
+      final int prevVocabTotal = _vocabLevelTotals[prevLevel] ?? 0;
+      final prevVocabOk = prevVocabTotal == 0 ? true : ((_vocabLevelProgress[prevLevel] ?? 0.0) >= 1.0);
+      return !(prevGrammarOk && prevVocabOk);
     }
 
     // OPTİMİZASYON: Yüksekliği içeriğe göre dinamik olarak hesapla
@@ -134,6 +184,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
               final level = levels[index];
               final lessonsInLevel = lessonsByLevel[level] ?? [];
               final progress = _progressLoading ? 0.0 : (_levelProgress[level] ?? 0.0);
+              final locked = isLevelLocked(index);
               final position = _calculateNodePosition(index, MediaQuery.of(context).size.width);
 
               return Positioned(
@@ -144,11 +195,25 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                   lessonCount: lessonsInLevel.length,
                   color: levelColors[index],
                   progress: progress,
-                  // isLocked konsepti şimdilik yok edildi
-                  isLocked: false,
+                  isLocked: locked,
                   entryAnimation: _entryAnimationController,
                   animationDelay: index * 0.15,
                   onTap: () async {
+                    if (locked) {
+                      final prevLevel = index > 0 ? levels[index - 1] : null;
+                      final prevGrammar = prevLevel == null ? 0.0 : (_levelProgress[prevLevel] ?? 0.0);
+                      final prevVocab = prevLevel == null ? 0.0 : (_vocabLevelProgress[prevLevel] ?? 0.0);
+                      final gPct = (prevGrammar * 100).round();
+                      final vPct = (prevVocab * 100).round();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(prevLevel == null
+                              ? 'This level is currently locked.'
+                              : 'Unlock $level by completing $prevLevel Grammar and $prevLevel Vocabulary 100%. (Grammar $gPct%, Vocab $vPct%)')
+                        ),
+                      );
+                      return;
+                    }
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -160,6 +225,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                       ),
                     );
                     await _computeProgress();
+                    await _computeVocabProgress();
                   },
                 ),
               );
@@ -493,10 +559,15 @@ class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
               itemBuilder: (context, index) {
                 final lesson = widget.lessons[index];
                 final isCompleted = _completedGlobal.contains(lesson.contentPath);
+                final bool prevDone = index == 0
+                    ? true
+                    : _completedGlobal.contains(widget.lessons[index - 1].contentPath);
+                final bool isLocked = !isCompleted && !prevDone;
                 return _LessonTopicTile(
                   lesson: lesson,
                   color: widget.color,
                   isCompleted: isCompleted,
+                  isLocked: isLocked,
                   isNew: false,
                   onTap: () => _openLesson(lesson),
                 );
@@ -513,12 +584,14 @@ class _LessonTopicTile extends StatelessWidget {
   final Lesson lesson;
   final MaterialColor color;
   final bool isCompleted;
+  final bool isLocked;
   final bool isNew;
   final VoidCallback onTap;
   const _LessonTopicTile({
     required this.lesson,
     required this.color,
     required this.isCompleted,
+    required this.isLocked,
     required this.isNew,
     required this.onTap,
   });
@@ -556,9 +629,20 @@ class _LessonTopicTile extends StatelessWidget {
           width: 1.1,
         ),
       ),
-      child: InkWell(
+      child: InkWell
+        (
         borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
+        onTap: () {
+          if (isLocked) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This topic is locked. Complete the previous topic to continue.'),
+              ),
+            );
+            return;
+          }
+          onTap();
+        },
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
           child: Row(
@@ -572,7 +656,9 @@ class _LessonTopicTile extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: isCompleted
                         ? [color.shade600, color.shade800]
-                        : [color.shade300, color.shade600],
+                        : isLocked
+                            ? [Colors.grey.shade700, Colors.grey.shade900]
+                            : [color.shade300, color.shade600],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -586,7 +672,9 @@ class _LessonTopicTile extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    isCompleted ? Icons.check_rounded : lesson.icon,
+                    isCompleted
+                        ? Icons.check_rounded
+                        : (isLocked ? Icons.lock_outline : lesson.icon),
                     color: Colors.white,
                     size: 28,
                   ),
@@ -608,7 +696,9 @@ class _LessonTopicTile extends StatelessWidget {
                               decoration: isCompleted ? TextDecoration.lineThrough : null,
                               color: isCompleted
                                   ? theme.colorScheme.onSurface.withValues(alpha: 0.55)
-                                  : theme.colorScheme.onSurface.withValues(alpha: 0.9),
+                                  : (isLocked
+                                      ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.9)),
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -627,7 +717,13 @@ class _LessonTopicTile extends StatelessWidget {
                             color: color.shade600,
                             icon: Icons.verified_rounded,
                           )
-                        else ...[
+                        else if (isLocked) ...[
+                          _StatusChip(
+                            label: 'Locked',
+                            color: Colors.grey.shade600,
+                            icon: Icons.lock_outline,
+                          )
+                        ] else ...[
                           _StatusChip(
                             label: 'Topic',
                             color: color.shade300,
@@ -643,7 +739,9 @@ class _LessonTopicTile extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: (isLocked
+                    ? theme.colorScheme.onSurface.withValues(alpha: 0.25)
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.4)),
               ),
             ],
           ),

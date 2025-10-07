@@ -10,6 +10,8 @@ import 'package:vocachat/services/translation_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:circle_flags/circle_flags.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Flag mapping and suppression sets are defined in one place
 const _flagMap = <String,String>{
@@ -50,6 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   String? _selectedNativeLanguageCode;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _acceptTerms = false; // Terms of service acceptance
 
   // Multi-step state
   int _currentStep = 0;
@@ -377,6 +380,11 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         setState(() => _currentStep++);
       }
     } else {
+      // Check if terms are accepted before proceeding to register
+      if (!_acceptTerms) {
+        _showError('Please accept the Terms of Service and Privacy Policy to continue.');
+        return;
+      }
       _register();
     }
   }
@@ -389,6 +397,12 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   void _register() async {
     if (!_formKeys[2].currentState!.validate()) return;
+
+    // Check if terms are accepted before proceeding
+    if (!_acceptTerms) {
+      _showError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -703,6 +717,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
           ),
           const SizedBox(height: 24),
           _buildLanguageField(),
+          const SizedBox(height: 24),
+          _buildTermsCheckbox(),
         ],
       ),
     );
@@ -844,6 +860,96 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     );
   }
 
+  Widget _buildTermsCheckbox() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Checkbox(
+          value: _acceptTerms,
+          onChanged: (value) {
+            setState(() {
+              _acceptTerms = value ?? false;
+            });
+          },
+          activeColor: _primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: 'I have read and agree to the ',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Privacy Policy',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _primaryColor,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.underline,
+                  ),
+                  recognizer: TapGestureRecognizer()..onTap = () async {
+                    final uri = Uri.parse('https://www.codenzi.com/vocachat-privacy.html');
+                    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not open Privacy Policy')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                TextSpan(
+                  text: ' and ',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Terms of Service',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _primaryColor,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.underline,
+                  ),
+                  recognizer: TapGestureRecognizer()..onTap = () async {
+                    final uri = Uri.parse('https://www.codenzi.com/vocachat-terms.html');
+                    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not open Terms of Service')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                TextSpan(
+                  text: '.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   InputDecoration _inputDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
@@ -906,6 +1012,13 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   }
 
   Widget _buildNavigationButtons() {
+    // Check if we can proceed to next step or create account
+    bool canProceed = true;
+    if (_currentStep == 2) {
+      // On the last step, check if terms are accepted
+      canProceed = _acceptTerms;
+    }
+
     return Row(
       children: [
         if (_currentStep > 0)
@@ -942,15 +1055,17 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
             height: 44,
             margin: EdgeInsets.only(left: _currentStep > 0 ? 8 : 0),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [_primaryColor.shade600, _primaryColor.shade500]),
+              gradient: canProceed
+                  ? LinearGradient(colors: [_primaryColor.shade600, _primaryColor.shade500])
+                  : LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade400]),
               borderRadius: BorderRadius.circular(_fieldRadius),
-              boxShadow: [
+              boxShadow: canProceed ? [
                 BoxShadow(
                   color: _primaryColor.shade600.withAlpha(75),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
-              ],
+              ] : [],
             ),
             child: ElevatedButton(
               onPressed: _isLoading ? null : _nextStep,
@@ -967,10 +1082,10 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
               )
                   : Text(
                 _currentStep < 2 ? 'Next' : 'Create Account',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: canProceed ? Colors.white : Colors.grey.shade600,
                 ),
               ),
             ),

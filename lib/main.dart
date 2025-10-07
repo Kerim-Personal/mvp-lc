@@ -30,6 +30,8 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:vocachat/utils/restart_app.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vocachat/screens/onboarding_screen.dart';
 
 // Uygulama yaşam döngüsünü dinleyip müziği yönetir
 class _AppLifecycleAudioObserver with WidgetsBindingObserver {
@@ -185,10 +187,60 @@ class MyApp extends StatelessWidget {
               return ProfileScreen(userId: uid);
             },
           },
-          home: const AuthWrapper(),
+          home: const StartupGate(),
         );
       },
     );
+  }
+}
+
+class StartupGate extends StatefulWidget {
+  const StartupGate({super.key});
+
+  @override
+  State<StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<StartupGate> {
+  bool? _showOnboarding; // null=loading
+
+  @override
+  void initState() {
+    super.initState();
+    _decide();
+  }
+
+  Future<void> _decide() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('onboarding_seen_v1') ?? false;
+    setState(() => _showOnboarding = !seen);
+    // Onboarding göstereceksek splash'ı hemen kaldıralım
+    if (!mounted) return;
+    if (!seen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        FlutterNativeSplash.remove();
+      });
+    }
+  }
+
+  Future<void> _finishOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_seen_v1', true);
+    if (!mounted) return;
+    setState(() => _showOnboarding = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Yüklenirken native splash ekranda kalmaya devam eder
+    if (_showOnboarding == null) return const SizedBox.shrink();
+
+    if (_showOnboarding == true) {
+      return OnboardingScreen(onFinished: _finishOnboarding);
+    }
+
+    // Normal akışa geç
+    return const AuthWrapper();
   }
 }
 

@@ -2,6 +2,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const {GoogleGenerativeAI, HarmCategory, HarmBlockThreshold} = require('@google/generative-ai');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -454,22 +455,45 @@ exports.sendAdminNotification = functions
 
       const tokens = [];
       const snap = await userQuery.select("fcmTokens").get();
+
+      // Token -> userId eşlemesi ve kullanıcı bazlı orijinal liste saklama
+      const tokenUserMap = {}; // token -> userId
+      const userTokensMap = {}; // userId -> orijinal token listesi (kopya)
+
       snap.forEach((d) => {
         const t = d.get("fcmTokens");
         if (Array.isArray(t)) {
-          t.forEach((v) => {
-            if (typeof v === "string" && v.length > 20) tokens.push(v);
-          });
+          const validList = [];
+            t.forEach((v) => {
+              if (typeof v === "string" && v.length > 20) {
+                tokens.push(v);
+                if (!tokenUserMap[v]) tokenUserMap[v] = d.id; // ilk sahibini kaydet
+                validList.push(v);
+              }
+            });
+          userTokensMap[d.id] = validList; // sadece geçerli uzunluk filtresinden geçenler
+        } else {
+          userTokensMap[d.id] = [];
         }
       });
       if (!tokens.length) {
-        return {success: true, sent: 0, failed: 0, totalTokens: 0};
+        return {success: true, sent: 0, failed: 0, totalTokens: 0, removedInvalid: 0};
       }
 
       const messaging = admin.messaging();
       const BATCH = 500;
       let sentCount = 0;
       let failCount = 0;
+
+      // Geçersiz sayılan hata kodları
+      const invalidCodes = new Set([
+        'messaging/registration-token-not-registered',
+        'messaging/invalid-registration-token',
+        'messaging/invalid-argument',
+      ]);
+      // userId -> Set(invalidTokens)
+      const invalidByUser = {};
+
       for (let i = 0; i < tokens.length; i += BATCH) {
         const slice = tokens.slice(i, i + BATCH);
         const res = await messaging.sendEachForMulticast({
@@ -484,6 +508,34 @@ exports.sendAdminNotification = functions
         });
         sentCount += res.successCount;
         failCount += res.failureCount;
+
+        if (Array.isArray(res.responses)) {
+          res.responses.forEach((r, idx) => {
+            if (!r.success && r.error && invalidCodes.has(r.error.code)) {
+              const badToken = slice[idx];
+              const owner = tokenUserMap[badToken];
+              if (owner) {
+                if (!invalidByUser[owner]) invalidByUser[owner] = new Set();
+                invalidByUser[owner].add(badToken);
+              }
+            }
+          });
+        }
+      }
+
+      // Geçersiz token temizliği
+      let removedInvalidCount = 0;
+      const invalidUserIds = Object.keys(invalidByUser);
+      if (invalidUserIds.length) {
+        const batch = db.batch();
+        invalidUserIds.forEach((uid2) => {
+          const toRemoveSet = invalidByUser[uid2];
+          const original = userTokensMap[uid2] || [];
+          const filtered = original.filter(t => !toRemoveSet.has(t));
+          removedInvalidCount += (original.length - filtered.length);
+          batch.update(db.collection('users').doc(uid2), { fcmTokens: filtered });
+        });
+        try { await batch.commit(); } catch (_) { /* yut */ }
       }
 
       try {
@@ -492,8 +544,9 @@ exports.sendAdminNotification = functions
           targetUid: segment==="user"? targetUid : null,
           targetRoute: targetRoute || null,
           sent: sentCount,
-          failed: failCount,
+            failed: failCount,
           totalTokens: tokens.length,
+          removedInvalid: removedInvalidCount,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           createdBy: uid,
         });
@@ -506,6 +559,7 @@ exports.sendAdminNotification = functions
         sent: sentCount,
         failed: failCount,
         totalTokens: tokens.length,
+        removedInvalid: removedInvalidCount,
       };
     });
 
@@ -622,3 +676,400 @@ exports.changeUsername = functions
       throw new functions.https.HttpsError("internal", "Kullanıcı adı değiştirilemedi");
     }
   });
+
+/**
+ * Gemini API key config helper
+ */
+function getGeminiClient() {
+  const key = (functions.config().gemini && functions.config().gemini.key) || process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new functions.https.HttpsError('failed-precondition', 'Gemini API anahtarı eksik (functions:config:set gemini.key=...)');
+  }
+  return new GoogleGenerativeAI(key);
+}
+
+function sanitizeReply(text) {
+  if (!text) return '';
+  let t = text.trim();
+  if (t.startsWith('```')) {
+    t = t.replace(/^```[a-zA-Z0-9]*\n?/, '').replace(/```$/,'').trim();
+  }
+  // Çoklu boşlukları sadeleştir
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t;
+}
+
+// Basit intent sınıflandırıcı (istemciyle benzer)
+function classifyIntent(msg) {
+  const m = (msg||'').toLowerCase().trim();
+  if (/^(hi|hey|hello)(\b|!|\?|\.)/.test(m)) return 'greeting';
+  if (/correct|grammar|mistake|error|fix|wrong/.test(m)) return 'correction';
+  if (/explain|why|difference|mean|meaning/.test(m)) return 'explanation';
+  if (/synonym|another way|rephrase|paraphrase/.test(m)) return 'rephrase';
+  if (/test me|quiz|question|practice/.test(m)) return 'practice';
+  if (/(^| )end($| )|bye|goodbye|see you/.test(m)) return 'closing';
+  return 'chat';
+}
+
+function buildSystemPrompt(targetLang, nativeLang, level) {
+  const isEnglish = (targetLang||'').toLowerCase()==='english' || (targetLang||'').toLowerCase()==='en';
+  const targetName = targetLang || 'English';
+  const nativeName = nativeLang || 'English';
+  const lvl = (level||'medium');
+  // Basit CEFR/ton eşlemesi
+  const guideByLevel = {
+    none: {
+      cefr: 'A0-A1',
+      style: '- Use ultra-simple words and very short sentences (<=8 words).\n- Prefer everyday phrases.\n- If user seems lost, add a short hint in ' + nativeName + ' in parentheses once in a while.'
+    },
+    low: {
+      cefr: 'A1-A2',
+      style: '- Use simple vocabulary and short sentences (<=12 words).\n- Avoid idioms and complex tenses.\n- Offer tiny hints/examples when needed.'
+    },
+    medium: {
+      cefr: 'B1',
+      style: '- Moderate difficulty; clear, practical sentences.\n- Mild corrections when asked or mistakes block understanding.'
+    },
+    high: {
+      cefr: 'B2-C1',
+      style: '- Richer vocabulary, natural pace.\n- Encourage nuanced expressions; still concise.'
+    },
+    very_high: {
+      cefr: 'C1-C2',
+      style: '- Native-like fluency; natural idioms allowed.\n- Precise, concise, challenging but friendly.'
+    }
+  };
+  const g = guideByLevel[lvl] || guideByLevel.medium;
+  const base = isEnglish
+    ? `You are VocaBot: natural, concise, upbeat human-like ${targetName} practice partner.`
+    : `You are VocaBot: a concise, encouraging tutor helping the user practice ${targetName}. PRIMARY OUTPUT LANGUAGE: ${targetName}. Unless the user explicitly writes in ${nativeName} asking for a translation/explanation, respond fully in ${targetName}.`;
+  const lvlNote = `LEARNER LEVEL: ${g.cefr} (${lvl}).\nLEVEL GUIDELINES:\n${g.style}`;
+  return `${base}\n${lvlNote}\nPRINCIPLES:\n- Keep answers SHORT and focused. Avoid lists unless user explicitly asks.\n- Warm, human tone.\n- Correct only clear mistakes when user asks OR error is severe.\n- MAX emojis: 1 optional, never at the start.\n- Never say you are an AI model.\n- Plain text only.`;
+}
+
+function resolveDailyLimit(key) {
+  const defaults = { vocabotSend: 200, vocabotAnalyzeGrammar: 50, aiTranslate: 150 };
+  try {
+    if (functions.config().ai) {
+      const cfg = functions.config().ai;
+      if (cfg[key]) {
+        const n = Number(cfg[key]);
+        if (!isNaN(n) && n > 0) return n;
+      }
+    }
+  } catch (_) {}
+  return defaults[key] || 100;
+}
+
+async function checkDailyQuota(context, key) {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Giriş gerekli');
+  const uid = context.auth.uid;
+  const today = new Date();
+  const ymd = today.toISOString().slice(0,10).replace(/-/g,''); // YYYYMMDD
+  const docId = uid + '_' + ymd;
+  const ref = db.collection('ai_usage').doc(docId);
+  const limit = resolveDailyLimit(key);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const base = snap.exists ? (snap.data() || {}) : { uid, date: ymd, counts: {} };
+      const counts = base.counts || {};
+      const current = counts[key] || 0;
+      if (current >= limit) {
+        throw new functions.https.HttpsError('resource-exhausted', `Günlük ${key} limiti aşıldı (${limit})`);
+      }
+      counts[key] = current + 1;
+      base.counts = counts;
+      base.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      if (!snap.exists) base.createdAt = admin.firestore.FieldValue.serverTimestamp();
+      tx.set(ref, base, { merge: true });
+    });
+  } catch (e) {
+    if (e instanceof functions.https.HttpsError) throw e;
+    console.error('checkDailyQuota error', e);
+    throw new functions.https.HttpsError('internal','Kota kontrolü başarısız');
+  }
+}
+
+async function requirePremium(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).get();
+    if (!snap.exists) {
+      throw new functions.https.HttpsError('permission-denied','Premium gerekli (profil yok)');
+    }
+    const premium = snap.get('isPremium') === true;
+    if (!premium) {
+      throw new functions.https.HttpsError('permission-denied','Bu özellik için premium gerekli');
+    }
+  } catch (e) {
+    if (e instanceof functions.https.HttpsError) throw e;
+    console.error('requirePremium error', e);
+    throw new functions.https.HttpsError('internal','Premium doğrulanamadı');
+  }
+}
+
+exports.vocabotSend = functions.region('us-central1').https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Giriş gerekli');
+  await requirePremium(context.auth.uid);
+  await checkDailyQuota(context, 'vocabotSend');
+  const message = (data && data.message)||'';
+  const targetLanguage = (data && data.targetLanguage)||'en';
+  const nativeLanguage = (data && data.nativeLanguage)||'en';
+  const learningLevel = (data && data.learningLevel)||'medium';
+  const scenario = (data && data.scenario) ? String(data.scenario).trim() : '';
+  if (!message.trim()) throw new functions.https.HttpsError('invalid-argument','Boş mesaj');
+  if (message.length > 1200) throw new functions.https.HttpsError('invalid-argument','Mesaj çok uzun');
+  try {
+    const genAI = getGeminiClient();
+    const systemInstruction = buildSystemPrompt(targetLanguage, nativeLanguage, learningLevel);
+    const intent = classifyIntent(message);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-lite',
+      systemInstruction,
+      safetySettings: [
+        {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE},
+        {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE},
+        {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE},
+        {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE},
+      ],
+    });
+    const scenarioBlock = scenario ? `\nSCENARIO: ${scenario}\nROLE: Act within this scenario. Keep responses contextual and realistic. Use short, natural dialogue lines.` : '';
+    const augmented = `USER_MESSAGE: "${message}"\nINTENT: ${intent}${scenarioBlock}\nGUIDELINES: Keep it short (<=2 sentences) unless explanation asked. Natural tone.`;
+    const result = await model.generateContent([{text: augmented}]);
+    const reply = sanitizeReply(result.response.text());
+    return {reply};
+  } catch (e) {
+    console.error('vocabotSend error', e);
+    throw new functions.https.HttpsError('internal','VocaBot yanıt üretilemedi');
+  }
+});
+
+function heuristicGrammar(userMessage) {
+  const words = userMessage.trim().split(/\s+/).filter(Boolean);
+  const complexity = Math.min(1, words.length/20);
+  const corrections = {};
+  const lower = userMessage.toLowerCase();
+  if (lower.includes(' i ')) corrections[' i '] = ' I ';
+  const grammarScore = Math.max(0.1, 1 - Object.keys(corrections).length * 0.15) * (0.5 + complexity/2);
+  return {
+    grammarScore: Number(grammarScore.toFixed(2)),
+    formality: 'neutral',
+    sentiment: 0,
+    complexity: Number(complexity.toFixed(2)),
+    corrections,
+    cefr: grammarScore>0.9? 'C2': grammarScore>0.75? 'C1': grammarScore>0.6? 'B2': grammarScore>0.45? 'B1': grammarScore>0.25? 'A2':'A1',
+    suggestions: ['Great! Try a slightly longer sentence next time.'],
+    errors: Object.entries(corrections).map(([k,v])=>({type:'basic', original:k.trim(), correction:v.trim(), severity:'low', explanation:'Basic form correction'}))
+  };
+}
+
+exports.vocabotAnalyzeGrammar = functions.region('us-central1').https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Giriş gerekli');
+  await requirePremium(context.auth.uid);
+  await checkDailyQuota(context, 'vocabotAnalyzeGrammar');
+  const userMessage = (data && data.userMessage)||'';
+  const targetLanguage = (data && data.targetLanguage)||'en';
+  const learningLevel = (data && data.learningLevel)||'medium';
+  if (!userMessage.trim()) throw new functions.https.HttpsError('invalid-argument','Boş mesaj');
+  try {
+    const genAI = getGeminiClient();
+    const model = genAI.getGenerativeModel({model:'gemini-2.0-flash-lite'});
+    const maxErrors = (learningLevel==='none'||learningLevel==='low') ? 3 : 5;
+    const explainLen = (learningLevel==='none'||learningLevel==='low') ? 6 : 8;
+    const prompt = [
+      `You are a concise grammar feedback engine for learners of ${targetLanguage}. Level: ${learningLevel}.`,
+      'Return ONLY raw JSON (no markdown). Schema:',
+      '{',
+      '  "grammarScore": float (0..1),',
+      '  "formality": "informal|neutral|formal",',
+      '  "sentiment": float (-1..1),',
+      '  "complexity": float (0..1),',
+      '  "errors": [ { "original":"...", "correction":"...", "explanation":"short" } ],',
+      '  "suggestions": ["short tip", ...]',
+      '}',
+      'Rules:',
+      `- Max ${maxErrors} errors; only real mistakes.`,
+      `- Keep explanations <= ${explainLen} words.`,
+      '- If perfect: grammarScore=1, errors=[], give 1 improvement suggestion.',
+      '- No extra fields.',
+      `User message: "${userMessage}"`
+    ].join('\n');
+    const result = await model.generateContent([{text: prompt}]);
+    const raw = (result.response.text()||'').trim();
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    let parsed = null;
+    if (start !== -1 && end !== -1 && end>start) {
+      try { parsed = JSON.parse(raw.substring(start, end+1)); } catch(_) { parsed = null; }
+    }
+    if (!parsed) parsed = heuristicGrammar(userMessage);
+    return {analysis: parsed};
+  } catch (e) {
+    console.error('vocabotAnalyzeGrammar error', e);
+    return {analysis: heuristicGrammar(userMessage)}; // fallback
+  }
+});
+
+exports.aiTranslate = functions.region('us-central1').https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Giriş gerekli');
+  await requirePremium(context.auth.uid);
+  await checkDailyQuota(context, 'aiTranslate');
+  const text = (data && data.text)||'';
+  const targetCode = (data && data.targetCode)||'en';
+  const sourceCode = data && data.sourceCode;
+  if (!text.trim()) return {translation: ''};
+  try {
+    const genAI = getGeminiClient();
+    const model = genAI.getGenerativeModel({model:'gemini-2.0-flash-lite'});
+    const prompt = [
+      sourceCode ? `Source language: ${sourceCode}` : 'Detect the source language automatically',
+      `Target language: ${targetCode}`,
+      'RULES:',
+      '- Output ONLY the translated sentence(s).',
+      '- No quotes, no explanations, no language labels.',
+      '- If already in target language, return original unchanged.',
+      'TEXT:',
+      text
+    ].join('\n');
+    const result = await model.generateContent([{text: prompt}]);
+    let out = sanitizeReply(result.response.text());
+    if ((out.startsWith('"') && out.endsWith('"')) || (out.startsWith("'") && out.endsWith("'"))) {
+      out = out.slice(1,-1).trim();
+    }
+    return {translation: out};
+  } catch (e) {
+    console.error('aiTranslate error', e);
+    return {translation: text};
+  }
+});
+
+const GENAI_API_KEY = (functions.config().gemini && functions.config().gemini.key) || process.env.GEMINI_API_KEY || '';
+let genAI = null;
+if (GENAI_API_KEY) {
+  try {
+    genAI = new GoogleGenerativeAI(GENAI_API_KEY);
+  } catch (e) {
+    console.error('GoogleGenerativeAI init failed', e);
+  }
+}
+
+function takeString(data, key, maxLen, required=true) {
+  const v = data && data[key];
+  if ((v == null || v === '') && !required) return '';
+  if (typeof v !== 'string') throw new functions.https.HttpsError('invalid-argument', key + ' must be string');
+  if (v.length > maxLen) throw new functions.https.HttpsError('invalid-argument', key + ' too long');
+  return String(v).trim();
+}
+
+function extractJson(text) {
+  if (!text) return null;
+  // Try fenced code block
+  const fence = text.match(/```json\s*([\s\S]*?)\s*```/i);
+  const raw = fence ? fence[1] : text;
+  const first = raw.indexOf('{');
+  const last = raw.lastIndexOf('}');
+  if (first >= 0 && last > first) {
+    const slice = raw.slice(first, last + 1);
+    try { return JSON.parse(slice); } catch (_) {}
+  }
+  try { return JSON.parse(raw); } catch (_) { return null; }
+}
+
+function fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage) {
+  // Basit, güvenli bir varsayılan quiz
+  return {
+    quiz: {
+      topicPath,
+      topicTitle,
+      question: `(${targetLanguage}) ${topicTitle}: Doğru seçeneği işaretle.`,
+      options: ['A', 'B', 'C'],
+      correctIndex: 0,
+      onCorrectNative: 'Doğru! Kısa kural özeti.',
+      onWrongNative: 'Yanlış. Kuralın kısa açıklaması.',
+    }
+  };
+}
+
+exports.vocabotGrammarQuiz = functions
+  .region('us-central1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Auth required');
+    }
+    const uid = context.auth.uid;
+
+    // Güvenli kısaltma yardımcı fonksiyonu
+    function clampStr(v, max, def = '') {
+      if (v == null) return def;
+      const s = typeof v === 'string' ? v : String(v);
+      return s.length > max ? s.slice(0, max).trim() : s.trim();
+    }
+
+    // Parametreleri güvenle al; doğrulama hatasında fallback ver
+    let topicPath, topicTitle, targetLanguage, nativeLanguage, learningLevel;
+    try {
+      topicPath = takeString(data, 'topicPath', 64);
+      topicTitle = takeString(data, 'topicTitle', 120);
+      targetLanguage = takeString(data, 'targetLanguage', 8);
+      nativeLanguage = takeString(data, 'nativeLanguage', 8);
+      learningLevel = takeString(data, 'learningLevel', 16, false) || 'medium';
+    } catch (argErr) {
+      console.warn('vocabotGrammarQuiz invalid args, serving fallback', { uid, err: String(argErr) });
+      topicPath = clampStr(data && data.topicPath, 64, 'general');
+      topicTitle = clampStr(data && data.topicTitle, 120, 'General grammar');
+      targetLanguage = clampStr(data && data.targetLanguage, 8, 'en');
+      nativeLanguage = clampStr(data && data.nativeLanguage, 8, 'en');
+      learningLevel = clampStr(data && data.learningLevel, 16, 'medium') || 'medium';
+      return fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage);
+    }
+
+    // Gemini yapılandırması yoksa hemen fallback
+    if (!GENAI_API_KEY) {
+      console.warn('vocabotGrammarQuiz: GENAI_API_KEY missing, serving fallback', { uid, topicPath });
+      return fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage);
+    }
+
+    try {
+      const gen = getGeminiClient();
+      const model = gen.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+
+      const sys = `You are a concise language tutor. Create ONE multiple-choice question (3 options, exactly one correct) in the learner's target language about the given grammar topic.
+- Keep the question short and clear.
+- Make distractors plausible.
+- Difficulty should align with level: ${learningLevel}.
+- Return STRICT JSON only with fields: topicPath, topicTitle, question, options (array of 3 strings), correctIndex (0..2), onCorrectNative (string), onWrongNative (string).
+- onCorrectNative: congratulate and give a VERY brief summary of the rule in ${nativeLanguage}.
+- onWrongNative: explain the correct rule briefly in ${nativeLanguage}, optionally give one short example.
+- Do NOT include any extra commentary or markdown.
+- Ensure options length is exactly 3 and only one correct.
+- The question must be written in the target language (${targetLanguage}).`;
+
+      const user = `Topic: ${topicTitle} (${topicPath})\nTarget language: ${targetLanguage}\nNative language: ${nativeLanguage}`;
+
+      const resp = await model.generateContent({ contents: [
+        { role: 'user', parts: [{ text: sys + '\n\n' + user }] },
+      ]});
+      const text = resp?.response?.text?.();
+      const parsed = extractJson(text);
+      if (!parsed || !parsed.question || !Array.isArray(parsed.options) || parsed.options.length !== 3 || typeof parsed.correctIndex !== 'number') {
+        console.warn('Invalid quiz JSON, serving fallback', { uid, topicPath });
+        return fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage);
+      }
+      const quiz = {
+        topicPath,
+        topicTitle,
+        question: String(parsed.question).trim(),
+        options: parsed.options.map((o) => String(o).trim()).slice(0,3),
+        correctIndex: Math.max(0, Math.min(2, parseInt(parsed.correctIndex, 10))),
+        onCorrectNative: String(parsed.onCorrectNative || '').trim() || 'Doğru!',
+        onWrongNative: String(parsed.onWrongNative || '').trim() || 'Yanlış.',
+      };
+      return { quiz };
+    } catch (e) {
+      console.error('vocabotGrammarQuiz error, serving fallback', e);
+      return fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage);
+    }
+  });
+
+
+

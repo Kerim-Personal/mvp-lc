@@ -9,6 +9,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/widgets/community_screen/leaderboard_table.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // --- DATA MODELLERİ ---
 class LeaderboardUser {
@@ -86,6 +88,22 @@ class _CommunityScreenState extends State<CommunityScreen>
   void initState() {
     super.initState();
     _loadLeaderboard(initial: true);
+    _maybeShowWeeklyRewardIntro();
+  }
+
+  Future<void> _maybeShowWeeklyRewardIntro() async {
+    if (_leaderboardType != 'weekly') return;
+    final prefs = await SharedPreferences.getInstance();
+    const key = 'weekly_rewards_intro_seen_v1';
+    final seen = prefs.getBool(key) ?? false;
+    if (seen) return;
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _showWeeklyRewardDialog();
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(key, true);
+    });
   }
 
   Future<void> _loadLeaderboard({bool force = false, bool initial = false}) async {
@@ -247,7 +265,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                   alignment: Alignment.centerRight,
                   child: Material(
                     color: Colors.transparent,
-                    child: _RewardInfoButton(onTap: _showWeeklyRewardDialog),
+                    child: _RewardInfoButton(onTap: () { _showWeeklyRewardDialog(); }),
                   ),
                 ),
               ],
@@ -267,10 +285,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           const SizedBox(height: 12),
           // Top 3 Podyum
           _buildTopPodium(),
-          const SizedBox(height: 10),
-          // Efsanevi rozetler
-          _buildLegendRow(),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           // Kullanıcı sırası veya bilgi kartı
           _buildMyRankOrHint(),
         ],
@@ -278,10 +293,10 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  void _showWeeklyRewardDialog() {
+  Future<void> _showWeeklyRewardDialog() async {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    showDialog(
+    return showDialog(
       context: context,
       barrierColor: Colors.black87.withValues(alpha: 0.55),
       builder: (ctx) {
@@ -317,7 +332,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                         ),
-                        child: const Icon(Icons.construction_rounded, color: Colors.white, size: 26),
+                        child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 26),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -344,10 +359,18 @@ class _CommunityScreenState extends State<CommunityScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Icon(Icons.construction, size: 54, color: cs.secondary),
+                      // Trophy Lottie
+                      Semantics(
+                        label: 'Weekly Rewards Trophy',
+                        child: Lottie.asset(
+                          'assets/animations/Trophy.json',
+                          height: 180,
+                          repeat: true,
+                        ),
+                      ),
                       const SizedBox(height: 18),
                       Text(
-                        'Weekly Reward System Under Maintenance',
+                        'Compete weekly, earn shiny rewards',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
@@ -356,7 +379,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'The weekly reward system is currently under maintenance. We\'ll notify you once it\'s back online. Thank you for your patience!',
+                        'Climb the leaderboard and unlock weekly perks. Stay active, stay consistent, and claim your spot!',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.75),
@@ -490,33 +513,6 @@ class _CommunityScreenState extends State<CommunityScreen>
           pillar(l3),
         ],
       ),
-    );
-  }
-
-  Widget _buildLegendRow() {
-    final cs = Theme.of(context).colorScheme;
-    Widget chip(Color c, String t) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: c.withValues(alpha: 0.6)),
-      ),
-      child: Row(children: [
-        Icon(Icons.circle, size: 10, color: c),
-        const SizedBox(width: 6),
-        Text(t, style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface)),
-      ]),
-    );
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        chip(Colors.amber, 'Gold'),
-        const SizedBox(width: 8),
-        chip(Colors.grey.shade400, 'Silver'),
-        const SizedBox(width: 8),
-        chip(Colors.brown.shade400, 'Bronze'),
-      ],
     );
   }
 

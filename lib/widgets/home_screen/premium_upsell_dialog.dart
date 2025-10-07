@@ -32,6 +32,11 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
       'assets/animations/Translate.json',
     ),
     _FeatureData(
+      'Language Diversity',
+      'Over 100 languages supported in Vocabot for speech synthesis, translation and grammar analysis',
+      'assets/animations/Flags.json',
+    ),
+    _FeatureData(
       'Priority Support',
       'Priority issue resolution: faster responses and direct escalation when something breaks.',
       'assets/animations/Support.json',
