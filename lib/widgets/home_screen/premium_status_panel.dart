@@ -36,34 +36,25 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<PremiumInfo>(
-      stream: PremiumService().premiumStream,
-      initialData: PremiumService().currentPremiumInfo,
-      builder: (context, snapshot) {
-        final premiumInfo = snapshot.data ?? PremiumInfo.notPremium;
-
-        return LayoutBuilder(builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          return RepaintBoundary(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                    child: _AnimatedGoldBackground(controller: _bgController)),
-                Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: _PanelContent(
-                      shimmerController: _shimmerController,
-                      premiumInfo: premiumInfo,
-                    ),
-                  ),
+    // Panel direkt render edilir; aktiflik kontrolü üst bileşen tarafından yapılır.
+    return LayoutBuilder(builder: (context, constraints) {
+      return RepaintBoundary(
+        child: Stack(
+          children: [
+            Positioned.fill(
+                child: _AnimatedGoldBackground(controller: _bgController)),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: _PanelContent(
+                  shimmerController: _shimmerController,
                 ),
-              ],
+              ),
             ),
-          );
-        });
-      },
-    );
+          ],
+        ),
+      );
+    });
   }
 }
 
@@ -139,9 +130,7 @@ class _AnimatedGoldBackground extends StatelessWidget {
 
 class _PanelContent extends StatelessWidget {
   final AnimationController shimmerController;
-  final PremiumInfo premiumInfo;
-  const _PanelContent(
-      {required this.shimmerController, required this.premiumInfo});
+  const _PanelContent({required this.shimmerController});
 
   List<_Benefit> get _benefits => const [
     _Benefit('assets/animations/no ads icon.json', 'Ad-free'),
@@ -420,27 +409,3 @@ class _Benefit {
   const _Benefit(this.animationPath, this.label);
 }
 
-// Geçici PremiumService sınıfları - servis yeniden yazılana kadar
-class PremiumInfo {
-  final bool isPremium;
-  final String status;
-
-  const PremiumInfo({
-    required this.isPremium,
-    required this.status,
-  });
-
-  static const PremiumInfo notPremium = PremiumInfo(
-    isPremium: false,
-    status: 'not_premium',
-  );
-}
-
-class PremiumService {
-  static final PremiumService _instance = PremiumService._internal();
-  factory PremiumService() => _instance;
-  PremiumService._internal();
-
-  Stream<PremiumInfo> get premiumStream => Stream.value(PremiumInfo.notPremium);
-  PremiumInfo get currentPremiumInfo => PremiumInfo.notPremium;
-}

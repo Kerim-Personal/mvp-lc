@@ -66,7 +66,7 @@ function buildSystemPrompt(targetLang, nativeLang, level) {
 }
 
 function resolveDailyLimit(key) {
-  const defaults = { vocabotSend: 200, vocabotAnalyzeGrammar: 50, aiTranslate: 150 };
+  const defaults = { vocabotSend: 200, vocabotAnalyzeGrammar: 200, aiTranslate: 150 };
   try {
     if (functions.config().ai) {
       const cfg = functions.config().ai;

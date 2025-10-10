@@ -10,6 +10,7 @@ import 'package:lottie/lottie.dart';
 import 'package:vocachat/widgets/shared/animated_background.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
+import 'package:vocachat/widgets/home_screen/premium_status_panel.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key, this.embedded = false});
@@ -672,27 +673,6 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       SnackBar(
         content: Text(ok ? 'Restored successfully.' : 'No purchases to restore.'),
         behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-}
-
-class PremiumStatusPanel extends StatelessWidget {
-  const PremiumStatusPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.amber.withValues(alpha: 0.1),
-      ),
-      child: const Center(
-        child: Text(
-          'Premium Status Panel\nYour premium features are active!',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.amber, fontSize: 16),
-        ),
       ),
     );
   }

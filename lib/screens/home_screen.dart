@@ -11,10 +11,12 @@ import 'package:vocachat/widgets/home_screen/vocabot_ai_button.dart';
 import 'package:vocachat/widgets/home_screen/home_cards_section.dart';
 import 'package:vocachat/widgets/common/safety_help_button.dart';
 import '../widgets/common/usage_guide_button.dart';
+import 'package:vocachat/services/revenuecat_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.onSearchingChanged});
+  const HomeScreen({super.key, this.onSearchingChanged, this.onPremiumStatusChanged});
   final ValueChanged<bool>? onSearchingChanged;
+  final ValueChanged<bool>? onPremiumStatusChanged; // Premium durumu callback'i
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -45,6 +47,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           .collection('users')
           .doc(user.uid)
           .snapshots();
+
+      // Premium durumunu başlangıçta kontrol et
+      _initializePremiumStatus();
     }
 
     _pageController = PageController(viewportFraction: 0.85, initialPage: 1000);
@@ -61,6 +66,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _setupAnimations();
     _startCardScrollTimer();
     _entryAnimationController.forward();
+  }
+
+  Future<void> _initializePremiumStatus() async {
+    final user = _currentUser;
+    if (user == null) return;
+
+    try {
+      // RevenueCat'i başlat
+      await RevenueCatService.instance.init();
+      await RevenueCatService.instance.onLogin(user.uid);
+
+      // Önce Firestore'dan kontrol et
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      bool isPremium = false;
+
+      if (doc.exists && doc.data() != null) {
+        isPremium = doc.data()!['isPremium'] == true;
+      }
+
+      // RevenueCat'ten de kontrol et
+      if (!isPremium && RevenueCatService.instance.isPremiumActive) {
+        isPremium = true;
+      }
+
+      if (mounted) {
+        setState(() {
+          _isProUser = isPremium;
+        });
+      }
+    } catch (e) {
+      // Hata durumunda varsayılan false
+      if (mounted) {
+        setState(() {
+          _isProUser = false;
+        });
+      }
+    }
   }
 
   void _startCardScrollTimer() {
