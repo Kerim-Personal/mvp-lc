@@ -7,6 +7,23 @@ const {GoogleGenerativeAI, HarmCategory, HarmBlockThreshold} = require('@google/
 admin.initializeApp();
 const db = admin.firestore();
 
+async function requirePremium(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).get();
+    if (!snap.exists) {
+      throw new functions.https.HttpsError('permission-denied','Premium gerekli (profil yok)');
+    }
+    const premium = snap.get('isPremium') === true;
+    if (!premium) {
+      throw new functions.https.HttpsError('permission-denied','Bu özellik için premium gerekli');
+    }
+  } catch (e) {
+    if (e instanceof functions.https.HttpsError) throw e;
+    console.error('requirePremium error', e);
+    throw new functions.https.HttpsError('internal','Premium doğrulanamadı');
+  }
+}
+
 /**
  * Kullanıcı adı kontrolü (Cloud Function)
  * Yeni bir kullanıcı kaydı sırasında, kullanıcı adının kullanılabilir olup
@@ -791,23 +808,6 @@ async function checkDailyQuota(context, key) {
   }
 }
 
-async function requirePremium(uid) {
-  try {
-    const snap = await db.collection('users').doc(uid).get();
-    if (!snap.exists) {
-      throw new functions.https.HttpsError('permission-denied','Premium gerekli (profil yok)');
-    }
-    const premium = snap.get('isPremium') === true;
-    if (!premium) {
-      throw new functions.https.HttpsError('permission-denied','Bu özellik için premium gerekli');
-    }
-  } catch (e) {
-    if (e instanceof functions.https.HttpsError) throw e;
-    console.error('requirePremium error', e);
-    throw new functions.https.HttpsError('internal','Premium doğrulanamadı');
-  }
-}
-
 exports.vocabotSend = functions.region('us-central1').https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Giriş gerekli');
   await requirePremium(context.auth.uid);
@@ -996,6 +996,7 @@ exports.vocabotGrammarQuiz = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Auth required');
     }
+    await requirePremium(context.auth.uid);
     const uid = context.auth.uid;
 
     // Güvenli kısaltma yardımcı fonksiyonu
@@ -1070,6 +1071,3 @@ exports.vocabotGrammarQuiz = functions
       return fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage);
     }
   });
-
-
-

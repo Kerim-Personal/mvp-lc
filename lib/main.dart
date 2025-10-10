@@ -32,6 +32,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:vocachat/utils/restart_app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vocachat/screens/onboarding_screen.dart';
+import 'package:vocachat/services/revenuecat_service.dart';
 
 // Uygulama yaşam döngüsünü dinleyip müziği yönetir
 class _AppLifecycleAudioObserver with WidgetsBindingObserver {
@@ -103,11 +104,10 @@ Future<void> _postAppInit() async {
           .timeout(const Duration(seconds: 5), onTimeout: () => null),
       NotificationService.instance.init()
           .timeout(const Duration(seconds: 8), onTimeout: () => null),
-      // _initAppCheckSafely() // Artık main içinde çağrılıyor (erken başlatma)
-          // .timeout(const Duration(seconds: 8), onTimeout: () => null),
       _configureFirestoreSafely()
           .timeout(const Duration(seconds: 3), onTimeout: () => null),
     ]);
+    // PremiumService'i kullanıcı oturumu açtığında başlatacağız
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
@@ -274,6 +274,19 @@ class AuthWrapper extends StatelessWidget {
     });
   }
 
+  // Premium service'i kullanıcı oturumu açıldığında başlat
+  void _initPremiumService(String uid) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await RevenueCatService.instance.init();
+        await RevenueCatService.instance.onLogin(uid);
+      } catch (e) {
+        // RevenueCat hatası uygulamayı durdurmasın
+        print('RevenueCat init error in AuthWrapper: $e');
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -287,6 +300,10 @@ class AuthWrapper extends StatelessWidget {
         if (snapshot.hasData && snapshot.data != null) {
           final user = snapshot.data!;
           final uid = user.uid;
+
+          // Kullanıcı oturumu açık, premium service'i başlat
+          _initPremiumService(uid);
+
           return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
             builder: (context, userSnap) {
@@ -329,7 +346,10 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // Oturum açmış kullanıcı yoksa Login'e yönlendir.
+        // Oturum açmış kullanıcı yoksa Login'e yönlendir ve premium service'i durdur
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // PremiumService().stopListening(); // Geçici olarak kapatıldı
+        });
         _removeSplashSafely();
         return const LoginScreen();
       },
@@ -355,10 +375,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 extension ColorValues on Color {
   Color withValues({int? alpha, int? red, int? green, int? blue}) {
     return Color.fromARGB(
-      alpha ?? this.alpha,
-      red ?? this.red,
-      green ?? this.green,
-      blue ?? this.blue,
+      alpha ?? (a * 255.0).round() & 0xff,
+      red ?? (r * 255.0).round() & 0xff,
+      green ?? (g * 255.0).round() & 0xff,
+      blue ?? (b * 255.0).round() & 0xff,
     );
   }
 }
