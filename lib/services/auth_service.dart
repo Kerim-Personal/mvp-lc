@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:vocachat/services/revenuecat_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -168,6 +169,15 @@ class AuthService {
             } catch (_) {}
           }
         }
+
+        // RevenueCat entegrasyonu - kullanıcı giriş yaptıktan sonra
+        try {
+          await RevenueCatService.instance.init();
+          await RevenueCatService.instance.onLogin(user.uid);
+        } catch (e) {
+          // RevenueCat hatası uygulamayı durdurmasın
+          print('RevenueCat login error: $e');
+        }
       }
 
       return userCredential;
@@ -179,6 +189,14 @@ class AuthService {
   /// Mevcut kullanıcının oturumunu kapatır.
   /// DEĞİŞİKLİK: Google oturumu da kapatılıyor.
   Future<void> signOut() async {
+    // RevenueCat logout
+    try {
+      await RevenueCatService.instance.onLogout();
+    } catch (e) {
+      // RevenueCat hatası uygulamayı durdurmasın
+      print('RevenueCat logout error: $e');
+    }
+
     try {
       final googleSignIn = GoogleSignIn();
       await googleSignIn.signOut();
@@ -299,6 +317,15 @@ class AuthService {
               await docRef.update({'emailVerified': true});
             } catch (_) {}
           }
+        }
+
+        // RevenueCat entegrasyonu - Google ile giriş yaptıktan sonra
+        try {
+          await RevenueCatService.instance.init();
+          await RevenueCatService.instance.onLogin(user.uid);
+        } catch (e) {
+          // RevenueCat hatası uygulamayı durdurmasın
+          print('RevenueCat Google login error: $e');
         }
       }
       return userCredential;

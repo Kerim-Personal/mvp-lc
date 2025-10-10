@@ -28,7 +28,7 @@ val hasReleaseKeystore = listOf("storeFile", "storePassword", "keyAlias", "keyPa
 android {
     namespace = "com.codenzi.vocachat"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973" // ✅ BURAYI DEĞİŞTİRDİK
+    ndkVersion = "27.0.12077973" // Sizin yaptığınız değişiklik.
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -84,4 +84,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // RevenueCat kullanırken Google Billing bağımlılığını ayrıca eklemeyin; plugin kendi sürümünü getirir.
 }

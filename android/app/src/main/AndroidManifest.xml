@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Mikrofon izni: Speech-to-Text için gerekli -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- In-app purchase için gerekli -->
+    <uses-permission android:name="com.android.vending.BILLING" />
 
     <application
         android:label="Voca Chat"
@@ -19,7 +21,8 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="stateUnchanged|adjustNothing">
+            android:windowSoftInputMode="stateUnchanged|adjustNothing"
+            android:launchMode="singleTop">
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues

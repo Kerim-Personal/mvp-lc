@@ -20,10 +20,10 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
   void initState() {
     super.initState();
     _bgController =
-    AnimationController(vsync: this, duration: const Duration(seconds: 18))
+    AnimationController(vsync: this, duration: const Duration(seconds: 25)) // 18 -> 25 saniye (yavaşlatıldı)
       ..repeat();
     _shimmerController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2600))
+        vsync: this, duration: const Duration(milliseconds: 3500)) // 2600 -> 3500ms (yavaşlatıldı)
       ..repeat();
   }
 
@@ -36,27 +36,34 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final w = constraints.maxWidth;
-      final scale = (w / 360).clamp(0.75, 1.0);
-      return RepaintBoundary(
-        child: Stack(
-          children: [
-            Positioned.fill(
-                child: _AnimatedGoldBackground(controller: _bgController)),
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: _PanelContent(
-                  shimmerController: _shimmerController,
-                  textScale: scale,
+    return StreamBuilder<PremiumInfo>(
+      stream: PremiumService().premiumStream,
+      initialData: PremiumService().currentPremiumInfo,
+      builder: (context, snapshot) {
+        final premiumInfo = snapshot.data ?? PremiumInfo.notPremium;
+
+        return LayoutBuilder(builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          return RepaintBoundary(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                    child: _AnimatedGoldBackground(controller: _bgController)),
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: _PanelContent(
+                      shimmerController: _shimmerController,
+                      premiumInfo: premiumInfo,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      );
-    });
+          );
+        });
+      },
+    );
   }
 }
 
@@ -132,9 +139,9 @@ class _AnimatedGoldBackground extends StatelessWidget {
 
 class _PanelContent extends StatelessWidget {
   final AnimationController shimmerController;
-  final double textScale;
+  final PremiumInfo premiumInfo;
   const _PanelContent(
-      {required this.shimmerController, required this.textScale});
+      {required this.shimmerController, required this.premiumInfo});
 
   List<_Benefit> get _benefits => const [
     _Benefit('assets/animations/no ads icon.json', 'Ad-free'),
@@ -148,9 +155,9 @@ class _PanelContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleBaseSize = 20.0 * textScale;
-    final bodySize = 12.0 * textScale;
-    final chipFont = 10.0 * textScale;
+    final titleBaseSize = 20.0;
+    final bodySize = 12.0;
+    final chipFont = 10.0;
 
     // Scroll edilebilir hale getirildi; küçük ekranlarda overflow engellenir.
     return LayoutBuilder(builder: (context, constraints) {
@@ -411,4 +418,29 @@ class _Benefit {
   final String animationPath; // IconData yerine animasyon dosya yolu
   final String label;
   const _Benefit(this.animationPath, this.label);
+}
+
+// Geçici PremiumService sınıfları - servis yeniden yazılana kadar
+class PremiumInfo {
+  final bool isPremium;
+  final String status;
+
+  const PremiumInfo({
+    required this.isPremium,
+    required this.status,
+  });
+
+  static const PremiumInfo notPremium = PremiumInfo(
+    isPremium: false,
+    status: 'not_premium',
+  );
+}
+
+class PremiumService {
+  static final PremiumService _instance = PremiumService._internal();
+  factory PremiumService() => _instance;
+  PremiumService._internal();
+
+  Stream<PremiumInfo> get premiumStream => Stream.value(PremiumInfo.notPremium);
+  PremiumInfo get currentPremiumInfo => PremiumInfo.notPremium;
 }
