@@ -1,6 +1,5 @@
 /* eslint-disable no-console */
-const functions = require("firebase-functions");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const db = admin.firestore();
 
@@ -10,7 +9,7 @@ const db = admin.firestore();
  * kullanıcı için kendi users/{uid} belgesini günceller. (Admin SDK kuralları bypass eder.)
  * Not: Üretimde RevenueCat Webhook/Server API ile doğrulama önerilir.
  */
-exports.setPremiumStatus = onCall({ region: "us-central1" }, async (request) => {
+exports.setPremiumStatus = onCall({region: "us-central1"}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Giriş gerekli");
   }
@@ -21,15 +20,15 @@ exports.setPremiumStatus = onCall({ region: "us-central1" }, async (request) => 
   // Yardımcılar: ISO string ya da millis -> Timestamp
   const toMillis = (v) => {
     if (v == null) return null;
-    if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
-    if (typeof v === 'string') {
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+    if (typeof v === "string") {
       const d = new Date(v);
       const m = d.getTime();
       if (Number.isFinite(m) && m > 0) return m;
     }
     return null;
   };
-  const toStr = (v, max = 256) => (typeof v === 'string' ? v.slice(0, max) : null);
+  const toStr = (v, max = 256) => (typeof v === "string" ? v.slice(0, max) : null);
 
   // ISO ya da millis anahtarları - her ikisini de destekle
   const originalMs = toMillis(data?.premiumOriginalPurchaseDateMillis ?? data?.premiumOriginalPurchaseDateIso);
@@ -43,11 +42,11 @@ exports.setPremiumStatus = onCall({ region: "us-central1" }, async (request) => 
   // Mevcut belgeyi oku (korumalı birleştirme için)
   let prev = null;
   try {
-    const snap = await db.collection('users').doc(uid).get();
+    const snap = await db.collection("users").doc(uid).get();
     prev = snap.exists ? (snap.data() || null) : null;
   } catch (e) {
     // okuması başarısız olsa da devam edebiliriz
-    console.error('setPremiumStatus read error:', e);
+    console.error("setPremiumStatus read error:", e);
   }
 
   const nowMs = Date.now();
@@ -67,12 +66,12 @@ exports.setPremiumStatus = onCall({ region: "us-central1" }, async (request) => 
   }
 
   // Ürün kimliği premium içeriyorsa (entitlement yoksa dahi) premium kabul et
-  if (!newIsPremium && typeof prodIdRaw === 'string') {
+  if (!newIsPremium && typeof prodIdRaw === "string") {
     try {
-      if (/\bpremium\b/i.test(prodIdRaw) || prodIdRaw.toLowerCase().startsWith('premium') || prodIdRaw.toLowerCase().includes('premium:')) {
+      if (/\bpremium\b/i.test(prodIdRaw) || prodIdRaw.toLowerCase().startsWith("premium") || prodIdRaw.toLowerCase().includes("premium:")) {
         newIsPremium = true;
       }
-    } catch (_) { /* yut */ }
+    } catch (_) {/* yut */}
   }
 
   // İstemci false gönderirse ama daha önce premium ve süresi dolmadı ise premium'u koru
@@ -108,7 +107,7 @@ exports.setPremiumStatus = onCall({ region: "us-central1" }, async (request) => 
 
   // Basit tanılama logu
   try {
-    console.log('setPremiumStatus', {
+    console.log("setPremiumStatus", {
       uid,
       requestedIsPremium,
       willRenewSignal,
@@ -116,13 +115,13 @@ exports.setPremiumStatus = onCall({ region: "us-central1" }, async (request) => 
       hasExpiration: !!expirationMs,
       newIsPremium,
     });
-  } catch (_) { /* yut */ }
+  } catch (_) {/* yut */}
 
   try {
-    await db.collection('users').doc(uid).set(updated, { merge: true });
-    return { success: true, isPremium: newIsPremium };
+    await db.collection("users").doc(uid).set(updated, {merge: true});
+    return {success: true, isPremium: newIsPremium};
   } catch (e) {
-    console.error('setPremiumStatus write error:', e);
-    throw new HttpsError('internal', 'Premium güncellemesi başarısız');
+    console.error("setPremiumStatus write error:", e);
+    throw new HttpsError("internal", "Premium güncellemesi başarısız");
   }
 });
