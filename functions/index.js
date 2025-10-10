@@ -2,7 +2,7 @@
 const functions = require("firebase-functions");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const {onUserCreated} = require("firebase-functions/v2/auth");
+const authV1 = require("firebase-functions/v1/auth");
 const {setGlobalOptions} = require("firebase-functions/v2/options");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
@@ -141,9 +141,10 @@ const usernameCheckHits = {};
  * Yeni bir kullanıcı kaydı oluşturulduğunda, kullanıcının e-posta adresine
  * doğrulama kodu gönderir.
  */
-exports.sendVerificationCode = onUserCreated((user) => {
-  const userEmail = user.data.email;
-  const displayName = user.data.displayName || "User";
+// v1 Auth onCreate tetikleyicisi (v2/auth artık export edilmiyor)
+exports.sendVerificationCode = authV1.user().onCreate((user) => {
+  const userEmail = user.email;
+  const displayName = user.displayName || "User";
   if (!userEmail) return null;
 
   const gmailEmail = functions.config().gmail && functions.config().gmail.email;
@@ -1043,8 +1044,9 @@ exports.vocabotGrammarQuiz = onCall({region: "us-central1"}, async (request) => 
   }
 
   // Gemini yapılandırması yoksa hemen fallback
-  if (!GENAI_API_KEY) {
-    console.warn("vocabotGrammarQuiz: GENAI_API_KEY missing, serving fallback", {uid, topicPath});
+  const geminiKey = (functions.config().gemini && functions.config().gemini.key) || process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    console.warn("vocabotGrammarQuiz: Gemini API key missing, serving fallback", {uid, topicPath});
     return fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage);
   }
 
