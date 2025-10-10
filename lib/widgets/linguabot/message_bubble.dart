@@ -53,18 +53,15 @@ class MessageBubble extends StatelessWidget {
   }
 
   Future<void> _handleTranslate(BuildContext context) async {
-    if (!isPremium) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Translation is a Premium feature.')));
-      return;
-    }
     final src = message.text.trim();
     if (src.isEmpty) return;
 
     try {
       String detected = await TranslationService.instance.detectLanguage(src);
+      const fallbackBotLang = 'en';
       final native = nativeLanguage.toLowerCase();
       if (detected == 'und') {
-        detected = message.sender == MessageSender.bot ? 'en' : native;
+        detected = message.sender == MessageSender.bot ? fallbackBotLang : native;
       }
       final target = native; // her zaman anadil
 
@@ -122,7 +119,7 @@ class MessageBubble extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.translate_rounded, color: Colors.white70),
-                title: Text(isPremium ? 'Translate' : 'Translate (Premium)', style: const TextStyle(color: Colors.white)),
+                title: const Text('Translate', style: TextStyle(color: Colors.white)),
                 onTap: () async {
                   Navigator.pop(context);
                   await _handleTranslate(context);
@@ -363,7 +360,7 @@ class MessageBubble extends StatelessWidget {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         iconSize: 18,
-                        tooltip: isPremium ? 'Translate' : 'Translate (Premium)',
+                        tooltip: 'Translate',
                         icon: Icon(Icons.translate_rounded, color: iconColor),
                         onPressed: () async {
                           await _handleTranslate(context);
