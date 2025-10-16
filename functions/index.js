@@ -6,4 +6,4 @@ Object.assign(exports, require('./modules/users'));
 Object.assign(exports, require('./modules/reports'));
 Object.assign(exports, require('./modules/admin'));
 Object.assign(exports, require('./modules/ai'));
-Object.assign(exports, require('./modules/billing'));
+Object.assign(exports, require('./modules/webhooks'));

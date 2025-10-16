@@ -4,20 +4,16 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show ChangeNotifier, kIsWeb, debugPrint, kReleaseMode;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 
 class RevenueCatService with ChangeNotifier {
   RevenueCatService._();
   static final RevenueCatService instance = RevenueCatService._();
 
   final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
-  final _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
 
   Offerings? _offerings;
   CustomerInfo? _customerInfo;
@@ -284,93 +280,8 @@ class RevenueCatService with ChangeNotifier {
       // sessizce devam
     }
 
-    final info = _customerInfo;
-    if (info == null) return;
-
-    // 1) Entitlements üzerinden kontrol (tercih edilen yol)
-    final entitlements = info.entitlements.active;
-    bool isPremium = entitlements.isNotEmpty;
-
-    // 2) RevenueCat’te entitlement tanımı eksikse aktif abonelik productId’larına bak
-    //    Örn: premium_monthly, premium_yearly ya da base plan ile: premium_monthly:monthly-normal
-    if (!isPremium) {
-      final subs = info.activeSubscriptions;
-      if (subs.isNotEmpty) {
-        // premium içeren ürünleri premium kabul et
-        final hasPremiumProduct = subs.any((id) {
-          final lid = id.toLowerCase();
-          return lid == 'premium' ||
-                 lid.startsWith('premium_') ||
-                 lid.startsWith('premium:') ||
-                 lid.contains('premium');
-        });
-        isPremium = hasPremiumProduct;
-      }
-    }
-
-    // En güncel entitlement’i (varsa) al
-    EntitlementInfo? entFirst;
-    if (entitlements.isNotEmpty) {
-      entFirst = entitlements.values.first;
-    }
-
-    // Entitlement yoksa ama premium ürün varsa temel alanları productId üzerinden doldur
-    String? fallbackProductId;
-    bool? fallbackWillRenew;
-    String? fallbackStore;
-    String? fallbackPeriodType;
-    String? fallbackOriginalIso;
-    String? fallbackLatestIso;
-    String? fallbackExpirationIso;
-
-    if (entFirst == null && isPremium) {
-      final subs = info.activeSubscriptions;
-      if (subs.isNotEmpty) {
-        // Premium geçen ilk productId’ı seç
-        final pick = subs.firstWhere(
-          (id) => id.toLowerCase().contains('premium'),
-          orElse: () => subs.first,
-        );
-        fallbackProductId = pick;
-      }
-      // purchases_flutter CustomerInfo tarafında entitlement-dışı tarih detayları garanti değil;
-      // bu yüzden tarih alanlarını boş bırakıyoruz (sunucu null olarak işler)
-      fallbackWillRenew = null;
-      fallbackStore = null;
-      fallbackPeriodType = null;
-      fallbackOriginalIso = null;
-      fallbackLatestIso = null;
-      fallbackExpirationIso = null;
-    }
-
-    // Sunucuya gönderilecek payload
-    final data = <String, dynamic>{
-      'isPremium': isPremium,
-      'premiumEntitlementId': entFirst?.identifier,
-      'premiumWillRenew': entFirst?.willRenew ?? fallbackWillRenew,
-      'premiumStore': entFirst?.store.name ?? fallbackStore,
-      'premiumPeriodType': entFirst?.periodType.name ?? fallbackPeriodType,
-      'premiumOriginalPurchaseDateIso': entFirst?.originalPurchaseDate ?? fallbackOriginalIso,
-      'premiumLatestPurchaseDateIso': entFirst?.latestPurchaseDate ?? fallbackLatestIso,
-      'premiumExpirationDateIso': entFirst?.expirationDate ?? fallbackExpirationIso,
-      'premiumProductIdentifier': entFirst?.productIdentifier ?? fallbackProductId,
-    };
-
-    try {
-      final callable = _functions.httpsCallable('setPremiumStatus');
-      await callable.call(data);
-    } catch (e) {
-      debugPrint('Callable premium sync error: $e');
-      // Eski davranışa geri dönüş: doğrudan yazmayı dene (başarısız olursa yoksay)
-      try {
-        await _firestore.collection('users').doc(uid).set({
-          'isPremium': isPremium,
-          'premiumUpdatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } catch (ee) {
-        debugPrint('Firestore fallback premium sync error: $ee');
-      }
-    }
+    // Not: Premium durumu artık yalnızca sunucu tarafındaki RevenueCat webhook’u ile Firestore’a işlenir.
+    // İstemci tarafından herhangi bir yazım yapılmaz.
   }
 
   Future<void> disposeService() async {
