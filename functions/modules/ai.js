@@ -136,6 +136,8 @@ exports.vocabotGrammarQuiz = functions
       throw new functions.https.HttpsError('unauthenticated', 'Auth required');
     }
     await requirePremium(context.auth.uid);
+    // Günlük kota kontrolü: 150
+    await checkDailyQuota(context, 'vocabotGrammarQuiz');
     const uid = context.auth.uid;
 
     function clampStr(v, max, def = '') {
@@ -230,4 +232,3 @@ exports.vocabotGrammarQuiz = functions
       return fallbackQuiz(topicPath, topicTitle, targetLanguage, nativeLanguage);
     }
   });
-

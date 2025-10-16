@@ -66,7 +66,13 @@ function buildSystemPrompt(targetLang, nativeLang, level) {
 }
 
 function resolveDailyLimit(key) {
-  const defaults = { vocabotSend: 200, vocabotAnalyzeGrammar: 200, aiTranslate: 150 };
+  // Tüm işlemler için varsayılan günlük limitler 150
+  const defaults = {
+    vocabotSend: 150,
+    vocabotAnalyzeGrammar: 150,
+    aiTranslate: 150,
+    vocabotGrammarQuiz: 150,
+  };
   try {
     if (functions.config().ai) {
       const cfg = functions.config().ai;

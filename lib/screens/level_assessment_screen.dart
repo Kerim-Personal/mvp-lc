@@ -525,8 +525,6 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
                         ),
                         const SizedBox(height: 16),
                         _buildFeatureRow('Determine Your Level', Icons.bar_chart_rounded, theme),
-                        _buildFeatureRow('Find the Right Partner', Icons.people_alt_outlined, theme),
-                        _buildFeatureRow('Track Your Progress', Icons.trending_up_rounded, theme),
                       ],
                     ),
                   ),
