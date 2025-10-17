@@ -149,21 +149,6 @@ service cloud.firestore {
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['level']) &&
           request.resource.data.level in ['A1','A2','B1','B2','C1','C2']
-        ) || (
-          // Premium durum güncellemesi (RevenueCat senkron/fallback)
-          isOwner(userId) && callerNotBanned() &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'isPremium',
-            'premiumUpdatedAt',
-            'premiumEntitlementId',
-            'premiumWillRenew',
-            'premiumStore',
-            'premiumPeriodType',
-            'premiumProductIdentifier',
-            'premiumOriginalPurchaseDate',
-            'premiumLatestPurchaseDate',
-            'premiumExpirationDate'
-          ])
         );
 
       allow delete: if false;

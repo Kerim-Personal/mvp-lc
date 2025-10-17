@@ -4,9 +4,6 @@ import 'package:vocachat/data/lesson_data.dart';
 import 'package:vocachat/models/lesson_model.dart';
 import 'package:vocachat/navigation/lesson_router.dart';
 import 'package:vocachat/services/grammar_progress_service.dart';
-import 'package:vocachat/repositories/vocabulary_progress_repository.dart';
-import 'package:vocachat/data/vocabulary_level_map.dart';
-import 'package:vocachat/data/vocabulary_data_clean.dart';
 
 // --- GRAMER SEKMESİ ANA WIDGET'I (OPTİMİZE EDİLMİŞ) ---
 class GrammarTab extends StatefulWidget {
@@ -32,13 +29,9 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     Colors.purple
   ];
 
-  // Dinamik ilerleme
+  // Dinamik ilerleme (yalnızca gramer)
   Map<String, double> _levelProgress = {};
   bool _progressLoading = true;
-  // Vocabulary (CEFR) seviye ilerlemesi
-  Map<String, double> _vocabLevelProgress = {};
-  bool _vocabLoading = true;
-  Map<String, int> _vocabLevelTotals = {};
 
   @override
   void initState() {
@@ -56,9 +49,6 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
 
     _entryAnimationController.forward();
     _computeProgress();
-    _computeVocabProgress();
-    // Vocab progress değişince kilitleri tazele
-    VocabularyProgressRepository.instance.progressNotifier.addListener(_computeVocabProgress);
   }
 
   Future<void> _computeProgress() async {
@@ -81,32 +71,8 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     if (mounted) setState(() { _levelProgress = result; _progressLoading = false; });
   }
 
-  Future<void> _computeVocabProgress() async {
-    final progressMap = await VocabularyProgressRepository.instance.fetchAllProgress();
-    // CEFR seviye bazında toplam/öğrenilen kelimeyi topla
-    final totals = <String, int>{ for (final l in cefrLevels) l: 0 };
-    final learned = <String, int>{ for (final l in cefrLevels) l: 0 };
-
-    vocabularyDataClean.forEach((category, words) {
-      final level = vocabularyPackLevel[category];
-      if (level == null) return; // eşlenmemiş paketleri yok say
-      totals[level] = (totals[level] ?? 0) + words.length;
-      final learnedSet = progressMap[category] ?? const <String>{};
-      learned[level] = (learned[level] ?? 0) + learnedSet.length;
-    });
-
-    final result = <String, double>{};
-    for (final l in cefrLevels) {
-      final t = totals[l] ?? 0;
-      final d = learned[l] ?? 0;
-      result[l] = t == 0 ? 0.0 : (d / t).clamp(0.0, 1.0);
-    }
-    if (mounted) setState(() { _vocabLevelProgress = result; _vocabLevelTotals = totals; _vocabLoading = false; });
-  }
-
   @override
   void dispose() {
-    VocabularyProgressRepository.instance.progressNotifier.removeListener(_computeVocabProgress);
     _entryAnimationController.dispose();
     super.dispose();
   }
@@ -117,7 +83,6 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     if (oldWidget.replayTrigger != widget.replayTrigger) {
       _entryAnimationController.forward(from: 0);
       _computeProgress();
-      _computeVocabProgress();
     }
   }
 
@@ -144,15 +109,12 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     bool isLevelLocked(int index) {
       if (index == 0) return false; // Yalnızca A1 daima açık
       // Yükleniyorken kilitli tut
-      if (_progressLoading || _vocabLoading) return true;
+      if (_progressLoading) return true;
       final prevLevel = levels[index - 1];
       // Gramer: önceki seviye tamamen bitti mi?
       final prevHasLessons = (lessonsByLevel[prevLevel] ?? const <Lesson>[]).isNotEmpty;
       final prevGrammarOk = !prevHasLessons ? true : ((_levelProgress[prevLevel] ?? 0.0) >= 1.0);
-      // Sözlük: önceki CEFR seviyesinde hiç paket/kelime yoksa serbest, varsa %100 olmalı
-      final int prevVocabTotal = _vocabLevelTotals[prevLevel] ?? 0;
-      final prevVocabOk = prevVocabTotal == 0 ? true : ((_vocabLevelProgress[prevLevel] ?? 0.0) >= 1.0);
-      return !(prevGrammarOk && prevVocabOk);
+      return !prevGrammarOk;
     }
 
     // OPTİMİZASYON: Yüksekliği içeriğe göre dinamik olarak hesapla
@@ -202,14 +164,12 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                     if (locked) {
                       final prevLevel = index > 0 ? levels[index - 1] : null;
                       final prevGrammar = prevLevel == null ? 0.0 : (_levelProgress[prevLevel] ?? 0.0);
-                      final prevVocab = prevLevel == null ? 0.0 : (_vocabLevelProgress[prevLevel] ?? 0.0);
                       final gPct = (prevGrammar * 100).round();
-                      final vPct = (prevVocab * 100).round();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(prevLevel == null
                               ? 'This level is currently locked.'
-                              : 'Unlock $level by completing $prevLevel Grammar and $prevLevel Vocabulary 100%. (Grammar $gPct%, Vocab $vPct%)')
+                              : 'Unlock $level by completing $prevLevel Grammar 100%. (Grammar $gPct%)')
                         ),
                       );
                       return;
@@ -225,7 +185,6 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                       ),
                     );
                     await _computeProgress();
-                    await _computeVocabProgress();
                   },
                 ),
               );
@@ -384,8 +343,8 @@ class _LevelPathNodeState extends State<_LevelPathNode>
               ),
             ),
           ),
+         ),
         ),
-       ),
       );
 
   }

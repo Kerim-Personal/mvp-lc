@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/screens/login_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String email;
@@ -27,13 +28,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
         // ID token içindeki email_verified claim'ini tazele
         await user.getIdToken(true);
         await docRef.update({'emailVerified': true});
-        // Debug log
-        // ignore: avoid_print
-        print('emailVerified Firestore update success (attempt ${attempt + 1})');
+        // Debug log (sadece debug modda)
+        if (kDebugMode) {
+          debugPrint('emailVerified Firestore update success (attempt ${attempt + 1})');
+        }
         return true;
       } catch (e) {
-        // ignore: avoid_print
-        print('emailVerified update failed attempt ${attempt + 1}: $e');
+        if (kDebugMode) {
+          debugPrint('emailVerified update failed attempt ${attempt + 1}: $e');
+        }
         await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
       }
     }

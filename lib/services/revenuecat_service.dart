@@ -48,7 +48,7 @@ class RevenueCatService with ChangeNotifier {
       await Purchases.setLogLevel(kReleaseMode ? LogLevel.warn : LogLevel.debug);
 
       final configuration = PurchasesConfiguration(publicSdkKey)
-        // observerMode kaldırıldı / desteklenmiyor
+      // observerMode kaldırıldı / desteklenmiyor
         ..appUserID = null;
 
       await Purchases.configure(configuration);
