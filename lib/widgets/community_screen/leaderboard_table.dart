@@ -177,15 +177,10 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
     super.dispose();
   }
 
-  String _formatDuration(int totalSeconds) {
-    if (totalSeconds <= 0) return '0s';
-    final d = Duration(seconds: totalSeconds);
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    if (h > 0) return '${h}h ${m}m';
-    final s = d.inSeconds.remainder(60);
-    if (m > 0) return '${m}m ${s}s';
-    return '${s}s';
+  // Yeni: Süreyi puana çevir (artık 1 sn = 1 puan)
+  int _secondsToPoints(int totalSeconds) {
+    if (totalSeconds <= 0) return 0;
+    return totalSeconds;
   }
 
   @override
@@ -261,7 +256,7 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
                 ),
               ),
               const SizedBox(width: 12),
-              // User Name and Premium Icon + Time
+              // User Name and Premium Icon + Points
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,9 +265,10 @@ class _UserRankCardState extends State<_UserRankCard> with SingleTickerProviderS
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                        const Icon(Icons.stars_rounded, size: 14, color: Colors.grey),
                         const SizedBox(width: 4),
-                        Text(_formatDuration(widget.user.totalRoomSeconds), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                        Text('${_secondsToPoints(widget.user.totalRoomSeconds)} points',
+                            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                       ],
                     ),
                   ],
@@ -334,7 +330,7 @@ class _ReportUserButton extends StatelessWidget {
     final current = FirebaseAuth.instance.currentUser;
     if (current == null || current.uid == targetUser.userId) return const SizedBox.shrink();
     return IconButton(
-      tooltip: 'Raporla',
+      tooltip: 'Report',
       icon: const Icon(Icons.flag_outlined, size: 20, color: Colors.redAccent),
       onPressed: () {
         Navigator.of(context).push(

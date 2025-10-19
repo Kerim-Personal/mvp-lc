@@ -12,6 +12,8 @@ import 'package:vocachat/widgets/home_screen/home_cards_section.dart';
 import 'package:vocachat/widgets/common/safety_help_button.dart';
 import '../widgets/common/usage_guide_button.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
+import 'package:vocachat/widgets/home_screen/premium_upsell_dialog.dart';
+import 'package:vocachat/main.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onSearchingChanged, this.onPremiumStatusChanged});
@@ -146,7 +148,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _findPracticePartner() async {
     if (!mounted) return;
-    // LinguaBotChatScreen'i aç
+
+    // Premium kontrolü: hem RevenueCat entitlements hem de state bayrağı
+    final bool hasPremium = _isProUser || RevenueCatService.instance.isPremiumActive;
+
+    if (!hasPremium) {
+      final choice = await showDialog<String>(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => const PremiumUpsellDialog(),
+      );
+      if (choice == 'discover') {
+        // Store sekmesine geç ve burada dur
+        rootScreenKey.currentState?.changeTab(0);
+      }
+      // Not Now veya kapatma: hiçbir yere gitme
+      return;
+    }
+
+    // LinguaBotChatScreen'i aç (sadece premium kullanıcılar)
     Navigator.push(
       context,
       MaterialPageRoute(

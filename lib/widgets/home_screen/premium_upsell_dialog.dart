@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:vocachat/main.dart';
 
 class PremiumUpsellDialog extends StatefulWidget {
   const PremiumUpsellDialog({super.key});
@@ -166,14 +165,14 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                                 textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                               ),
                               onPressed: () {
-                                Navigator.of(context).pop();
-                                rootScreenKey.currentState?.changeTab(0);
+                                // Discover seçildi -> sonucu çağırana ilet
+                                Navigator.of(context).pop('discover');
                               },
                               child: const Text('Discover VocaChat Pro'),
                             ),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () => Navigator.of(context).pop('not_now'),
                             child: const Text('Not Now', style: TextStyle(color: Colors.white70, fontSize: 13)),
                           ),
                         ],
@@ -364,5 +363,5 @@ class _PageDots extends StatelessWidget {
 
 class _NoGlowScrollBehavior extends ScrollBehavior {
   @override
-  Widget buildViewportChrome(BuildContext context, Widget child, AxisDirection axisDirection) => child;
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
 }

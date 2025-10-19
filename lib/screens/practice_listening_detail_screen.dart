@@ -268,7 +268,14 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
         final c = la.compareTo(lb);
         return c != 0 ? c : na.compareTo(nb);
       });
-      setState(() { _voices = voices; });
+      // Yalnızca Amerikan ve Britanya İngilizcesi (en-US, en-GB) aksanlarını bırak
+      final filtered = voices.where((v) {
+        final raw = (v['locale'] ?? v['language'] ?? '').toString();
+        final loc = raw.replaceAll('_', '-').toLowerCase();
+        return loc.startsWith('en-us') || loc.startsWith('en-gb');
+      }).toList();
+
+      setState(() { _voices = filtered; });
       if (_voices.isNotEmpty) {
         if (_selectedVoice == null) {
           _selectedVoice = Map<String,dynamic>.from(_voices.first.map((k,v)=>MapEntry(k.toString(), v)));
@@ -464,7 +471,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [theme.colorScheme.primary.withOpacity(0.25), theme.colorScheme.surface],
+              colors: [theme.colorScheme.primary.withValues(alpha: 0.25), theme.colorScheme.surface],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -500,7 +507,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
               child: LinearProgressIndicator(
                 value: _submitted ? 1.0 : progress,
                 minHeight: 6,
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
                 valueColor: AlwaysStoppedAnimation(_submitted ? Colors.green : theme.colorScheme.primary),
               ),
             ),
@@ -516,7 +523,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
                 gradient: LinearGradient(
                   colors: [
                     theme.colorScheme.surface,
-                    theme.colorScheme.primaryContainer.withOpacity(0.25),
+                    theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
                     theme.colorScheme.surface,
                   ],
                   begin: Alignment.topLeft,
@@ -556,7 +563,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +573,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _levelColor(exercise.level).withOpacity(0.15),
+                  color: _levelColor(exercise.level).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(exercise.level.label, style: TextStyle(color: _levelColor(exercise.level), fontWeight: FontWeight.w600)),
@@ -609,7 +616,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, -2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, -2))],
       ),
       child: Row(
         children: [
@@ -671,12 +678,12 @@ class _TranscriptAndQuestionsList extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100), // Adjusted bottom padding
       itemCount: exercise.questions.length + (showTranscript ? 1 : 0) + 1,
-      itemBuilder: (c, i) {
-        if (i == 0) {
+      itemBuilder: (c, index) {
+        if (index == 0) {
           return _HeaderInfo(exercise: exercise);
         }
         if (showTranscript) {
-          if (i == 1) {
+          if (index == 1) {
             return _GlassCard(
               child: _TranscriptView(
                 exercise: exercise,
@@ -686,7 +693,7 @@ class _TranscriptAndQuestionsList extends StatelessWidget {
               ),
             );
           }
-          final qIndex = i - 2;
+          final qIndex = index - 2;
           final q = exercise.questions[qIndex];
           return _QuestionCard(
             index: qIndex,
@@ -697,7 +704,7 @@ class _TranscriptAndQuestionsList extends StatelessWidget {
             submitted: submitted,
           );
         } else {
-          final qIndex = i - 1;
+          final qIndex = index - 1;
           final q = exercise.questions[qIndex];
           return _QuestionCard(
             index: qIndex,
@@ -723,18 +730,18 @@ class _GlassCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.15), width: 1.2),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15), width: 1.2),
         gradient: LinearGradient(
           colors: [
-            theme.colorScheme.surface.withOpacity(0.85),
-            theme.colorScheme.surface.withOpacity(0.7),
+            theme.colorScheme.surface.withValues(alpha: 0.85),
+            theme.colorScheme.surface.withValues(alpha: 0.7),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -804,9 +811,9 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.12),
+        color: c.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: c.withOpacity(0.4)),
+        border: Border.all(color: c.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -862,8 +869,8 @@ class _QuestionCard extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: base.withOpacity(selected ? 0.9 : 0.3), width: 1.4),
-                color: selected ? base.withOpacity(0.12) : theme.colorScheme.surface.withOpacity(0.6),
+                border: Border.all(color: base.withValues(alpha: selected ? 0.9 : 0.3), width: 1.4),
+                color: selected ? base.withValues(alpha: 0.12) : theme.colorScheme.surface.withValues(alpha: 0.6),
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
@@ -892,7 +899,7 @@ class _QuestionCard extends StatelessWidget {
           enabled: !submitted,
           decoration: InputDecoration(
             filled: true,
-            fillColor: accent.withOpacity(0.06),
+            fillColor: accent.withValues(alpha: 0.06),
             labelText: question.type == ListeningQuestionType.gapFill ? 'Answer' : 'Dictation',
             prefixIcon: Icon(typeIcon, color: accent),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
@@ -915,7 +922,7 @@ class _QuestionCard extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [accent.withOpacity(0.85), accent.withOpacity(0.55)]),
+                  gradient: LinearGradient(colors: [accent.withValues(alpha: 0.85), accent.withValues(alpha: 0.55)]),
                 ),
                 child: Icon(typeIcon, size: 20, color: Colors.white),
               ),
@@ -969,7 +976,7 @@ class _TranscriptView extends StatelessWidget {
           style: TextStyle(
             fontWeight: active ? FontWeight.bold : FontWeight.normal,
             color: active ? Theme.of(context).colorScheme.primary : textStyle?.color,
-            backgroundColor: active ? Theme.of(context).colorScheme.primary.withOpacity(0.12) : null,
+            backgroundColor: active ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12) : null,
           ),
         ));
       }

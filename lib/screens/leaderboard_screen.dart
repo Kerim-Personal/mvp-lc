@@ -608,9 +608,9 @@ class _CommunityScreenState extends State<CommunityScreen>
             ),
             child: Row(
               children: [
-                const Icon(Icons.access_time_filled, color: Colors.white, size: 16),
+                const Icon(Icons.stars_rounded, color: Colors.white, size: 16),
                 const SizedBox(width: 6),
-                Text(_formatDuration(mine.totalRoomSeconds), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text('${_secondsToPoints(mine.totalRoomSeconds)} points', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ],
             ),
           )
@@ -619,19 +619,10 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  String _formatDuration(int totalSeconds) {
-    if (totalSeconds <= 0) return '0s';
-    final d = Duration(seconds: totalSeconds);
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    final s = d.inSeconds.remainder(60);
-    if (h > 0) {
-      return '${h}h ${m}m';
-    }
-    if (m > 0) {
-      return '${m}m ${s}s';
-    }
-    return '${s}s';
+  // Süreyi puana çevir (artık 1 sn = 1 puan)
+  int _secondsToPoints(int totalSeconds) {
+    if (totalSeconds <= 0) return 0;
+    return totalSeconds;
   }
 
   @override

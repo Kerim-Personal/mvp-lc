@@ -50,23 +50,6 @@ service cloud.firestore {
              get(/databases/$(database)/documents/usernames/$(uname)).data.uid == request.auth.uid;
     }
 
-    // Elmas artışı: sadece ileri yönde, pozitif ve mantıklı bir üst limit içinde.
-    // (Offline birikim flush senaryosu için tek seferde max +50000)
-    function isValidDiamondIncrement() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['diamonds']) &&
-             request.resource.data.diamonds is int &&
-             (
-               (
-                 // Alan daha önce yoksa veya null ise ilk set 0 ya da pozitif olabilir (ör: migrate)
-                 !(resource.data.diamonds is int) && request.resource.data.diamonds >= 0 && request.resource.data.diamonds <= 50000
-               ) || (
-                 resource.data.diamonds is int &&
-                 request.resource.data.diamonds >= resource.data.diamonds &&
-                 (request.resource.data.diamonds - resource.data.diamonds) <= 50000
-               )
-             );
-    }
-
     function callerNotBanned() { return !isBanned(request.auth.uid); }
 
     function isValidSupportCreate(data) {
@@ -124,9 +107,6 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['fcmTokens']) &&
           request.resource.data.fcmTokens is list &&
           request.resource.data.fcmTokens.size() <= 30
-        ) || (
-          // Elmas artışı
-          isOwner(userId) && callerNotBanned() && isValidDiamondIncrement()
         ) || (
           // Email doğrulaması
           isOwner(userId) && callerNotBanned() &&

@@ -231,37 +231,47 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
 
   Widget _buildAnimatedName(Color baseColor) {
     if (!widget.isPremium) {
-      return Text(
-        widget.userName,
-        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: baseColor),
-        overflow: TextOverflow.ellipsis,
+      return FittedBox(
+        alignment: Alignment.centerLeft,
+        fit: BoxFit.scaleDown,
+        child: Text(
+          widget.userName,
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: baseColor),
+          maxLines: 1,
+          softWrap: false,
+        ),
       );
     }
 
     final isSpecialRole = (widget.role == 'admin' || widget.role == 'moderator');
     final shimmerBase = isSpecialRole ? baseColor : const Color(0xFFE5B53A);
 
-    return AnimatedBuilder(
-      animation: _shimmerController,
-      builder: (context, child) {
-        final value = _shimmerController.value;
-        final start = value * 1.5 - 0.5;
-        final end = value * 1.5;
-        return ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) {
-            return LinearGradient(
-              colors: [shimmerBase, Colors.white, shimmerBase],
-              stops: [start, (start + end) / 2, end].map((e) => e.clamp(0.0, 1.0)).toList(),
-            ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height));
-          },
-          child: child,
-        );
-      },
-      child: Text(
-        widget.userName,
-        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: shimmerBase),
-        overflow: TextOverflow.ellipsis,
+    return FittedBox(
+      alignment: Alignment.centerLeft,
+      fit: BoxFit.scaleDown,
+      child: AnimatedBuilder(
+        animation: _shimmerController,
+        builder: (context, child) {
+          final value = _shimmerController.value;
+          final start = value * 1.5 - 0.5;
+          final end = value * 1.5;
+          return ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                colors: [shimmerBase, Colors.white, shimmerBase],
+                stops: [start, (start + end) / 2, end].map((e) => e.clamp(0.0, 1.0)).toList(),
+              ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height));
+            },
+            child: child,
+          );
+        },
+        child: Text(
+          widget.userName,
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: shimmerBase),
+          maxLines: 1,
+          softWrap: false,
+        ),
       ),
     );
   }

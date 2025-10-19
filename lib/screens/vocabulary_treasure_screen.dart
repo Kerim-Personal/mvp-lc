@@ -328,16 +328,20 @@ class _VocabularyTreasureScreenState extends State<VocabularyTreasureScreen> wit
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Flexible(
-                    child: Text(
-                      widget.word.word,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 56,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(blurRadius: 20, color: Colors.black54)
-                        ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        widget.word.word,
+                        maxLines: 1,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 56,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(blurRadius: 20, color: Colors.black54)
+                          ],
+                        ),
                       ),
                     ),
                   ),

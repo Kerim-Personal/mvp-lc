@@ -8,7 +8,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:vocachat/widgets/shared/animated_background.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
 import 'package:vocachat/widgets/home_screen/premium_status_panel.dart';
 
@@ -34,6 +33,10 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   late final TabController _tabController;
   late final VoidCallback _tabListener;
   Timer? _benefitsAutoScrollTimer;
+
+  // CTA butonu için hafif nabız (scale) animasyonu
+  late final AnimationController _ctaPulseController;
+  late final Animation<double> _ctaPulse;
 
   // Premium benefits data
   static const List<_BenefitData> _premiumBenefits = [
@@ -82,6 +85,16 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     _tabController.addListener(_tabListener);
     _benefitPageController = PageController();
 
+    // CTA için nabız animasyonu (subtle)
+    _ctaPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _ctaPulse = Tween<double>(begin: 0.985, end: 1.015).animate(
+      CurvedAnimation(parent: _ctaPulseController, curve: Curves.easeInOut),
+    );
+    _ctaPulseController.repeat(reverse: true);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeServices();
     });
@@ -128,6 +141,8 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     try { _tabController.removeListener(_tabListener); } catch (_) {}
     _tabController.dispose();
     _benefitPageController.dispose();
+    // CTA animasyon controller'ını kapat
+    _ctaPulseController.dispose();
     super.dispose();
   }
 
@@ -136,7 +151,7 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _segmentedTabs(),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6), // 8 -> 6 daha kompakt
       ],
     );
   }
@@ -265,156 +280,192 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         final monthlyText = RevenueCatService.instance.monthlyPriceString ?? '\$4.99/mo';
         final annualText = RevenueCatService.instance.annualPriceString ?? '\$29.99/yr';
 
-        return SingleChildScrollView(
+        // Kaydırmasız kompakt düzen, faydalar alanı eski boyutunda (220)
+        return LayoutBuilder(
           key: key,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            children: [
-              // Premium faydaları için sayfa görünümü
-              SizedBox(
-                height: 220,
-                child: PageView.builder(
-                  controller: _benefitPageController,
-                  itemCount: _premiumBenefits.length,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentBenefitPage = index;
-                    });
-                  },
-                  itemBuilder: (context, index) {
-                    final benefit = _premiumBenefits[index];
-                    return _buildBenefitCard(benefit);
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Sayfa göstergesi
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  _premiumBenefits.length,
-                  (index) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: index == _currentBenefitPage ? 18 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: index == _currentBenefitPage ? Colors.amber : Colors.white.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: index == _currentBenefitPage
-                          ? [
-                              BoxShadow(
-                                color: Colors.amber.withValues(alpha: 0.5),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              )
-                            ]
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Fiyat/planlar
-              Row(
+          builder: (context, constraints) {
+            final h = constraints.maxHeight;
+            const double benefitsH = 220.0; // eski sabit yükseklik
+            const double dotsBlockH = 26.0; // üst/alt boşluklar dahil yaklaşık
+            double planCardH = 110.0; // hedef
+            double ctaH = 50.0; // hedef
+            bool showDisclaimer = true;
+
+            // Toplamı tahmini hesapla ve alan dar ise kademeli küçült
+            double total(double planH, double btnH, bool disclaimer) =>
+                benefitsH + dotsBlockH + planH + 12 + btnH + 8 + (disclaimer ? 56 : 0);
+
+            // 1) Planı sıkıştır
+            if (total(planCardH, ctaH, showDisclaimer) > h) {
+              planCardH = (h - (benefitsH + dotsBlockH + 12 + ctaH + 8 + 56)).clamp(72.0, 116.0);
+            }
+            // 2) Butonu kısalt
+            if (total(planCardH, ctaH, showDisclaimer) > h) {
+              ctaH = 44.0;
+            }
+            // 3) Açıklamayı gerekirse gizle
+            if (total(planCardH, ctaH, showDisclaimer) > h) {
+              showDisclaimer = false;
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: PremiumPlan.monthly,
-                      title: 'Monthly',
-                      price: monthlyText,
+                  // Premium faydaları (eski yükseklikte ve görünür)
+                  SizedBox(
+                    height: benefitsH,
+                    child: PageView.builder(
+                      controller: _benefitPageController,
+                      itemCount: _premiumBenefits.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentBenefitPage = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final benefit = _premiumBenefits[index];
+                        return _buildBenefitCard(benefit);
+                      },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: PremiumPlan.yearly,
-                      title: 'Yearly',
-                      price: annualText,
-                      isBestValue: true,
+                  const SizedBox(height: 10),
+                  // Sayfa göstergesi (daha küçük)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      _premiumBenefits.length,
+                      (index) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: index == _currentBenefitPage ? 14 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: index == _currentBenefitPage
+                              ? Colors.amber
+                              : Colors.white.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: index == _currentBenefitPage
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.amber.withValues(alpha: 0.45),
+                                    blurRadius: 5,
+                                    spreadRadius: 0.5,
+                                  )
+                                ]
+                              : null,
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  // Fiyat/planlar (dinamik yükseklik)
+                  SizedBox(
+                    height: planCardH,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildPlanCard(
+                            plan: PremiumPlan.monthly,
+                            title: 'Monthly',
+                            price: monthlyText,
+                            height: planCardH,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildPlanCard(
+                            plan: PremiumPlan.yearly,
+                            title: 'Yearly',
+                            price: annualText,
+                            isBestValue: true,
+                            height: planCardH,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Vurgulu tek buton (dinamik yükseklik)
+                  ScaleTransition(
+                    scale: _ctaPulse,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        // Restore purchases TextButton rengini temel al: primary
+                        color: Theme.of(context).colorScheme.primary,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: ctaH,
+                        child: ElevatedButton.icon(
+                          icon: Icon(Icons.workspace_premium, color: Theme.of(context).colorScheme.onPrimary, size: 18),
+                          label: Text(
+                            'Go Premium Now',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onPrimary),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          onPressed: RevenueCatService.instance.isSupportedPlatform
+                              ? _purchasePremium
+                              : () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Purchases are not supported on this platform.'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (showDisclaimer)
+                    Opacity(
+                      opacity: 0.8,
+                      child: Column(
+                        children: [
+                          Text(
+                            'Auto‑renewing. Cancel anytime in your store account settings.',
+                            style: TextStyle(
+                              color: isDark ? Colors.white54 : Colors.black45,
+                              fontSize: 10.5,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 28),
+                            ),
+                            onPressed: _restorePurchases,
+                            child: const Text('Restore purchases'),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 18),
-              // Vurgulu tek buton
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.amber.withValues(alpha: 0.45),
-                      blurRadius: 14,
-                      offset: const Offset(0, 5),
-                    )
-                  ],
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.workspace_premium, color: Colors.black, size: 20),
-                    label: const Text(
-                      'Go Premium Now',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    ),
-                    onPressed: RevenueCatService.instance.isSupportedPlatform
-                        ? _purchasePremium
-                        : () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Purchases are not supported on this platform.'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Opacity(
-                opacity: 0.75,
-                child: Column(
-                  children: [
-                    Text(
-                      'Subscription renews automatically and is charged to your store account. You can cancel anytime.',
-                      style: TextStyle(
-                        color: isDark ? Colors.white54 : Colors.black45,
-                        fontSize: 11.5,
-                        height: 1.3
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Benefits activate within a few seconds after purchase.',
-                      style: TextStyle(
-                        color: isDark ? Colors.white38 : Colors.black38,
-                        fontSize: 10.5
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _restorePurchases,
-                      child: const Text('Restore purchases'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -425,26 +476,27 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     required String title,
     required String price,
     bool isBestValue = false,
+    double? height,
   }) {
     final bool isSelected = _selectedPlan == plan;
     return GestureDetector(
       onTap: () => setState(() => _selectedPlan = plan),
       child: Container(
         width: double.infinity,
-        height: 132,
+        height: height ?? 132,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           gradient: isSelected
               ? const LinearGradient(
-            colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          )
+                  colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
               : null,
           color: isSelected ? null : Colors.white.withValues(alpha: 0.1),
           border: Border.all(
             color: isSelected ? Colors.amber : Colors.white.withValues(alpha: 0.2),
-            width: isSelected ? 2.5 : 1,
+            width: isSelected ? 2.0 : 1,
           ),
         ),
         child: Stack(
@@ -455,28 +507,46 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 children: [
                   Text(
                     title,
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, shadows: [
-                      Shadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 1))
-                    ]),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 4, offset: const Offset(0, 1))
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     price,
                     style: TextStyle(
                       color: isSelected ? Colors.black : Colors.white70,
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   if (plan == PremiumPlan.yearly)
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         'Save ~45% monthly',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: isSelected ? Colors.black87 : Colors.amber,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    )
+                  else if (plan == PremiumPlan.monthly)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '7‑day free trial',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? Colors.black87 : Colors.cyanAccent,
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -489,17 +559,17 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
                 top: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: const BoxDecoration(
                     color: Colors.amber,
                     borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(18),
+                      topRight: Radius.circular(16),
                       bottomLeft: Radius.circular(12),
                     ),
                   ),
                   child: const Text(
                     'Best Value',
-                    style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.black, fontSize: 9.5, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -510,43 +580,46 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
   }
 
   Widget _buildPremiumActiveView({Key? key}) {
-    return SingleChildScrollView(
+    // Kaydırmasız kompakt aktif görünüm
+    return LayoutBuilder(
       key: key,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+      builder: (context, constraints) {
+        final maxH = constraints.maxHeight;
+        final panelH = (maxH - 80).clamp(260.0, 360.0);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Shimmer.fromColors(
-                baseColor: Colors.amber,
-                highlightColor: Colors.white,
-                child: const Icon(Icons.workspace_premium, size: 60, color: Colors.amber),
-              ),
-              const SizedBox(width: 14),
-              Flexible(
-                child: Text(
-                  'Premium Active',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.amber,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.workspace_premium, size: 42, color: Colors.amber),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'Premium Active',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: panelH,
+                child: const PremiumStatusPanel(),
               ),
             ],
           ),
-          const SizedBox(height: 26),
-          const SizedBox(
-            height: 420,
-            child: PremiumStatusPanel(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -554,25 +627,25 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 10),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(18),
               color: Colors.white.withValues(alpha: 0.1),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.2),
-                width: 1.5,
+                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -582,42 +655,44 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
               children: [
                 Center(
                   child: SizedBox(
-                    width: 80,
-                    height: 80,
+                    width: 64,
+                    height: 64,
                     child: Lottie.asset(
                       benefit.iconPath,
-                      width: 80,
-                      height: 80,
+                      width: 64,
+                      height: 64,
                       fit: BoxFit.contain,
                       repeat: true,
                       animate: true,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Text(
                   benefit.title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: isDark ? Colors.white : Colors.white,
                     fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    letterSpacing: 0.3,
+                    fontSize: 16,
+                    letterSpacing: 0.25,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Flexible(
                   child: Text(
                     benefit.description,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: isDark ? Colors.white.withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.85),
-                      height: 1.3,
-                      fontSize: 13,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : Colors.white.withValues(alpha: 0.85),
+                      height: 1.25,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
-                    maxLines: null,
-                    overflow: TextOverflow.visible,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
