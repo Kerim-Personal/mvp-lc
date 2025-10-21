@@ -327,8 +327,7 @@ class AuthWrapper extends StatelessWidget {
                 } else if (!user.emailVerified) {
                   screen = VerificationScreen(email: user.email ?? '');
                 } else {
-                  final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
-                  if (isGoogle && data['profileCompleted'] != true) {
+                  if (data['profileCompleted'] != true) {
                     screen = ProfileCompletionScreen(userData: data);
                   } else {
                     screen = RootScreen(key: rootScreenKey);
