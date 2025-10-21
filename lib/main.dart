@@ -263,25 +263,39 @@ class _SystemUiSynchronizer {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+// === DEĞİŞİKLİK BAŞLANGICI ===
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
-  // Splash ekranını güvenli bir şekilde kaldırmak için yardımcı bir fonksiyon
-  void _removeSplashSafely() {
-    // Build işlemi bittikten sonra çalıştırarak `setState` hatasını önle
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  // Flag to track if initial navigation decision has been made for the current user session
+  bool _initialNavigationComplete = false;
+  String? _lastProcessedUserId; // Track the user ID we made the decision for
+
+  // Splash screen removal helper
+  void _removeSplashSafely(String reason) {
+    // Debug print to see when splash is removed
+    // print("Removing splash: $reason");
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      FlutterNativeSplash.remove();
+      // Small delay to ensure the first frame is rendered before removing splash
+      // This might help prevent flicker on some devices.
+      Future.delayed(const Duration(milliseconds: 50), () {
+        FlutterNativeSplash.remove();
+      });
     });
   }
 
-  // Premium service'i kullanıcı oturumu açıldığında başlat
+  // Premium service initialization helper
   void _initPremiumService(String uid) {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         await RevenueCatService.instance.init();
         await RevenueCatService.instance.onLogin(uid);
       } catch (e) {
-        // RevenueCat hatası uygulamayı durdurmasın
         print('RevenueCat init error in AuthWrapper: $e');
       }
     });
@@ -290,72 +304,132 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.userChanges(), // emailVerified degisimi icin userChanges
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          // Başlangıçta ve veri beklenirken splash ekranı görünmeye devam eder.
-          // Bu sırada hiçbir şey çizmiyoruz, çünkü native splash zaten ekranda.
+      stream: FirebaseAuth.instance.userChanges(),
+      builder: (context, authSnapshot) {
+        // --- 1. Handle Auth State Loading ---
+        if (authSnapshot.connectionState == ConnectionState.waiting) {
+          // Keep splash screen visible while checking auth state
           return const SizedBox.shrink();
         }
-        if (snapshot.hasData && snapshot.data != null) {
-          final user = snapshot.data!;
-          final uid = user.uid;
 
-          // Kullanıcı oturumu açık, premium service'i başlat
-          _initPremiumService(uid);
-
-          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
-            builder: (context, userSnap) {
-              if (userSnap.connectionState == ConnectionState.waiting) {
-                // Kullanıcı verisi beklenirken de splash görünmeye devam eder.
-                return const SizedBox.shrink();
-              }
-
-              // Kullanıcı verisi yoksa veya doküman mevcut değilse Login'e yönlendir.
-              if (!userSnap.hasData || !userSnap.data!.exists) {
-                _removeSplashSafely(); // Splash'ı kaldır ve Login'i göster
-                return const LoginScreen();
-              }
-
-              final data = userSnap.data!.data();
-              Widget screen;
-
-              if (data != null) {
-                if ((data['status'] as String?) == 'banned') {
-                  screen = const BannedScreen();
-                } else if (!user.emailVerified) {
-                  screen = VerificationScreen(email: user.email ?? '');
-                } else {
-                  final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
-                  if (isGoogle && data['profileCompleted'] != true) {
-                    screen = ProfileCompletionScreen(userData: data);
-                  } else {
-                    screen = RootScreen(key: rootScreenKey);
-                  }
-                }
-              } else {
-                // data null ise (beklenmedik bir durum) yine de Login'e yönlendir.
-                screen = const LoginScreen();
-              }
-
-              // Gösterilecek ekran belirlendi, şimdi splash'ı kaldırabiliriz.
-              _removeSplashSafely();
-              return screen;
-            },
-          );
+        // --- 2. Handle No Logged-In User ---
+        if (!authSnapshot.hasData || authSnapshot.data == null) {
+          // Reset navigation flag if user logs out
+          _initialNavigationComplete = false;
+          _lastProcessedUserId = null;
+          _removeSplashSafely("User logged out");
+          // Optionally stop premium service listeners here if needed
+          // RevenueCatService.instance.onLogout(); // Example if you have it
+          return const LoginScreen();
         }
 
-        // Oturum açmış kullanıcı yoksa Login'e yönlendir ve premium service'i durdur
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          // PremiumService().stopListening(); // Geçici olarak kapatıldı
-        });
-        _removeSplashSafely();
-        return const LoginScreen();
+        // --- 3. Handle Logged-In User ---
+        final user = authSnapshot.data!;
+        final uid = user.uid;
+
+        // If this is a new user session (different user ID or first time after login)
+        // reset the navigation flag.
+        if (_lastProcessedUserId != uid) {
+          _initialNavigationComplete = false;
+          _lastProcessedUserId = uid;
+          // Initialize premium service for the new user session
+          _initPremiumService(uid);
+        }
+
+        // --- 4. Listen to Firestore User Document ---
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+          builder: (context, userSnap) {
+
+            // --- Determine Screen Logic (moved outside of removeSplash call) ---
+            Widget determinedScreen;
+            bool shouldRemoveSplash = false; // Flag to control splash removal
+
+            // --- 5. Handle Firestore Loading / Initial State ---
+            if (userSnap.connectionState == ConnectionState.waiting && !_initialNavigationComplete) {
+              // Still waiting for the *first* Firestore data, keep splash
+              determinedScreen = const SizedBox.shrink();
+            } else if (userSnap.hasError && !_initialNavigationComplete) {
+              print("Firestore error before initial nav: ${userSnap.error}");
+              determinedScreen = const LoginScreen(); // Fallback to login
+              shouldRemoveSplash = true; // Remove splash even on error to show login
+            } else if (!userSnap.hasData && !_initialNavigationComplete) {
+              // Stream active, but no data yet (could happen if doc doesn't exist yet)
+              print("Firestore stream active, but no data/doc found yet for UID: $uid. Waiting...");
+              determinedScreen = const SizedBox.shrink(); // Keep splash
+            }
+            // --- 6. Make Navigation Decision (only affects screen determination) ---
+            else {
+              // Data is available or we have already navigated once
+
+              // Check document existence ONLY if we have data
+              if (userSnap.hasData && !userSnap.data!.exists) {
+                print("User document does not exist for UID: $uid");
+                determinedScreen = const LoginScreen(); // Or an error screen
+                // Optionally log out inconsistent user
+                // FirebaseAuth.instance.signOut();
+              } else if (userSnap.hasData) {
+                // Document exists, proceed with logic
+                final data = userSnap.data!.data();
+                if (data != null) {
+                  if ((data['status'] as String?) == 'banned') {
+                    determinedScreen = const BannedScreen();
+                  } else if (!user.emailVerified) {
+                    determinedScreen = VerificationScreen(email: user.email ?? '');
+                  } else {
+                    final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
+                    if (data['profileCompleted'] == true) {
+                      determinedScreen = RootScreen(key: rootScreenKey); // Go to main app
+                    } else {
+                      // Profile not completed - always show completion screen if needed
+                      determinedScreen = ProfileCompletionScreen(userData: data);
+                    }
+                  }
+                } else {
+                  // Data is null, unexpected state
+                  print("User document data is null for UID: $uid");
+                  determinedScreen = const LoginScreen(); // Fallback
+                }
+              }
+              // Handle Firestore stream error AFTER initial load
+              else if (userSnap.hasError) {
+                print("Firestore stream error after initial load: ${userSnap.error}");
+                determinedScreen = const LoginScreen(); // Safer fallback
+              }
+              // Fallback for unexpected states (like waiting after initial nav)
+              else {
+                print("Unexpected state in Firestore StreamBuilder.");
+                determinedScreen = const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+
+              // Mark that we should remove the splash on the *first* valid screen determination
+              if (!_initialNavigationComplete) {
+                shouldRemoveSplash = true;
+              }
+            }
+
+            // --- 7. Perform Splash Removal and Update Navigation State ---
+            // Only remove splash once, when we first determine a valid screen
+            if (shouldRemoveSplash && !_initialNavigationComplete) {
+              _initialNavigationComplete = true; // Mark that we've made the first decision
+              _removeSplashSafely("Initial screen determined: ${determinedScreen.runtimeType}");
+            }
+
+            // If we are still in the initial loading phase (splash not removed yet),
+            // keep returning SizedBox.shrink() to allow the native splash to persist.
+            if (!_initialNavigationComplete) {
+              return const SizedBox.shrink();
+            }
+
+            // Return the determined screen
+            return determinedScreen;
+          },
+        );
       },
     );
   }
 }
+// === DEĞİŞİKLİK BİTİŞİ ===
 
 
 // Projenizin derlenmesi için gerekli olan ancak bu dosyada tanımlanmamış
@@ -366,19 +440,67 @@ final GlobalKey<NavigatorState> notificationNavigatorKey = GlobalKey<NavigatorSt
 
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Bu fonksiyonun içini projenize göre doldurmalısınız.
+  // Önemli: Bu fonksiyonun içinde UI ile ilgili işlem yapmayın.
+  await Firebase.initializeApp( // Background handler için tekrar initialize gerekebilir
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   debugPrint("Handling a background message: ${message.messageId}");
+  // Burada gelen mesaja göre bildirim gösterme veya veri işleme yapabilirsiniz.
 }
 
 // Color sınıfına 'withAlpha' metodu zaten dahil olduğu için
 // 'withValues' extension'ına gerek yoktur.
 // Eğer özel bir kullanımınız yoksa kaldırabilirsiniz.
-extension ColorValues on Color {
-  Color withValues({int? alpha, int? red, int? green, int? blue}) {
-    return Color.fromARGB(
-      alpha ?? (a * 255.0).round() & 0xff,
-      red ?? (r * 255.0).round() & 0xff,
-      green ?? (g * 255.0).round() & 0xff,
-      blue ?? (b * 255.0).round() & 0xff,
+// extension ColorValues on Color {
+//   Color withValues({int? alpha, int? red, int? green, int? blue}) {
+//     return Color.fromARGB(
+//       alpha ?? this.alpha,
+//       red ?? this.red,
+//       green ?? this.green,
+//       blue ?? this.blue,
+//     );
+//   }
+// }
+
+// BannedScreen tanımı (Eğer dosyanızda yoksa ekleyin)
+class BannedScreen extends StatelessWidget {
+  const BannedScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Account Banned")),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.block, size: 80, color: Colors.red),
+              const SizedBox(height: 20),
+              const Text(
+                "Your account has been banned.",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Please contact support for more information.",
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: () async {
+                  // Support'a yönlendirme veya çıkış yapma
+                  await FirebaseAuth.instance.signOut();
+                  // RestartWidget.restartApp(context); // Gerekirse uygulamayı yeniden başlat
+                },
+                child: const Text("Sign Out"),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
