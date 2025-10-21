@@ -127,14 +127,21 @@ class NotificationService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     final ref = FirebaseFirestore.instance.collection('users').doc(uid);
-    try {
-      // Eski davranış: arrayUnion ile biriktiriyordu. Artık sadece tek token sakla.
-      await ref.set({
-        'fcmTokens': [token] // her seferinde alanı tamamen bu tek token ile değiştir
-      }, SetOptions(merge: true));
-    } catch (_) {
-      // ignore
+
+    // Doküman yokken create denemesi yapmayın; sadece update deneyin.
+    // Update doküman yoksa client tarafında not-found ile düşer ve kuralları ihlal etmez.
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        await ref.update({
+          'fcmTokens': [token], // tek tokenı sakla
+        });
+        return; // başarı
+      } catch (e) {
+        // Doküman henüz oluşmadıysa kısa bir gecikmeden sonra tekrar dene
+        await Future.delayed(Duration(milliseconds: 200 * (attempt + 1)));
+      }
     }
+    // Son denemede de başarısızsa sessizce bırak (doküman daha sonra oluştuğunda auth değişiminde tekrar denenecek)
   }
 
   Future<void> dispose() async {

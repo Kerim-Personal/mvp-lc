@@ -365,9 +365,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
               // Check document existence ONLY if we have data
               if (userSnap.hasData && !userSnap.data!.exists) {
                 print("User document does not exist for UID: $uid");
-                determinedScreen = const LoginScreen(); // Or an error screen
-                // Optionally log out inconsistent user
-                // FirebaseAuth.instance.signOut();
+                // Doküman henüz oluşmamış olabilir; splash'ı açık tutup bekleyelim.
+                determinedScreen = const SizedBox.shrink();
+                // Splash kaldırılmamalı, ilk karar verilmedi olarak kalsın
+                shouldRemoveSplash = false;
               } else if (userSnap.hasData) {
                 // Document exists, proceed with logic
                 final data = userSnap.data!.data();
@@ -504,3 +505,4 @@ class BannedScreen extends StatelessWidget {
     );
   }
 }
+
