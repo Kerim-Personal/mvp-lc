@@ -6,6 +6,11 @@ import 'package:vocachat/screens/practice_writing_screen.dart';
 import 'package:vocachat/screens/practice_reading_screen.dart';
 import 'package:vocachat/screens/practice_listening_screen.dart';
 import 'package:vocachat/screens/practice_speaking_screen.dart';
+// Yeni: premium kontrolü ve upsell için gerekli importlar
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vocachat/widgets/home_screen/premium_upsell_dialog.dart';
+import 'package:vocachat/screens/store_screen.dart';
 
 // --- VERİ MODELLERİ ---
 // Sınıf, "private type in a public API" hatasını çözmek için herkese açık hale getirildi.
@@ -67,6 +72,16 @@ class PracticeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Kullanıcının premium durumunu Firestore'dan dinle
+    final user = FirebaseAuth.instance.currentUser;
+    final Stream<bool> premiumStream = (user == null)
+        ? Stream<bool>.value(false)
+        : FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .snapshots()
+            .map((doc) => (doc.data()?['isPremium'] == true));
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -75,47 +90,59 @@ class PracticeTab extends StatelessWidget {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  // Header kaldırıldı
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final bool isWide = constraints.maxWidth > 600;
-                        if (isWide) {
-                          return Row(
-                            children: practiceModes
-                                .map((mode) => Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                        child: _PracticeModeCard(data: mode, compact: false),
+              child: StreamBuilder<bool>(
+                stream: premiumStream,
+                initialData: false,
+                builder: (context, snapshot) {
+                  final isPremium = snapshot.data == true;
+                  return Column(
+                    children: [
+                      // Header kaldırıldı
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final bool isWide = constraints.maxWidth > 600;
+                            if (isWide) {
+                              return Row(
+                                children: practiceModes
+                                    .map((mode) => Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                            child: _PracticeModeCard(
+                                              data: mode,
+                                              compact: false,
+                                              isPremium: isPremium,
+                                            ),
+                                          ),
+                                        ))
+                                    .toList(),
+                              );
+                            } else {
+                              const spacing = 12.0;
+                              final count = practiceModes.length;
+                              final totalSpacing = spacing * (count - 1);
+                              final cardHeight = (constraints.maxHeight - totalSpacing).clamp(140.0, 2000.0) / count;
+                              return Column(
+                                children: [
+                                  for (int i = 0; i < practiceModes.length; i++) ...[
+                                    Expanded(
+                                      child: _PracticeModeCard(
+                                        data: practiceModes[i],
+                                        compact: cardHeight < 200,
+                                        isPremium: isPremium,
                                       ),
-                                    ))
-                                .toList(),
-                          );
-                        } else {
-                          const spacing = 12.0;
-                          final count = practiceModes.length;
-                          final totalSpacing = spacing * (count - 1);
-                          final cardHeight = (constraints.maxHeight - totalSpacing).clamp(140.0, 2000.0) / count;
-                          return Column(
-                            children: [
-                              for (int i = 0; i < practiceModes.length; i++) ...[
-                                Expanded(
-                                  child: _PracticeModeCard(
-                                    data: practiceModes[i],
-                                    compact: cardHeight < 200,
-                                  ),
-                                ),
-                                if (i != practiceModes.length - 1) const SizedBox(height: spacing),
-                              ]
-                            ],
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                ],
+                                    ),
+                                    if (i != practiceModes.length - 1) const SizedBox(height: spacing),
+                                  ]
+                                ],
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -129,9 +156,53 @@ class PracticeTab extends StatelessWidget {
 class _PracticeModeCard extends StatelessWidget {
   final ModeData data;
   final bool compact;
-  const _PracticeModeCard({required this.data, this.compact = false});
+  final bool isPremium; // Premium ise rozet gösterme
+  const _PracticeModeCard({required this.data, this.compact = false, this.isPremium = false});
 
-  void _open(BuildContext context) {
+  Future<void> _handleTap(BuildContext context) async {
+    // 1) Kullanıcı premium mu kontrol et
+    final auth = FirebaseAuth.instance;
+    final user = auth.currentUser;
+
+    bool isPremium = false;
+    if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get(const GetOptions(source: Source.server));
+        isPremium = (doc.data()?['isPremium'] == true);
+      } catch (_) {
+        // Sunucudan alınamazsa, önbellekten dene
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+          isPremium = (doc.data()?['isPremium'] == true);
+        } catch (_) {}
+      }
+    }
+
+    if (!isPremium) {
+      // 2) Premium değilse upsell dialog aç
+      final result = await showDialog<String>(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => const PremiumUpsellDialog(),
+      );
+      if (result == 'discover') {
+        // 3) Kullanıcı keşfet dedi -> StoreScreen'e yönlendir
+        if (context.mounted) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const StoreScreen()),
+          );
+        }
+      }
+      return; // erişim yok, çık
+    }
+
+    // 4) Premium ise hedef ekrana geç
     Widget? target;
     switch (data.title) {
       case 'Writing':
@@ -147,10 +218,9 @@ class _PracticeModeCard extends StatelessWidget {
         target = const PracticeSpeakingScreen();
         break;
     }
-    if (target != null) {
-      final screen = target; // null değil, local değişkene al
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => screen),
+    if (target != null && context.mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => target!),
       );
     }
   }
@@ -158,7 +228,7 @@ class _PracticeModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _open(context),
+      onTap: () => _handleTap(context),
       child: Semantics(
         button: true,
         label: 'Open ${data.title} mode',
@@ -211,6 +281,7 @@ class _PracticeModeCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                // İçerik
                 Padding(
                   padding: EdgeInsets.all(compact ? 16 : 20),
                   child: Column(
@@ -244,6 +315,36 @@ class _PracticeModeCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Premium değilse sağ üstte küçük bir PRO rozeti/kilit işareti (overlay)
+                if (!isPremium)
+                  Positioned(
+                    top: compact ? 8 : 10,
+                    right: compact ? 8 : 10,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: compact ? 4 : 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_rounded, size: compact ? 12 : 14, color: Colors.amberAccent),
+                          SizedBox(width: compact ? 4 : 6),
+                          Text(
+                            'PRO',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: compact ? 10 : 11.5,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

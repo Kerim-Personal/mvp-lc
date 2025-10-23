@@ -8,6 +8,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:vocachat/services/vocabot_service.dart';
 import 'package:vocachat/models/grammar_analysis.dart';
+import 'package:vocachat/models/grammar_quiz.dart';
 import 'package:vocachat/models/message_unit.dart';
 import 'package:vocachat/widgets/linguabot/linguabot.dart';
 import 'package:vocachat/utils/text_metrics.dart';
@@ -18,6 +19,8 @@ import 'package:circle_flags/circle_flags.dart';
 import 'package:vocachat/services/local_chat_storage.dart';
 import 'package:vocachat/models/lesson_model.dart';
 import 'package:vocachat/services/streak_service.dart';
+import 'package:vocachat/widgets/linguabot/language_data.dart';
+import 'package:vocachat/widgets/linguabot/linguabot_settings.dart';
 
 // --- MAIN SCREEN: THE HEART OF THE SIMULATOR ---
 
@@ -45,340 +48,13 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   bool _showScrollToBottom = false; // scroll to bottom butonunu göster/gizle
 
   // Desteklenen diller (öğrenilecek dil seçenekleri)
-  static const Map<String, String> _supportedLanguages = {
-    'en': 'English',
-    'es': 'Spanish',
-    'de': 'German',
-    'fr': 'French',
-    'tr': 'Turkish',
-    'it': 'Italian',
-    'pt': 'Portuguese',
-    // New languages
-    'ar': 'Arabic',
-    'ru': 'Russian',
-    'ja': 'Japanese',
-    'ko': 'Korean',
-    'zh': 'Chinese',
-    'nl': 'Dutch',
-    'sv': 'Swedish',
-    // Yeni eklenenler
-    'pl': 'Polish',
-    'el': 'Greek',
-    'hu': 'Hungarian',
-    'cs': 'Czech',
-    'da': 'Danish',
-    'fi': 'Finnish',
-    'no': 'Norwegian',
-    'th': 'Thai',
-    'hi': 'Hindi',
-    'id': 'Indonesian',
-    'vi': 'Vietnamese',
-    'uk': 'Ukrainian',
-    'ro': 'Romanian',
-    // Yeni eklenen genişletilmiş set
-    'bg': 'Bulgarian',
-    'hr': 'Croatian',
-    'sr': 'Serbian',
-    'sk': 'Slovak',
-    'sl': 'Slovenian',
-    'fa': 'Persian',
-    'ms': 'Malay',
-    'tl': 'Filipino',
-    'bn': 'Bengali',
-    'ur': 'Urdu',
-    'sw': 'Swahili',
-    'af': 'Afrikaans',
-    'et': 'Estonian',
-    'lt': 'Lithuanian',
-    'lv': 'Latvian',
-    // Ek genişletme
-    'ga': 'Irish',
-    'sq': 'Albanian',
-    'bs': 'Bosnian',
-    'mk': 'Macedonian',
-    'az': 'Azerbaijani',
-    'ka': 'Georgian',
-    'am': 'Amharic',
-    'kk': 'Kazakh',
-    'mn': 'Mongolian',
-    'ne': 'Nepali',
-    'ta': 'Tamil',
-    'te': 'Telugu',
-    'gu': 'Gujarati',
-    'mr': 'Marathi',
-    'kn': 'Kannada',
-    'si': 'Sinhala',
-    // Değer katan eklemeler (ML Kit destekli)
-    'ca': 'Catalan',
-    'gl': 'Galician',
-    'be': 'Belarusian',
-    'is': 'Icelandic',
-    'mt': 'Maltese',
-    // Kolay bayraklı yeni eklenenler
-    'pa': 'Punjabi',
-    'ml': 'Malayalam',
-    'or': 'Odia',
-    'as': 'Assamese',
-    'km': 'Khmer',
-    'my': 'Burmese',
-    'lo': 'Lao',
-    'eu': 'Basque',
-    'hy': 'Armenian',
-    'cy': 'Welsh',
-    'uz': 'Uzbek',
-    'ps': 'Pashto',
-    'ha': 'Hausa',
-    'yo': 'Yoruba',
-    'ig': 'Igbo',
-    'so': 'Somali',
-    'zu': 'Zulu',
-    'xh': 'Xhosa',
-    'tg': 'Tajik',
-    'tk': 'Turkmen',
-    'ky': 'Kyrgyz',
-    // Newly added languages
-    'yue': 'Cantonese', // Yue Chinese (spoken); written form reuses Chinese characters
-    'eo': 'Esperanto',
-    'ht': 'Haitian Creole',
-    // Newly added (user request)
-    'mi': 'Maori',
-    'gn': 'Guarani',
-    'qu': 'Quechua',
-    'om': 'Oromo',
-    'mg': 'Malagasy',
-    'rw': 'Kinyarwanda',
-    'rn': 'Kirundi',
-    'sn': 'Shona',
-    'tn': 'Tswana',
-    'dz': 'Dzongkha',
-    'jv': 'Javanese',
-    'gd': 'Scottish Gaelic',
-    'me': 'Montenegrin',
-  };
+  static const Map<String, String> _supportedLanguages = supportedLanguages;
 
   // Dil kodları ile bayrak kodları eşleştirmesi
-  static const Map<String, String> _languageFlags = {
-    'en': 'gb', // İngilizce için İngiltere bayrağı
-    'es': 'es',
-    'de': 'de',
-    'fr': 'fr',
-    'tr': 'tr',
-    'it': 'it',
-    'pt': 'pt',
-    // New flags
-    'ar': 'sa', // Arabic - Saudi Arabia flag
-    'ru': 'ru',
-    'ja': 'jp',
-    'ko': 'kr',
-    'zh': 'cn',
-    'nl': 'nl',
-    'sv': 'se',
-    // Yeni eklenenler
-    'pl': 'pl',
-    'el': 'gr',
-    'hu': 'hu',
-    'cs': 'cz',
-    'da': 'dk',
-    'fi': 'fi',
-    'no': 'no',
-    'th': 'th',
-    'hi': 'in',
-    'id': 'id',
-    'vi': 'vn',
-    'uk': 'ua',
-    'ro': 'ro',
-    // Yeni eklenenler
-    'bg': 'bg',
-    'hr': 'hr',
-    'sr': 'rs',
-    'sk': 'sk',
-    'sl': 'si',
-    'fa': 'ir',
-    'ms': 'my',
-    'tl': 'ph',
-    'bn': 'bd',
-    'ur': 'pk',
-    'sw': 'ke',
-    'af': 'za',
-    'et': 'ee', // Estonian
-    'lt': 'lt',
-    'lv': 'lv',
-    // Ek genişletme (doğru bayrak eşleşmeleri)
-    'ga': 'ie', // Irish Gaelic -> Ireland
-    'sq': 'al', // Albanian -> Albania
-    'bs': 'ba', // Bosnian -> Bosnia and Herzegovina
-    'mk': 'mk', // Macedonian -> North Macedonia
-    'az': 'az', // Azerbaijani -> Azerbaijan
-    'ka': 'ge', // Georgian -> Georgia
-    'am': 'et', // Amharic -> Ethiopia (daha önce fallback Armenia idi)
-    'kk': 'kz', // Kazakh -> Kazakhstan
-    'mn': 'mn', // Mongolian -> Mongolia
-    'ne': 'np', // Nepali -> Nepal (fallback Niger yanlış olurdu)
-    'ta': 'in', // Tamil -> India (ana konuşur nüfus)
-    'te': 'in', // Telugu -> India
-    'gu': 'in', // Gujarati -> India (fallback Guam olmaz)
-    'mr': 'in', // Marathi -> India (fallback Mauritania yanlış)
-    'kn': 'in', // Kannada -> India (fallback St Kitts & Nevis yanlış)
-    'si': 'lk', // Sinhala -> Sri Lanka (fallback Slovenia yanlış)
-    // Eklenenler
-    'ca': 'ad', // Catalan -> Andorra (tarafsız seçim)
-    'gl': 'es', // Galician -> Spain
-    'be': 'by', // Belarusian -> Belarus
-    'is': 'is', // Icelandic -> Iceland
-    'mt': 'mt', // Maltese -> Malta
-    // Yeni eklenenler (kolay bayrak)
-    'pa': 'in', // Punjabi
-    'ml': 'in', // Malayalam
-    'or': 'in', // Odia
-    'as': 'in', // Assamese
-    'km': 'kh', // Khmer -> Cambodia
-    'my': 'mm', // Burmese -> Myanmar
-    'lo': 'la', // Lao -> Laos
-    'eu': 'es', // Basque -> Spain (çoğunluk)
-    'hy': 'am', // Armenian -> Armenia
-    'cy': 'gb', // Welsh -> United Kingdom
-    'uz': 'uz', // Uzbek -> Uzbekistan
-    'ps': 'af', // Pashto -> Afghanistan (primer)
-    'ha': 'ng', // Hausa -> Nigeria (en büyük nüfus)
-    'yo': 'ng', // Yoruba -> Nigeria
-    'ig': 'ng', // Igbo -> Nigeria
-    'so': 'so', // Somali -> Somalia
-    'zu': 'za', // Zulu -> South Africa
-    'xh': 'za', // Xhosa -> South Africa
-    'tg': 'tj', // Tajik -> Tajikistan
-    'tk': 'tm', // Turkmen -> Turkmenistan
-    'ky': 'kg', // Kyrgyz -> Kyrgyzstan
-    // Newly added flags
-    'yue': 'hk', // Cantonese -> Hong Kong flag as primary locale
-    'eo': 'un', // Esperanto -> using UN flag as neutral fallback (library must support; else consider 'ad' or a generic)
-    'ht': 'ht', // Haitian Creole -> Haiti
-    // Newly added flags (user request)
-    'mi': 'nz', // Maori -> New Zealand
-    'gn': 'py', // Guarani -> Paraguay
-    'qu': 'pe', // Quechua -> Peru (principal modern association)
-    'om': 'et', // Oromo -> Ethiopia (shared with Amharic)
-    'mg': 'mg', // Malagasy -> Madagascar
-    'rw': 'rw', // Kinyarwanda -> Rwanda
-    'rn': 'bi', // Kirundi -> Burundi
-    'sn': 'zw', // Shona -> Zimbabwe
-    'tn': 'bw', // Tswana -> Botswana
-    'dz': 'bt', // Dzongkha -> Bhutan
-    'jv': 'id', // Javanese -> Indonesia
-    'gd': 'gb-sct', // Scottish Gaelic -> Scotland flag (subdivision)
-    'me': 'me', // Montenegrin -> Montenegro
-  };
+  static const Map<String, String> _languageFlags = languageFlags;
 
   // Açılış selamları (hedef öğrenilen dilde)
-  static const Map<String, String> _welcomeMessages = {
-    'en': 'Welcome back to the language universe. Ready to push your limits?',
-    'es': 'Bienvenido de nuevo al universo de los idiomas. ¿Listo para superarte?',
-    'de': 'Willkommen zurück im Sprachen-Universum. Bereit, deine Grenzen zu pushen?',
-    'fr': 'Bon retour dans l’univers des langues. Prêt(e) à repousser tes limites?',
-    'tr': 'Dil evrenine tekrar hoş geldin. Sınırlarını zorlamaya hazır mısın?',
-    'it': 'Bentornato nell\'universo delle lingue. Pronto a superare i tuoi limiti?',
-    'pt': 'Bem-vindo de volta ao universo dos idiomas. Pronto para ir além?',
-    // New language welcomes
-    'ar': 'مرحبًا بعودتك إلى كون اللغات. هل أنت مستعد لتتحدى حدودك؟',
-    'ru': 'С возвращением во вселенную языков. Готов расширять свои границы?',
-    'ja': '言語の宇宙へようこそ。限界に挑戦する準備はできた？',
-    'ko': '언어의 우주에 다시 온 걸 환영해. 한계를 넘어볼 준비 됐어?',
-    'zh': '欢迎回到语言宇宙。准备好挑战你的极限了吗？',
-    'nl': 'Welkom terug in het taaluniversum. Klaar om je grenzen te verleggen?',
-    'sv': 'Välkommen tillbaka till språkets universum. Redo att tänja på dina gränser?',
-    // Yeni eklenenler
-    'pl': 'Witaj ponownie w językowym uniwersum. Gotowy na wyzwanie?',
-    'el': 'Καλώς επέστρεψες στο σύμπαν των γλωσσών. Έτοιμος για πρόκληση;',
-    'hu': 'Üdv újra a nyelvi univerzumban. Készen állsz a kihívásra?',
-    'cs': 'Vítej zpět ve vesmíru jazyků. Připraven posunout své limity?',
-    'da': 'Velkommen tilbage til sproguniverset. Klar til at presse dine grænser?',
-    'fi': 'Tervetuloa takaisin kieliuniversumiin. Valmis haastamaan rajasi?',
-    'no': 'Velkommen tilbake til språkuniverset. Klar til å presse grensene dine?',
-    'th': 'ยินดีต้อนรับกลับสู่จักรวาลภาษา พร้อมท้าทายขีดจำกัดไหม?',
-    'hi': 'भाषा ब्रह्मांड में फिर स्वागत है। तैयार हो अपनी सीमाएँ बढ���ाने के लिए?',
-    'id': 'Selamat datang kembali di jagat bahasa. Siap menantang batasmu?',
-    'vi': 'Chào mừng trở lại vũ trụ ngôn ngữ. Sẵn sàng thử thách giới hạn chứ?',
-    'uk': 'Ласкаво просимо назад у мовний всесвіт. Готовий розширювати межі?',
-    'ro': 'Bine ai revenit în universul limbilor. Gata să îți depășești limitele?',
-    // Yeni eklenen genişletilmiş set
-    'bg': 'Добре дошъл отново в езиковата вселена. Готов ли си?',
-    'hr': 'Dobrodošao natrag u svemir jezika. Spreman?',
-    'sr': 'Добро вратио си се у језички универзум. Спреман?',
-    'sk': 'Vitaj späť vo vesmíre jazykov. Pripravený?',
-    'sl': 'Dobrodošel nazaj v jezikovnem vesolju. Pripravljen?',
-    'fa': 'به دنیای زبان‌ها برگشتی، آماده‌ای خودت را به چالش بکشی؟',
-    'ms': 'Selamat kembali ke alam bahasa. Sedia cabar diri?',
-    'tl': 'Balik ka na sa uniberso ng wika. Handa ka na ba?',
-    'bn': 'ভাষার মহাবিশ্বে আবার স্বাগতম। প্রস্তুত তো?',
-    'ur': 'زبانوں کی کائنات میں واپسی پر خوش آمدید، تیار ہو؟',
-    'sw': 'Karibu tena kwenye ulimwengu wa lugha. Uko tayari?',
-    'af': 'Welkom terug in die taalheelal. Gereed?',
-    'et': 'Tere tulemast tagasi keelte universumisse. Valmis?',
-    'lt': 'Sveikas sugrįžęs į kalbų visatą. Pasiruošęs?',
-    'lv': 'Laipni lūdzam atpakaļ valodu visumā. Gatavs?',
-    // Ek genişletme
-    'ga': 'Fáilte ar ais chuig cruinne na dteangacha. Réidh?',
-    'sq': 'Mirë se u ktheve në universin e gjuhëve. Gati?',
-    'bs': 'Dobrodošao nazad u svemir jezika. Spreman?',
-    'mk': 'Добредојде назад во јазичната вселена. Подготвен?',
-    'az': 'Dil kainatına yenidən xoş gəldin. Hazırsan?',
-    'ka': 'კეთილი იყოს შენი დაბრუნება ენების სამყაროში. მზად ხარ?',
-    'am': 'እንኳን ወደ ቋንቋዎች አለም በደህና መጣህ። ዝግጁ ነህ?',
-    'kk': 'Тілдер әлеміне қайта қош келдің. Дайынсың ба?',
-    'mn': 'Хэлний ертөнцөд дахин тавтай морил. Бэлэн үү?',
-    'ne': 'भाषा ब्रह्माण्डमा फेरि स्वागत छ। तयार?',
-    'ta': 'மொழி பிரபஞ்சத்திற்கு மறுபடியும் வரவேற்கிறேன். தயார்?',
-    'te': 'భాషా విశ్వానికి తిరిగి స్వాగతం. సిద్ధమేనా?',
-    'gu': 'ભાષા બ્રહ્માંડમાં ફરી સ્વાગત. તૈયાર?',
-    'mr': 'भाषा विश्वात परत स्वागत. तयार?',
-    'kn': 'ಭಾಷಾ ಬ್ರಹ್ಮಾಂಡಕ್ಕೆ ಮರಳಿ ಸುಸ್ವಾಗತ. ಸಿದ್ಧವಾ?',
-    'si': 'භාෂා බ්‍රහ්මාණ්ඩයට නැවත සාදරයෙන් පිළිගන්නවා. සූදානම්ද?',
-    // Yeni eklenenler
-    'ca': 'Benvingut de nou a l\'univers de les llengües. Preparat?',
-    'gl': 'Benvido de novo ao universo das linguas. Listo?',
-    'be': 'Вітаем зноў у моўным сусвеце. Гатовы?',
-    'is': 'Velkominn aftur í tungumálaalheiminn. Tilbúinn?',
-    'mt': 'Merħba lura fl-univers tal-lingwi. Lest?',
-    // Yeni eklenen karşılamalar
-    'pa': 'ਭਾਸ਼ਾ ਬ੍ਰਹਿਮੰਡ ਵਿੱਚ ਵਾਪਸ ਸਵਾਗਤ ਹੈ। ਤਿਆਰ?',
-    'ml': 'ഭാഷാ ബ്രഹ്മാണ്ഡത്തിലേക്ക് വീണ്ടും സ്വാഗതം. തയ്യാറ��?',
-    'or': 'ଭାଷା ବ୍ରହ୍ମାଣ୍ଡକୁ ପୁନଃ ସ୍ୱାଗତ। ପ୍ରସ୍ତୁତ?',
-    'as': 'ভাষাৰ মহাবিশ্বৰলৈ আকৌ স্বাগতম। প্ৰস্তুত?',
-    'km': 'សូមស្វាគមន៍ត្រឡប់មកកាន់ចក្រវាលភាសា។ រៀបចំរួចហើយ?',
-    'my': 'ဘာသာစကားဗဟုလောကသို့ ပြန်လာခြင်းကို ကြိုဆိုပါသည်။ အဆင်သင့်လား?',
-    'lo': 'ຍິນດີຕ້ອນຮັບກັບສູ່ຈັກກະວານພາສາ. ພ້ອມບໍ?',
-    'eu': 'Ongi etorri berriro hizkuntzen unibertsora. Prest?',
-    'hy': 'Բարի վերադարձ լեզուների տիեզերք։ Պատրա՞ստ ես։',
-    'cy': 'Croeso yn ôl i fydysawd yr ieithoedd. Barod?',
-    'uz': 'Til olamiga qaytganingga xush kelibsan. Tayyor?',
-    'ps': 'بېرته د ژبو کاینات ته ښه راغلې. تیار یې؟',
-    'ha': 'Barka da dawowa zuwa sararin harsuna. Shirye kake?',
-    'yo': 'Kaabo sí ayé èdè lẹ́ẹ̀kansi. Ṣé ṣetán?',
-    'ig': 'Nnọọ azụ na ụwa asụsụ. Ị kwadebere?',
-    'so': 'Ku soo dhawoow mar kale caalamka luqadaha. Diyaar miyaa?',
-    'zu': 'Uyemukelwa futhi emkhathini wezilimi. Ulungele?',
-    'xh': 'Wamkelekile kwakhona kwindalo yeelwimi. Ulungile?',
-    'tg': 'Боз ба коиноти забонҳо хуш омадед. Омодаед?',
-    'tk': 'Dil älemine gaýdyp geldiň. Taýýar?',
-    'ky': 'Тилдер ааламына кайра кош келиңиз. Даярсызбы?',
-    // Newly added welcome messages
-    'yue': '歡迎返嚟語言宇宙。準備好未？', // Cantonese (Traditional script)
-    'eo': 'Bonvenon reen al la lingva universo. Pretas?',
-    'ht': 'Byenveni tounen nan inivè lang yo. Pare?',
-    // Newly added welcome messages (user request)
-    'mi': 'Haere mai anō ki te ao reo. Kua rite?',
-    'gn': 'Ejujey ñeʼẽ arapýpe. ¿Ikatúpa?',
-    'qu': 'Simikuna pachasman kutiy. Listo kachkanki?',
-    'om': 'Baga gara unka afaanotaatti deebiʼte. Qophiidhaa?',
-    'mg': 'Tongasoa indray eto amin\'ny tontolon\'ny fiteny. Vonona?',
-    'rw': 'Murakaza neza kongera mu isanzure ry\'indimi. Witeguye?',
-    'rn': 'Urakaze gusubira mu isi y\'indimi. Witeguye?',
-    'sn': 'Gamuchirai zvakare munyika yemitauro. Wakagadzirira?',
-    'tn': 'O amogetswe gape mo lefatsheng la diteme. O lokile?',
-    'dz': 'སྐད་ཡིག་ཀྱི་འཛམ་གླིང་ལ་ལོག་འབྱོར་བཀའ་དྲིན་ཆེ། གྲ་སྒྲིག་ཡོད་མིན?',
-    'jv': 'Sugeng rawuh maneh ing jagad basa. Siyap?',
-    'gd': 'Fàilte air ais do chruinne nan cànan. Deiseil?',
-    'me': 'Dobrodošao nazad u jezički svemir. Spreman?',
-  };
+  static const Map<String, String> _welcomeMessages = welcomeMessages;
 
   late AnimationController _backgroundController;
   late AnimationController _entryController;
@@ -900,7 +576,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
       barrierColor: Colors.black.withValues(alpha: 0.55), // arka plan hafif görünür
       transitionDuration: const Duration(milliseconds: 260),
       pageBuilder: (context, a1, a2) {
-        return _FullScreenSettings(
+        return FullScreenSettings(
           supportedLanguages: _supportedLanguages,
           languageFlags: _languageFlags,
           targetLanguage: _targetLanguage,
@@ -925,14 +601,72 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     );
   }
 
+  // Basit normalizasyon: küçük harf, noktalama ve ekstra boşlukları temizle
+  String _normalizeQuestion(String text) {
+    final lower = text.toLowerCase();
+    final cleaned = lower.replaceAll(RegExp(r'[^a-z0-9çğıışöüáéíóúñäöüßâêîôûãõàèìòù¿¡]+', caseSensitive: false), ' ');
+    return cleaned.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).join(' ');
+  }
+
+  // Jaccard benzerliği (0..1) - kelime setleri üzerinde
+  double _jaccardSimilarity(String a, String b) {
+    final sa = _normalizeQuestion(a).split(' ').toSet();
+    final sb = _normalizeQuestion(b).split(' ').toSet();
+    if (sa.isEmpty && sb.isEmpty) return 1.0;
+    if (sa.isEmpty || sb.isEmpty) return 0.0;
+    final inter = sa.intersection(sb).length.toDouble();
+    final union = sa.union(sb).length.toDouble();
+    return inter / union;
+  }
+
+  // Bu topic için yakın geçmiş soru metinleri (normalize edilmiş)
+  List<String> _recentQuestionsForTopic(String topicPath, {int maxItems = 10}) {
+    final list = <String>[];
+    for (final m in _messages.reversed) { // en yenilerden
+      final q = m.quiz;
+      if (q == null) continue;
+      if (q.topicPath != topicPath) continue;
+      list.add(q.question);
+      if (list.length >= maxItems) break;
+    }
+    return list;
+  }
+
+  // Benzer soruları filtreleyerek yeni quiz getir
+  Future<GrammarQuiz?> _getDistinctQuiz(String topicPath, String topicTitle, {int maxTries = 5, double similarityThreshold = 0.8}) async {
+    GrammarQuiz? last;
+    // Son sorular listesini kopyalayarak çalış
+    final excludes = List<String>.from(_recentQuestionsForTopic(topicPath));
+    for (int i = 0; i < maxTries; i++) {
+      final quiz = await _botService.getGrammarQuiz(
+        topicPath: topicPath,
+        topicTitle: topicTitle,
+        excludeQuestions: excludes,
+      );
+      if (quiz == null) continue; // tekrar dene
+      last = quiz;
+      if (excludes.isEmpty) return quiz; // geçmiş yok, kabul
+      final tooSimilar = excludes.any((prev) {
+        final sim = _jaccardSimilarity(prev, quiz.question);
+        // Ayrıca içerme durumu (normalize edilince biri diğerini içeriyorsa) -> çok benzer say
+        final pn = _normalizeQuestion(prev);
+        final qn = _normalizeQuestion(quiz.question);
+        final contains = pn.length > 8 && qn.contains(pn) || qn.length > 8 && pn.contains(qn);
+        return sim >= similarityThreshold || contains;
+      });
+      if (!tooSimilar) return quiz; // yeterince farklı
+      // Bu adayı da exclude listesine ekleyip tekrar dene
+      excludes.add(quiz.question);
+      await Future.delayed(const Duration(milliseconds: 120));
+    }
+    return last; // yoksa sonuncuyu ver (kullanıcıyı bekletmemek için)
+  }
+
   // Quiz başlat (composer -> gramer seçimi)
   Future<void> _startGrammarQuiz(Lesson lesson) async {
     if (!_botReady) return;
     try {
-      final quiz = await _botService.getGrammarQuiz(
-        topicPath: lesson.contentPath,
-        topicTitle: lesson.title,
-      );
+      final quiz = await _getDistinctQuiz(lesson.contentPath, lesson.title);
       if (quiz == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Quiz oluşturulamadı.')));
@@ -962,17 +696,36 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     }
   }
 
-  // Quiz şık seçimi işlensin
-  void _handleQuizAnswer(MessageUnit message, int index) {
-    final idx = _messages.indexWhere((m) => m.id == message.id);
-    if (idx == -1) return;
-    if (_messages[idx].selectedOptionIndex != null) return; // zaten seçilmiş
-    setState(() {
-      _messages[idx].selectedOptionIndex = index;
-    });
-    final u5 = FirebaseAuth.instance.currentUser;
-    if (u5 != null) {
-      LocalChatStorage.instance.save(u5.uid, _targetLanguage, _messages);
+  // Aynı konudan yeni bir soru iste (quiz cevabı sonrası buton)
+  Future<void> _requestNextQuizForTopic(String topicPath, String topicTitle) async {
+    if (!_botReady) return;
+    try {
+      final quiz = await _getDistinctQuiz(topicPath, topicTitle);
+      if (quiz == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yeni soru oluşturulamadı.')));
+        return;
+      }
+      final msg = MessageUnit(
+        text: quiz.question,
+        sender: MessageSender.bot,
+        botResponseTime: const Duration(milliseconds: 0),
+        grammarAnalysis: null,
+        vocabularyRichness: TextMetrics.vocabularyRichness(quiz.question),
+        quiz: quiz,
+        selectedOptionIndex: null,
+      );
+      if (!mounted) return;
+      setState(() {
+        _messages.add(msg);
+      });
+      final u = FirebaseAuth.instance.currentUser;
+      if (u != null) {
+        LocalChatStorage.instance.save(u.uid, _targetLanguage, _messages);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yeni soru yüklenirken hata oluştu.')));
     }
   }
 
@@ -1008,6 +761,21 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
       },
     );
     return result ?? false;
+  }
+
+  // Quiz şık seçimi işlensin
+  void _handleQuizAnswer(MessageUnit message, int index) {
+    final idx = _messages.indexWhere((m) => m.id == message.id);
+    if (idx == -1) return;
+    // daha önce seçilmediyse işle
+    if (_messages[idx].selectedOptionIndex != null) return;
+    setState(() {
+      _messages[idx].selectedOptionIndex = index;
+    });
+    final u = FirebaseAuth.instance.currentUser;
+    if (u != null) {
+      LocalChatStorage.instance.save(u.uid, _targetLanguage, _messages);
+    }
   }
 
   @override
@@ -1073,6 +841,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                             if (actualIndex < 0) return const SizedBox.shrink();
 
                             final message = _messages[actualIndex];
+                            final bool isLastBubble = actualIndex == _messages.length - 1;
                             return MessageEntranceAnimator(
                               key: ValueKey(message.id),
                               child: MessageBubble(
@@ -1082,6 +851,8 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                                 nativeLanguage: _nativeLanguage,
                                 isPremium: _isPremium,
                                 onQuizAnswer: (idx) => _handleQuizAnswer(message, idx),
+                                onRequestMoreQuiz: (topicPath, topicTitle) => _requestNextQuizForTopic(topicPath, topicTitle),
+                                isLast: isLastBubble,
                               ),
                             );
                           },
@@ -1213,293 +984,3 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   }
 }
 
-class _FullScreenSettings extends StatefulWidget {
-  final Map<String,String> supportedLanguages;
-  final Map<String,String> languageFlags; // gelecekte gerekirse
-  final String targetLanguage;
-  final Widget Function(String) buildTile;
-  final VoidCallback onClose;
-  final void Function(String) onChange;
-  const _FullScreenSettings({
-    required this.supportedLanguages,
-    required this.languageFlags,
-    required this.targetLanguage,
-    required this.buildTile,
-    required this.onClose,
-    required this.onChange,
-  });
-  @override
-  State<_FullScreenSettings> createState() => _FullScreenSettingsState();
-}
-
-class _FullScreenSettingsState extends State<_FullScreenSettings> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-  bool _popularOnly = false; // sadece popüler dilleri gösterme modu
-
-  // Uygulamada en çok öğrenilmesi muhtemel diller listesi (isteğe göre güncellenebilir)
-  static const Set<String> _popularLanguages = {
-    'en','es','fr','de','tr','it','pt','ru','ar','ja','ko','zh','nl','sv'
-  };
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  List<MapEntry<String,String>> _filtered() {
-    // Tüm dilleri al
-    Iterable<MapEntry<String,String>> entries = widget.supportedLanguages.entries;
-    // Popüler filtre açıksa önce kısıtla
-    if (_popularOnly) {
-      entries = entries.where((e) => _popularLanguages.contains(e.key));
-    }
-    // Arama uygula
-    final qRaw = _query.trim();
-    if (qRaw.isNotEmpty) {
-      final q = qRaw.toLowerCase();
-      entries = entries.where((e) => e.key.toLowerCase().contains(q) || e.value.toLowerCase().contains(q));
-    }
-    return entries.toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = _filtered();
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.cyanAccent.withValues(alpha: 0.30),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.cyanAccent.withValues(alpha: 1.00), width: 1),
-                    ),
-                    child: const Icon(Icons.settings_outlined, color: Colors.cyanAccent, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: widget.onClose,
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                  )
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Arama Kutusu
-              TextField(
-                controller: _searchCtrl,
-                style: const TextStyle(color: Colors.white),
-                cursorColor: Colors.cyanAccent,
-                decoration: InputDecoration(
-                  hintText: 'Search language',
-                  hintStyle: TextStyle(color: Colors.white54, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search, color: Colors.cyanAccent, size: 20),
-                  suffixIcon: _query.isEmpty ? null : IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.white54, size: 18),
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      setState(() => _query = '');
-                    },
-                  ),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.18),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Colors.cyanAccent.withValues(alpha: 0.60), width: 1),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Colors.cyanAccent, width: 1.3),
-                  ),
-                ),
-                onChanged: (v) => setState(()=> _query = v),
-              ),
-              const SizedBox(height: 18),
-              // Modern filtre toggle
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.60), width: 1),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _FilterToggle(
-                      label: 'All Languages',
-                      icon: Icons.public,
-                      isSelected: !_popularOnly,
-                      onTap: () => setState(() => _popularOnly = false),
-                      count: widget.supportedLanguages.length,
-                    ),
-                    _FilterToggle(
-                      label: 'Popular',
-                      icon: Icons.star_rounded,
-                      isSelected: _popularOnly,
-                      onTap: () => setState(() => _popularOnly = true),
-                      count: _popularLanguages.length,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: 0.12),
-                        Colors.white.withValues(alpha: 0.06),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.40), width: 1),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.translate_outlined, color: Colors.cyanAccent, size: 20),
-                          const SizedBox(width: 8),
-                          Text('Learning Language (${entries.length})', style: TextStyle(color: Colors.cyanAccent.withAlpha(230), fontSize: 16, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final bool narrow = constraints.maxWidth < 300;
-                            final int columns = narrow ? 2 : 3;
-                            if (entries.isEmpty) {
-                              return Center(
-                                child: Text('Sonuç yok', style: TextStyle(color: Colors.white60, fontSize: 13)),
-                              );
-                            }
-                            return RawScrollbar(
-                              thumbVisibility: true,
-                              trackVisibility: false,
-                              thickness: 4,
-                              radius: const Radius.circular(8),
-                              thumbColor: Colors.cyanAccent,
-                              child: GridView.builder(
-                                physics: const BouncingScrollPhysics(),
-                                padding: const EdgeInsets.only(right: 4, bottom: 8),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: columns,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 14,
-                                  childAspectRatio: 1.3,
-                                ),
-                                itemCount: entries.length,
-                                itemBuilder: (ctx, i) {
-                                  final code = entries[i].key;
-                                  return widget.buildTile(code);
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.orange.withValues(alpha: 0.90), width: 1),
-                        ),
-                        child: const Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.orangeAccent, size: 16),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Last messages stored on your device.',
-                                style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500, height: 1.2),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-    ),
-      );
-  }
-}
-
-class _FilterToggle extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final int count;
-
-  const _FilterToggle({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    required this.count,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          margin: const EdgeInsets.only(right: 2),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.cyanAccent : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: isSelected ? Colors.black : Colors.cyanAccent, size: 16),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: isSelected ? Colors.black : Colors.white70,
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

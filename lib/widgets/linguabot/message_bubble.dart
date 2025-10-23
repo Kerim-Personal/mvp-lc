@@ -16,7 +16,21 @@ class MessageBubble extends StatelessWidget {
   final bool isPremium;
   // Yeni: Quiz cevabı callback (sadece index)
   final ValueChanged<int>? onQuizAnswer;
-  const MessageBubble({super.key, required this.message, required this.onCorrect, this.isUserPremium = false, required this.nativeLanguage, required this.isPremium, this.onQuizAnswer});
+  // Yeni: Aynı konudan yeni soru isteği callback'i
+  final void Function(String topicPath, String topicTitle)? onRequestMoreQuiz;
+  // Yeni: Bu baloncuk listede son öğe mi?
+  final bool isLast;
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.onCorrect,
+    this.isUserPremium = false,
+    required this.nativeLanguage,
+    required this.isPremium,
+    this.onQuizAnswer,
+    this.onRequestMoreQuiz,
+    this.isLast = false,
+  });
 
   TextSpan _buildAnalyzedSpan(String text, GrammarAnalysis ga, {required Color baseColor}) {
     final List<InlineSpan> spans = [];
@@ -210,18 +224,40 @@ class MessageBubble extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: selected == correct ? Colors.greenAccent : Colors.redAccent, width: 1),
             ),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(selected == correct ? Icons.emoji_events : Icons.school,
-                    color: selected == correct ? Colors.greenAccent : Colors.redAccent, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    selected == correct ? quiz.onCorrectNative : quiz.onWrongNative,
-                    style: TextStyle(color: baseTextColor, fontSize: 14, height: 1.35),
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(selected == correct ? Icons.emoji_events : Icons.school,
+                        color: selected == correct ? Colors.greenAccent : Colors.redAccent, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        selected == correct ? quiz.onCorrectNative : quiz.onWrongNative,
+                        style: TextStyle(color: baseTextColor, fontSize: 14, height: 1.35),
+                      ),
+                    ),
+                  ],
                 ),
+                if (isLast) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: selected == correct ? Colors.greenAccent.withAlpha(220) : Colors.orangeAccent.withAlpha(220),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => onRequestMoreQuiz?.call(quiz.topicPath, quiz.topicTitle),
+                      icon: Icon(selected == correct ? Icons.refresh_rounded : Icons.replay_rounded, size: 18),
+                      label: Text(selected == correct ? 'Harika! Aynı konudan bir soru daha' : 'Devam! Aynı konudan bir soru daha'),
+                    ),
+                  ),
+                ],
               ],
             ),
           )
