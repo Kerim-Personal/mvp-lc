@@ -116,7 +116,6 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
           'reportedContentParentId': widget.reportedContentParentId,
           'timestamp': FieldValue.serverTimestamp(),
           'status': 'pending',
-          'serverAuth': true, // security rules
         });
       } else {
         await col.add({
@@ -130,7 +129,6 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
             'reportedContentParentId': widget.reportedContentParentId,
           'timestamp': FieldValue.serverTimestamp(),
           'status': 'pending',
-          'serverAuth': true, // security rules
         });
       }
 

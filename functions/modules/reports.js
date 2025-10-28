@@ -124,7 +124,6 @@ exports.createReport = functions
         reportedContentParentId: reportedContentParentId || null,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         status: 'pending',
-        serverAuth: true,
       };
       if (docId) {
         await reportsCol.doc(docId).set(baseData, { merge: false });

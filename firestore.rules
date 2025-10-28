@@ -61,10 +61,34 @@ service cloud.firestore {
 
     function isBlocked(byUid, targetUid) { return exists(/databases/$(database)/documents/users/$(byUid)/blockedUsers/$(targetUid)); }
 
+    // Yeni validasyon fonksiyonları
+    function isValidUrl(url) {
+      return url is string &&
+             (url.matches('^https://.*') || url.matches('^http://.*')) &&
+             url.size() <= 2048;
+    }
+
+    function isValidLanguageCode(code) {
+      return code is string && code in ['en','tr','de','fr','es','it','pt','ru','ja','ko','zh','ar','hi','nl','pl','sv','no','da','fi','cs','el','he','id','th','vi','uk','ro','hu','bg','hr','sk'];
+    }
+
+    function isValidLanguageLevel(level) {
+      return level is string && level in ['A1','A2','B1','B2','C1','C2','beginner','intermediate','advanced','native'];
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts >= request.time - duration.value(1, 's') && ts <= request.time;
+    }
+
+    function isValidAttachments(attachments) {
+      return attachments == null ||
+             (attachments is list && attachments.size() <= 5);
+    }
+
     // --- KOLEKSİYON KURALLARI ---
 
     match /usernames/{uname} {
-      allow create: if isAuthenticated() && !isReservedName(uname) &&
+      allow create: if isAuthenticated() && callerNotBanned() && !isReservedName(uname) &&
         request.resource.data.keys().hasOnly(['uid','createdAt']) &&
         request.resource.data.uid == request.auth.uid &&
         request.resource.data.createdAt == request.time;
@@ -88,6 +112,19 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
             'displayName', 'username_lowercase', 'avatarUrl', 'birthDate', 'nativeLanguage', 'learningLanguage', 'learningLanguageLevel', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime'
           ]) &&
+          // Validasyon kontrolleri
+          (!request.resource.data.diff(resource.data).changedKeys().hasAny(['avatarUrl']) ||
+           (request.resource.data.avatarUrl == null || isValidUrl(request.resource.data.avatarUrl))) &&
+          (!request.resource.data.diff(resource.data).changedKeys().hasAny(['birthDate']) ||
+           request.resource.data.birthDate is timestamp) &&
+          (!request.resource.data.diff(resource.data).changedKeys().hasAny(['nativeLanguage']) ||
+           (request.resource.data.nativeLanguage == null || isValidLanguageCode(request.resource.data.nativeLanguage))) &&
+          (!request.resource.data.diff(resource.data).changedKeys().hasAny(['learningLanguage']) ||
+           (request.resource.data.learningLanguage == null || isValidLanguageCode(request.resource.data.learningLanguage))) &&
+          (!request.resource.data.diff(resource.data).changedKeys().hasAny(['learningLanguageLevel']) ||
+           (request.resource.data.learningLanguageLevel == null || isValidLanguageLevel(request.resource.data.learningLanguageLevel))) &&
+          (!request.resource.data.diff(resource.data).changedKeys().hasAny(['displayName']) ||
+           (request.resource.data.displayName == null || isValidDisplayName(request.resource.data.displayName))) &&
           (
             // username_lowercase değişiyorsa geçerli ve rezerve edilmiş olmalı
             (
@@ -135,26 +172,30 @@ service cloud.firestore {
 
       match /blockedUsers/{targetId} {
         allow read: if isAuthenticated() && (isOwner(userId) || request.auth.uid == targetId);
-        allow create: if isAuthenticated() && isOwner(userId) &&
+        allow create: if isAuthenticated() && isOwner(userId) && callerNotBanned() &&
           request.resource.data.keys().hasOnly(['blockedAt','targetUserId']) &&
-          request.resource.data.targetUserId == targetId;
-        allow update: if isAuthenticated() && isOwner(userId) &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(['blockedAt']);
-        allow delete: if isAuthenticated() && isOwner(userId);
+          request.resource.data.targetUserId == targetId &&
+          request.resource.data.blockedAt == request.time;
+        allow update: if isAuthenticated() && isOwner(userId) && callerNotBanned() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['blockedAt']) &&
+          request.resource.data.blockedAt == request.time;
+        allow delete: if isAuthenticated() && isOwner(userId) && callerNotBanned();
       }
     }
 
     match /reports/{reportId} {
       allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.reporterId) &&
-        request.resource.data.keys().hasOnly(['reporterId','reportedUserId','reason','details','reportedContent','reportedContentId','reportedContentType','reportedContentParentId','timestamp','status','serverAuth']) &&
-        request.resource.data.serverAuth == true &&
+        request.resource.data.keys().hasOnly(['reporterId','reportedUserId','reason','details','reportedContent','reportedContentId','reportedContentType','reportedContentParentId','timestamp','status']) &&
         request.resource.data.status == 'pending' &&
+        request.resource.data.timestamp == request.time &&
         request.resource.data.reason is string && request.resource.data.reason.size() > 2 && request.resource.data.reason.size() <= 120 &&
-        (request.resource.data.details == null || (request.resource.data.details is string && request.resource.data.details.size() <= 2000));
+        (request.resource.data.details == null || (request.resource.data.details is string && request.resource.data.details.size() <= 2000)) &&
+        (request.resource.data.reportedContent == null || (request.resource.data.reportedContent is string && request.resource.data.reportedContent.size() <= 1000));
       allow read: if isAuthenticated() && isPrivileged(request.auth.uid);
       allow update: if isAuthenticated() && isPrivileged(request.auth.uid) &&
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy']) &&
-        request.resource.data.status in ['pending','reviewed','dismissed'];
+        request.resource.data.status in ['pending','reviewed','dismissed'] &&
+        request.resource.data.reviewedAt == request.time;
       allow delete: if false;
     }
 
@@ -163,14 +204,14 @@ service cloud.firestore {
       allow create: if isAuthenticated() && callerNotBanned() &&
         (getUser(request.auth.uid) != null && getUser(request.auth.uid).isPremium == true) &&
         isValidSupportCreate(request.resource.data) &&
-        request.resource.data.keys().hasOnly(['userId','subject','message','status','createdAt','updatedAt','attachments','platform','email','displayName','serverAuth']) &&
-        request.resource.data.serverAuth == true &&
-        request.resource.data.createdAt is timestamp && request.resource.data.createdAt <= request.time &&
-        request.resource.data.updatedAt is timestamp && request.resource.data.updatedAt <= request.time &&
-        (request.resource.data.attachments is list);
+        request.resource.data.keys().hasOnly(['userId','subject','message','status','createdAt','updatedAt','attachments','platform','email','displayName']) &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time &&
+        isValidAttachments(request.resource.data.attachments);
       allow update: if isAuthenticated() && isPrivileged(request.auth.uid) &&
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','updatedAt','updatedBy','adminResponse','assignedTo']) &&
-        request.resource.data.status in ['open','in_progress','resolved','closed'];
+        request.resource.data.status in ['open','in_progress','resolved','closed'] &&
+        request.resource.data.updatedAt == request.time;
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -186,7 +227,8 @@ service cloud.firestore {
         )) &&
         request.resource.data.keys().hasOnly(['senderId','senderRole','message','timestamp','attachments']) &&
         request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 5000 &&
-        (request.resource.data.attachments == null || (request.resource.data.attachments is list));
+        request.resource.data.timestamp == request.time &&
+        isValidAttachments(request.resource.data.attachments);
         allow update, delete: if false;
       }
     }

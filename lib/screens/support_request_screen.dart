@@ -104,7 +104,6 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'platform': Theme.of(context).platform.name,
-        'serverAuth': true, // security rules
       });
 
       if (!mounted) return;
