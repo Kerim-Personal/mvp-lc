@@ -1,8 +1,8 @@
 // lib/screens/report_user_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class ReportUserScreen extends StatefulWidget {
   final String reportedUserId;
@@ -33,7 +33,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _alreadyReported = false; // aynı kullanıcı aynı içeriği raporladı mı?
 
-  // Eksik olan rapor nedenleri listesi geri eklendi
+  // Rapor nedenleri listesi
   final List<String> _reportReasons = const [
     'Cheating / Unfair Advantage',
     'Inappropriate Username',
@@ -44,22 +44,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAlreadyReported();
-  }
-
-  Future<void> _checkAlreadyReported() async {
-    if (_currentUser == null) return;
-    final cid = widget.reportedContentId;
-    if (cid == null || cid.isEmpty) return; // içerik ID yoksa bloklama yapma
-    try {
-      final docId = '${_currentUser.uid}_$cid';
-      final doc = await FirebaseFirestore.instance.collection('reports').doc(docId).get();
-      if (mounted && doc.exists) {
-        setState(() => _alreadyReported = true);
-      }
-    } catch (_) {
-      // sessiz geç
-    }
+    // Artık Firestore’dan kontrol yapmıyoruz; fonksiyon hatası üzerinden yöneteceğiz
   }
 
   Future<void> _submitReport() async {
@@ -82,55 +67,23 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
       return;
     }
 
-    // Yarış durumunu önlemek için doc id temelli kontrol
-    String? fixedDocId;
-    if (widget.reportedContentId != null && widget.reportedContentId!.isNotEmpty) {
-      fixedDocId = '${_currentUser.uid}_${widget.reportedContentId}';
-      try {
-        final existing = await FirebaseFirestore.instance.collection('reports').doc(fixedDocId).get();
-        if (existing.exists) {
-          setState(() => _alreadyReported = true);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('You have already reported this content.')),
-          );
-          return;
-        }
-      } catch (_) {}
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() { _isSubmitting = true; });
 
     try {
-      final col = FirebaseFirestore.instance.collection('reports');
-      if (fixedDocId != null) {
-        await col.doc(fixedDocId).set({
-          'reporterId': _currentUser.uid,
-          'reportedUserId': widget.reportedUserId,
-          'reason': _selectedReason,
-          'details': _detailsController.text.trim(),
-          'reportedContent': widget.reportedContent,
-          'reportedContentId': widget.reportedContentId,
-          'reportedContentType': widget.reportedContentType,
-          'reportedContentParentId': widget.reportedContentParentId,
-          'timestamp': FieldValue.serverTimestamp(),
-          'status': 'pending',
-        });
-      } else {
-        await col.add({
-          'reporterId': _currentUser.uid,
-          'reportedUserId': widget.reportedUserId,
-          'reason': _selectedReason,
-          'details': _detailsController.text.trim(),
-          'reportedContent': widget.reportedContent,
-          'reportedContentId': widget.reportedContentId,
-            'reportedContentType': widget.reportedContentType,
-            'reportedContentParentId': widget.reportedContentParentId,
-          'timestamp': FieldValue.serverTimestamp(),
-          'status': 'pending',
-        });
-      }
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final createReport = functions.httpsCallable('createReport');
+      final String reason = (_reasonController.text).trim();
+      final String details = _detailsController.text.trim();
+
+      await createReport.call({
+        'reportedUserId': widget.reportedUserId,
+        'reason': reason,
+        'details': details.isEmpty ? null : details,
+        'reportedContent': widget.reportedContent,
+        'reportedContentId': widget.reportedContentId,
+        'reportedContentType': widget.reportedContentType,
+        'reportedContentParentId': widget.reportedContentParentId,
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -140,20 +93,32 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
         );
         Navigator.pop(context);
       }
+    } on FirebaseFunctionsException catch (e) {
+      // createReport sunucu tarafı hataları: already-exists, resource-exhausted, invalid-argument vb.
+      String msg = 'An error occurred while submitting the report.';
+      if (e.code == 'already-exists') {
+        msg = 'You have already reported this content.';
+        setState(() => _alreadyReported = true);
+      } else if (e.code == 'resource-exhausted') {
+        msg = 'You are reporting too fast. Please wait and try again.';
+      } else if (e.code == 'invalid-argument') {
+        msg = 'Please provide a valid reason (max length limits apply).';
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('An error occurred while submitting the report: $e'),
+              content: Text('An unexpected error occurred: $e'),
               backgroundColor: Colors.red),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() { _isSubmitting = false; });
     }
   }
 
@@ -213,13 +178,8 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
     final theme = Theme.of(context);
     final textMuted = theme.colorScheme.onSurface.withOpacity(0.65);
     return Scaffold(
-      // backgroundColor sabit açık renkten tema varsayılana bırakıldı
-      // backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Report User'),
-        // backgroundColor ve foregroundColor sabit zorlamalardan arındırıldı, tema kendi uygular
-        // backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        // foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 1,
       ),
       body: Form(

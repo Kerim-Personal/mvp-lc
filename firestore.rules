@@ -85,6 +85,12 @@ service cloud.firestore {
              (attachments is list && attachments.size() <= 5);
     }
 
+    // --- GLOBAL ADMIN OVERRIDE ---
+    // Admin rolündeki kimliği doğrulanmış kullanıcı her şeyi okuyup yazabilir.
+    match /{document=**} {
+      allow read, write: if isAuthenticated() && isAdmin(request.auth.uid);
+    }
+
     // --- KOLEKSİYON KURALLARI ---
 
     match /usernames/{uname} {
@@ -191,13 +197,7 @@ service cloud.firestore {
     }
 
     match /reports/{reportId} {
-      allow create: if isAuthenticated() && callerNotBanned() && isOwner(request.resource.data.reporterId) &&
-        request.resource.data.keys().hasOnly(['reporterId','reportedUserId','reason','details','reportedContent','reportedContentId','reportedContentType','reportedContentParentId','timestamp','status']) &&
-        request.resource.data.status == 'pending' &&
-        request.resource.data.timestamp == request.time &&
-        request.resource.data.reason is string && request.resource.data.reason.size() > 2 && request.resource.data.reason.size() <= 120 &&
-        (request.resource.data.details == null || (request.resource.data.details is string && request.resource.data.details.size() <= 2000)) &&
-        (request.resource.data.reportedContent == null || (request.resource.data.reportedContent is string && request.resource.data.reportedContent.size() <= 1000));
+      allow create: if false;
       allow read: if isAuthenticated() && isPrivileged(request.auth.uid);
       allow update: if isAuthenticated() && isPrivileged(request.auth.uid) &&
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','reviewedAt','reviewedBy']) &&

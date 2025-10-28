@@ -33,6 +33,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vocachat/screens/onboarding_screen.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
 import 'package:vocachat/screens/paywall_screen.dart';
+import 'package:vocachat/screens/banned_screen.dart';
 
 // Uygulama yaşam döngüsünü dinleyip müziği yönetir
 class _AppLifecycleAudioObserver with WidgetsBindingObserver {
@@ -549,44 +550,23 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 // }
 
 // BannedScreen tanımı (Eğer dosyanızda yoksa ekleyin)
-class BannedScreen extends StatelessWidget {
-  const BannedScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Account Banned")),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.block, size: 80, color: Colors.red),
-              const SizedBox(height: 20),
-              const Text(
-                "Your account has been banned.",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Please contact support for more information.",
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () async {
-                  // Support'a yönlendirme veya çıkış yapma
-                  await FirebaseAuth.instance.signOut();
-                  // RestartWidget.restartApp(context); // Gerekirse uygulamayı yeniden başlat
-                },
-                child: const Text("Sign Out"),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+// class BannedScreen extends StatelessWidget {
+//   const BannedScreen({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(title: const Text("Account Banned")),
+//       body: Center(
+//         child: Padding(
+//           padding: const EdgeInsets.all(16.0),
+//           child: Column(
+//             mainAxisAlignment: MainAxisAlignment.center,
+//             children: [
+//               const Icon(Icons.block, size: 80, color: Colors.red),
+//               const SizedBox(height: 20),
+//               const Text(
+//                 "Your account has been banned.",
+//                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+//                 textAlign: TextAlign.center,
+//               ),
