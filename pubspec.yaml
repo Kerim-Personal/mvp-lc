@@ -82,12 +82,14 @@ flutter:
     - assets/animations/success.json
     - assets/animations/Data Analysis.json
     - assets/animations/diamonds.json
+    - assets/animations/diamond_icon.json
     - assets/animations/no ads icon.json
     - assets/animations/Robot says hello.json
     - assets/animations/Happy SUN.json
     - assets/animations/Support.json
     - assets/animations/Translate.json
     - assets/animations/Flags.json
+    - assets/animations/olympicsports.json
     - assets/animations/chat.json # Sohbet animasyonu açıkça eklendi
     - assets/animations/The winner receives gold medal.json
     - assets/animations/Trophy.json

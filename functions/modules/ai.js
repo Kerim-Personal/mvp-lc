@@ -22,6 +22,7 @@ exports.vocabotSend = functions.region('us-central1').https.onCall(async (data, 
   const nativeLanguage = (data && data.nativeLanguage)||'en';
   const learningLevel = (data && data.learningLevel)||'medium';
   const scenario = (data && data.scenario) ? String(data.scenario).trim() : '';
+  const chatHistory = (data && Array.isArray(data.chatHistory)) ? data.chatHistory : [];
   if (!message.trim()) throw new functions.https.HttpsError('invalid-argument','Boş mesaj');
   if (message.length > 1200) throw new functions.https.HttpsError('invalid-argument','Mesaj çok uzun');
   try {
@@ -38,9 +39,29 @@ exports.vocabotSend = functions.region('us-central1').https.onCall(async (data, 
         {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE},
       ],
     });
-    const scenarioBlock = scenario ? `\nSCENARIO: ${scenario}\nROLE: Act within this scenario. Keep responses contextual and realistic. Use short, natural dialogue lines.` : '';
-    const augmented = `USER_MESSAGE: "${message}"\nINTENT: ${intent}${scenarioBlock}\nGUIDELINES: Keep it short (<=2 sentences) unless explanation asked. Natural tone.`;
-    const result = await model.generateContent([{text: augmented}]);
+
+    // Senaryo varsa ekle
+    const scenarioNote = scenario ? `\n\nSCENARIO CONTEXT: ${scenario}\nStay in character and keep responses natural to this scenario.` : '';
+
+    // Konuşma geçmişi - istemci zaten son 8 mesajı gönderiyor
+    let conversationContext = '';
+    if (chatHistory && chatHistory.length > 0) {
+      const lines = chatHistory.map(msg => {
+        const role = msg.role === 'user' ? 'Student' : 'Teacher';
+        return `${role}: ${msg.content}`;
+      });
+      conversationContext = `\n\nCONVERSATION HISTORY:\n${lines.join('\n')}\n`;
+    }
+
+    // Basit ve temiz prompt - system instruction zaten her şeyi içeriyor
+    const prompt = `${conversationContext}
+Student's new message: "${message}"
+
+Message intent: ${intent}${scenarioNote}
+
+Respond naturally as their teacher.`;
+    const result = await model.generateContent([{text: prompt}]);
+
     const reply = sanitizeReply(result.response.text());
     return {reply};
   } catch (e) {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:vocachat/services/ai_translation_service.dart';
@@ -435,6 +436,9 @@ class _MessageComposerState extends State<MessageComposer> {
       maxLines: widget.maxLines,
       cursorColor: theme.colorScheme.primary,
       style: const TextStyle(fontSize: 16, height: 1.4),
+      inputFormatters: [
+        LengthLimitingTextInputFormatter(500),
+      ],
       decoration: InputDecoration(
         prefixIcon: widget.enableEmojis
             ? IconButton(

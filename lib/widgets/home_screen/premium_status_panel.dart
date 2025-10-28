@@ -2,6 +2,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Premium kullanıcıya değer hissettiren, faydaları özetleyen panel.
 class PremiumStatusPanel extends StatefulWidget {
@@ -20,10 +21,10 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
   void initState() {
     super.initState();
     _bgController =
-    AnimationController(vsync: this, duration: const Duration(seconds: 25)) // 18 -> 25 saniye (yavaşlatıldı)
+    AnimationController(vsync: this, duration: const Duration(seconds: 25))
       ..repeat();
     _shimmerController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 3500)) // 2600 -> 3500ms (yavaşlatıldı)
+        vsync: this, duration: const Duration(milliseconds: 3500))
       ..repeat();
   }
 
@@ -36,7 +37,6 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
 
   @override
   Widget build(BuildContext context) {
-    // Panel direkt render edilir; aktiflik kontrolü üst bileşen tarafından yapılır.
     return LayoutBuilder(builder: (context, constraints) {
       return RepaintBoundary(
         child: Stack(
@@ -45,7 +45,7 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
                 child: _AnimatedGoldBackground(controller: _bgController)),
             Positioned.fill(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: _PanelContent(
                   shimmerController: _shimmerController,
                 ),
@@ -139,16 +139,16 @@ class _PanelContent extends StatelessWidget {
     _Benefit('assets/animations/Support.json', 'Priority Support'),
     _Benefit('assets/animations/Data Analysis.json', 'Grammar Analysis'),
     _Benefit('assets/animations/Robot says hello.json', 'VocaBot'),
+    _Benefit('assets/animations/olympicsports.json', 'Practice'),
     _Benefit('assets/animations/Happy SUN.json', 'Shimmer'),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final titleBaseSize = 20.0;
-    final bodySize = 12.0;
-    final chipFont = 10.0;
+    final shimmerSize = 13.5;
+    final bodySize = 11.0;
+    final chipFont = 10.5;
 
-    // Scroll edilebilir hale getirildi; küçük ekranlarda overflow engellenir.
     return LayoutBuilder(builder: (context, constraints) {
       return SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -157,28 +157,27 @@ class _PanelContent extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _ShimmerTitle(
-              controller: shimmerController,
-              fontSize: titleBaseSize.clamp(16, 20),
-            ),
-            const SizedBox(height: 2),
+            _ShimmerTitle(controller: shimmerController, fontSize: shimmerSize),
+            const SizedBox(height: 8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: Text(
                 'A faster, focused, and enjoyable learning experience with Pro.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: bodySize.clamp(10, 12),
-                  height: 1.15,
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontWeight: FontWeight.w500,
+                  fontSize: bodySize.clamp(11, 12),
+                  height: 1.3,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
             _BenefitGrid(benefits: _benefits, chipFontSize: chipFont),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             const _ThanksRow(),
+            const SizedBox(height: 12),
+            const _ManageSubscriptionButton(),
           ],
         ),
       );
@@ -234,55 +233,28 @@ class _BenefitGrid extends StatelessWidget {
   const _BenefitGrid({required this.benefits, required this.chipFontSize});
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, c) {
-      final maxW = c.maxWidth;
-      // Tek kolon - alt alta dizilim
-      final int cols = 1;
-      final double chipWidth = math.min(maxW * 0.9, 280); // Daha geniş chip'ler
-      final rows = (benefits.length / cols).ceil();
-      return ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxW,
-        ),
-        child: Column(
-          children: List.generate(rows, (r) {
-            final start = r * cols;
-            final end = (start + cols).clamp(0, benefits.length);
-            final slice = benefits.sublist(start, end);
-            return Padding(
-              padding: EdgeInsets.only(bottom: r == rows - 1 ? 0 : 8), // Normal boşluk
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (int i = 0; i < slice.length; i++)
-                    Padding(
-                      padding: EdgeInsets.only(
-                          right: i == slice.length - 1 ? 0 : 10),
-                      child: _BenefitChip(
-                        benefit: slice[i],
-                        width: chipWidth,
-                        fontSize: chipFontSize,
-                        index: start + i,
-                      ),
-                    ),
-                ],
-              ),
-            );
-          }),
-        ),
-      );
-    });
+    return Column(
+      children: [
+        for (int i = 0; i < benefits.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i == benefits.length - 1 ? 0 : 6),
+            child: _BenefitChip(
+              benefit: benefits[i],
+              fontSize: chipFontSize,
+              index: i,
+            ),
+          ),
+      ],
+    );
   }
 }
 
 class _BenefitChip extends StatelessWidget {
   final _Benefit benefit;
-  final double width;
   final double fontSize;
   final int index;
   const _BenefitChip(
       {required this.benefit,
-        required this.width,
         required this.fontSize,
         required this.index});
   @override
@@ -294,52 +266,51 @@ class _BenefitChip extends StatelessWidget {
       builder: (context, t, child) {
         return Opacity(
           opacity: t,
-            child: Transform.translate(
-              offset: Offset(0, (1 - t) * 6),
-              child: child,
-            ),
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * 6),
+            child: child,
+          ),
         );
       },
       child: Container(
-        width: width,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // dikey padding azaltıldı
+        width: 240,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20), // biraz küçültüldü
+          borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
             colors: [
-              Colors.white.withValues(alpha: 0.78),
-              Colors.white.withValues(alpha: 0.06),
+              Colors.white.withValues(alpha: 0.18),
+              Colors.white.withValues(alpha: 0.08),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.16),
-            width: 0.8,
+            color: Colors.white.withValues(alpha: 0.2),
+            width: 1,
           ),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Lottie.asset(
               benefit.animationPath,
-              width: 17,
-              height: 17,
+              width: 20,
+              height: 20,
               fit: BoxFit.cover,
             ),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                benefit.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: fontSize.clamp(10.5, 12.5),
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  letterSpacing: 0.15,
-                ),
+            const SizedBox(width: 10),
+            Text(
+              benefit.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: fontSize.clamp(11, 12),
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                letterSpacing: 0.2,
               ),
             ),
           ],
@@ -359,9 +330,9 @@ class _ThanksRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            height: 1.5, // Çizgi kalınlığını azalttım
-            width: 120, // Çizgi genişliğini azalttım
-            margin: const EdgeInsets.only(bottom: 6), // Margin'i azalttım
+            height: 1.2,
+            width: 100,
+            margin: const EdgeInsets.only(bottom: 5),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -376,22 +347,22 @@ class _ThanksRow extends StatelessWidget {
           Wrap(
             alignment: WrapAlignment.center,
             crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8, // Spacing'i azalttım
-            runSpacing: 4, // Run spacing'i azalttım
+            spacing: 6,
+            runSpacing: 3,
             children: [
               const Icon(Icons.workspace_premium,
-                  color: Color(0xFFFFE8A3), size: 16), // İkon boyutunu küçülttüm
+                  color: Color(0xFFFFE8A3), size: 15),
               Flexible(
                 child: Text(
                   'Your support strengthens the learning community. Thank you, Pro member!',
                   textAlign: TextAlign.center,
-                  maxLines: 2, // 2 satıra izin verdim
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11.0, // Font boyutunu küçülttüm
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    height: 1.2, // Line height'ı azalttım
+                    height: 1.2,
                   ),
                 ),
               ),
@@ -403,8 +374,95 @@ class _ThanksRow extends StatelessWidget {
   }
 }
 
+class _ManageSubscriptionButton extends StatelessWidget {
+  const _ManageSubscriptionButton();
+
+  Future<void> _openSubscriptionManagement(BuildContext context) async {
+    const url = 'https://play.google.com/store/account/subscriptions';
+    final uri = Uri.parse(url);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open subscription management'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openSubscriptionManagement(context),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 240,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.25),
+                Colors.white.withValues(alpha: 0.15),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.settings,
+                color: Colors.white.withValues(alpha: 0.95),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Manage Subscription',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withValues(alpha: 0.95),
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Benefit {
-  final String animationPath; // IconData yerine animasyon dosya yolu
+  final String animationPath;
   final String label;
   const _Benefit(this.animationPath, this.label);
 }

@@ -1,4 +1,7 @@
 /* eslint-disable no-console */
+// Load environment variables from .env file
+require('dotenv').config();
+
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');

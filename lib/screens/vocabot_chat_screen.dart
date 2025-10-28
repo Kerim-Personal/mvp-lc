@@ -3,7 +3,6 @@
 // v2.4.0: Star animations have been calmed and naturalized. The environment is now authentic and not distracting.
 
 import 'dart:async';
-import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:vocachat/services/vocabot_service.dart';
@@ -523,8 +522,25 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     final botStartTime = DateTime.now();
 
     try {
-      await Future.delayed(Duration(milliseconds: 1500 + Random().nextInt(1500)));
-      final botResponseText = await _botService.sendMessage(text, scenario: _scenario);
+      // Konuşma geçmişini hazırla (welcome mesajını hariç tut, son 8 mesaj)
+      final List<Map<String, String>> chatHistory = [];
+      for (var msg in _messages) {
+        // İlk welcome mesajını geçmişe ekleme
+        if (msg.sender == MessageSender.bot && msg.text == (_welcomeMessages[_targetLanguage] ?? _welcomeMessages['en']!)) {
+          continue;
+        }
+        chatHistory.add({
+          'role': msg.sender == MessageSender.user ? 'user' : 'assistant',
+          'content': msg.text,
+        });
+      }
+
+      // Son 8 mesajı gönder (4 soru-cevap çifti = yeterli bağlam)
+      final recentHistory = chatHistory.length > 8
+          ? chatHistory.sublist(chatHistory.length - 8)
+          : chatHistory;
+
+      final botResponseText = await _botService.sendMessage(text, scenario: _scenario, chatHistory: recentHistory);
       final botResponseTime = DateTime.now().difference(botStartTime);
 
       final botMessage = MessageUnit(

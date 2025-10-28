@@ -11,7 +11,6 @@ import 'firebase_options.dart';
 import 'package:vocachat/screens/login_screen.dart';
 import 'package:vocachat/services/audio_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:vocachat/screens/banned_screen.dart';
 import 'package:vocachat/screens/help_and_support_screen.dart';
 import 'package:vocachat/screens/support_request_screen.dart';
 import 'package:vocachat/screens/profile_completion_screen.dart';
@@ -33,6 +32,7 @@ import 'package:vocachat/utils/restart_app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vocachat/screens/onboarding_screen.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
+import 'package:vocachat/screens/paywall_screen.dart';
 
 // Uygulama yaşam döngüsünü dinleyip müziği yönetir
 class _AppLifecycleAudioObserver with WidgetsBindingObserver {
@@ -203,6 +203,8 @@ class StartupGate extends StatefulWidget {
 
 class _StartupGateState extends State<StartupGate> {
   bool? _showOnboarding; // null=loading
+  bool _showPaywall = false;
+  bool _paywallShownThisSession = false;
 
   @override
   void initState() {
@@ -213,12 +215,69 @@ class _StartupGateState extends State<StartupGate> {
   Future<void> _decide() async {
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getBool('onboarding_seen_v1') ?? false;
+
     setState(() => _showOnboarding = !seen);
+
     // Onboarding göstereceksek splash'ı hemen kaldıralım
     if (!mounted) return;
     if (!seen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         FlutterNativeSplash.remove();
+      });
+    } else {
+      // Onboarding gösterilmeyecekse, paywall kontrolü yap
+      _checkAndShowPaywall();
+    }
+  }
+
+  Future<void> _checkAndShowPaywall() async {
+    // RevenueCat'i başlat ve premium durumunu kontrol et
+    await RevenueCatService.instance.init();
+
+    if (!mounted) return;
+
+    // Eğer kullanıcı giriş yaptıysa RC kimliğini bağla ve Firestore'dan isPremium'u al
+    final user = FirebaseAuth.instance.currentUser;
+
+    bool firestorePremium = false;
+    if (user != null) {
+      try {
+        await RevenueCatService.instance.onLogin(user.uid);
+      } catch (_) {
+        // sessizce geç
+      }
+      try {
+        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (snap.exists && snap.data() != null) {
+          firestorePremium = snap.data()!['isPremium'] == true;
+        }
+      } catch (_) {
+        // sessizce geç
+      }
+    }
+
+    // RevenueCat entitlements
+    final rcPremium = RevenueCatService.instance.isPremiumActive;
+    final isPremium = rcPremium || firestorePremium;
+
+    // Eğer kullanıcı premium ise paywall gösterme
+    if (isPremium) {
+      setState(() {
+        _showPaywall = false;
+        _paywallShownThisSession = true; // Premium olduğu için tekrar gösterme
+      });
+      return;
+    }
+
+    // Premium değilse ve bu oturumda paywall gösterilmediyse göster
+    if (!_paywallShownThisSession) {
+      // Küçük bir gecikme ile paywall'ı göster (kullanıcı deneyimi için)
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+
+      setState(() {
+        _showPaywall = true;
+        _paywallShownThisSession = true;
       });
     }
   }
@@ -228,6 +287,24 @@ class _StartupGateState extends State<StartupGate> {
     await prefs.setBool('onboarding_seen_v1', true);
     if (!mounted) return;
     setState(() => _showOnboarding = false);
+
+    // Onboarding bitince paywall kontrolü yap
+    _checkAndShowPaywall();
+  }
+
+  Future<void> _closePaywall() async {
+    // Paywall kapatılmadan önce premium durumunu tekrar kontrol et
+    final isPremium = RevenueCatService.instance.isPremiumActive;
+
+    if (!mounted) return;
+
+    setState(() {
+      _showPaywall = false;
+      // Premium olduysa, bu oturumda tekrar gösterme
+      if (isPremium) {
+        _paywallShownThisSession = true;
+      }
+    });
   }
 
   @override
@@ -238,6 +315,15 @@ class _StartupGateState extends State<StartupGate> {
     if (_showOnboarding == true) {
       return OnboardingScreen(onFinished: _finishOnboarding);
     }
+
+    // Paywall gösterilecekse
+    if (_showPaywall) {
+      return PaywallScreen(
+        onClose: _closePaywall,
+        canDismiss: true, // Kullanıcı kapatabilir
+      );
+    }
+
 
     // Normal akışa geç
     return const AuthWrapper();
@@ -378,7 +464,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
                   } else if (!user.emailVerified) {
                     determinedScreen = VerificationScreen(email: user.email ?? '');
                   } else {
-                    final isGoogle = user.providerData.any((p) => p.providerId == 'google.com');
                     if (data['profileCompleted'] == true) {
                       determinedScreen = RootScreen(key: rootScreenKey); // Go to main app
                     } else {
@@ -505,4 +590,3 @@ class BannedScreen extends StatelessWidget {
     );
   }
 }
-

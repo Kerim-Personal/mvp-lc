@@ -1,5 +1,5 @@
 // lib/screens/store_screen.dart
-// Premium UI gösterimi - satın alma backend mantığı kaldırıldı
+// Premium Store Ekranı - PaywallScreen ile aynı kalitede tasarım
 
 import 'dart:async';
 import 'dart:ui';
@@ -7,9 +7,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:vocachat/widgets/shared/animated_background.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
 import 'package:vocachat/widgets/home_screen/premium_status_panel.dart';
+import 'package:vocachat/widgets/shared/animated_background.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key, this.embedded = false});
@@ -19,95 +19,93 @@ class StoreScreen extends StatefulWidget {
   State<StoreScreen> createState() => _StoreScreenState();
 }
 
-class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin {
+class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStateMixin {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
 
   bool _isPremium = false;
-  PremiumPlan _selectedPlan = PremiumPlan.yearly;
+  bool _isLoading = false;
+  int _selectedPlanIndex = 1; // 0: Monthly, 1: Yearly
+  int _currentFeaturePage = 0;
+  bool _userInteracting = false;
 
-  late final PageController _benefitPageController;
-  int _currentBenefitPage = 0;
-  late final TabController _tabController;
-  late final VoidCallback _tabListener;
-  Timer? _benefitsAutoScrollTimer;
+  late PageController _pageController;
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  Timer? _autoScrollTimer;
 
-  // CTA butonu için hafif nabız (scale) animasyonu
-  late final AnimationController _ctaPulseController;
-  late final Animation<double> _ctaPulse;
-
-  // Premium benefits data
-  static const List<_BenefitData> _premiumBenefits = [
-    _BenefitData(
+  // Premium özellikler
+  static const List<_FeatureData> _features = [
+    _FeatureData(
       'assets/animations/no ads icon.json',
-      'Ad-free',
-      'Zero distractions. Completely ad‑free interface for uninterrupted focus.',
+      'Ad-Free Experience',
+      'Learn without interruptions. Focus better with a completely ad-free interface.',
     ),
-    _BenefitData(
+    _FeatureData(
       'assets/animations/Translate.json',
       'Instant Translation',
-      'Inline, instant message translation—stay immersed without switching apps.',
+      'Translate messages instantly without switching apps. Keep learning seamlessly.',
     ),
-    _BenefitData(
+    _FeatureData(
       'assets/animations/Flags.json',
       'Language Diversity',
-      'Over 100 languages supported in Vocabot for speech synthesis, translation and grammar analysis.',
+      'VocaBot supports 100+ languages for speech, translation, and grammar analysis.',
     ),
-    _BenefitData(
+    _FeatureData(
       'assets/animations/Support.json',
       'Priority Support',
-      'Priority issue resolution: faster responses and direct escalation when something breaks.',
+      'Fast solutions to your problems with direct communication and premium support.',
     ),
-    _BenefitData(
+    _FeatureData(
       'assets/animations/Data Analysis.json',
       'Grammar Analysis',
-      'Real‑time grammar and clarity suggestions to tighten every message as you type.',
+      'Real-time grammar and clarity suggestions to improve every message you write.',
     ),
-    _BenefitData(
+    _FeatureData(
       'assets/animations/Robot says hello.json',
-      'VocaBot',
-      'AI practice companion offering contextual replies and gentle guidance while you learn.',
-    ),
-    _BenefitData(
-      'assets/animations/Happy SUN.json',
-      'Shimmer',
-      'Exclusive visual polish and subtle premium animations that reinforce progress and motivation.',
+      'VocaBot AI Assistant',
+      'AI practice companion offering contextual responses and gentle guidance.',
     ),
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 1, vsync: this);
-    _tabListener = () => setState(() {});
-    _tabController.addListener(_tabListener);
-    _benefitPageController = PageController();
+    _pageController = PageController();
 
-    // CTA için nabız animasyonu (subtle)
-    _ctaPulseController = AnimationController(
+    _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 800),
     );
-    _ctaPulse = Tween<double>(begin: 0.985, end: 1.015).animate(
-      CurvedAnimation(parent: _ctaPulseController, curve: Curves.easeInOut),
-    );
-    _ctaPulseController.repeat(reverse: true);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeServices();
-    });
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeIn,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _animController.forward();
+    _initializeServices();
+    _startAutoScroll();
   }
 
   Future<void> _initializeServices() async {
-    // Kullanıcı durumunu dinle
     final user = _auth.currentUser;
     if (user != null) {
-      // RevenueCat'i başlat ve kullanıcıyla ilişkilendir
       await RevenueCatService.instance.init();
       await RevenueCatService.instance.onLogin(user.uid);
       await RevenueCatService.instance.refreshOfferings();
+
       _userSub = _firestore.collection('users').doc(user.uid).snapshots().listen((doc) {
         if (mounted && doc.exists) {
           final data = doc.data();
@@ -117,93 +115,142 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
         }
       });
     }
-
-    _startBenefitsAutoScroll();
   }
 
-  void _startBenefitsAutoScroll() {
-    _benefitsAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (!mounted || !_benefitPageController.hasClients) return;
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted || _userInteracting) return;
+      if (!_pageController.hasClients) return;
 
-      final nextPage = (_currentBenefitPage + 1) % _premiumBenefits.length;
-      _benefitPageController.animateToPage(
+      final nextPage = (_currentFeaturePage + 1) % _features.length;
+      _pageController.animateToPage(
         nextPage,
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+  }
+
+  void _restartAutoScroll() {
+    _stopAutoScroll();
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && !_userInteracting) {
+        _startAutoScroll();
+      }
     });
   }
 
   @override
   void dispose() {
     _userSub?.cancel();
-    _benefitsAutoScrollTimer?.cancel();
-    try { _tabController.removeListener(_tabListener); } catch (_) {}
-    _tabController.dispose();
-    _benefitPageController.dispose();
-    // CTA animasyon controller'ını kapat
-    _ctaPulseController.dispose();
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
-  Widget _header() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _segmentedTabs(),
-        const SizedBox(height: 6), // 8 -> 6 daha kompakt
-      ],
+  Future<void> _handlePurchase() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final outcome = _selectedPlanIndex == 0
+          ? await RevenueCatService.instance.purchaseMonthly()
+          : await RevenueCatService.instance.purchaseAnnual();
+
+      if (!mounted) return;
+
+      if (outcome.success) {
+        _showSuccessDialog();
+      } else if (!outcome.userCancelled) {
+        _showErrorDialog(outcome.message ?? 'Purchase failed.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorDialog('An error occurred: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Lottie.asset('assets/animations/success.json', width: 50, height: 50, repeat: false),
+            const SizedBox(width: 12),
+            const Text('Congratulations! 🎉'),
+          ],
+        ),
+        content: const Text(
+          'Your Premium membership has been successfully activated. Enjoy all the features!',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            ),
+            child: const Text('Awesome!'),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _segmentedTabs() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
-              width: 1
-            ),
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Notice'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
           ),
-          child: TabBar(
-            controller: _tabController,
-            dividerColor: Colors.transparent,
-            indicatorSize: TabBarIndicatorSize.tab,
-            indicatorPadding: EdgeInsets.zero,
-            indicator: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.amber.withValues(alpha: 0.45),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                )
-              ],
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-            ),
-            labelColor: Colors.black,
-            unselectedLabelColor: isDark ? Colors.white70 : Colors.black54,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            tabs: const [
-              Tab(text: 'Premium', icon: Icon(Icons.workspace_premium, size: 18)),
-            ],
-          ),
-        ),
+        ],
       ),
     );
+  }
+
+  Future<void> _handleRestore() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final restored = await RevenueCatService.instance.restorePurchases();
+      if (!mounted) return;
+
+      if (restored) {
+        _showSuccessDialog();
+      } else {
+        _showErrorDialog('No purchases found to restore.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorDialog('Restore failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -214,51 +261,41 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
       backgroundColor: widget.embedded ? Colors.transparent : (isDark ? Colors.black : Colors.white),
       body: Stack(
         children: [
+          // Animated Background - Diğer ekranlar gibi
           const Positioned.fill(child: AnimatedBackground()),
+
+          // Main Content with Glassmorphism Container
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(42),
-                  color: isDark ? Colors.black.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 20,
-                      spreadRadius: -2,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(42),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(42),
-                        color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.1),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(32),
+                      color: isDark
+                          ? Colors.black.withValues(alpha: 0.15)
+                          : Colors.white.withValues(alpha: 0.15),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        width: 1,
                       ),
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 22, 24, 6),
-                            child: _header(),
-                          ),
-                          Expanded(
-                            child: TabBarView(
-                              controller: _tabController,
-                              physics: const BouncingScrollPhysics(),
-                              children: [
-                                _isPremium ? _buildPremiumActiveView() : _buildPremiumInfoView(),
-                              ],
-                            ),
-                          ),
-                        ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 20,
+                          spreadRadius: -2,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: _isPremium ? _buildPremiumActiveView() : _buildPremiumInfoView(),
                       ),
                     ),
                   ),
@@ -271,494 +308,395 @@ class _StoreScreenState extends State<StoreScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildPremiumInfoView({Key? key}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildPremiumInfoView() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
 
-    return AnimatedBuilder(
-      animation: RevenueCatService.instance,
-      builder: (context, _) {
-        final monthlyText = RevenueCatService.instance.monthlyPriceString ?? '\$4.99/mo';
-        final annualText = RevenueCatService.instance.annualPriceString ?? '\$29.99/yr';
+          // Diamond Animation
+          SizedBox(
+            width: 100,
+            height: 100,
+            child: Lottie.asset(
+              'assets/animations/diamond_icon.json',
+              width: 100,
+              height: 100,
+              fit: BoxFit.contain,
+            ),
+          ),
 
-        // Kaydırmasız kompakt düzen, faydalar alanı eski boyutunda (220)
-        return LayoutBuilder(
-          key: key,
-          builder: (context, constraints) {
-            final h = constraints.maxHeight;
-            const double benefitsH = 220.0; // eski sabit yükseklik
-            const double dotsBlockH = 26.0; // üst/alt boşluklar dahil yaklaşık
-            double planCardH = 110.0; // hedef
-            double ctaH = 50.0; // hedef
-            bool showDisclaimer = true;
+          const SizedBox(height: 12),
 
-            // Toplamı tahmini hesapla ve alan dar ise kademeli küçült
-            double total(double planH, double btnH, bool disclaimer) =>
-                benefitsH + dotsBlockH + planH + 12 + btnH + 8 + (disclaimer ? 56 : 0);
+          // Title
+          const Text(
+            'VocaChat Premium',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 0.5,
+            ),
+          ),
 
-            // 1) Planı sıkıştır
-            if (total(planCardH, ctaH, showDisclaimer) > h) {
-              planCardH = (h - (benefitsH + dotsBlockH + 12 + ctaH + 8 + 56)).clamp(72.0, 116.0);
-            }
-            // 2) Butonu kısalt
-            if (total(planCardH, ctaH, showDisclaimer) > h) {
-              ctaH = 44.0;
-            }
-            // 3) Açıklamayı gerekirse gizle
-            if (total(planCardH, ctaH, showDisclaimer) > h) {
-              showDisclaimer = false;
-            }
+          const SizedBox(height: 4),
 
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Premium faydaları (eski yükseklikte ve görünür)
-                  SizedBox(
-                    height: benefitsH,
-                    child: PageView.builder(
-                      controller: _benefitPageController,
-                      itemCount: _premiumBenefits.length,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _currentBenefitPage = index;
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        final benefit = _premiumBenefits[index];
-                        return _buildBenefitCard(benefit);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Sayfa göstergesi (daha küçük)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      _premiumBenefits.length,
-                      (index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: index == _currentBenefitPage ? 14 : 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: index == _currentBenefitPage
-                              ? Colors.amber
-                              : Colors.white.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: index == _currentBenefitPage
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.amber.withValues(alpha: 0.45),
-                                    blurRadius: 5,
-                                    spreadRadius: 0.5,
-                                  )
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Fiyat/planlar (dinamik yükseklik)
-                  SizedBox(
-                    height: planCardH,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildPlanCard(
-                            plan: PremiumPlan.monthly,
-                            title: 'Monthly',
-                            price: monthlyText,
-                            height: planCardH,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildPlanCard(
-                            plan: PremiumPlan.yearly,
-                            title: 'Yearly',
-                            price: annualText,
-                            isBestValue: true,
-                            height: planCardH,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Vurgulu tek buton (dinamik yükseklik)
-                  ScaleTransition(
-                    scale: _ctaPulse,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        // Restore purchases TextButton rengini temel al: primary
-                        color: Theme.of(context).colorScheme.primary,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-                      ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: ctaH,
-                        child: ElevatedButton.icon(
-                          icon: Icon(Icons.workspace_premium, color: Theme.of(context).colorScheme.onPrimary, size: 18),
-                          label: Text(
-                            'Go Premium Now',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onPrimary),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          onPressed: RevenueCatService.instance.isSupportedPlatform
-                              ? _purchasePremium
-                              : () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Purchases are not supported on this platform.'),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                },
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (showDisclaimer)
-                    Opacity(
-                      opacity: 0.8,
-                      child: Column(
-                        children: [
-                          Text(
-                            'Auto‑renewing. Cancel anytime in your store account settings.',
-                            style: TextStyle(
-                              color: isDark ? Colors.white54 : Colors.black45,
-                              fontSize: 10.5,
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              minimumSize: const Size(0, 28),
-                            ),
-                            onPressed: _restorePurchases,
-                            child: const Text('Restore purchases'),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+          // Subtitle
+          const Text(
+            'Dil öğreniminde sınır tanıma',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white70,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Features List
+          SizedBox(
+            height: 160,
+            child: Listener(
+              onPointerDown: (_) {
+                setState(() => _userInteracting = true);
+                _stopAutoScroll();
+              },
+              onPointerUp: (_) {
+                setState(() => _userInteracting = false);
+                _restartAutoScroll();
+              },
+              child: PageView(
+                controller: _pageController,
+                physics: const BouncingScrollPhysics(),
+                onPageChanged: (index) {
+                  setState(() => _currentFeaturePage = index);
+                },
+                children: _features.map((feature) => _buildFeatureCard(feature)).toList(),
               ),
-            );
-          },
-        );
-      },
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Page Indicator Dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_features.length, (index) {
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                height: 6,
+                width: _currentFeaturePage == index ? 20 : 6,
+                decoration: BoxDecoration(
+                  color: _currentFeaturePage == index
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Pricing Plans
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildPlanCard(
+                    index: 0,
+                    title: 'Monthly',
+                    price: RevenueCatService.instance.monthlyPriceString ?? r'$9.99',
+                    period: '/mo',
+                    badge: '7 DAYS FREE',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildPlanCard(
+                    index: 1,
+                    title: 'Yearly',
+                    price: RevenueCatService.instance.annualPriceString ?? r'$79.99',
+                    period: '/yr',
+                    badge: '30% OFF',
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Get Premium Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handlePurchase,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF6C63FF),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 6,
+                  shadowColor: Colors.black.withValues(alpha: 0.3),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+                        ),
+                      )
+                    : const Text(
+                        'Get Premium',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // Restore Purchases
+          TextButton(
+            onPressed: _isLoading ? null : _handleRestore,
+            child: const Text(
+              'Restore Purchases',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 2),
+
+          // Terms
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'By continuing, you agree to our Terms of Service and Privacy Policy.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 9,
+                height: 1.3,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+        ],
+      ),
     );
   }
 
-  Widget _buildPlanCard({
-    required PremiumPlan plan,
-    required String title,
-    required String price,
-    bool isBestValue = false,
-    double? height,
-  }) {
-    final bool isSelected = _selectedPlan == plan;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedPlan = plan),
+  Widget _buildFeatureCard(_FeatureData feature) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Container(
-        width: double.infinity,
-        height: height ?? 132,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: isSelected
-              ? const LinearGradient(
-                  colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: isSelected ? null : Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          color: Colors.white.withValues(alpha: 0.1),
           border: Border.all(
-            color: isSelected ? Colors.amber : Colors.white.withValues(alpha: 0.2),
-            width: isSelected ? 2.0 : 1,
+            color: Colors.white.withValues(alpha: 0.2),
+            width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Stack(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 4, offset: const Offset(0, 1))
-                      ],
-                    ),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    price,
-                    style: TextStyle(
-                      color: isSelected ? Colors.black : Colors.white70,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (plan == PremiumPlan.yearly)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Save ~45% monthly',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? Colors.black87 : Colors.amber,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    )
-                  else if (plan == PremiumPlan.monthly)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '7‑day free trial',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? Colors.black87 : Colors.cyanAccent,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ),
                 ],
               ),
-            ),
-            if (isBestValue)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: const BoxDecoration(
-                    color: Colors.amber,
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(16),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Best Value',
-                    style: TextStyle(color: Colors.black, fontSize: 9.5, fontWeight: FontWeight.bold),
-                  ),
-                ),
+              child: Lottie.asset(
+                feature.animation,
+                width: 56,
+                height: 56,
+                fit: BoxFit.contain,
               ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              feature.title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              feature.description,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 11.5,
+                height: 1.3,
+                letterSpacing: 0.1,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPremiumActiveView({Key? key}) {
-    // Kaydırmasız kompakt aktif görünüm
-    return LayoutBuilder(
-      key: key,
-      builder: (context, constraints) {
-        final maxH = constraints.maxHeight;
-        final panelH = (maxH - 80).clamp(260.0, 360.0);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.workspace_premium, size: 42, color: Colors.amber),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      'Premium Active',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.amber,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.4,
+  Widget _buildPlanCard({
+    required int index,
+    required String title,
+    required String price,
+    required String period,
+    String? badge,
+  }) {
+    final isSelected = _selectedPlanIndex == index;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedPlanIndex = index),
+      child: Container(
+        height: 96,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.3),
+            width: 2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              height: 18,
+              child: badge != null
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEC4899),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: panelH,
-                child: const PremiumStatusPanel(),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBenefitCard(_BenefitData benefit) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: Colors.white.withValues(alpha: 0.1),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+                      child: Text(
+                        badge,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
-            child: Column(
+            const SizedBox(height: 6),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? const Color(0xFF6C63FF) : Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Center(
-                  child: SizedBox(
-                    width: 64,
-                    height: 64,
-                    child: Lottie.asset(
-                      benefit.iconPath,
-                      width: 64,
-                      height: 64,
-                      fit: BoxFit.contain,
-                      repeat: true,
-                      animate: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Text(
-                  benefit.title,
-                  textAlign: TextAlign.center,
+                  price,
                   style: TextStyle(
-                    color: isDark ? Colors.white : Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    letterSpacing: 0.25,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? const Color(0xFF6C63FF) : Colors.white,
+                    height: 1,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Flexible(
+                const SizedBox(width: 2),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 1),
                   child: Text(
-                    benefit.description,
-                    textAlign: TextAlign.center,
+                    period,
                     style: TextStyle(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : Colors.white.withValues(alpha: 0.85),
-                      height: 1.25,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 10,
+                      color: isSelected
+                          ? const Color(0xFF6C63FF).withValues(alpha: 0.7)
+                          : Colors.white70,
+                      height: 1,
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  // Placeholder metodlar - UI için
-  // Rezervasyon: Satın alma akışı RevenueCat ile
-  Future<void> _purchasePremium() async {
-    try {
-      final plan = _selectedPlan;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Processing purchase...'), behavior: SnackBarBehavior.floating),
-      );
-      final res = plan == PremiumPlan.monthly
-          ? await RevenueCatService.instance.purchaseMonthly()
-          : await RevenueCatService.instance.purchaseAnnual();
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      if (res.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Purchase successful!'), behavior: SnackBarBehavior.floating),
-        );
-      } else if (res.userCancelled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Purchase cancelled.'), behavior: SnackBarBehavior.floating),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Purchase failed: ${res.message ?? 'Unknown error'}'), behavior: SnackBarBehavior.floating),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating),
-      );
-    }
-  }
-
-  Future<void> _restorePurchases() async {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Restoring purchases...'), behavior: SnackBarBehavior.floating),
-    );
-    final ok = await RevenueCatService.instance.restorePurchases();
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Restored successfully.' : 'No purchases to restore.'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Widget _buildPremiumActiveView() {
+    return const Padding(
+      padding: EdgeInsets.all(16.0),
+      child: PremiumStatusPanel(),
     );
   }
 }
 
-class _BenefitData {
-  final String iconPath;
+// Feature Data Model
+class _FeatureData {
+  final String animation;
   final String title;
   final String description;
 
-  const _BenefitData(this.iconPath, this.title, this.description);
+  const _FeatureData(this.animation, this.title, this.description);
 }
 
-enum PremiumPlan { monthly, yearly }
