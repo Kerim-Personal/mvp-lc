@@ -93,7 +93,7 @@ class AuthService {
           'status': 'active',
           'nativeLanguage': nativeLanguage,
           'profileCompleted': false,
-          'isPremium': false, // <--- DÜZELTME 1/3
+          'isPremium': false,
         });
         // Email-password kullanıcıları profil tamamlamayı atlayacak -> hemen true yap
         try { await docRef.update({'profileCompleted': true}); } catch (_) {}
@@ -143,8 +143,8 @@ class AuthService {
             'role': 'user',
             'status': 'active',
             'nativeLanguage': 'en',
-            'profileCompleted': false, // create
-            'isPremium': false, // <--- DÜZELTME 2/3
+            'profileCompleted': false,
+            'isPremium': false,
           });
           // Email/password (providerId == password) ise hemen tamamlandı kabul et
           final isPasswordProvider = user.providerData.any((p)=>p.providerId=='password');
@@ -286,7 +286,7 @@ class AuthService {
             'nativeLanguage': 'en',
             'birthDate': Timestamp.fromDate(DateTime(2000,1,1)),
             'profileCompleted': false, // Google kullanıcıları tamamlamaya yönlendirilecek
-            'isPremium': false, // <--- DÜZELTME 3/3
+            'isPremium': false,
           });
         } else {
           // lastActivityDate ayrı güncelle

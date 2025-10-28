@@ -156,7 +156,7 @@ class _CommunityScreenState extends State<CommunityScreen>
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
     // Artık leaderboard toplam oda zamanına göre (totalRoomTime alanı) sıralanıyor
     Query baseQuery = FirebaseFirestore.instance
-        .collection('users')
+        .collection('publicUsers')
         .orderBy('totalRoomTime', descending: true)
         .limit(100);
 
@@ -801,7 +801,7 @@ class _ModeSegmentedSwitchState extends State<_ModeSegmentedSwitch> {
           ),
         ),
       ),
-    );
+      );
   }
 }
 

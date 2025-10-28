@@ -9,17 +9,6 @@ class UserProfileSummaryScreen extends StatelessWidget {
   final LeaderboardUser user;
   const UserProfileSummaryScreen({super.key, required this.user});
 
-  String _formatDuration(int seconds) {
-    if (seconds <= 0) return '0s';
-    final d = Duration(seconds: seconds);
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    if (h > 0) return '${h}h ${m}m';
-    final s = d.inSeconds.remainder(60);
-    if (m > 0) return '${m}m ${s}s';
-    return '${s}s';
-  }
-
   Widget _modernStatCard(BuildContext context, String label, String value, {IconData? icon, Color? iconColor}) {
     final cs = Theme.of(context).colorScheme;
     return Container(
@@ -30,17 +19,17 @@ class UserProfileSummaryScreen extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            cs.surfaceContainerHighest.withOpacity(0.8),
-            cs.surfaceContainer.withOpacity(0.6),
+            cs.surfaceContainerHighest.withValues(alpha: 0.8),
+            cs.surfaceContainer.withValues(alpha: 0.6),
           ],
         ),
         border: Border.all(
-          color: cs.outlineVariant.withOpacity(0.3),
+          color: cs.outlineVariant.withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withOpacity(0.08),
+            color: cs.shadow.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -50,9 +39,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            // Hafif feedback için boş tap
-          },
+          onTap: () {},
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -61,7 +48,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: (iconColor ?? cs.primary).withOpacity(0.15),
+                      color: (iconColor ?? cs.primary).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -106,7 +93,8 @@ class UserProfileSummaryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final docRef = FirebaseFirestore.instance.collection('users').doc(user.userId);
+    // Kamuya açık profili oku
+    final docRef = FirebaseFirestore.instance.collection('publicUsers').doc(user.userId);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -129,8 +117,8 @@ class UserProfileSummaryScreen extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              cs.primaryContainer.withOpacity(0.3),
-              cs.primaryContainer.withOpacity(0.1),
+              cs.primaryContainer.withValues(alpha: 0.3),
+              cs.primaryContainer.withValues(alpha: 0.1),
               cs.surface,
             ],
             stops: const [0.0, 0.5, 1.0],
@@ -189,7 +177,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
               final displayName = (data['displayName'] as String?) ?? user.name;
               final avatarUrl = (data['avatarUrl'] as String?) ?? user.avatarUrl;
               final isPremium = (data['isPremium'] as bool?) ?? user.isPremium;
-              final role = (data['role'] as String?) ?? user.role;
+              final role = user.role; // publicUsers role içermez, parametreyi kullan
               final streak = (data['streak'] as int?) ?? user.streak;
               final highestStreak = (data['highestStreak'] as int?) ?? streak;
               final nativeLanguage = (data['nativeLanguage'] as String?) ?? '-';
@@ -199,6 +187,9 @@ class UserProfileSummaryScreen extends StatelessWidget {
               DateTime? createdAt;
               if (createdAtTs is Timestamp) createdAt = createdAtTs.toDate();
               final createdAtStr = createdAt != null ? DateFormat('MMM d, y', 'en').format(createdAt) : '-';
+
+              // Avatar formatı SVG olabilir (Dicebear); NetworkImage bunları gösteremez
+              final bool isSvgAvatar = avatarUrl != null && (avatarUrl!.toLowerCase().endsWith('.svg') || avatarUrl!.contains('dicebear.com') || avatarUrl!.contains('image/svg'));
 
               List<Widget> badges = [];
               // Sıralama badge'i
@@ -251,160 +242,80 @@ class UserProfileSummaryScreen extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            cs.primaryContainer.withOpacity(0.8),
-                            cs.secondaryContainer.withOpacity(0.6),
+                            cs.primaryContainer.withValues(alpha: 0.8),
+                            cs.secondaryContainer.withValues(alpha: 0.6),
                           ],
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: cs.shadow.withOpacity(0.15),
+                            color: cs.shadow.withValues(alpha: 0.15),
                             blurRadius: 15,
                             offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              // Avatar - Küçültülmüş
-                              Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: [cs.primary, cs.secondary],
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor: cs.surfaceContainerHighest,
+                            child: avatarUrl == null
+                                ? Icon(Icons.person, color: cs.onSurfaceVariant)
+                                : ClipOval(
+                                    child: isSvgAvatar
+                                        ? SvgPicture.network(
+                                            avatarUrl!,
+                                            width: 56,
+                                            height: 56,
+                                            placeholderBuilder: (_) => const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            ),
+                                          )
+                                        : Image.network(
+                                            avatarUrl!,
+                                            width: 56,
+                                            height: 56,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Icon(Icons.person, color: cs.onSurfaceVariant),
+                                          ),
                                   ),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 32,
-                                  backgroundColor: cs.surface,
-                                  child: ClipOval(
-                                    child: SvgPicture.network(
-                                      avatarUrl,
-                                      width: 60,
-                                      height: 60,
-                                      placeholderBuilder: (_) => Container(
-                                        width: 60,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          color: cs.surfaceVariant,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.person,
-                                          size: 30,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      displayName,
-                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: cs.onPrimaryContainer,
-                                        fontSize: 20,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    // Badge'leri yan yana tek satırda
-                                    Row(
-                                      children: badges.map((badge) => Padding(
-                                        padding: const EdgeInsets.only(right: 8),
-                                        child: badge,
-                                      )).toList(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: TextStyle(
+                                    color: cs.onSurface,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: badges,
+                                ),
+                              ],
+                            ),
+                          )
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 20),
-
-                    // Stats Section Title
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.bar_chart_rounded,
-                          color: cs.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Statistics',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-
                     const SizedBox(height: 16),
 
-                    // Stats Cards - Alt Alta
-                    _compactStatCard(
-                      context,
-                      'Level',
-                      level,
-                      Icons.trending_up,
-                      Colors.green,
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    _compactStatCard(
-                      context,
-                      'Streak Status',
-                      '$streak / $highestStreak',
-                      Icons.local_fire_department,
-                      Colors.orange,
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    _compactStatCard(
-                      context,
-                      'Total Room Time',
-                      _formatDuration(user.totalRoomSeconds),
-                      Icons.access_time_filled,
-                      Colors.blue,
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    _compactStatCard(
-                      context,
-                      'Native Language',
-                      nativeLanguage.toUpperCase(),
-                      Icons.language,
-                      Colors.purple,
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    _compactStatCard(
-                      context,
-                      'Join Date',
-                      createdAtStr,
-                      Icons.calendar_month,
-                      Colors.teal,
-                    ),
-
-                    // Alt boşluk
-                    const SizedBox(height: 20),
+                    // Basic stats
+                    _modernStatCard(context, 'Level', level, icon: Icons.school, iconColor: cs.primary),
+                    _modernStatCard(context, 'Native Language', nativeLanguage, icon: Icons.flag_circle, iconColor: cs.tertiary),
+                    _modernStatCard(context, 'Streak', streak.toString(), icon: Icons.local_fire_department, iconColor: Colors.deepOrange),
+                    _modernStatCard(context, 'Highest Streak', highestStreak.toString(), icon: Icons.whatshot, iconColor: Colors.amber),
+                    if (createdAtStr != '-') _modernStatCard(context, 'Member since', createdAtStr, icon: Icons.calendar_today, iconColor: cs.secondary),
                   ],
                 ),
               );
@@ -415,153 +326,26 @@ class UserProfileSummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _compactStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.surfaceContainerHighest.withOpacity(0.8),
-            cs.surfaceContainer.withOpacity(0.6),
-          ],
-        ),
-        border: Border.all(
-          color: cs.outlineVariant.withOpacity(0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {},
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 24,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          color: cs.onSurface,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _modernBadge(BuildContext context, String text, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withOpacity(0.4),
-          width: 1.2,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: color,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _compactIconBadge(BuildContext context, IconData icon, String label, Color color) {
+  Widget _compactIconBadge(BuildContext context, IconData icon, String text, Color color) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.4),
-          width: 1.2,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: color,
-          ),
-          if (label.isNotEmpty) ...[
-            const SizedBox(width: 4),
+          Icon(icon, size: 16, color: color),
+          if (text.isNotEmpty) ...[
+            const SizedBox(width: 6),
             Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                letterSpacing: 0.2,
-              ),
+              text,
+              style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
             ),
-          ],
+          ]
         ],
       ),
     );

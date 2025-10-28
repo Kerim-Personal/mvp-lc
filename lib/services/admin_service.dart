@@ -11,10 +11,17 @@ class AdminService {
     if (uid == null) return null;
     final doc = await _firestore.collection('users').doc(uid).get();
     return (doc.data()?['role'] as String?) ?? 'user';
-    }
+  }
 
   Future<String?> getUserRole(String userId) async {
-    final doc = await _firestore.collection('users').doc(userId).get();
+    final currentUid = _auth.currentUser?.uid;
+    if (currentUid == userId) {
+      // Kendi rolü: users doc okunabilir
+      final doc = await _firestore.collection('users').doc(userId).get();
+      return (doc.data()?['role'] as String?) ?? 'user';
+    }
+    // Başka bir kullanıcı: publicUsers üzerinden oku
+    final doc = await _firestore.collection('publicUsers').doc(userId).get();
     return (doc.data()?['role'] as String?) ?? 'user';
   }
 
@@ -43,6 +50,7 @@ class AdminService {
       'bannedAt': FieldValue.serverTimestamp(),
       'bannedBy': _auth.currentUser?.uid,
     });
+    // publicUsers Cloud Function ile otomatik güncellenecek; istemciden yazılamaz.
   }
 
   Future<void> unbanUser(String userId) async {
