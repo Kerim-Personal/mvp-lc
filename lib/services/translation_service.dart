@@ -349,7 +349,8 @@ class TranslationService {
     if (unsupportedModelLangs.contains(targetCode)) return true; // model gerekmiyor
     final neededCodes = <String>{'en', targetCode};
     for (final code in neededCodes) {
-      final downloaded = await _modelManager.isModelDownloaded(code);
+      final lang = _langFromCode(code);
+      final downloaded = await _modelManager.isModelDownloaded(lang.bcpCode);
       if (!downloaded) return false;
     }
     return true;
@@ -383,6 +384,7 @@ class TranslationService {
       );
       return;
     }
+
     // Eğer şu an aynı hedef için indiriliyorsa tekrar başlatma
     final current = downloadState.value;
     if (current.inProgress && current.targetCode == targetCode) return;
@@ -390,20 +392,22 @@ class TranslationService {
     // İndirilecek modeller (en + hedef)
     final neededCodes = <String>{'en', targetCode};
 
-    // Mevcut durumları kontrol et
-    int downloaded = 0;
+    // Önce hızlı kontrol - tüm modeller hazır mı?
+    bool allReady = true;
     for (final code in neededCodes) {
-      final isDownloaded = await _modelManager.isModelDownloaded(code);
-      if (isDownloaded) downloaded++;
+      final lang = _langFromCode(code);
+      if (!await _modelManager.isModelDownloaded(lang.bcpCode)) {
+        allReady = false;
+        break;
+      }
     }
 
-    final total = neededCodes.length;
-    // Hepsi zaten inmişse durum güncelle ve çık
-    if (downloaded == total) {
-      downloadState.value = downloadState.value.copyWith(
+    if (allReady) {
+      // Tüm modeller zaten hazır
+      downloadState.value = TranslationModelDownloadState(
         inProgress: false,
-        downloaded: downloaded,
-        total: total,
+        downloaded: neededCodes.length,
+        total: neededCodes.length,
         completed: true,
         error: null,
         targetCode: targetCode,
@@ -411,26 +415,37 @@ class TranslationService {
       return;
     }
 
+    // İndirme başlat - başlangıç durumu
     downloadState.value = TranslationModelDownloadState(
       inProgress: true,
-      downloaded: downloaded,
-      total: total,
+      downloaded: 0,
+      total: neededCodes.length,
       error: null,
       completed: false,
       targetCode: targetCode,
     );
 
     try {
+      int downloaded = 0;
       // Sıralı indirme; her bitişte durum güncelle
       for (final code in neededCodes) {
-        final already = await _modelManager.isModelDownloaded(code);
-        if (!already) {
-          await _modelManager.downloadModel(code);
+        final lang = _langFromCode(code);
+        final already = await _modelManager.isModelDownloaded(lang.bcpCode);
+        if (already) {
+          downloaded++;
+          downloadState.value = downloadState.value.copyWith(downloaded: downloaded);
+        } else {
+          // Gerçekten indir - TranslateLanguage kullan
+          await _modelManager.downloadModel(
+            lang.bcpCode,
+            isWifiRequired: false,
+          );
           downloaded++;
           downloadState.value = downloadState.value.copyWith(downloaded: downloaded);
         }
       }
 
+      // Tamamlandı
       downloadState.value = downloadState.value.copyWith(
         inProgress: false,
         completed: true,

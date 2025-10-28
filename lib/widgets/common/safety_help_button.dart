@@ -26,7 +26,7 @@ class _SafetyHelpButtonState extends State<SafetyHelpButton> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Open AI safety guidelines',
+      label: 'View Premium features',
       button: true,
       child: GestureDetector(
         onTap: () => _showSafetyDialog(context),
@@ -79,7 +79,7 @@ class _SafetyHelpButtonState extends State<SafetyHelpButton> with SingleTickerPr
   }
 }
 
-// Safety warning dialog function
+// Premium features information dialog
 void _showSafetyDialog(BuildContext context) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
@@ -87,16 +87,40 @@ void _showSafetyDialog(BuildContext context) {
 
   final sections = [
     (
-      icon: Icons.privacy_tip_outlined,
-      title: 'Smart Sharing',
+      icon: Icons.speaker_notes_off_outlined,
+      title: 'Ad-Free Experience',
       body:
-          'You are in control: Share only necessary information.'
+          'Premium members enjoy uninterrupted learning with a completely ad-free interface, allowing better focus and concentration.'
     ),
     (
-      icon: Icons.fact_check_outlined,
-      title: 'Additional Security',
+      icon: Icons.translate_outlined,
+      title: 'Instant Translation',
       body:
-          'For important decisions, support responses with reliable sources and briefly verify links.'
+          'Access real-time translation features without leaving the app. Translate messages and conversations seamlessly in over 100 languages.'
+    ),
+    (
+      icon: Icons.language_outlined,
+      title: 'Multi-Language Support',
+      body:
+          'VocaBot Premium supports 100+ languages for speech recognition, translation, and grammar analysis, enabling truly global learning.'
+    ),
+    (
+      icon: Icons.psychology_outlined,
+      title: 'Advanced Grammar Analysis',
+      body:
+          'Get detailed grammar feedback, clarity suggestions, and writing improvements powered by advanced AI to enhance your language skills.'
+    ),
+    (
+      icon: Icons.smart_toy_outlined,
+      title: 'Enhanced AI Conversations',
+      body:
+          'Experience more natural and context-aware conversations with VocaBot AI assistant, designed to adapt to your learning pace and style.'
+    ),
+    (
+      icon: Icons.support_agent_outlined,
+      title: 'Priority Support',
+      body:
+          'Receive faster response times and direct communication channels for any questions or technical assistance you may need.'
     ),
   ];
 
@@ -145,7 +169,7 @@ void _showSafetyDialog(BuildContext context) {
                           const SizedBox(width: 14),
                           Expanded(
                             child: Text(
-                              'AI Safety Guidelines',
+                              'Premium Features',
                               style: theme.textTheme.titleLarge?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
@@ -162,7 +186,7 @@ void _showSafetyDialog(BuildContext context) {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Guidelines for safe and effective AI interaction.',
+                        'Discover the enhanced features available with VocaChat Premium membership.',
                         style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.92), height: 1.3),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,

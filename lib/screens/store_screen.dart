@@ -258,11 +258,13 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: widget.embedded ? Colors.transparent : (isDark ? Colors.black : Colors.white),
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // Animated Background - Diğer ekranlar gibi
-          const Positioned.fill(child: AnimatedBackground()),
+          // Animated Background - Tam ekran
+          const AnimatedBackground(),
 
           // Main Content with Glassmorphism Container
           SafeArea(
