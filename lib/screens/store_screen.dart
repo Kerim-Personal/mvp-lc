@@ -10,6 +10,7 @@ import 'package:lottie/lottie.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
 import 'package:vocachat/widgets/home_screen/premium_status_panel.dart';
 import 'package:vocachat/widgets/shared/animated_background.dart';
+import 'package:vocachat/screens/login_screen.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key, this.embedded = false});
@@ -155,7 +156,41 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
+  Future<bool> _ensureLoggedIn() async {
+    final user = _auth.currentUser;
+    if (user != null) return true;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Giriş gerekli'),
+        content: const Text('Satın alma işlemi için lütfen önce hesabınıza giriş yapın.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop(false);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+            child: const Text('Giriş Yap'),
+          ),
+        ],
+      ),
+    );
+
+    return proceed == true;
+  }
+
   Future<void> _handlePurchase() async {
+    // Giriş kontrolü
+    if (!await _ensureLoggedIn()) return;
+
     setState(() => _isLoading = true);
 
     try {
@@ -232,6 +267,9 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
   }
 
   Future<void> _handleRestore() async {
+    // Giriş kontrolü
+    if (!await _ensureLoggedIn()) return;
+
     setState(() => _isLoading = true);
 
     try {
@@ -701,4 +739,3 @@ class _FeatureData {
 
   const _FeatureData(this.animation, this.title, this.description);
 }
-

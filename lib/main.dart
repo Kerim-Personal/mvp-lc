@@ -237,24 +237,31 @@ class _StartupGateState extends State<StartupGate> {
 
     if (!mounted) return;
 
-    // Eğer kullanıcı giriş yaptıysa RC kimliğini bağla ve Firestore'dan isPremium'u al
+    // Eğer kullanıcı giriş yapmadıysa paywall göstermeyelim
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _showPaywall = false;
+        // Kullanıcı giriş yaptıktan sonra bu oturumda ilk kez gösterilmesi için flag'i değiştirmiyoruz
+        // _paywallShownThisSession = false;
+      });
+      return;
+    }
 
+    // Eğer kullanıcı giriş yaptıysa RC kimliğini bağla ve Firestore'dan isPremium'u al
     bool firestorePremium = false;
-    if (user != null) {
-      try {
-        await RevenueCatService.instance.onLogin(user.uid);
-      } catch (_) {
-        // sessizce geç
+    try {
+      await RevenueCatService.instance.onLogin(user.uid);
+    } catch (_) {
+      // sessizce geç
+    }
+    try {
+      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (snap.exists && snap.data() != null) {
+        firestorePremium = snap.data()!['isPremium'] == true;
       }
-      try {
-        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        if (snap.exists && snap.data() != null) {
-          firestorePremium = snap.data()!['isPremium'] == true;
-        }
-      } catch (_) {
-        // sessizce geç
-      }
+    } catch (_) {
+      // sessizce geç
     }
 
     // RevenueCat entitlements

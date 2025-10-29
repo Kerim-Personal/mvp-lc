@@ -495,18 +495,18 @@ packages:
     dependency: "direct dev"
     description:
       name: flutter_native_splash
-      sha256: "8321a6d11a8d13977fa780c89de8d257cce3d841eecfb7a4cadffcc4f12d82dc"
+      sha256: "4fb9f4113350d3a80841ce05ebf1976a36de622af7d19aca0ca9a9911c7ff002"
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.6"
+    version: "2.4.7"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
       name: flutter_plugin_android_lifecycle
-      sha256: b0694b7fb1689b0e6cc193b3f1fcac6423c4f93c74fb20b806c6b6f196db0c31
+      sha256: c2fe1001710127dfa7da89977a08d591398370d099aacdaa6d44da7eb14b8476
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.30"
+    version: "2.0.31"
   flutter_svg:
     dependency: "direct main"
     description:
@@ -537,10 +537,10 @@ packages:
     dependency: "direct main"
     description:
       name: google_fonts
-      sha256: ebc94ed30fd13cefd397cb1658b593f21571f014b7d1197eeb41fb95f05d899a
+      sha256: "517b20870220c48752eafa0ba1a797a092fb22df0d89535fd9991e86ee2cdd9c"
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.1"
+    version: "6.3.2"
   google_generative_ai:
     dependency: "direct main"
     description:
@@ -713,10 +713,10 @@ packages:
     dependency: transitive
     description:
       name: image_picker_platform_interface
-      sha256: "9f143b0dba3e459553209e20cc425c9801af48e6dfa4f01a0fcf927be3f41665"
+      sha256: "567e056716333a1647c64bb6bd873cff7622233a5c3f694be28a583d4715690c"
       url: "https://pub.dev"
     source: hosted
-    version: "2.11.0"
+    version: "2.11.1"
   image_picker_windows:
     dependency: transitive
     description:
@@ -737,10 +737,10 @@ packages:
     dependency: transitive
     description:
       name: in_app_purchase_android
-      sha256: "5a02da1399a8faafb36d9b4acca85001b7eefa629f0eeeebf5ad0b04b9df302a"
+      sha256: "67f135ca215b8cd84eca3ea46b934607709ab6826a8473129f01b12fd235c8c6"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.0+4"
+    version: "0.4.0+5"
   in_app_purchase_platform_interface:
     dependency: transitive
     description:
@@ -873,10 +873,10 @@ packages:
     dependency: transitive
     description:
       name: path_provider_android
-      sha256: "993381400e94d18469750e5b9dcb8206f15bc09f9da86b9e44a9b0092a0066db"
+      sha256: "3b4c1fc3aa55ddc9cd4aa6759984330d5c8e66aa7702a6223c61540dc6380c37"
       url: "https://pub.dev"
     source: hosted
-    version: "2.2.18"
+    version: "2.2.19"
   path_provider_foundation:
     dependency: transitive
     description:
@@ -953,10 +953,10 @@ packages:
     dependency: "direct main"
     description:
       name: purchases_flutter
-      sha256: f0f710cdc399d4aad7c9e36d1abac7c00f40ddfedd387d3775810034962fac4b
+      sha256: "6d3058a30887aa879b276120f9b1390212aadd39561b0c14c7448650aba50d96"
       url: "https://pub.dev"
     source: hosted
-    version: "9.7.1"
+    version: "9.9.0"
   rxdart:
     dependency: transitive
     description:
@@ -977,10 +977,10 @@ packages:
     dependency: transitive
     description:
       name: shared_preferences_android
-      sha256: a2608114b1ffdcbc9c120eb71a0e207c71da56202852d4aab8a5e30a82269e74
+      sha256: bd14436108211b0d4ee5038689a56d4ae3620fd72fd6036e113bf1345bc74d9e
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.12"
+    version: "2.4.13"
   shared_preferences_foundation:
     dependency: transitive
     description:
