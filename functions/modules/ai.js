@@ -150,6 +150,70 @@ exports.aiTranslate = functions.region('us-central1').https.onCall(async (data, 
   }
 });
 
+exports.aiWritingCheck = functions.region('us-central1').https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Giriş gerekli');
+  await requirePremium(context.auth.uid);
+  await checkDailyQuota(context, 'aiWritingCheck');
+
+  const text = (data && data.text) || '';
+  const task = (data && data.task) || '';
+  const targetLanguage = (data && data.targetLanguage) || 'en';
+  const nativeLanguage = (data && data.nativeLanguage) || 'tr';
+
+  if (!text.trim()) throw new functions.https.HttpsError('invalid-argument', 'Metin boş olamaz');
+  if (text.length < 50) throw new functions.https.HttpsError('invalid-argument', 'Metin çok kısa (min 50 karakter)');
+  if (text.length > 3000) throw new functions.https.HttpsError('invalid-argument', 'Metin çok uzun (max 3000 karakter)');
+
+  try {
+    const genAI = getGeminiClient();
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+
+    const prompt = `You are an expert language teacher evaluating a student's writing in ${targetLanguage}.
+
+TASK GIVEN TO STUDENT:
+${task}
+
+STUDENT'S TEXT:
+${text}
+
+Provide a detailed but clear analysis in this EXACT JSON format (no markdown, no extra text):
+{
+  "overallScore": <number 0-100>,
+  "strengths": ["strength 1", "strength 2", "strength 3"],
+  "improvements": ["improvement 1", "improvement 2", "improvement 3"],
+  "grammarIssues": [
+    {"text": "problematic phrase", "correction": "corrected version", "explanation": "brief native language explanation"}
+  ],
+  "vocabularyFeedback": "Brief comment on vocabulary usage (in ${nativeLanguage})",
+  "structureFeedback": "Brief comment on text structure (in ${nativeLanguage})",
+  "taskCompletion": "Did the student complete the task? Brief comment (in ${nativeLanguage})",
+  "nextSteps": "One concrete suggestion for improvement (in ${nativeLanguage})"
+}
+
+RULES:
+- overallScore: 0-100 based on task completion, grammar, vocabulary, structure
+- strengths: 3 positive points in ${nativeLanguage}
+- improvements: 3 areas to improve in ${nativeLanguage}
+- grammarIssues: max 5 most important errors only
+- Keep all feedback constructive and encouraging
+- All explanations in ${nativeLanguage}
+- Return ONLY valid JSON`;
+
+    const result = await model.generateContent([{ text: prompt }]);
+    const raw = result.response.text();
+    const parsed = extractJson(raw);
+
+    if (!parsed || typeof parsed.overallScore !== 'number') {
+      throw new Error('Invalid AI response');
+    }
+
+    return { analysis: parsed };
+  } catch (e) {
+    console.error('aiWritingCheck error', e);
+    throw new functions.https.HttpsError('internal', 'Yazı analizi yapılamadı');
+  }
+});
+
 exports.vocabotGrammarQuiz = functions
   .region('us-central1')
   .https.onCall(async (data, context) => {

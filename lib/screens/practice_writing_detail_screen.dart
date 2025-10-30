@@ -1,639 +1,464 @@
 // lib/screens/practice_writing_detail_screen.dart
-import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:vocachat/models/writing_models.dart';
 import 'package:vocachat/repositories/writing_repository.dart';
-import 'package:vocachat/services/writing_evaluator.dart';
-import 'package:vocachat/services/writing_progress_service.dart';
-import 'package:vocachat/services/translation_service.dart';
+import 'package:vocachat/screens/writing_analysis_screen.dart';
+import 'dart:convert';
 
 class PracticeWritingDetailScreen extends StatefulWidget {
-  final String promptId;
-  const PracticeWritingDetailScreen({super.key, required this.promptId});
+  final String taskId;
+  const PracticeWritingDetailScreen({super.key, required this.taskId});
 
   @override
   State<PracticeWritingDetailScreen> createState() => _PracticeWritingDetailScreenState();
 }
 
 class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScreen> {
-  late WritingPrompt prompt;
-  final _progress = WritingProgressService.instance;
-  final _evaluator = WritingEvaluator.instance;
   final _controller = TextEditingController();
-  Timer? _autosaveTimer;
-  bool _loadingProgress = true;
-  Map<String,dynamic> _progressData = {};
-  WritingEvaluation? _evaluation;
-  bool _evaluating = false;
-  String _nativeLang = 'en';
-  bool _showVocabTranslations = false;
-  final Map<String,String> _vocabTranslations = {};
-  bool _translatingVocab = false;
-  DateTime? _lastAutosave;
-  bool _submitting = false;
+  final _repo = WritingRepository.instance;
+  late WritingTask task;
+  bool _checking = false;
+  WritingAnalysis? _analysis;
+  String _targetLanguage = 'en';
+  String _nativeLanguage = 'tr';
 
   @override
   void initState() {
     super.initState();
-    prompt = WritingRepository.instance.byId(widget.promptId)!;
-    _loadUserLang();
-    _loadProgress();
-    _controller.addListener(_scheduleAutosave);
+    task = _repo.getTaskById(widget.taskId)!;
+    _loadUserLanguages();
+    _controller.addListener(() => setState(() {}));
   }
 
-  Future<void> _loadUserLang() async {
+  Future<void> _loadUserLanguages() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
         final snap = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-        final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
-        if (code!=null && code.isNotEmpty) {
-          setState(()=>_nativeLang = code);
-        }
+        final data = snap.data();
+        setState(() {
+          _targetLanguage = data?['targetLanguage'] as String? ?? 'en';
+          _nativeLanguage = data?['nativeLanguage'] as String? ?? 'tr';
+        });
       }
-    } catch(_) {}
+    } catch (_) {}
   }
 
-  Future<void> _loadProgress() async {
-    final data = await _progress.getPrompt(prompt.id);
-    setState((){
-      _progressData = data;
-      final draft = data['draft'] as String?;
-      if (draft!=null && draft.trim().isNotEmpty) {
-        _controller.text = draft;
-      }
-      _loadingProgress = false;
-    });
-  }
+  int get _charCount => _controller.text.length;
 
-  void _scheduleAutosave() {
-    _autosaveTimer?.cancel();
-    _autosaveTimer = Timer(const Duration(milliseconds: 900), _saveDraft);
-    setState((){}); // for updating word count etc.
-  }
-  Future<void> _saveDraft() async {
-    final text = _controller.text.trim();
-    await _progress.saveDraft(prompt.id, text);
-    _lastAutosave = DateTime.now();
-    if (mounted) setState((){});
-  }
-
-  int get _wordCount => _controller.text.trim().isEmpty ? 0 : _controller.text.trim().split(RegExp(r'\s+')).where((w)=>w.trim().isNotEmpty).length;
-
-  Color _wordCountColor() {
-    if (_wordCount==0) return Colors.grey;
-    if (_wordCount < prompt.level.minWords) return Colors.redAccent;
-    if (_wordCount > prompt.level.maxWords) return Colors.orange;
+  Color _charCountColor() {
+    final minChars = task.level.minChars;
+    if (_charCount == 0) return Colors.grey;
+    if (_charCount < minChars) return Colors.orange;
     return Colors.green;
   }
 
-  Future<void> _evaluate() async {
-    setState(()=>_evaluating=true);
-    await Future.delayed(const Duration(milliseconds: 200));
-    final ev = _evaluator.evaluate(_controller.text, prompt);
-    setState((){ _evaluation = ev; _evaluating=false; });
-  }
-
-  Future<void> _submit() async {
-    if (_controller.text.trim().isEmpty) return;
-    if (_wordCount < prompt.level.minWords) {
-      final ok = await _confirmDialog('Kelime sayısı minimumdan az (${_wordCount}/${prompt.level.minWords}). Yine de göndermek istiyor musun?');
-      if (ok != true) return;
-    }
-    if (_wordCount > prompt.level.maxWords) {
-      final ok = await _confirmDialog('Kelime sayısı önerilen üst sınırı aşıyor (${_wordCount}/${prompt.level.maxWords}). Yine de gönder?');
-      if (ok != true) return;
-    }
-    if (_evaluation == null) {
-      await _evaluate();
-    }
-    setState(()=> _submitting = true);
-    final ev = _evaluation!;
-    await _progress.recordSubmission(id: prompt.id, text: _controller.text.trim(), score: ev.completionScore, wordCount: ev.wordCount);
-    setState(()=> _submitting = false);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gönderildi ve kaydedildi.')));
-    _loadProgress();
-  }
-
-  Future<bool?> _confirmDialog(String msg) {
-    return showDialog<bool>(context: context, builder: (c)=> AlertDialog(
-      title: const Text('Onay'),
-      content: Text(msg),
-      actions: [
-        TextButton(onPressed: ()=> Navigator.pop(c,false), child: const Text('Vazgeç')),
-        FilledButton(onPressed: ()=> Navigator.pop(c,true), child: const Text('Devam')),
-      ],
-    ));
-  }
-
-  Future<void> _toggleVocabTranslations() async {
-    if (_nativeLang=='en') {
-      setState(()=> _showVocabTranslations = !_showVocabTranslations);
+  Future<void> _checkWriting() async {
+    if (_controller.text.trim().length < task.level.minChars) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('En az ${task.level.minChars} karakter yazmalısınız.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
-    if (_showVocabTranslations) { setState(()=> _showVocabTranslations = false); return; }
-    setState(()=> _translatingVocab = true);
+
+    setState(() => _checking = true);
+
     try {
-      await TranslationService.instance.ensureReady(_nativeLang);
-      for (final w in prompt.targetVocab) {
-        if (_vocabTranslations.containsKey(w)) continue;
-        final tr = await TranslationService.instance.translateFromEnglish(w, _nativeLang);
-        _vocabTranslations[w] = tr;
+      final callable = FirebaseFunctions.instance.httpsCallable('aiWritingCheck');
+      final result = await callable.call({
+        'text': _controller.text.trim(),
+        'task': task.task,
+        'targetLanguage': _targetLanguage,
+        'nativeLanguage': _nativeLanguage,
+      });
+
+      // Cloud Functions yanıtını sağlam şekilde parse et (String/Map desteği)
+      Map<String, dynamic> topLevel;
+      final raw = result.data;
+      if (raw is String) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          topLevel = Map<String, dynamic>.from(decoded as Map);
+        } else {
+          throw Exception('Geçersiz yanıt');
+        }
+      } else if (raw is Map) {
+        topLevel = Map<String, dynamic>.from(raw as Map);
+      } else {
+        throw Exception('Geçersiz yanıt tipi');
       }
-      setState(()=> _showVocabTranslations = true);
-    } catch(_) {} finally { if (mounted) setState(()=> _translatingVocab = false); }
+
+      Map<String, dynamic> analysisData;
+      final a = topLevel['analysis'];
+      if (a == null) {
+        // Bazı modeller direkt analizi döndürebilir
+        analysisData = topLevel;
+      } else if (a is String) {
+        final decA = jsonDecode(a);
+        analysisData = Map<String, dynamic>.from(decA as Map);
+      } else if (a is Map) {
+        analysisData = Map<String, dynamic>.from(a as Map);
+      } else {
+        throw Exception('Beklenmeyen analysis formatı');
+      }
+
+      setState(() {
+        _analysis = WritingAnalysis.fromJson(analysisData);
+        _checking = false;
+      });
+
+      // Analiz sonuçlarını yeni sayfada göster
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => WritingAnalysisScreen(
+              analysis: _analysis!,
+              task: task,
+              userText: _controller.text.trim(),
+              onEditAgain: () {
+                // Kullanıcı düzenle butonuna basarsa hiçbir şey yapma
+                // Zaten önceki sayfaya dönecek
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _checking = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Analiz hatası: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  String _autosaveLabel() {
-    if (_lastAutosave == null) return 'Henüz kaydedilmedi';
-    final diff = DateTime.now().difference(_lastAutosave!);
-    if (diff.inSeconds < 5) return 'Kaydedildi';
-    if (diff.inMinutes < 1) return '${diff.inSeconds}s önce kaydedildi';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
-    return 'Kaydedildi';
+  Color _scoreColor(int score) {
+    if (score >= 80) return Colors.green;
+    if (score >= 60) return Colors.orange;
+    return Colors.red;
   }
 
   @override
   void dispose() {
-    _autosaveTimer?.cancel();
-    _controller.removeListener(_scheduleAutosave);
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bestScore = (_progressData['bestScore'] as num?)?.toDouble();
+    final minChars = task.level.minChars;
+    final canCheck = _charCount >= minChars && !_checking;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(prompt.title),
-        actions: [
-          if (bestScore != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Chip(
-                label: Text('Best: ${bestScore.toStringAsFixed(0)}'),
-                backgroundColor: Colors.blue.withValues(alpha: 0.15),
-              ),
-            ),
-        ],
+        title: Row(
+          children: [
+            Text(task.level.icon, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 8),
+            Text(task.level.label, style: const TextStyle(fontSize: 16)),
+          ],
+        ),
+        elevation: 0,
       ),
-      body: _loadingProgress ? const Center(child: CircularProgressIndicator()) : Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16,12,16,160),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PromptHeader(prompt: prompt, wordCount: _wordCount),
-                  const SizedBox(height: 12),
-                  _FocusPointsSection(prompt: prompt),
-                  if (prompt.targetVocab.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _TargetVocabSection(
-                      prompt: prompt,
-                      showTranslations: _showVocabTranslations,
-                      onToggle: _toggleVocabTranslations,
-                      translations: _vocabTranslations,
-                      loading: _translatingVocab,
-                      nativeLang: _nativeLang,
-                    ),
-                  ],
-                  if (prompt.sampleOutline != null) ...[
-                    const SizedBox(height: 12),
-                    _ExpandableCard(title: 'Suggested Outline', child: Text(prompt.sampleOutline!)),
-                  ],
-                  if (prompt.sampleAnswer != null) ...[
-                    const SizedBox(height: 8),
-                    _ExpandableCard(title: 'Sample Answer', child: Text(prompt.sampleAnswer!)),
-                  ],
-                  const SizedBox(height: 16),
-                  _EditorCard(
-                    controller: _controller,
-                    minWords: prompt.level.minWords,
-                    maxWords: prompt.level.maxWords,
-                    wordCount: _wordCount,
-                    color: _wordCountColor(),
-                    onClear: () async {
-                      final ok = await _confirmDialog('Taslak temizlensin mi?');
-                      if (ok==true) { _controller.clear(); await _saveDraft(); }
-                    },
-                    autosaveLabel: _autosaveLabel(),
-                  ),
-                  const SizedBox(height: 16),
-                  _EvaluationArea(
-                    evaluation: _evaluation,
-                    evaluating: _evaluating,
-                    onEvaluate: _evaluate,
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomSheet: _buildBottomBar(),
-    );
-  }
-
-  Widget _buildBottomBar() {
-    final canSubmit = _controller.text.trim().isNotEmpty && !_submitting;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16,10,16,12),
+      body: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 10, offset: const Offset(0,-2))],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _evaluating ? null : _evaluate,
-                icon: const Icon(Icons.analytics_outlined),
-                label: Text(_evaluation==null? 'Analiz' : 'Yenile'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: canSubmit ? _submit : null,
-                icon: _submitting ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2,color: Colors.white)) : const Icon(Icons.send_rounded),
-                label: const Text('Gönder'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PromptHeader extends StatelessWidget {
-  final WritingPrompt prompt;
-  final int wordCount;
-  const _PromptHeader({required this.prompt, required this.wordCount});
-  Color _levelColor(WritingLevel l) => switch (l) {
-    WritingLevel.beginner => Colors.green,
-    WritingLevel.intermediate => Colors.orange,
-    WritingLevel.advanced => Colors.red,
-  };
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal:12, vertical:6),
-                  decoration: BoxDecoration(
-                    color: _levelColor(prompt.level).withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(prompt.level.label, style: TextStyle(color: _levelColor(prompt.level), fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(width: 8),
-                Text(prompt.type.label, style: Theme.of(context).textTheme.bodySmall),
-                const Spacer(),
-                Text('Words: $wordCount', style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(prompt.instructions, style: Theme.of(context).textTheme.bodyMedium),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FocusPointsSection extends StatelessWidget {
-  final WritingPrompt prompt;
-  const _FocusPointsSection({required this.prompt});
-  @override
-  Widget build(BuildContext context) {
-    return _ExpandableCard(
-      title: 'Focus Points',
-      initiallyExpanded: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final f in prompt.focusPoints)
-            Padding(
-              padding: const EdgeInsets.only(bottom:6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('• ', style: TextStyle(fontSize: 16, height:1.3)),
-                  Expanded(child: Text(f, style: const TextStyle(height:1.3))),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TargetVocabSection extends StatelessWidget {
-  final WritingPrompt prompt;
-  final bool showTranslations;
-  final VoidCallback onToggle;
-  final Map<String,String> translations;
-  final bool loading;
-  final String nativeLang;
-  const _TargetVocabSection({
-    required this.prompt,
-    required this.showTranslations,
-    required this.onToggle,
-    required this.translations,
-    required this.loading,
-    required this.nativeLang,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return _ExpandableCard(
-      title: 'Target Vocabulary',
-      actions: [
-        if (loading) const SizedBox(width:18, height:18, child: CircularProgressIndicator(strokeWidth:2))
-        else TextButton(onPressed: onToggle, child: Text(showTranslations? 'Hide' : (nativeLang=='en'? 'Show' : 'Translate'))) ,
-      ],
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final w in prompt.targetVocab)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(horizontal:12, vertical:8),
-              decoration: BoxDecoration(
-                color: Colors.pink.withValues(alpha: 0.08),
-                border: Border.all(color: Colors.pink.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(w, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  if (showTranslations)
-                    Text(
-                      translations[w] ?? w,
-                      style: TextStyle(fontSize: 11, color: Colors.pink.shade700),
-                    )
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EditorCard extends StatelessWidget {
-  final TextEditingController controller;
-  final int minWords;
-  final int maxWords;
-  final int wordCount;
-  final Color color;
-  final VoidCallback onClear;
-  final String autosaveLabel;
-  const _EditorCard({
-    required this.controller,
-    required this.minWords,
-    required this.maxWords,
-    required this.wordCount,
-    required this.color,
-    required this.onClear,
-    required this.autosaveLabel,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16,12,16,16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('Taslak', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                Text(autosaveLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
-                IconButton(onPressed: onClear, tooltip: 'Temizle', icon: const Icon(Icons.delete_outline)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 160, maxHeight: 360),
-              child: TextField(
-                controller: controller,
-                maxLines: null,
-                decoration: InputDecoration(
-                  hintText: 'Buraya yaz...',
-                  filled: true,
-                  fillColor: Colors.pink.withValues(alpha: 0.05),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.pink.withValues(alpha: 0.2))),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _WordProgress(minWords: minWords, maxWords: maxWords, count: wordCount, color: color),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WordProgress extends StatelessWidget {
-  final int minWords; final int maxWords; final int count; final Color color;
-  const _WordProgress({required this.minWords, required this.maxWords, required this.count, required this.color});
-  @override
-  Widget build(BuildContext context) {
-    final pct = (count / maxWords).clamp(0.0, 1.0).toDouble();
-    final below = count < minWords;
-    final over = count > maxWords;
-    String msg;
-    if (count==0) msg = 'Hedef: $minWords - $maxWords kelime';
-    else if (below) msg = 'Min için kalan: ${minWords-count}';
-    else if (over) msg = 'Fazla: ${count-maxWords} kelime';
-    else msg = 'Aralıkta ✔';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: pct,
-            minHeight: 8,
-            backgroundColor: Colors.grey.withValues(alpha: 0.15),
-            valueColor: AlwaysStoppedAnimation(over? Colors.orange : (below? Colors.redAccent : color)),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.03),
+              Theme.of(context).colorScheme.surface,
+            ],
           ),
         ),
-        const SizedBox(height:6),
-        Row(children:[
-          Icon(over? Icons.warning_amber : Icons.info_outline, size:14, color: over? Colors.orange : color),
-          const SizedBox(width:4),
-          Text('$count kelime • $msg', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: over? Colors.orange : color)),
-        ])
-      ],
-    );
-  }
-}
-
-class _EvaluationArea extends StatelessWidget {
-  final WritingEvaluation? evaluation;
-  final bool evaluating;
-  final VoidCallback onEvaluate;
-  const _EvaluationArea({
-    required this.evaluation,
-    required this.evaluating,
-    required this.onEvaluate,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text('Evaluation', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                if (evaluating) const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2))
-                else IconButton(onPressed: onEvaluate, icon: const Icon(Icons.refresh)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (evaluation == null && !evaluating)
-              Text('Not yet evaluated. Get an analysis by clicking the "Evaluate" button.' , style: Theme.of(context).textTheme.bodyMedium)
-            else if (evaluation != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _MetricChip(label: 'Words', value: evaluation!.wordCount.toString()),
-                      _MetricChip(label: 'Lexical Diversity', value: (evaluation!.lexicalDiversity*100).toStringAsFixed(1)+'%'),
-                      _MetricChip(label: 'Avg Sent. Len.', value: evaluation!.avgSentenceLength.toStringAsFixed(1)),
-                      _MetricChip(label: 'Flesch', value: evaluation!.fleschReadingEase.toStringAsFixed(0)),
-                      _MetricChip(label: 'Score', value: evaluation!.completionScore.toStringAsFixed(0)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Suggestions', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  ...evaluation!.suggestions.map((s)=> Padding(
-                    padding: const EdgeInsets.only(bottom:6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('• '),
-                        Expanded(child: Text(s)),
-                      ],
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Görev kartı - Kompakt
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.indigo.shade400,
+                            Colors.indigo.shade600,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.indigo.withValues(alpha: 0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(task.emoji, style: const TextStyle(fontSize: 24)),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  task.level.label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.edit, color: Colors.white, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Min: $minChars',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            task.task,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )),
-                  if (evaluation!.repeatedWords.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text('Frequent Repetitions: '+evaluation!.repeatedWords.take(8).join(', '), style: Theme.of(context).textTheme.bodySmall),
-                  ]
-                ],
-              )
-          ],
-        ),
-      ),
-    );
-  }
-}
+                    const SizedBox(height: 12),
 
-class _MetricChip extends StatelessWidget {
-  final String label;
-  final String value;
-  const _MetricChip({required this.label, required this.value});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.indigo.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.indigo.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.indigo.shade700)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExpandableCard extends StatefulWidget {
-  final String title;
-  final Widget child;
-  final List<Widget>? actions;
-  final bool initiallyExpanded;
-  const _ExpandableCard({required this.title, required this.child, this.actions, this.initiallyExpanded=false});
-  @override
-  State<_ExpandableCard> createState() => _ExpandableCardState();
-}
-class _ExpandableCardState extends State<_ExpandableCard> with SingleTickerProviderStateMixin {
-  late bool _expanded;
-  @override
-  void initState() {
-    super.initState();
-    _expanded = widget.initiallyExpanded;
-  }
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16,10,16,12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(widget.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                if (widget.actions != null) ...widget.actions!,
-                IconButton(
-                  onPressed: ()=> setState(()=> _expanded = !_expanded),
-                  icon: AnimatedRotation(
-                    turns: _expanded? .5: 0,
-                    duration: const Duration(milliseconds: 250),
-                    child: const Icon(Icons.expand_more),
-                  ),
-                )
-              ],
+                    // Yazı alanı - Kompakt
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.create, color: Colors.blue, size: 16),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Yazınız',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _charCountColor().withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _charCountColor().withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.edit,
+                                        size: 12,
+                                        color: _charCountColor(),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$_charCount/$minChars',
+                                        style: TextStyle(
+                                          color: _charCountColor(),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (_charCount > 0)
+                                  IconButton(
+                                    onPressed: () {
+                                      _controller.clear();
+                                      setState(() => _analysis = null);
+                                    },
+                                    icon: const Icon(Icons.delete_outline, size: 20),
+                                    tooltip: 'Temizle',
+                                    color: Colors.red,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _charCountColor().withValues(alpha: 0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _controller,
+                                maxLines: 8,
+                                style: const TextStyle(fontSize: 14, height: 1.5),
+                                decoration: InputDecoration(
+                                  hintText: 'Buraya yazın...',
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.all(12),
+                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: widget.child,
-              crossFadeState: _expanded? CrossFadeState.showSecond : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 250),
-            )
+
+            // Check butonu - Sabit alt kısım
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: canCheck
+                        ? LinearGradient(
+                            colors: [
+                              Colors.green.shade400,
+                              Colors.green.shade600,
+                            ],
+                          )
+                        : null,
+                    color: canCheck ? null : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: canCheck
+                        ? [
+                            BoxShadow(
+                              color: Colors.green.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: canCheck ? _checkWriting : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_checking)
+                              const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            else
+                              Icon(
+                                Icons.check_circle_outline,
+                                color: canCheck ? Colors.white : Colors.grey.shade600,
+                                size: 24,
+                              ),
+                            const SizedBox(width: 10),
+                            Text(
+                              _checking ? 'Analiz ediliyor...' : 'Check',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: canCheck ? Colors.white : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

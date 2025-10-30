@@ -4,84 +4,98 @@ enum WritingLevel { beginner, intermediate, advanced }
 
 extension WritingLevelX on WritingLevel {
   String get label => switch (this) {
-        WritingLevel.beginner => 'Beginner',
-        WritingLevel.intermediate => 'Intermediate',
-        WritingLevel.advanced => 'Advanced',
+        WritingLevel.beginner => 'Başlangıç',
+        WritingLevel.intermediate => 'Orta',
+        WritingLevel.advanced => 'İleri',
       };
-  int get minWords => switch (this) {
-        WritingLevel.beginner => 60,
-        WritingLevel.intermediate => 120,
-        WritingLevel.advanced => 180,
-      };
-  int get maxWords => switch (this) {
-        WritingLevel.beginner => 120,
+  int get minChars => switch (this) {
+        WritingLevel.beginner => 100,
         WritingLevel.intermediate => 200,
-        WritingLevel.advanced => 260,
-      };
-}
-
-enum WritingType { email, essay, story, summary, opinion }
-
-extension WritingTypeX on WritingType {
-  String get label => switch (this) {
-        WritingType.email => 'Email',
-        WritingType.essay => 'Essay',
-        WritingType.story => 'Story',
-        WritingType.summary => 'Summary',
-        WritingType.opinion => 'Opinion',
+        WritingLevel.advanced => 300,
       };
   String get icon => switch (this) {
-        WritingType.email => '📧',
-        WritingType.essay => '📝',
-        WritingType.story => '📖',
-        WritingType.summary => '🗂️',
-        WritingType.opinion => '💭',
+        WritingLevel.beginner => '🌱',
+        WritingLevel.intermediate => '🌿',
+        WritingLevel.advanced => '🌳',
       };
 }
 
-class WritingPrompt {
+class WritingTask {
   final String id;
-  final String title;
-  final String category;
+  final String task; // Görev açıklaması
   final WritingLevel level;
-  final WritingType type;
-  final String instructions; // Task directions
-  final List<String> focusPoints; // bullet list of what to include
-  final List<String> targetVocab; // optional target vocabulary
-  final String? sampleOutline; // optional outline
-  final String? sampleAnswer; // optional model answer
-  final int suggestedMinutes; // estimated time
-  const WritingPrompt({
+  final String emoji;
+
+  const WritingTask({
     required this.id,
-    required this.title,
-    required this.category,
+    required this.task,
     required this.level,
-    required this.type,
-    required this.instructions,
-    required this.focusPoints,
-    this.targetVocab = const [],
-    this.sampleOutline,
-    this.sampleAnswer,
-    this.suggestedMinutes = 15,
+    required this.emoji,
   });
 }
 
-class WritingEvaluation {
-  final int wordCount;
-  final double lexicalDiversity; // unique/total
-  final double avgSentenceLength; // words per sentence
-  final List<String> repeatedWords; // frequent repeats (excluding stopwords)
-  final double fleschReadingEase; // approximate (English assumption)
-  final double completionScore; // 0-100 ( heuristic )
-  final List<String> suggestions;
-  const WritingEvaluation({
-    required this.wordCount,
-    required this.lexicalDiversity,
-    required this.avgSentenceLength,
-    required this.repeatedWords,
-    required this.fleschReadingEase,
-    required this.completionScore,
-    required this.suggestions,
+class WritingAnalysis {
+  final int overallScore;
+  final List<String> strengths;
+  final List<String> improvements;
+  final List<GrammarIssue> grammarIssues;
+  final String vocabularyFeedback;
+  final String structureFeedback;
+  final String taskCompletion;
+  final String nextSteps;
+
+  const WritingAnalysis({
+    required this.overallScore,
+    required this.strengths,
+    required this.improvements,
+    required this.grammarIssues,
+    required this.vocabularyFeedback,
+    required this.structureFeedback,
+    required this.taskCompletion,
+    required this.nextSteps,
   });
+
+  factory WritingAnalysis.fromJson(Map<String, dynamic> json) {
+    final strengths = (json['strengths'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
+    final improvements = (json['improvements'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
+
+    final giListDynamic = json['grammarIssues'] as List?;
+    final giList = giListDynamic == null
+        ? const <GrammarIssue>[]
+        : giListDynamic
+            .where((e) => e is Map)
+            .map((e) => GrammarIssue.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+
+    return WritingAnalysis(
+      overallScore: (json['overallScore'] as num?)?.toInt() ?? 0,
+      strengths: strengths,
+      improvements: improvements,
+      grammarIssues: giList,
+      vocabularyFeedback: json['vocabularyFeedback']?.toString() ?? '',
+      structureFeedback: json['structureFeedback']?.toString() ?? '',
+      taskCompletion: json['taskCompletion']?.toString() ?? '',
+      nextSteps: json['nextSteps']?.toString() ?? '',
+    );
+  }
 }
 
+class GrammarIssue {
+  final String text;
+  final String correction;
+  final String explanation;
+
+  const GrammarIssue({
+    required this.text,
+    required this.correction,
+    required this.explanation,
+  });
+
+  factory GrammarIssue.fromJson(Map<String, dynamic> json) {
+    return GrammarIssue(
+      text: json['text']?.toString() ?? '',
+      correction: json['correction']?.toString() ?? '',
+      explanation: json['explanation']?.toString() ?? '',
+    );
+  }
+}

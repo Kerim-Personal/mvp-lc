@@ -1,68 +1,119 @@
 // lib/repositories/writing_repository.dart
-import 'package:vocachat/models/writing_models.dart';
+import '../models/writing_models.dart';
 
 class WritingRepository {
+  static final instance = WritingRepository._();
   WritingRepository._();
-  static final WritingRepository instance = WritingRepository._();
 
-  final List<WritingPrompt> _prompts = _seed();
+  final List<WritingTask> _tasks = [
+    // Başlangıç seviyesi
+    WritingTask(
+      id: 'beginner_1',
+      task: 'Introduce yourself. Write about your name, age, where you live, and what you like to do.',
+      level: WritingLevel.beginner,
+      emoji: '👋',
+    ),
+    WritingTask(
+      id: 'beginner_2',
+      task: 'Describe your daily routine. What do you do in the morning, afternoon, and evening?',
+      level: WritingLevel.beginner,
+      emoji: '🌅',
+    ),
+    WritingTask(
+      id: 'beginner_3',
+      task: 'Write about your favorite food. What is it? Why do you like it?',
+      level: WritingLevel.beginner,
+      emoji: '🍕',
+    ),
+    WritingTask(
+      id: 'beginner_4',
+      task: 'Describe your best friend. What do they look like? What do you do together?',
+      level: WritingLevel.beginner,
+      emoji: '👫',
+    ),
+    WritingTask(
+      id: 'beginner_5',
+      task: 'Write about your family. How many people are in your family? What are they like?',
+      level: WritingLevel.beginner,
+      emoji: '👨‍👩‍👧‍👦',
+    ),
+    
+    // Orta seviye
+    WritingTask(
+      id: 'intermediate_1',
+      task: 'Write an email to a friend inviting them to your birthday party. Include date, time, location, and what you will do.',
+      level: WritingLevel.intermediate,
+      emoji: '📧',
+    ),
+    WritingTask(
+      id: 'intermediate_2',
+      task: 'Describe a memorable vacation you had. Where did you go? What did you do? Why was it special?',
+      level: WritingLevel.intermediate,
+      emoji: '✈️',
+    ),
+    WritingTask(
+      id: 'intermediate_3',
+      task: 'Write your opinion about learning languages online. What are the advantages and disadvantages?',
+      level: WritingLevel.intermediate,
+      emoji: '💭',
+    ),
+    WritingTask(
+      id: 'intermediate_4',
+      task: 'Tell a story about a time you helped someone or someone helped you. What happened?',
+      level: WritingLevel.intermediate,
+      emoji: '🤝',
+    ),
+    WritingTask(
+      id: 'intermediate_5',
+      task: 'Describe your dream job. What would you do? Why would you enjoy it?',
+      level: WritingLevel.intermediate,
+      emoji: '💼',
+    ),
+    
+    // İleri seviye
+    WritingTask(
+      id: 'advanced_1',
+      task: 'Write an essay discussing whether technology makes us more or less social. Provide examples and arguments.',
+      level: WritingLevel.advanced,
+      emoji: '📱',
+    ),
+    WritingTask(
+      id: 'advanced_2',
+      task: 'Describe a controversial decision you had to make. What factors did you consider? Do you think you made the right choice?',
+      level: WritingLevel.advanced,
+      emoji: '🤔',
+    ),
+    WritingTask(
+      id: 'advanced_3',
+      task: 'Write a persuasive article about an environmental issue you care about. Convince readers to take action.',
+      level: WritingLevel.advanced,
+      emoji: '🌍',
+    ),
+    WritingTask(
+      id: 'advanced_4',
+      task: 'Analyze how social media has changed the way people communicate. Discuss both positive and negative impacts.',
+      level: WritingLevel.advanced,
+      emoji: '💬',
+    ),
+    WritingTask(
+      id: 'advanced_5',
+      task: 'Write a short story that includes a surprising twist at the end. Make it engaging and well-structured.',
+      level: WritingLevel.advanced,
+      emoji: '📖',
+    ),
+  ];
 
-  List<WritingPrompt> all() => List.unmodifiable(_prompts);
-  WritingPrompt? byId(String id) => _prompts.firstWhere((e) => e.id == id, orElse: () => _prompts.first);
-
-  static List<WritingPrompt> _seed() {
-    return [
-      const WritingPrompt(
-        id: 'w1',
-        title: 'Introduce Yourself Email',
-        category: 'Introductions',
-        level: WritingLevel.beginner,
-        type: WritingType.email,
-        instructions: 'Write an email (60-120 words) to a new international pen pal. Introduce yourself, where you live, one hobby and a question for them.',
-        focusPoints: [
-          'Greeting + closing',
-          'Age or role (student/job)',
-          'One hobby with short detail',
-          'One friendly question',
-        ],
-        targetVocab: ['hobby','enjoy','live','share'],
-        sampleOutline: '1) Hi + name. 2) Where you are from. 3) Hobby + detail. 4) Ask a question. 5) Close politely.',
-        suggestedMinutes: 12,
-      ),
-      const WritingPrompt(
-        id: 'w2',
-        title: 'Weekend Activity Story',
-        category: 'Narrative',
-        level: WritingLevel.intermediate,
-        type: WritingType.story,
-        instructions: 'Write a short story (120-200 words) about a surprising thing that happened last weekend. Use past tenses and at least two adjectives.',
-        focusPoints: [
-          'Clear beginning, middle, end',
-          'Past simple & past continuous mix',
-          'Emotions / reactions',
-        ],
-        targetVocab: ['suddenly','realize','exhausted','excited'],
-        sampleOutline: '1) Setting. 2) Unexpected event. 3) Reaction/challenge. 4) Resolution & feeling.',
-        suggestedMinutes: 20,
-      ),
-      const WritingPrompt(
-        id: 'w3',
-        title: 'Social Media & Productivity Opinion',
-        category: 'Opinion',
-        level: WritingLevel.advanced,
-        type: WritingType.opinion,
-        instructions: 'Write an opinion paragraph (180-260 words) on whether social media improves or harms personal productivity. Support with at least two arguments & one counterpoint.',
-        focusPoints: [
-          'Clear position in first 1-2 sentences',
-          'Supporting arguments + brief example',
-          'Address a counterargument',
-          'Concluding sentence with recommendation',
-        ],
-        targetVocab: ['distraction','focus','habit','evidence','prioritize'],
-        sampleOutline: 'Intro stance -> Arg1 (example) -> Arg2 (example) -> Counter + refute -> Conclusion',
-        suggestedMinutes: 25,
-      ),
-    ];
+  List<WritingTask> getAllTasks() => List.unmodifiable(_tasks);
+  
+  List<WritingTask> getTasksByLevel(WritingLevel level) {
+    return _tasks.where((task) => task.level == level).toList();
+  }
+  
+  WritingTask? getTaskById(String id) {
+    try {
+      return _tasks.firstWhere((task) => task.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 }
-
