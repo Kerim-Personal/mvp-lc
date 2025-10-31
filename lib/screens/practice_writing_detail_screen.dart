@@ -60,7 +60,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
     if (_controller.text.trim().length < task.level.minChars) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('En az ${task.level.minChars} karakter yazmalısınız.'),
+          content: Text('You must write at least ${task.level.minChars} characters.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -84,14 +84,14 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
       if (raw is String) {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
-          topLevel = Map<String, dynamic>.from(decoded as Map);
+          topLevel = Map<String, dynamic>.from(decoded);
         } else {
-          throw Exception('Geçersiz yanıt');
+          throw Exception('Invalid response');
         }
       } else if (raw is Map) {
-        topLevel = Map<String, dynamic>.from(raw as Map);
+        topLevel = Map<String, dynamic>.from(raw);
       } else {
-        throw Exception('Geçersiz yanıt tipi');
+        throw Exception('Invalid response type');
       }
 
       Map<String, dynamic> analysisData;
@@ -101,11 +101,15 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
         analysisData = topLevel;
       } else if (a is String) {
         final decA = jsonDecode(a);
-        analysisData = Map<String, dynamic>.from(decA as Map);
+        if (decA is Map) {
+          analysisData = Map<String, dynamic>.from(decA);
+        } else {
+          throw Exception('Invalid analysis payload');
+        }
       } else if (a is Map) {
-        analysisData = Map<String, dynamic>.from(a as Map);
+        analysisData = Map<String, dynamic>.from(a);
       } else {
-        throw Exception('Beklenmeyen analysis formatı');
+        throw Exception('Unexpected analysis format');
       }
 
       setState(() {
@@ -134,18 +138,12 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Analiz hatası: ${e.toString()}'),
+            content: Text('Analysis error: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
-  }
-
-  Color _scoreColor(int score) {
-    if (score >= 80) return Colors.green;
-    if (score >= 60) return Colors.orange;
-    return Colors.red;
   }
 
   @override
@@ -300,7 +298,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Yazınız',
+                                  'Your Writing',
                                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -342,7 +340,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
                                       setState(() => _analysis = null);
                                     },
                                     icon: const Icon(Icons.delete_outline, size: 20),
-                                    tooltip: 'Temizle',
+                                    tooltip: 'Clear',
                                     color: Colors.red,
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
@@ -364,7 +362,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
                                 maxLines: 8,
                                 style: const TextStyle(fontSize: 14, height: 1.5),
                                 decoration: InputDecoration(
-                                  hintText: 'Buraya yazın...',
+                                  hintText: 'Write here...',
                                   border: InputBorder.none,
                                   contentPadding: const EdgeInsets.all(12),
                                   hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
@@ -444,7 +442,7 @@ class _PracticeWritingDetailScreenState extends State<PracticeWritingDetailScree
                               ),
                             const SizedBox(width: 10),
                             Text(
-                              _checking ? 'Analiz ediliyor...' : 'Check',
+                              _checking ? 'Analyzing...' : 'Check',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,

@@ -4,9 +4,9 @@ enum WritingLevel { beginner, intermediate, advanced }
 
 extension WritingLevelX on WritingLevel {
   String get label => switch (this) {
-        WritingLevel.beginner => 'Başlangıç',
-        WritingLevel.intermediate => 'Orta',
-        WritingLevel.advanced => 'İleri',
+        WritingLevel.beginner => 'Beginner',
+        WritingLevel.intermediate => 'Intermediate',
+        WritingLevel.advanced => 'Advanced',
       };
   int get minChars => switch (this) {
         WritingLevel.beginner => 100,
@@ -22,7 +22,7 @@ extension WritingLevelX on WritingLevel {
 
 class WritingTask {
   final String id;
-  final String task; // Görev açıklaması
+  final String task; // Task description
   final WritingLevel level;
   final String emoji;
 

@@ -40,7 +40,7 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
             icon: const Icon(Icons.filter_list),
             onSelected: (level) => setState(() => _levelFilter = level),
             itemBuilder: (c) => [
-              const PopupMenuItem(value: null, child: Text('Tüm Seviyeler')),
+              const PopupMenuItem(value: null, child: Text('All Levels')),
               ...WritingLevel.values.map((l) =>
                 PopupMenuItem(value: l, child: Text(l.label))
               ),

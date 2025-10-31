@@ -3,8 +3,6 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/screens/assessment_results_screen.dart';
 
 // Data model for questions
@@ -399,38 +397,29 @@ class _LevelAssessmentScreenState extends State<LevelAssessmentScreen>
 
   Future<void> _finishQuiz() async {
     setState(() => _isLoading = true);
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
     final level = _calculateLevel(_score);
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({'level': level});
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                AssessmentResultsScreen(
-                  score: _score,
-                  totalQuestions: _selectedQuestions.length,
-                  level: level,
-                ),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed to save level: $e')));
-        setState(() => _isLoading = false);
-      }
+
+    // Test sonucu Firebase'e kaydedilmiyor - sadece gösteriliyor
+    // Seviye yalnızca tamamlanan grammar derslerine göre güncellenir
+
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              AssessmentResultsScreen(
+                score: _score,
+                totalQuestions: _selectedQuestions.length,
+                level: level,
+              ),
+          transitionsBuilder:
+              (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
     }
+    setState(() => _isLoading = false);
   }
 
   @override

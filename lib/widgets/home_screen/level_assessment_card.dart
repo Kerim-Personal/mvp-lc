@@ -36,7 +36,6 @@ class LevelAssessmentCard extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                // UPDATE: Added to vertically center the content.
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("Discover Your Level",

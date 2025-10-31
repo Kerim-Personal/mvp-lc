@@ -24,11 +24,18 @@ class WritingAnalysisScreen extends StatelessWidget {
   }
 
   String _scoreLabel(int score) {
-    if (score >= 90) return 'Mükemmel';
-    if (score >= 80) return 'Çok İyi';
-    if (score >= 70) return 'İyi';
-    if (score >= 60) return 'Orta';
-    return 'Geliştirilmeli';
+    if (score >= 90) return 'Excellent';
+    if (score >= 80) return 'Very Good';
+    if (score >= 70) return 'Good';
+    if (score >= 60) return 'Average';
+    return 'Needs Improvement';
+  }
+
+  // Robust word count helper to handle multiple spaces and newlines
+  int _wordCount(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return 0;
+    return trimmed.split(RegExp(r'\s+')).length;
   }
 
   @override
@@ -40,12 +47,12 @@ class WritingAnalysisScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Yazı Analizi'),
+        title: const Text('Writing Analysis'),
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            tooltip: 'Tekrar Düzenle',
+            tooltip: 'Edit Again',
             onPressed: () {
               Navigator.of(context).pop();
               onEditAgain();
@@ -76,7 +83,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Skor:',
+                    'Score:',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -133,7 +140,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                       child: _buildExpandedListCard(
                         context,
                         icon: '💪',
-                        title: 'Güçlü Yönler',
+                        title: 'Strengths',
                         items: analysis.strengths,
                         color: Colors.green,
                       ),
@@ -145,7 +152,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                       child: _buildExpandedListCard(
                         context,
                         icon: '📈',
-                        title: 'Gelişim Alanları',
+                        title: 'Areas for Improvement',
                         items: analysis.improvements,
                         color: Colors.orange,
                       ),
@@ -162,7 +169,7 @@ class WritingAnalysisScreen extends StatelessWidget {
               _buildActionButton(
                 context,
                 icon: '🔍',
-                title: 'Gramer İncelemeleri (${analysis.grammarIssues.length})',
+                title: 'Grammar Review (${analysis.grammarIssues.length})',
                 onTap: () => _showGrammarDialog(context),
               ),
               const SizedBox(height: 8),
@@ -173,11 +180,11 @@ class WritingAnalysisScreen extends StatelessWidget {
               _buildActionButton(
                 context,
                 icon: '📚',
-                title: 'Kelime Dağarcığı',
+                title: 'Vocabulary',
                 onTap: () => _showInfoDialog(
                   context,
                   icon: '📚',
-                  title: 'Kelime Dağarcığı',
+                  title: 'Vocabulary',
                   content: analysis.vocabularyFeedback,
                 ),
               ),
@@ -189,25 +196,25 @@ class WritingAnalysisScreen extends StatelessWidget {
               _buildActionButton(
                 context,
                 icon: '🏗️',
-                title: 'Metin Yapısı',
+                title: 'Text Structure',
                 onTap: () => _showInfoDialog(
                   context,
                   icon: '🏗️',
-                  title: 'Metin Yapısı',
+                  title: 'Text Structure',
                   content: analysis.structureFeedback,
                 ),
               ),
               const SizedBox(height: 8),
             ],
 
-            // Görev ve Yazı butonları yan yana
+            // Task and Writing buttons side by side
             Row(
               children: [
                 Expanded(
                   child: _buildActionButton(
                     context,
                     icon: task.emoji,
-                    title: 'Görev',
+                    title: 'Task',
                     onTap: () => _showTaskDialog(context),
                   ),
                 ),
@@ -216,7 +223,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                   child: _buildActionButton(
                     context,
                     icon: '📝',
-                    title: 'Yazı',
+                    title: 'Writing',
                     onTap: () => _showUserTextDialog(context),
                   ),
                 ),
@@ -335,7 +342,7 @@ class WritingAnalysisScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Kapat'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -355,7 +362,7 @@ class WritingAnalysisScreen extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Gramer İncelemeleri (${analysis.grammarIssues.length})',
+                'Grammar Review (${analysis.grammarIssues.length})',
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
             ),
@@ -395,7 +402,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Düzeltmeyi kopyala',
+                          tooltip: 'Copy correction',
                           icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.green),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -404,7 +411,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Düzeltme panoya kopyalandı'),
+                                  content: Text('Correction copied to clipboard'),
                                   duration: Duration(seconds: 1),
                                 ),
                               );
@@ -466,7 +473,7 @@ class WritingAnalysisScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Kapat'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -531,7 +538,7 @@ class WritingAnalysisScreen extends StatelessWidget {
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                'Görev',
+                'Task',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
             ),
@@ -559,7 +566,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Seviye: ${task.level.label} • Min: ${task.level.minChars} karakter',
+                        'Level: ${task.level.label} • Min: ${task.level.minChars} characters',
                         style: const TextStyle(fontSize: 13),
                       ),
                     ),
@@ -572,7 +579,7 @@ class WritingAnalysisScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Kapat'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -592,7 +599,7 @@ class WritingAnalysisScreen extends StatelessWidget {
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                'Yazdığınız Metin',
+                'Your Writing',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
             ),
@@ -614,7 +621,7 @@ class WritingAnalysisScreen extends StatelessWidget {
                     const Icon(Icons.text_fields, size: 18, color: Colors.grey),
                     const SizedBox(width: 8),
                     Text(
-                      '${userText.length} karakter • ${userText.split(' ').length} kelime',
+                      '${userText.length} characters • ${_wordCount(userText)} words',
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
@@ -631,11 +638,10 @@ class WritingAnalysisScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Kapat'),
+            child: const Text('Close'),
           ),
         ],
       ),
     );
   }
 }
-
