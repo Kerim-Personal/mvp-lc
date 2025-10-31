@@ -335,6 +335,8 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
         backgroundColor: _backgroundColor,
         foregroundColor: _foregroundColor,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         title: Text(story.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           // Eye Protection button
@@ -353,17 +355,17 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
           IconButton(onPressed: _openReaderSettings, icon: const Icon(Icons.tune_rounded)),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          if (story.description != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              child: Text(story.description!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: _foregroundColor.withValues(alpha: 0.7))),
-            ),
-          Expanded(
-            child: Stack(
-              children: [
-                _BookView(
+          Column(
+            children: [
+              if (story.description != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Text(story.description!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: _foregroundColor.withValues(alpha: 0.7))),
+                ),
+              Expanded(
+                child: _BookView(
                   story: story,
                   playingFull: _playingFull,
                   currentSentenceIndex: _currentSentenceIndex,
@@ -379,17 +381,17 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                   borderColor: _borderColor,
                   pageWidthFactor: _pageWidthFactor,
                 ),
-                if (_eyeProtectionOverlay != null)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(
-                        color: _eyeProtectionOverlay,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
+          if (_eyeProtectionOverlay != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  color: _eyeProtectionOverlay,
+                ),
+              ),
+            ),
         ],
       ),
       bottomSheet: _buildBottomBar(totalSentences),
