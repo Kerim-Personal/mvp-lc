@@ -29,7 +29,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   void _selectTab(int idx) {
     if (_selectedIndex == idx) {
-      if (idx == 0) setState(() => _grammarReplay++); // aynı sekmeye tekrar basınca replay
+      // Zaten seçili sekmeye basıldıysa hiçbir şey yapma
       return;
     }
     setState(() {
