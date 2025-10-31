@@ -88,12 +88,13 @@ Be a real teacher - read context and respond naturally with variety. Stay under 
 
 
 function resolveDailyLimit(key) {
-  // Tüm işlemler için varsayılan günlük limitler 150
+  // Tüm işlemler için varsayılan günlük limitler
   const defaults = {
     vocabotSend: 150,
     vocabotAnalyzeGrammar: 150,
     aiTranslate: 150,
     vocabotGrammarQuiz: 150,
+    aiWritingCheck: 100,
   };
   try {
     if (functions.config().ai) {

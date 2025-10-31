@@ -3,11 +3,42 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:circle_flags/circle_flags.dart';
 import 'package:vocachat/screens/leaderboard_screen.dart';
+
+// Dil kodlarını bayrak kodlarına çeviren map
+const _flagMap = <String,String>{
+  'af':'za','sq':'al','ar':'sa','be':'by','bg':'bg','bn':'bd','ca':'ad','zh':'cn','hr':'hr','cs':'cz','da':'dk','nl':'nl','en':'gb','et':'ee','fi':'fi','fr':'fr','gl':'es','ka':'ge','de':'de','el':'gr','he':'il','hi':'in','hu':'hu','is':'is','id':'id','ga':'ie','it':'it','ja':'jp','ko':'kr','lv':'lv','lt':'lt','mk':'mk','ms':'my','mt':'mt','no':'no','fa':'ir','pl':'pl','pt':'pt','ro':'ro','ru':'ru','sk':'sk','sl':'si','es':'es','sw':'tz','sv':'se','tl':'ph','ta':'lk','th':'th','tr':'tr','uk':'ua','ur':'pk','vi':'vn','ht':'ht','gu':'in','kn':'in','te':'in','mr':'in'};
+const _suppressFlag = {'eo','cy'};
+const _indianGroup = {'hi','gu','kn','te','mr'};
 
 class UserProfileSummaryScreen extends StatelessWidget {
   final LeaderboardUser user;
   const UserProfileSummaryScreen({super.key, required this.user});
+
+  Widget _buildNativeLanguageFlag(String languageCode, double size) {
+    final code = languageCode.toLowerCase();
+    if (!_flagMap.containsKey(code) || _suppressFlag.contains(code)) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          code.toUpperCase(),
+          style: TextStyle(
+            fontSize: size * 0.35,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+      );
+    }
+    return CircleFlag(_flagMap[code]!.toLowerCase(), size: size);
+  }
 
   Widget _modernStatCard(BuildContext context, String label, String value, {IconData? icon, Color? iconColor}) {
     final cs = Theme.of(context).colorScheme;
@@ -74,6 +105,82 @@ class UserProfileSummaryScreen extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         value,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _modernStatCardWithFlag(BuildContext context, String label, String languageCode) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.surfaceContainerHighest.withValues(alpha: 0.8),
+            cs.surfaceContainer.withValues(alpha: 0.6),
+          ],
+        ),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {},
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: cs.tertiary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: _buildNativeLanguageFlag(languageCode, 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        languageCode.toUpperCase(),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
@@ -181,6 +288,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
               final streak = (data['streak'] as int?) ?? user.streak;
               final highestStreak = (data['highestStreak'] as int?) ?? streak;
               final nativeLanguage = (data['nativeLanguage'] as String?) ?? '-';
+              final learningLanguage = (data['learningLanguage'] as String?) ?? '-';
               final levelRaw = data['level'];
               final level = levelRaw == null ? '-' : levelRaw.toString();
               final createdAtTs = data['createdAt'];
@@ -312,7 +420,10 @@ class UserProfileSummaryScreen extends StatelessWidget {
 
                     // Basic stats
                     _modernStatCard(context, 'Level', level, icon: Icons.school, iconColor: cs.primary),
-                    _modernStatCard(context, 'Native Language', nativeLanguage, icon: Icons.flag_circle, iconColor: cs.tertiary),
+                    if (nativeLanguage != '-')
+                      _modernStatCardWithFlag(context, 'Native Language', nativeLanguage),
+                    if (learningLanguage != '-')
+                      _modernStatCardWithFlag(context, 'Learning Language', learningLanguage),
                     _modernStatCard(context, 'Streak', streak.toString(), icon: Icons.local_fire_department, iconColor: Colors.deepOrange),
                     _modernStatCard(context, 'Highest Streak', highestStreak.toString(), icon: Icons.whatshot, iconColor: Colors.amber),
                     if (createdAtStr != '-') _modernStatCard(context, 'Member since', createdAtStr, icon: Icons.calendar_today, iconColor: cs.secondary),

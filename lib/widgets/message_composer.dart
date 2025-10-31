@@ -10,6 +10,7 @@ import 'package:circle_flags/circle_flags.dart';
 import 'package:vocachat/services/grammar_progress_service.dart';
 import 'package:vocachat/data/lesson_data.dart';
 import 'package:vocachat/models/lesson_model.dart';
+import 'package:vocachat/screens/scenario_chat_screen.dart';
 
 /// Reusable message / comment composer with optional:
 /// - Speech to text
@@ -37,6 +38,11 @@ class MessageComposer extends StatefulWidget {
   final ValueChanged<String?>? onScenarioChanged;
   // Yeni: Gramer pratik başlatma callback'i
   final ValueChanged<Lesson>? onGrammarPractice;
+  // Senaryo sohbeti için gerekli bilgiler
+  final String? targetLanguage;
+  final String? learningLevel;
+  // Ataç butonunu gizle (senaryo sohbeti için)
+  final bool hideAttachButton;
 
   const MessageComposer({super.key,
     required this.onSend,
@@ -57,6 +63,9 @@ class MessageComposer extends StatefulWidget {
     this.selectedScenario,
     this.onScenarioChanged,
     this.onGrammarPractice,
+    this.targetLanguage,
+    this.learningLevel,
+    this.hideAttachButton = false,
   });
 
   @override
@@ -765,8 +774,8 @@ class _MessageComposerState extends State<MessageComposer> {
       tooltip: 'Translate',
     );
 
-    // WhatsApp tarzı ataç menüsü
-    final attachButton = IconButton(
+    // WhatsApp tarzı ataç menüsü (senaryo ekranında gizli)
+    final attachButton = !widget.hideAttachButton ? IconButton(
       icon: const Icon(Icons.attach_file_rounded),
       splashRadius: 20,
       padding: const EdgeInsets.all(0),
@@ -774,15 +783,17 @@ class _MessageComposerState extends State<MessageComposer> {
       color: iconBase.withValues(alpha: 0.75),
       onPressed: widget.enabled ? _openAttachMenu : null,
       tooltip: 'Ekle',
-    );
+    ) : null;
 
     return SizedBox(
       height: 40,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          attachButton,
-          const SizedBox(width: 4),
+          if (attachButton != null) ...[
+            attachButton,
+            const SizedBox(width: 4),
+          ],
           translateButton,
         ],
       ),
@@ -1119,8 +1130,20 @@ class _MessageComposerState extends State<MessageComposer> {
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(12),
                                   onTap: () {
-                                    widget.onScenarioChanged?.call(s);
                                     Navigator.of(ctx).pop();
+                                    // Yeni senaryo sohbet ekranını aç
+                                    if (widget.targetLanguage != null && widget.targetLanguage!.isNotEmpty) {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => ScenarioChatScreen(
+                                            scenario: s,
+                                            targetLanguage: widget.targetLanguage!,
+                                            nativeLanguage: widget.nativeLanguage,
+                                            learningLevel: widget.learningLevel ?? 'medium',
+                                          ),
+                                        ),
+                                      );
+                                    }
                                   },
                                   child: Padding(
                                     padding: const EdgeInsets.all(12),
@@ -1459,15 +1482,13 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   static const List<String> _defaultScenarios = [
-    // Günlük yaşam
+    // 20 temel, kısa ve net senaryo (Yemek siparişi kaldırıldı)
     'Restoranda',
-    'Kafede',
-    'Yemek siparişi',
     'Restoran rezervasyonu',
+    'Kafede',
     'Otelde (check-in)',
     'Otelde şikayet',
     'Havalimanında',
-    'Uçakta',
     'Pasaport kontrolü',
     'Gümrükte',
     'Turist bilgi ofisi',
@@ -1476,41 +1497,10 @@ class _MessageComposerState extends State<MessageComposer> {
     'Taksiciyle',
     'Araç kiralama',
     'Benzin istasyonu',
-    'Oto yıkamada',
-    'Tamircide',
-    'Kargo teslimi',
-    'Postanede',
-    'Banka işlemleri',
-    'Hastanede',
     'Eczanede',
     'Doktor randevusu',
-    'Dişçide',
-    'Acil serviste',
     'Market alışverişi',
-    'Alışveriş merkezinde',
-    'Kıyafet denemesi',
-    'İade ve değişim',
-    'Kütüphanede',
-    'Okulda',
-    'Sınıfta',
-    'Ödev danışma',
-    'İş görüşmesi',
-    'Ofiste',
-    'Toplantıda',
-    'Sunum yapma',
-    'Telefonla müşteri hizmetleri',
-    'Randevu ayarlama',
+    'Müşteri hizmetleri (telefon)',
     'Yön tarifi sorma',
-    'Adres tarif etme',
-    'Müze ziyareti',
-    'Parkta',
-    'Spor salonunda',
-    'Sinema',
-    'Tiyatro',
-    'Konserde',
-    'Ev kiralama',
-    'Ev gösterimi',
-    'Komşuyla sohbet',
-    'Şikayet bildirme',
   ];
 }

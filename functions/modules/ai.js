@@ -27,43 +27,135 @@ exports.vocabotSend = functions.region('us-central1').https.onCall(async (data, 
   if (message.length > 1200) throw new functions.https.HttpsError('invalid-argument','Mesaj çok uzun');
   try {
     const genAI = getGeminiClient();
-    const systemInstruction = buildSystemPrompt(targetLanguage, nativeLanguage, learningLevel);
-    const intent = classifyIntent(message);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
-      systemInstruction,
-      safetySettings: [
-        {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE},
-        {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE},
-        {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE},
-        {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE},
-      ],
-    });
 
-    // Senaryo varsa ekle
-    const scenarioNote = scenario ? `\n\nSCENARIO CONTEXT: ${scenario}\nStay in character and keep responses natural to this scenario.` : '';
+    // SENARYO VARSA: Öğretmen değil, o karaktersin!
+    let systemInstruction;
+    let prompt;
 
-    // Konuşma geçmişi - istemci zaten son 8 mesajı gönderiyor
-    let conversationContext = '';
-    if (chatHistory && chatHistory.length > 0) {
-      const lines = chatHistory.map(msg => {
-        const role = msg.role === 'user' ? 'Student' : 'Teacher';
-        return `${role}: ${msg.content}`;
+    // Yardımcı: senaryo adını yanıttan temizle
+    const stripScenarioLiterals = (text, rawScenario) => {
+      if (!text || !rawScenario) return text || '';
+      const forms = [];
+      const s = String(rawScenario).trim();
+      if (!s) return text;
+      forms.push(s);
+      forms.push(s.toLowerCase());
+      // Basit token bazlı formlar
+      const parts = s.split(/[^\p{L}]+/u).filter(Boolean);
+      for (const p of parts) {
+        forms.push(p);
+        forms.push(p.toLowerCase());
+      }
+      let out = String(text);
+      for (const f of forms) {
+        if (!f) continue;
+        const esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        out = out.replace(new RegExp(`\\b${esc}\\b`, 'gi'), '');
+      }
+      return out.replace(/\s{2,}/g, ' ').trim();
+    };
+
+    if (scenario) {
+      // Senaryo modu: Karakter ol
+      const base = String(targetLanguage || 'en').toLowerCase().split('-')[0];
+      const langName = base === 'en' ? 'English'
+        : base === 'tr' ? 'Turkish'
+        : base === 'es' ? 'Spanish'
+        : base === 'fr' ? 'French'
+        : base === 'de' ? 'German'
+        : base === 'it' ? 'Italian'
+        : base === 'pt' ? 'Portuguese'
+        : base === 'ja' ? 'Japanese'
+        : base === 'ko' ? 'Korean'
+        : base === 'zh' ? 'Chinese'
+        : base === 'ar' ? 'Arabic'
+        : base === 'ru' ? 'Russian'
+        : 'the target language';
+
+      // Yasaklı literal token listesi oluştur (senaryo sözcüklerini asla yazma)
+      const rawTokens = String(scenario).split(/[^\p{L}]+/u).filter(Boolean);
+      const forbidden = Array.from(new Set(rawTokens.filter(Boolean)));
+      const forbiddenLine = forbidden.length ? `\n- Forbidden literal tokens (do not output them at all): ${forbidden.map(t => `'${t}'`).join(', ')}` : '';
+
+      systemInstruction = `You are roleplaying: ${scenario}
+
+CRITICAL RULES:
+- You ARE this person/character in real life
+- Speak ONLY in ${langName} (no other languages, no mixing)
+- Act natural, like a real human in this situation
+- NO teaching, NO explanations, NO "let me help you learn"
+- Keep responses SHORT (1-2 sentences max)
+- Usually end with ONE short, context-appropriate question to keep the conversation going IF it feels natural; do not force a question
+- If the user just asked you a question, answer directly (no extra follow-up question)
+- Avoid repeating the same question or phrasing in consecutive turns; vary your wording
+- Be in character 100% - never break character
+- Do NOT mention the scenario title or meta words; never include raw labels from another language${forbiddenLine}
+- If user struggles, stay in character but speak simpler
+
+You are NOT a teacher. You are THIS person in THIS situation. Be real.`;
+
+      // Konuşma geçmişi
+      let conversationContext = '';
+      if (chatHistory && chatHistory.length > 0) {
+        const lines = chatHistory.map(msg => {
+          return `${msg.role === 'user' ? 'Customer' : 'You'}: ${msg.content}`;
+        });
+        conversationContext = `Previous conversation:\n${lines.join('\n')}\n\n`;
+      }
+
+      prompt = `${conversationContext}Customer says: "${message}"
+
+Respond in character. ONLY ${langName}. No other languages. Natural and brief. If natural, end with ONE short relevant question; otherwise do not force it. Do not include any of the forbidden tokens.`;
+
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash-lite',
+        systemInstruction,
+        safetySettings: [
+          {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE},
+          {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE},
+          {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE},
+          {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE},
+        ],
       });
-      conversationContext = `\n\nCONVERSATION HISTORY:\n${lines.join('\n')}\n`;
-    }
 
-    // Basit ve temiz prompt - system instruction zaten her şeyi içeriyor
-    const prompt = `${conversationContext}
+      const result = await model.generateContent([{text: prompt}]);
+      let reply = sanitizeReply(result.response.text());
+      // Son temizlik: senaryo etiketini veya tokenlarını sızdırdıysa kırp
+      reply = stripScenarioLiterals(reply, scenario);
+      return {reply};
+
+    } else {
+      // Normal öğretmen modu
+      const systemInstruction2 = buildSystemPrompt(targetLanguage, nativeLanguage, learningLevel);
+      const intent = classifyIntent(message);
+      let conversationContext = '';
+      if (chatHistory && chatHistory.length > 0) {
+        const lines = chatHistory.map(msg => {
+          const role = msg.role === 'user' ? 'Student' : 'Teacher';
+          return `${role}: ${msg.content}`;
+        });
+        conversationContext = `\n\nCONVERSATION HISTORY:\n${lines.join('\n')}\n`;
+      }
+      const prompt2 = `${conversationContext}
 Student's new message: "${message}"
 
-Message intent: ${intent}${scenarioNote}
+Message intent: ${intent}
 
 Respond naturally as their teacher.`;
-    const result = await model.generateContent([{text: prompt}]);
-
-    const reply = sanitizeReply(result.response.text());
-    return {reply};
+      const model2 = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash-lite',
+        systemInstruction: systemInstruction2,
+        safetySettings: [
+          {category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE},
+          {category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE},
+          {category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE},
+          {category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE},
+        ],
+      });
+      const result2 = await model2.generateContent([{text: prompt2}]);
+      const reply2 = sanitizeReply(result2.response.text());
+      return {reply: reply2};
+    }
   } catch (e) {
     console.error('vocabotSend error', e);
     throw new functions.https.HttpsError('internal','VocaBot yanıt üretilemedi');

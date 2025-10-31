@@ -988,6 +988,9 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                       onScenarioChanged: (s) => setState(() => _scenario = s),
                       // Gramer
                       onGrammarPractice: (lesson) => _startGrammarQuiz(lesson),
+                      // Senaryo sohbeti için gerekli bilgiler
+                      targetLanguage: _targetLanguage,
+                      learningLevel: _learningLevel,
                     ),
                   ),
                 ],
