@@ -677,13 +677,10 @@ class _TranscriptAndQuestionsList extends StatelessWidget {
     final total = exercise.questions.length;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100), // Adjusted bottom padding
-      itemCount: exercise.questions.length + (showTranscript ? 1 : 0) + 1,
+      itemCount: exercise.questions.length + (showTranscript ? 1 : 0),
       itemBuilder: (c, index) {
-        if (index == 0) {
-          return _HeaderInfo(exercise: exercise);
-        }
         if (showTranscript) {
-          if (index == 1) {
+          if (index == 0) {
             return _GlassCard(
               child: _TranscriptView(
                 exercise: exercise,
@@ -693,7 +690,7 @@ class _TranscriptAndQuestionsList extends StatelessWidget {
               ),
             );
           }
-          final qIndex = index - 2;
+          final qIndex = index - 1;
           final q = exercise.questions[qIndex];
           return _QuestionCard(
             index: qIndex,
@@ -704,7 +701,7 @@ class _TranscriptAndQuestionsList extends StatelessWidget {
             submitted: submitted,
           );
         } else {
-          final qIndex = index - 1;
+          final qIndex = index;
           final q = exercise.questions[qIndex];
           return _QuestionCard(
             index: qIndex,
@@ -758,70 +755,6 @@ class _GlassCard extends StatelessWidget {
   }
 }
 
-class _HeaderInfo extends StatelessWidget {
-  final ListeningExercise exercise;
-  const _HeaderInfo({required this.exercise});
-  Color _levelColor(ListeningLevel l){
-    return switch(l){
-      ListeningLevel.beginner => Colors.green,
-      ListeningLevel.intermediate => Colors.orange,
-      ListeningLevel.advanced => Colors.red,
-    };}
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return _GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.headphones, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Expanded(child: Text(exercise.title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _Tag(label: exercise.category, icon: Icons.category),
-              _Tag(label: exercise.accent, icon: Icons.public),
-              _Tag(label: exercise.level.label, color: _levelColor(exercise.level), icon: Icons.flag),
-            ],
-          ),
-          if (exercise.description != null) ...[
-            const SizedBox(height: 12),
-            Text(exercise.description!, style: theme.textTheme.bodyMedium),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  final String label; final IconData icon; final Color? color;
-  const _Tag({required this.label, required this.icon, this.color});
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final c = color ?? theme.colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: c.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [Icon(icon, size: 16, color: c), const SizedBox(width: 4), Text(label, style: TextStyle(color: c, fontWeight: FontWeight.w600))],
-      ),
-    );
-  }
-}
 
 class _QuestionCard extends StatelessWidget {
   final ListeningQuestion question;
