@@ -126,10 +126,13 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
       ),
       body: Stack(
         children:[
-          const Positioned.fill(
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.black,
+                image: DecorationImage(
+                  image: AssetImage('assets/practice/main_bg.png'),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),

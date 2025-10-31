@@ -145,9 +145,12 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: const DecoratedBox(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.black,
+                image: DecorationImage(
+                  image: AssetImage('assets/practice/main_bg.png'),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
