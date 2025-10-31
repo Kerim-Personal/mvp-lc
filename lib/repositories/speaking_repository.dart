@@ -16,6 +16,7 @@ class SpeakingRepository {
         id: 's1',
         title: 'Ordering Coffee',
         mode: SpeakingMode.roleplay,
+        level: SpeakingLevel.beginner,
         context: 'You are in a cafe. You are ordering a coffee from the barista.',
         partnerLine: 'Hi there! What can I get you today?',
         targets: [
@@ -34,6 +35,7 @@ class SpeakingRepository {
         id: 's2',
         title: 'Shadowing 1',
         mode: SpeakingMode.shadowing,
+        level: SpeakingLevel.intermediate,
         context: 'Shadowing: Listen to the sentence and then immediately repeat it with the same rhythm.',
         targets: [
           'Learning a new language is a journey, not a race.',
@@ -48,6 +50,7 @@ class SpeakingRepository {
         id: 's3',
         title: 'Quick Q&A',
         mode: SpeakingMode.qna,
+        level: SpeakingLevel.beginner,
         context: 'Give quick answers to the questions. You have 5 seconds to think.',
         targets: [
           'What do you usually have for breakfast?',
@@ -62,6 +65,7 @@ class SpeakingRepository {
         id: 's4',
         title: 'Repetition Practice',
         mode: SpeakingMode.repeat,
+        level: SpeakingLevel.advanced,
         context: 'Repeat the sentence with clear and precise pronunciation.',
         targets: [
           'Practice makes progress.',

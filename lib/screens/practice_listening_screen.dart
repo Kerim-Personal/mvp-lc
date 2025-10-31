@@ -15,19 +15,68 @@ class PracticeListeningScreen extends StatefulWidget {
   State<PracticeListeningScreen> createState() => _PracticeListeningScreenState();
 }
 
+// Yazma ekranındaki gibi açık filtre seçenekleri
+enum _FilterOption { all, beginner, intermediate, advanced }
+
 class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
   final _repo = ListeningRepository.instance;
   final _progress = ListeningProgressService.instance;
-  ListeningLevel? _levelFilter;
+  late final List<ListeningExercise> _allExercises;
+  late List<ListeningExercise> _visibleExercises;
+  _FilterOption _menuSelection = _FilterOption.all;
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _allExercises = _repo.all();
+    _visibleExercises = List<ListeningExercise>.from(_allExercises);
+    _scrollController = ScrollController();
+  }
+
+  void _applyFilter(ListeningLevel? level) {
+    setState(() {
+      if (level == null) {
+        _visibleExercises = List<ListeningExercise>.from(_allExercises);
+      } else {
+        _visibleExercises = _allExercises.where((e) => e.level == level).toList();
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(0,
+            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  void _onMenuSelected(_FilterOption opt) {
+    _menuSelection = opt;
+    switch (opt) {
+      case _FilterOption.all:
+        _applyFilter(null);
+        break;
+      case _FilterOption.beginner:
+        _applyFilter(ListeningLevel.beginner);
+        break;
+      case _FilterOption.intermediate:
+        _applyFilter(ListeningLevel.intermediate);
+        break;
+      case _FilterOption.advanced:
+        _applyFilter(ListeningLevel.advanced);
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final all = _repo.all();
-    var filtered = all;
-    if (_levelFilter != null) {
-      filtered = filtered.where((e) => e.level == _levelFilter).toList();
-    }
-    final topMargin = EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + kToolbarHeight + 12, 16, 12);
+    final exercises = _visibleExercises;
+    final topMargin = EdgeInsets.fromLTRB(
+      16,
+      MediaQuery.of(context).padding.top + kToolbarHeight + 12,
+      16,
+      12,
+    );
 
     Widget circleWrapper(Widget child) => Container(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -41,12 +90,10 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
       child: child,
     );
     final canPop = Navigator.of(context).canPop();
-    // Artık AppBar arkası da görüntü altında: safe area boşluğu
 
-    // AppBar transparan olacak.
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -63,12 +110,15 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
         leadingWidth: canPop ? 60 : null,
         actions: [
           circleWrapper(
-            PopupMenuButton<ListeningLevel?>(
+            PopupMenuButton<_FilterOption>(
               icon: const Icon(Icons.filter_list, color: Colors.white),
-              onSelected: (v) => setState(() => _levelFilter = v),
-              itemBuilder: (c) => [
-                const PopupMenuItem(value: null, child: Text('All')),
-                ...ListeningLevel.values.map((l) => PopupMenuItem(value: l, child: Text(l.label))),
+              initialValue: _menuSelection,
+              onSelected: _onMenuSelected,
+              itemBuilder: (c) => const [
+                PopupMenuItem<_FilterOption>(value: _FilterOption.all, child: Text('All')),
+                PopupMenuItem<_FilterOption>(value: _FilterOption.beginner, child: Text('Beginner')),
+                PopupMenuItem<_FilterOption>(value: _FilterOption.intermediate, child: Text('Intermediate')),
+                PopupMenuItem<_FilterOption>(value: _FilterOption.advanced, child: Text('Advanced')),
               ],
             ),
           ),
@@ -76,21 +126,10 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
       ),
       body: Stack(
         children:[
-          Positioned.fill(
+          const Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                image: const DecorationImage(
-                  image: AssetImage('assets/practice/listening_bg.jpg'),
-                  fit: BoxFit.cover,
-                ),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.50),
-                    Colors.black.withValues(alpha: 0.40),
-                  ],
-                ),
+                color: Colors.black,
               ),
             ),
           ),
@@ -107,14 +146,15 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
                 hero: false,
               ),
               Expanded(
-                child: filtered.isEmpty ? const EmptyState(message: 'No listening exercises found.') : ListView.builder(
+                child: exercises.isEmpty ? const EmptyState(message: 'No listening exercises found.') : ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: filtered.length,
+                  itemCount: exercises.length,
                   itemBuilder: (c, i) {
-                    final ex = filtered[i];
+                    final ex = exercises[i];
                     return AnimatedSlide(
                       duration: const Duration(milliseconds: 300),
-                      offset: Offset(0, 0.02 * (1 - (i / (filtered.length.clamp(1, 99))))),
+                      offset: Offset(0, 0.02 * (1 - (i / (exercises.length.clamp(1, 99))))),
                       child: AnimatedOpacity(
                         duration: const Duration(milliseconds: 400),
                         opacity: 1,
@@ -148,6 +188,12 @@ class _PracticeListeningScreenState extends State<PracticeListeningScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }
 

@@ -22,8 +22,9 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
   late final List<WritingTask> _allTasks;
   // Görünür listeyi state'te tut
   late List<WritingTask> _visibleTasks;
-  WritingLevel? _levelFilter; // null => All
   _FilterOption _menuSelection = _FilterOption.all;
+  // Scroll konumunu kontrol etmek için
+  late final ScrollController _scrollController;
 
   Color _levelColor(WritingLevel l) => switch (l) {
         WritingLevel.beginner => Colors.green,
@@ -36,16 +37,26 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
     super.initState();
     _allTasks = _repo.getAllTasks();
     _visibleTasks = List<WritingTask>.from(_allTasks);
+    _scrollController = ScrollController();
   }
 
   void _applyFilter(WritingLevel? level) {
     setState(() {
-      _levelFilter = level;
       if (level == null) {
         // All
         _visibleTasks = List<WritingTask>.from(_allTasks);
       } else {
         _visibleTasks = List<WritingTask>.from(_repo.getTasksByLevel(level));
+      }
+    });
+    // Build tamamlandıktan sonra en tepeye kaydır
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -95,7 +106,7 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -131,105 +142,111 @@ class _PracticeWritingScreenState extends State<PracticeWritingScreen> {
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFFFF9A9E).withValues(alpha: 0.3),
-              const Color(0xFFFECAB3).withValues(alpha: 0.2),
-            ],
-          ),
-        ),
-        child: Column(
-          children: [
-            ModeHeroHeader(
-              tag: 'mode-Writing',
-              title: 'Writing Practice',
-              subtitle: 'Write • Create • Express',
-              image: 'assets/practice/writing_bg.jpg',
-              colors: const [Color(0xFFFF9A9E), Color(0xFFFECAB3)],
-              icon: Icons.edit_rounded,
-              margin: topMargin,
-              hero: false,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black,
+              ),
             ),
-            Expanded(
-              child: tasks.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32.0),
-                        child: Text(
-                          'No tasks match your filters.',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          Column(
+            children: [
+              ModeHeroHeader(
+                tag: 'mode-Writing',
+                title: 'Writing Practice',
+                subtitle: 'Write • Create • Express',
+                image: 'assets/practice/writing_bg.jpg',
+                colors: const [Color(0xFFFF9A9E), Color(0xFFFECAB3)],
+                icon: Icons.edit_rounded,
+                margin: topMargin,
+                hero: false,
+              ),
+              Expanded(
+                child: tasks.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Text(
+                            'No tasks match your filters.',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
                         ),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount: tasks.length,
-                      itemBuilder: (c, i) {
-                        final task = tasks[i];
-                        return Card(
-                          key: ValueKey(task.id),
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: InkWell(
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PracticeWritingDetailScreen(taskId: task.id),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        itemCount: tasks.length,
+                        itemBuilder: (c, i) {
+                          final task = tasks[i];
+                          return Card(
+                            key: ValueKey(task.id),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: InkWell(
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => PracticeWritingDetailScreen(taskId: task.id),
+                                ),
                               ),
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  Text(task.emoji, style: const TextStyle(fontSize: 32)),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _levelColor(task.level).withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            task.level.label,
-                                            style: TextStyle(
-                                              color: _levelColor(task.level),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Text(task.emoji, style: const TextStyle(fontSize: 32)),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: _levelColor(task.level).withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              task.level.label,
+                                              style: TextStyle(
+                                                color: _levelColor(task.level),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          task.task,
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            task.task,
+                                            style: Theme.of(context).textTheme.bodyMedium,
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const Icon(Icons.arrow_forward_ios, size: 16),
-                                ],
+                                    const Icon(Icons.arrow_forward_ios, size: 16),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }

@@ -13,15 +13,61 @@ class PracticeSpeakingScreen extends StatefulWidget {
   State<PracticeSpeakingScreen> createState() => _PracticeSpeakingScreenState();
 }
 
+// Seviye filtresi (Writing/Reading/Listening ile aynı)
+enum _FilterOption { all, beginner, intermediate, advanced }
+
 class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
   final _repo = SpeakingRepository.instance;
-  SpeakingMode? _modeFilter;
+  late final List<SpeakingPrompt> _allPrompts;
+  late List<SpeakingPrompt> _visiblePrompts;
+  _FilterOption _menuSelection = _FilterOption.all;
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _allPrompts = _repo.all();
+    _visiblePrompts = List<SpeakingPrompt>.from(_allPrompts);
+    _scrollController = ScrollController();
+  }
+
+  void _applyFilter(SpeakingLevel? level) {
+    setState(() {
+      if (level == null) {
+        _visiblePrompts = List<SpeakingPrompt>.from(_allPrompts);
+      } else {
+        _visiblePrompts = _allPrompts.where((p) => p.level == level).toList();
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(0,
+            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  void _onMenuSelected(_FilterOption opt) {
+    _menuSelection = opt;
+    switch (opt) {
+      case _FilterOption.all:
+        _applyFilter(null);
+        break;
+      case _FilterOption.beginner:
+        _applyFilter(SpeakingLevel.beginner);
+        break;
+      case _FilterOption.intermediate:
+        _applyFilter(SpeakingLevel.intermediate);
+        break;
+      case _FilterOption.advanced:
+        _applyFilter(SpeakingLevel.advanced);
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    var list = _repo.all();
-    if (_modeFilter!=null) list = list.where((p)=> p.mode==_modeFilter).toList();
-
+    final list = _visiblePrompts;
     final topMargin = EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + kToolbarHeight + 12, 16, 12);
 
     // AppBar transparan olacak.
@@ -40,7 +86,7 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -57,12 +103,15 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
         leadingWidth: canPop ? 60 : null,
         actions: [
           circleWrapper(
-            PopupMenuButton<SpeakingMode?>(
+            PopupMenuButton<_FilterOption>(
               icon: const Icon(Icons.filter_list, color: Colors.white),
-              onSelected: (v)=> setState(()=> _modeFilter = v),
-              itemBuilder: (c)=> [
-                const PopupMenuItem(value:null, child: Text('All')),
-                ...SpeakingMode.values.map((m)=> PopupMenuItem(value:m, child: Text(m.label)))
+              initialValue: _menuSelection,
+              onSelected: _onMenuSelected,
+              itemBuilder: (c)=> const [
+                PopupMenuItem(value: _FilterOption.all, child: Text('All')),
+                PopupMenuItem(value: _FilterOption.beginner, child: Text('Beginner')),
+                PopupMenuItem(value: _FilterOption.intermediate, child: Text('Intermediate')),
+                PopupMenuItem(value: _FilterOption.advanced, child: Text('Advanced')),
               ],
             ),
           )
@@ -70,21 +119,10 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
       ),
       body: Stack(
         children:[
-          Positioned.fill(
+          const Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                image: const DecorationImage(
-                  image: AssetImage('assets/practice/speaking_bg.jpg'),
-                  fit: BoxFit.cover,
-                ),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.28),
-                    Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.88),
-                  ],
-                ),
+                color: Colors.black,
               ),
             ),
           ),
@@ -103,6 +141,7 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
               const SizedBox(height:8),
               Expanded(
                 child: list.isEmpty ? const EmptyState(message: 'No speaking prompts found.') : ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16,8,16,24),
                   itemCount: list.length,
                   itemBuilder: (c,i){
@@ -128,6 +167,12 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
         ]
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }
 

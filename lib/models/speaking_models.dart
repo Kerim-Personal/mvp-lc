@@ -19,6 +19,17 @@ extension SpeakingModeX on SpeakingMode {
   };
 }
 
+/// Levels for speaking prompts (for UI filtering)
+enum SpeakingLevel { beginner, intermediate, advanced }
+
+extension SpeakingLevelX on SpeakingLevel {
+  String get label => switch (this) {
+        SpeakingLevel.beginner => 'Beginner',
+        SpeakingLevel.intermediate => 'Intermediate',
+        SpeakingLevel.advanced => 'Advanced',
+      };
+}
+
 class SpeakingPrompt {
   final String id;
   final String title;
@@ -27,6 +38,7 @@ class SpeakingPrompt {
   final List<String> targets; // The sentence(s) we want the user to say
   final List<String> tips; // tips
   final String? partnerLine; // partner's line for roleplay (single line / template)
+  final SpeakingLevel level;
   const SpeakingPrompt({
     required this.id,
     required this.title,
@@ -35,6 +47,7 @@ class SpeakingPrompt {
     required this.targets,
     this.tips = const [],
     this.partnerLine,
+    this.level = SpeakingLevel.beginner,
   });
 }
 
