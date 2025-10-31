@@ -17,7 +17,7 @@ class PracticeListeningDetailScreen extends StatefulWidget {
   State<PracticeListeningDetailScreen> createState() => _PracticeListeningDetailScreenState();
 }
 
-class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailScreen> {
+class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailScreen> with WidgetsBindingObserver {
   late ListeningExercise exercise;
   // Audio
   final AudioPlayer _player = AudioPlayer();
@@ -54,10 +54,20 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     exercise = ListeningRepository.instance.byId(widget.exerciseId)!;
     // Stop background music
     AudioService.instance.pauseMusic();
     _initMedia();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Uygulama tekrar ön plana geldiğinde müziği durdur
+    if (state == AppLifecycleState.resumed) {
+      AudioService.instance.pauseMusic();
+    }
   }
 
   Future<void> _initMedia() async {
@@ -94,6 +104,7 @@ class _PracticeListeningDetailScreenState extends State<PracticeListeningDetailS
       await _player.setSource(source);
       _duration = Duration(milliseconds: exercise.durationMs);
       _posSub = _player.onPositionChanged.listen((d) {
+    WidgetsBinding.instance.removeObserver(this);
         setState(() => _position = d);
       });
       _player.onPlayerStateChanged.listen((s) {

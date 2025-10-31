@@ -17,7 +17,7 @@ class PracticeReadingStoryScreen extends StatefulWidget {
   State<PracticeReadingStoryScreen> createState() => _PracticeReadingStoryScreenState();
 }
 
-class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen> {
+class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen> with WidgetsBindingObserver {
   late ReadingStory story;
   String _nativeLanguageCode = 'en';
   final FlutterTts _tts = FlutterTts();
@@ -43,11 +43,21 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     story = ReadingRepository.instance.byId(widget.storyId)!;
     // Müziği durdur
     AudioService.instance.pauseMusic();
     _initNativeLang();
     _initTts();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Uygulama tekrar ön plana geldiğinde müziği durdur
+    if (state == AppLifecycleState.resumed) {
+      AudioService.instance.pauseMusic();
+    }
   }
 
   Future<void> _initNativeLang() async {
@@ -189,6 +199,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
     try {
       try { await TranslationService.instance.ensureReady(_nativeLanguageCode); } catch (_) {}
       final sent = story.sentences[index];
+    WidgetsBinding.instance.removeObserver(this);
       final tr = await TranslationService.instance.translateFromEnglish(sent, _nativeLanguageCode);
       _translated[index] = tr;
       _showTranslation.add(index);
