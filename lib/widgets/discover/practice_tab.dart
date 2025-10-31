@@ -261,8 +261,8 @@ class _PracticeModeCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Düzeltme: Linter kurallarına uymak için .withValues() kullanılıyor.
-                Container(color: Colors.black.withValues(alpha: 0.42)),
+                // Daha parlak görünüm için overlay alpha değeri azaltıldı
+                Container(color: Colors.black.withValues(alpha: 0.20)),
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Container(
@@ -271,9 +271,9 @@ class _PracticeModeCard extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withValues(alpha: 0.30),
+                            Colors.black.withValues(alpha: 0.15),
                             Colors.transparent,
-                            Colors.black.withValues(alpha: 0.40),
+                            Colors.black.withValues(alpha: 0.25),
                           ],
                           stops: const [0, 0.5, 1],
                         ),

@@ -199,7 +199,6 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
     try {
       try { await TranslationService.instance.ensureReady(_nativeLanguageCode); } catch (_) {}
       final sent = story.sentences[index];
-    WidgetsBinding.instance.removeObserver(this);
       final tr = await TranslationService.instance.translateFromEnglish(sent, _nativeLanguageCode);
       _translated[index] = tr;
       _showTranslation.add(index);
@@ -210,6 +209,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progressTimer?.cancel();
     _tts.stop();
     // Müziği tekrar başlat
@@ -672,4 +672,3 @@ class _FontChip extends StatelessWidget {
     );
   }
 }
-
