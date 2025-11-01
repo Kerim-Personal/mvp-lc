@@ -349,197 +349,186 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
   }
 
   Widget _buildPremiumInfoView() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-
-          // Diamond Animation
-          SizedBox(
-            width: 100,
-            height: 100,
-            child: Lottie.asset(
-              'assets/animations/diamond_icon.json',
-              width: 100,
-              height: 100,
-              fit: BoxFit.contain,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Title
-          const Text(
-            'VocaChat Premium',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: 0.5,
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // Subtitle
-          const Text(
-            'Dil öğreniminde sınır tanıma',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white70,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Features List
-          SizedBox(
-            height: 160,
-            child: Listener(
-              onPointerDown: (_) {
-                setState(() => _userInteracting = true);
-                _stopAutoScroll();
-              },
-              onPointerUp: (_) {
-                setState(() => _userInteracting = false);
-                _restartAutoScroll();
-              },
-              child: PageView(
-                controller: _pageController,
-                physics: const BouncingScrollPhysics(),
-                onPageChanged: (index) {
-                  setState(() => _currentFeaturePage = index);
-                },
-                children: _features.map((feature) => _buildFeatureCard(feature)).toList(),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Page Indicator Dots
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_features.length, (index) {
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                height: 6,
-                width: _currentFeaturePage == index ? 20 : 6,
-                decoration: BoxDecoration(
-                  color: _currentFeaturePage == index
-                      ? Colors.white
-                      : Colors.white.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              );
-            }),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Pricing Plans
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildPlanCard(
-                    index: 0,
-                    title: 'Monthly',
-                    price: RevenueCatService.instance.monthlyPriceString ?? r'$9.99',
-                    period: '/mo',
-                    badge: '7 DAYS FREE',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildPlanCard(
-                    index: 1,
-                    title: 'Yearly',
-                    price: RevenueCatService.instance.annualPriceString ?? r'$79.99',
-                    period: '/yr',
-                    badge: '30% OFF',
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Get Premium Button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handlePurchase,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF6C63FF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  elevation: 6,
-                  shadowColor: Colors.black.withValues(alpha: 0.3),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+    // Scroll içinde Spacer/Flexible kullanmıyoruz; minHeight + spaceBetween ile simetrik layout
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Üst bölüm
+                  Column(
+                    children: [
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 100,
+                        height: 100,
+                        child: Lottie.asset(
+                          'assets/animations/diamond_icon.json',
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.contain,
                         ),
-                      )
-                    : const Text(
-                        'Get Premium',
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'VocaChat Premium',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                           letterSpacing: 0.5,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Dil öğreniminde sınır tanıma',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Orta bölüm: özellikler + planlar + buton
+                  Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 180,
+                        child: Listener(
+                          onPointerDown: (_) {
+                            setState(() => _userInteracting = true);
+                            _stopAutoScroll();
+                          },
+                          onPointerUp: (_) {
+                            setState(() => _userInteracting = false);
+                            _restartAutoScroll();
+                          },
+                          child: PageView(
+                            controller: _pageController,
+                            physics: const BouncingScrollPhysics(),
+                            onPageChanged: (index) {
+                              setState(() => _currentFeaturePage = index);
+                            },
+                            children: _features.map((f) => _buildFeatureCard(f)).toList(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(_features.length, (index) {
+                          final active = _currentFeaturePage == index;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 6,
+                            width: active ? 20 : 6,
+                            decoration: BoxDecoration(
+                              color: active ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildPlanCard(
+                                index: 0,
+                                title: 'Monthly',
+                                price: RevenueCatService.instance.monthlyPriceString ?? r'$9.99',
+                                period: '/mo',
+                                badge: '7 DAYS FREE',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildPlanCard(
+                                index: 1,
+                                title: 'Yearly',
+                                price: RevenueCatService.instance.annualPriceString ?? r'$79.99',
+                                period: '/yr',
+                                badge: '30% OFF',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _handlePurchase,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF6C63FF),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              elevation: 6,
+                              shadowColor: Colors.black.withValues(alpha: 0.3),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+                                    ),
+                                  )
+                                : const Text(
+                                    'Get Premium',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Alt bölüm: restore + şartlar
+                  Column(
+                    children: [
+                      const SizedBox(height: 6),
+                      TextButton(
+                        onPressed: _isLoading ? null : _handleRestore,
+                        child: const Text(
+                          'Restore Purchases',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          'By continuing, you agree to our Terms of Service and Privacy Policy.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9, height: 1.3),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-
-          const SizedBox(height: 6),
-
-          // Restore Purchases
-          TextButton(
-            onPressed: _isLoading ? null : _handleRestore,
-            child: const Text(
-              'Restore Purchases',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 2),
-
-          // Terms
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'By continuing, you agree to our Terms of Service and Privacy Policy.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 9,
-                height: 1.3,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-        ],
-      ),
+        );
+      },
     );
   }
 
