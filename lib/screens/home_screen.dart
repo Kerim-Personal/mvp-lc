@@ -159,8 +159,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         builder: (_) => const PremiumUpsellDialog(),
       );
       if (choice == 'discover') {
-        // Store sekmesine geç ve burada dur
-        rootScreenKey.currentState?.changeTab(0);
+        // Paywall zaten PremiumUpsellDialog tarafından açılıyor; burada ekstra yönlendirme yapma
+        return;
       }
       // Not Now veya kapatma: hiçbir yere gitme
       return;
