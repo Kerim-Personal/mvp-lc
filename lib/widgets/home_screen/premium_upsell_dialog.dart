@@ -118,7 +118,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                       highlightColor: Colors.amber.shade300,
                       period: const Duration(milliseconds: 1500),
                       child: const Text(
-                        'VocaChat Pro',
+                        'VocaChat Premium',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 26,
@@ -168,7 +168,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                                 // Discover seçildi -> sonucu çağırana ilet
                                 Navigator.of(context).pop('discover');
                               },
-                              child: const Text('Discover VocaChat Pro'),
+                              child: const Text('Discover VocaChat Premium'),
                             ),
                           ),
                           TextButton(
