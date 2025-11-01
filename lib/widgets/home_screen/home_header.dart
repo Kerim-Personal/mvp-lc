@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:vocachat/screens/paywall_screen.dart';
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({
@@ -293,7 +294,7 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: _openStore,
+        onTap: _onStatusTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -332,6 +333,27 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  void _onStatusTap() {
+    if (!mounted) return;
+    if (!widget.isPremium) {
+      final nav = Navigator.of(context, rootNavigator: true);
+      nav.push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => PaywallScreen(
+            canDismiss: true,
+            onClose: () {
+              nav.pop();
+            },
+          ),
+        ),
+      );
+    } else {
+      // Premium kullanıcılar için mevcut mağaza akışını koru
+      _openStore();
+    }
   }
 
   void _openStore() {

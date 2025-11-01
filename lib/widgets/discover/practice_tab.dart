@@ -10,7 +10,6 @@ import 'package:vocachat/screens/practice_speaking_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vocachat/widgets/home_screen/premium_upsell_dialog.dart';
-import 'package:vocachat/screens/store_screen.dart';
 
 // --- VERİ MODELLERİ ---
 // Sınıf, "private type in a public API" hatasını çözmek için herkese açık hale getirildi.
@@ -192,12 +191,9 @@ class _PracticeModeCard extends StatelessWidget {
         builder: (_) => const PremiumUpsellDialog(),
       );
       if (result == 'discover') {
-        // 3) Kullanıcı keşfet dedi -> StoreScreen'e yönlendir
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const StoreScreen()),
-          );
-        }
+        // PremiumUpsellDialog, Discover seçildiğinde PaywallScreen'i açar.
+        // Burada ekstra bir yönlendirme yapmaya gerek yok.
+        return;
       }
       return; // erişim yok, çık
     }

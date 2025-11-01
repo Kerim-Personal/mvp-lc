@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:vocachat/screens/paywall_screen.dart';
 
 class PremiumUpsellDialog extends StatefulWidget {
   const PremiumUpsellDialog({super.key});
@@ -165,8 +166,23 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
                                 textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                               ),
                               onPressed: () {
-                                // Discover seçildi -> sonucu çağırana ilet
-                                Navigator.of(context).pop('discover');
+                                // Discover seçildi -> Paywall aç
+                                final nav = Navigator.of(context, rootNavigator: true);
+                                // Önce bu dialogu kapat (isteğe bağlı sonucu ilet)
+                                nav.pop('discover');
+                                // Ardından Paywall'ı tam ekran dialog olarak aç
+                                nav.push(
+                                  MaterialPageRoute(
+                                    fullscreenDialog: true,
+                                    builder: (_) => PaywallScreen(
+                                      canDismiss: true,
+                                      onClose: () {
+                                        // Paywall içindeki kapat'a basılınca paywall'ı kapat
+                                        nav.pop();
+                                      },
+                                    ),
+                                  ),
+                                );
                               },
                               child: const Text('Discover VocaChat Premium'),
                             ),
