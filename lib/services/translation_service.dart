@@ -208,6 +208,34 @@ class TranslationService {
     final cacheKey = '$text|$targetCode';
     if (_cache.containsKey(cacheKey)) return _cache[cacheKey]!;
     try {
+      // Tırnak içindeki ifadeleri koru
+      final protectedPhrases = <String>[];
+      final protectedMarkers = <String>[];
+      String textToTranslate = text;
+
+      // Çift tırnak içindeki ifadeleri bul ve benzersiz marker ile değiştir
+      textToTranslate = textToTranslate.replaceAllMapped(
+        RegExp(r'"([^"]+)"'),
+        (match) {
+          final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+          protectedPhrases.add(match.group(0)!);
+          protectedMarkers.add(marker);
+          return marker;
+        },
+      );
+
+      // Tek tırnak içindeki ifadeleri bul - ama kesme işaretlerini (It's, don't) hariç tut
+      // Sadece izole tek tırnakları yakala: boşluk 'kelime' boşluk veya başlangıç/bitiş
+      textToTranslate = textToTranslate.replaceAllMapped(
+        RegExp(r"(?<=\s|^)'([^']+)'(?=\s|$|[.,!?;:])"),
+        (match) {
+          final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+          protectedPhrases.add(match.group(0)!);
+          protectedMarkers.add(marker);
+          return marker;
+        },
+      );
+
       final key = 'en->$targetCode';
       var translator = _translators[key];
       if (translator == null) {
@@ -217,7 +245,19 @@ class TranslationService {
         );
         _translators[key] = translator;
       }
-      final translated = await translator.translateText(text);
+      String translated = await translator.translateText(textToTranslate);
+
+      // Marker'ları orijinal tırnaklı ifadelerle değiştir
+      for (int i = 0; i < protectedPhrases.length; i++) {
+        final marker = protectedMarkers[i];
+        final phrase = protectedPhrases[i];
+
+        translated = translated.replaceAll(marker, phrase);
+        translated = translated.replaceAll(marker.toLowerCase(), phrase);
+        translated = translated.replaceAll(RegExp(marker, caseSensitive: false), phrase);
+        translated = translated.replaceAll(RegExp(r'xyzquote\s*' + i.toString() + r'\s*xyz', caseSensitive: false), phrase);
+      }
+
       _cachePut(cacheKey, translated);
       return translated;
     } catch (_) {
@@ -237,12 +277,51 @@ class TranslationService {
     // Modelleri hazırla (en + tespit edilen kaynak)
     await ensureReady(code);
 
+    // Tırnak içindeki ifadeleri koru
+    final protectedPhrases = <String>[];
+    final protectedMarkers = <String>[];
+    String textToTranslate = source;
+
+    textToTranslate = textToTranslate.replaceAllMapped(
+      RegExp(r'"([^"]+)"'),
+      (match) {
+        final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+        protectedPhrases.add(match.group(0)!);
+        protectedMarkers.add(marker);
+        return marker;
+      },
+    );
+
+    textToTranslate = textToTranslate.replaceAllMapped(
+      RegExp(r"(?<=\s|^)'([^']+)'(?=\s|$|[.,!?;:])"),
+      (match) {
+        final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+        protectedPhrases.add(match.group(0)!);
+        protectedMarkers.add(marker);
+        return marker;
+      },
+    );
+
     final translator = OnDeviceTranslator(
       sourceLanguage: _langFromCode(code),
       targetLanguage: _langFromCode('en'),
     );
-    final translated = await translator.translateText(source);
+    String translated = await translator.translateText(textToTranslate);
     await translator.close();
+
+    // Marker'ları orijinal tırnaklı ifadelerle değiştir
+    for (int i = 0; i < protectedPhrases.length; i++) {
+      final marker = protectedMarkers[i];
+      final phrase = protectedPhrases[i];
+
+      translated = translated.replaceAll(marker, phrase);
+      translated = translated.replaceAll(marker.toLowerCase(), phrase);
+      translated = translated.replaceAll(marker.replaceAll('XYZ', ' XYZ '), phrase);
+      translated = translated.replaceAll(marker.toLowerCase().replaceAll('xyz', ' xyz '), phrase);
+      translated = translated.replaceAll(RegExp(marker, caseSensitive: false), phrase);
+      translated = translated.replaceAll(RegExp(r'xyzquote\s*' + i.toString() + r'\s*xyz', caseSensitive: false), phrase);
+    }
+
     return translated;
   }
 
@@ -305,12 +384,51 @@ class TranslationService {
     // Gerekli modelleri hazırla (en + ensureCode)
     await ensureReady(ensureCode);
 
+    // Tırnak içindeki ifadeleri koru
+    final protectedPhrases = <String>[];
+    final protectedMarkers = <String>[];
+    String textToTranslate = source;
+
+    textToTranslate = textToTranslate.replaceAllMapped(
+      RegExp(r'"([^"]+)"'),
+      (match) {
+        final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+        protectedPhrases.add(match.group(0)!);
+        protectedMarkers.add(marker);
+        return marker;
+      },
+    );
+
+    textToTranslate = textToTranslate.replaceAllMapped(
+      RegExp(r"(?<=\s|^)'([^']+)'(?=\s|$|[.,!?;:])"),
+      (match) {
+        final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+        protectedPhrases.add(match.group(0)!);
+        protectedMarkers.add(marker);
+        return marker;
+      },
+    );
+
     final translator = OnDeviceTranslator(
       sourceLanguage: _langFromCode(code),
       targetLanguage: _langFromCode(targetCode),
     );
-    final translated = await translator.translateText(source);
+    String translated = await translator.translateText(textToTranslate);
     await translator.close();
+
+    // Marker'ları orijinal tırnaklı ifadelerle değiştir
+    for (int i = 0; i < protectedPhrases.length; i++) {
+      final marker = protectedMarkers[i];
+      final phrase = protectedPhrases[i];
+
+      translated = translated.replaceAll(marker, phrase);
+      translated = translated.replaceAll(marker.toLowerCase(), phrase);
+      translated = translated.replaceAll(marker.replaceAll('XYZ', ' XYZ '), phrase);
+      translated = translated.replaceAll(marker.toLowerCase().replaceAll('xyz', ' xyz '), phrase);
+      translated = translated.replaceAll(RegExp(marker, caseSensitive: false), phrase);
+      translated = translated.replaceAll(RegExp(r'xyzquote\s*' + i.toString() + r'\s*xyz', caseSensitive: false), phrase);
+    }
+
     return translated;
   }
 
@@ -332,12 +450,51 @@ class TranslationService {
       await ensureReady(targetCode);
     }
 
+    // Tırnak içindeki ifadeleri koru
+    final protectedPhrases = <String>[];
+    final protectedMarkers = <String>[];
+    String textToTranslate = source;
+
+    textToTranslate = textToTranslate.replaceAllMapped(
+      RegExp(r'"([^"]+)"'),
+      (match) {
+        final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+        protectedPhrases.add(match.group(0)!);
+        protectedMarkers.add(marker);
+        return marker;
+      },
+    );
+
+    textToTranslate = textToTranslate.replaceAllMapped(
+      RegExp(r"(?<=\s|^)'([^']+)'(?=\s|$|[.,!?;:])"),
+      (match) {
+        final marker = 'XYZQUOTE${protectedPhrases.length}XYZ';
+        protectedPhrases.add(match.group(0)!);
+        protectedMarkers.add(marker);
+        return marker;
+      },
+    );
+
     final translator = OnDeviceTranslator(
       sourceLanguage: _langFromCode(sourceCode),
       targetLanguage: _langFromCode(targetCode),
     );
-    final translated = await translator.translateText(source);
+    String translated = await translator.translateText(textToTranslate);
     await translator.close();
+
+    // Marker'ları orijinal tırnaklı ifadelerle değiştir
+    for (int i = 0; i < protectedPhrases.length; i++) {
+      final marker = protectedMarkers[i];
+      final phrase = protectedPhrases[i];
+
+      translated = translated.replaceAll(marker, phrase);
+      translated = translated.replaceAll(marker.toLowerCase(), phrase);
+      translated = translated.replaceAll(marker.replaceAll('XYZ', ' XYZ '), phrase);
+      translated = translated.replaceAll(marker.toLowerCase().replaceAll('xyz', ' xyz '), phrase);
+      translated = translated.replaceAll(RegExp(marker, caseSensitive: false), phrase);
+      translated = translated.replaceAll(RegExp(r'xyzquote\s*' + i.toString() + r'\s*xyz', caseSensitive: false), phrase);
+    }
+
     return translated;
   }
 
