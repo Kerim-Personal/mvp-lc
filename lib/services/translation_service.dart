@@ -203,34 +203,53 @@ class TranslationService {
 
   /// Extracts quoted text (single and double quotes) from input text and replaces
   /// them with placeholders. Returns the processed text and a map of placeholders.
+  /// 
+  /// Note: This implementation does not handle escaped quotes (e.g., \' or \").
+  /// In the context of educational content, escaped quotes are not expected.
   /// @visibleForTesting
   Map<String, dynamic> extractQuotedText(String text) {
     final Map<String, String> quotedTexts = {};
     int placeholderIndex = 0;
     String processedText = text;
 
-    // First, extract double-quoted text
-    final doubleQuoteRegex = RegExp(r'"([^"]*)"');
-    processedText = processedText.replaceAllMapped(doubleQuoteRegex, (match) {
-      final placeholder = '___QUOTE_${placeholderIndex}___';
-      quotedTexts[placeholder] = match.group(0)!; // Store with quotes
-      placeholderIndex++;
-      return placeholder;
-    });
+    // Extract double-quoted text first
+    processedText = _extractQuotesWithRegex(
+      processedText, 
+      RegExp(r'"([^"]*)"'), 
+      quotedTexts, 
+      placeholderIndex
+    );
+    placeholderIndex += quotedTexts.length;
 
-    // Then, extract single-quoted text
-    final singleQuoteRegex = RegExp(r"'([^']*)'");
-    processedText = processedText.replaceAllMapped(singleQuoteRegex, (match) {
-      final placeholder = '___QUOTE_${placeholderIndex}___';
-      quotedTexts[placeholder] = match.group(0)!; // Store with quotes
-      placeholderIndex++;
-      return placeholder;
-    });
+    // Then extract single-quoted text
+    final currentCount = quotedTexts.length;
+    processedText = _extractQuotesWithRegex(
+      processedText, 
+      RegExp(r"'([^']*)'"), 
+      quotedTexts, 
+      placeholderIndex
+    );
 
     return {
       'processedText': processedText,
       'quotedTexts': quotedTexts,
     };
+  }
+
+  /// Helper method to extract quotes using a regex pattern
+  String _extractQuotesWithRegex(
+    String text, 
+    RegExp regex, 
+    Map<String, String> quotedTexts, 
+    int startIndex
+  ) {
+    int index = startIndex;
+    return text.replaceAllMapped(regex, (match) {
+      final placeholder = '___QUOTE_${index}___';
+      quotedTexts[placeholder] = match.group(0)!; // Store with quotes
+      index++;
+      return placeholder;
+    });
   }
 
   /// Restores quoted text in the translated output by replacing placeholders
