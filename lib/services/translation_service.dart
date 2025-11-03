@@ -222,7 +222,6 @@ class TranslationService {
     placeholderIndex += quotedTexts.length;
 
     // Then extract single-quoted text
-    final currentCount = quotedTexts.length;
     processedText = _extractQuotesWithRegex(
       processedText, 
       RegExp(r"'([^']*)'"), 
