@@ -201,6 +201,49 @@ class TranslationService {
     }
   }
 
+  /// Extracts quoted text (single and double quotes) from input text and replaces
+  /// them with placeholders. Returns the processed text and a map of placeholders.
+  /// @visibleForTesting
+  Map<String, dynamic> extractQuotedText(String text) {
+    final Map<String, String> quotedTexts = {};
+    int placeholderIndex = 0;
+    String processedText = text;
+
+    // First, extract double-quoted text
+    final doubleQuoteRegex = RegExp(r'"([^"]*)"');
+    processedText = processedText.replaceAllMapped(doubleQuoteRegex, (match) {
+      final placeholder = '___QUOTE_${placeholderIndex}___';
+      quotedTexts[placeholder] = match.group(0)!; // Store with quotes
+      placeholderIndex++;
+      return placeholder;
+    });
+
+    // Then, extract single-quoted text
+    final singleQuoteRegex = RegExp(r"'([^']*)'");
+    processedText = processedText.replaceAllMapped(singleQuoteRegex, (match) {
+      final placeholder = '___QUOTE_${placeholderIndex}___';
+      quotedTexts[placeholder] = match.group(0)!; // Store with quotes
+      placeholderIndex++;
+      return placeholder;
+    });
+
+    return {
+      'processedText': processedText,
+      'quotedTexts': quotedTexts,
+    };
+  }
+
+  /// Restores quoted text in the translated output by replacing placeholders
+  /// with their original quoted values.
+  /// @visibleForTesting
+  String restoreQuotedText(String translatedText, Map<String, String> quotedTexts) {
+    String result = translatedText;
+    quotedTexts.forEach((placeholder, originalQuotedText) {
+      result = result.replaceAll(placeholder, originalQuotedText);
+    });
+    return result;
+  }
+
   Future<String> translateFromEnglish(String text, String targetCode) async {
     if (text.trim().isEmpty) return text;
     if (targetCode == 'en') return text; // Aynı dil
@@ -208,6 +251,11 @@ class TranslationService {
     final cacheKey = '$text|$targetCode';
     if (_cache.containsKey(cacheKey)) return _cache[cacheKey]!;
     try {
+      // Extract quoted text before translation
+      final extractionResult = extractQuotedText(text);
+      final processedText = extractionResult['processedText'] as String;
+      final quotedTexts = extractionResult['quotedTexts'] as Map<String, String>;
+
       final key = 'en->$targetCode';
       var translator = _translators[key];
       if (translator == null) {
@@ -217,9 +265,13 @@ class TranslationService {
         );
         _translators[key] = translator;
       }
-      final translated = await translator.translateText(text);
-      _cachePut(cacheKey, translated);
-      return translated;
+      final translated = await translator.translateText(processedText);
+      
+      // Restore quoted text after translation
+      final finalTranslated = restoreQuotedText(translated, quotedTexts);
+      
+      _cachePut(cacheKey, finalTranslated);
+      return finalTranslated;
     } catch (_) {
       return text; // Hata durumunda orijinal metni göster
     }
