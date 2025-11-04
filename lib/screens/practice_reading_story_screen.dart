@@ -35,7 +35,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
 
   // Reader settings
   double _fontSize = 16;
-  bool _serif = true;
+  int _fontFamily = 0; // 0: Serif, 1: Sans, 2: Monospace
   double _lineHeight = 1.55;
   double _pageWidthFactor = 0.85;
   int _eyeProtectionLevel = 0; // 0: Off, 1: Low, 2: Medium
@@ -236,7 +236,12 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
   }
 
   TextStyle _sentenceTextStyle(bool highlight) {
-    final baseFamily = _serif ? 'Georgia' : null;
+    String? baseFamily;
+    switch (_fontFamily) {
+      case 0: baseFamily = 'Georgia'; break; // Serif
+      case 1: baseFamily = null; break; // Sans (default)
+      case 2: baseFamily = 'Courier'; break; // Monospace
+    }
     return TextStyle(
       fontSize: _fontSize,
       height: _lineHeight,
@@ -249,13 +254,21 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
     );
   }
 
-  TextStyle _translationTextStyle() => TextStyle(
-    fontSize: (_fontSize - 2).clamp(10, 40),
-    height: 1.4,
-    fontStyle: FontStyle.italic,
-    color: _accentColor.withValues(alpha: 0.9),
-    fontFamily: _serif ? 'Georgia' : null,
-  );
+  TextStyle _translationTextStyle() {
+    String? baseFamily;
+    switch (_fontFamily) {
+      case 0: baseFamily = 'Georgia'; break;
+      case 1: baseFamily = null; break;
+      case 2: baseFamily = 'Courier'; break;
+    }
+    return TextStyle(
+      fontSize: (_fontSize - 2).clamp(10, 40),
+      height: 1.4,
+      fontStyle: FontStyle.italic,
+      color: _accentColor.withValues(alpha: 0.9),
+      fontFamily: baseFamily,
+    );
+  }
 
   void _openReaderSettings() {
     showModalBottomSheet(
@@ -303,9 +316,11 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                _FontChip(label: 'Serif', isSelected: _serif, onTap: () => refresh(()=> _serif = true)),
-                                const SizedBox(width: 8),
-                                _FontChip(label: 'Sans', isSelected: !_serif, onTap: () => refresh(()=> _serif = false)),
+                                _FontChip(label: 'Serif', isSelected: _fontFamily == 0, onTap: () => refresh(()=> _fontFamily = 0)),
+                                const SizedBox(width: 6),
+                                _FontChip(label: 'Sans', isSelected: _fontFamily == 1, onTap: () => refresh(()=> _fontFamily = 1)),
+                                const SizedBox(width: 6),
+                                _FontChip(label: 'Mono', isSelected: _fontFamily == 2, onTap: () => refresh(()=> _fontFamily = 2)),
                               ],
                             ),
                           ),
@@ -348,7 +363,15 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        title: Text(story.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            story.title,
+            maxLines: 1,
+            style: const TextStyle(fontSize: 20),
+          ),
+        ),
         actions: [
           // Eye Protection button
           IconButton(
@@ -358,8 +381,16 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
               });
             },
             icon: Icon(
-              _eyeProtectionLevel == 0 ? Icons.remove_red_eye_outlined : Icons.remove_red_eye,
-              color: _eyeProtectionLevel > 0 ? _accentColor : _foregroundColor,
+              _eyeProtectionLevel == 0
+                ? Icons.remove_red_eye_outlined
+                : _eyeProtectionLevel == 1
+                  ? Icons.visibility
+                  : Icons.remove_red_eye,
+              color: _eyeProtectionLevel == 0
+                ? _foregroundColor
+                : _eyeProtectionLevel == 1
+                  ? _accentColor.withValues(alpha: 0.6)
+                  : _accentColor,
             ),
             tooltip: _eyeProtectionLevel == 0 ? 'Eye Protection: Off' : 'Eye Protection: Level $_eyeProtectionLevel',
           ),
@@ -368,11 +399,6 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
       ),
       body: Column(
         children: [
-          if (story.description != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              child: Text(story.description!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: _foregroundColor.withValues(alpha: 0.7))),
-            ),
           Expanded(
             child: _BookView(
               story: story,
