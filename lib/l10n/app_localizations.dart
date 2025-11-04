@@ -97,7 +97,7 @@ abstract class AppLocalizations {
   /// Application title
   ///
   /// In en, this message translates to:
-  /// **'Lingua Chat'**
+  /// **'VocaChat'**
   String get appTitle;
 }
 

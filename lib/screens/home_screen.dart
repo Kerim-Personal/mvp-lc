@@ -166,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
 
-    // LinguaBotChatScreen'i aç (sadece premium kullanıcılar)
+    // VocaBotChatScreen'i aç (sadece premium kullanıcılar)
     Navigator.push(
       context,
       MaterialPageRoute(
