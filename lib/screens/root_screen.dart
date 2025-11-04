@@ -1,7 +1,6 @@
 // lib/screens/root_screen.dart
 
 import 'dart:ui'; // ImageFilter için eklendi
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vocachat/screens/home_screen.dart';
@@ -11,29 +10,6 @@ import 'package:vocachat/screens/discover_screen.dart';
 import 'package:vocachat/screens/leaderboard_screen.dart';
 import 'package:vocachat/widgets/shared/animated_background.dart';
 
-// Bu fonksiyon veritabanı kurulumu için, dokunulmasına gerek yok.
-Future<void> _createDefaultChatRooms() async {
-  final chatRoomsCollection = FirebaseFirestore.instance.collection('group_chats');
-  final snapshot = await chatRoomsCollection.limit(1).get();
-  if (snapshot.docs.isEmpty) {
-    final batch = FirebaseFirestore.instance.batch();
-    final defaultRooms = [
-      {
-        "name": "Müzik Kutusu",
-        "description": "Farklı türlerden müzikler keşfedin ve favori sanatçılarınızı paylaşın.",
-        "iconName": "music_note_outlined",
-        "color1": "0xFFF06292",
-        "color2": "0xFFE57373",
-        "isFeatured": true
-      },
-    ];
-    for (var roomData in defaultRooms) {
-      final docRef = chatRoomsCollection.doc();
-      batch.set(docRef, roomData);
-    }
-    await batch.commit();
-  }
-}
 
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
@@ -57,24 +33,11 @@ class RootScreenState extends State<RootScreen> with TickerProviderStateMixin {
   int _discoverReplay = 0;
   int _profileReplay = 0;
 
-  static bool _defaultRoomsCreated = false; // createDefaultChatRooms guard
-
   @override
   void initState() {
     super.initState();
     _navIconAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
     _scaleAnimation = CurvedAnimation(parent: _navIconAnimationController, curve: Curves.easeOutCubic);
-    _maybeCreateDefaultChatRooms();
-  }
-
-  Future<void> _maybeCreateDefaultChatRooms() async {
-    if (_defaultRoomsCreated) return;
-    try {
-      await _createDefaultChatRooms();
-    } catch (_) {
-      // sessiz
-    }
-    _defaultRoomsCreated = true;
   }
 
   Widget _buildTab(int index) {

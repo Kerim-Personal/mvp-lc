@@ -1,49 +1,6 @@
 /* eslint-disable no-console */
 const { functions, admin, db } = require('../shared');
 
-exports.onReportCreated = functions.firestore
-  .document('reports/{reportId}')
-  .onCreate(async (snap, _context) => {
-    try {
-      const data = snap.data() || {};
-      const contentId = data.reportedContentId;
-      if (!contentId) return null;
-      const contentType = data.reportedContentType || null;
-      const parentId = data.reportedContentParentId || null;
-      const reportedUserId = data.reportedUserId || null;
-      const aggRef = db.collection('content_reports').doc(contentId);
-      let newCount = 1;
-      await db.runTransaction(async (tx) => {
-        const doc = await tx.get(aggRef);
-        if (!doc.exists) {
-          tx.set(aggRef, {
-            count: 1,
-            contentType,
-            parentId,
-            reportedUserId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            lastReportAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-          newCount = 1;
-        } else {
-          const current = doc.data() || {};
-          const updated = (current.count || 0) + 1;
-          newCount = updated;
-          tx.update(aggRef, {
-            count: updated,
-            contentType: contentType || current.contentType || null,
-            parentId: parentId || current.parentId || null,
-            reportedUserId: reportedUserId || current.reportedUserId || null,
-            lastReportAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        }
-      });
-      await snap.ref.set({ aggregateCount: newCount }, { merge: true });
-    } catch (e) {
-      console.error('onReportCreated aggregation error:', e);
-    }
-    return null;
-  });
 
 exports.createReport = functions
   .region('us-central1')

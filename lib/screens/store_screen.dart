@@ -225,7 +225,16 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
           children: [
             Lottie.asset('assets/animations/success.json', width: 50, height: 50, repeat: false),
             const SizedBox(width: 12),
-            const Text('Congratulations! 🎉'),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'Congratulations! 🎉',
+                  style: TextStyle(fontSize: 20),
+                ),
+              ),
+            ),
           ],
         ),
         content: const Text(
