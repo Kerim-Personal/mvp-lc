@@ -28,7 +28,7 @@ exports.createReport = functions
 
     const reportedUserId = takeString('reportedUserId', 128);
     const reason = takeString('reason', 120);
-    const details = takeString('details', 2000, false);
+    const details = takeString('details', 100, false);
     const reportedContent = takeString('reportedContent', 4000, false);
     const reportedContentId = takeString('reportedContentId', 256, false);
     const reportedContentType = takeString('reportedContentType', 64, false);

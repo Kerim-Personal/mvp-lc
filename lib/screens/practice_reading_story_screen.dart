@@ -293,7 +293,7 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                   Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                          color: _pageColor,
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(16)
                       ),
                       child: Column(

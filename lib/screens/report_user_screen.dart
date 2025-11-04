@@ -235,6 +235,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _detailsController,
+                    maxLength: 100,
                     decoration: InputDecoration(
                       labelText: 'Additional Details (Optional)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
