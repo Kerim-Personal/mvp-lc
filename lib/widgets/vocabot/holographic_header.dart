@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/holographic_header.dart
+// lib/widgets/vocabot/holographic_header.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:circle_flags/circle_flags.dart';

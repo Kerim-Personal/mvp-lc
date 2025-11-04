@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/language_data.dart
+// lib/widgets/vocabot/language_data.dart
 // Dil veri sabitleri: desteklenen diller, bayrak eşleşmeleri ve karşılama mesajları.
 
 // Desteklenen diller (öğrenilecek dil seçenekleri)

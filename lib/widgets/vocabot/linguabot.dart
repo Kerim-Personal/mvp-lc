@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/linguabot.dart
+// lib/widgets/vocabot/vocabot.dart
 export 'holographic_header.dart';
 export 'intelligent_composer.dart';
 export 'message_entrance_animator.dart';

@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/celestial_background.dart
+// lib/widgets/vocabot/celestial_background.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 

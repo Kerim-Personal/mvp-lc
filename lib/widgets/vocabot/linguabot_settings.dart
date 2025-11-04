@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/linguabot_settings.dart
+// lib/widgets/vocabot/linguabot_settings.dart
 // Dil seçim ekranı ve filtre toggle bileşenleri.
 
 import 'package:flutter/material.dart';

@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/typing_indicator.dart
+// lib/widgets/vocabot/typing_indicator.dart
 import 'package:flutter/material.dart';
 
 class TypingIndicator extends StatefulWidget {

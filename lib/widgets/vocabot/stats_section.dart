@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/stats_section.dart
+// lib/widgets/vocabot/stats_section.dart
 import 'package:flutter/material.dart';
 import 'package:vocachat/models/grammar_analysis.dart';
 

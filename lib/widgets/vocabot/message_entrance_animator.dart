@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/message_entrance_animator.dart
+// lib/widgets/vocabot/message_entrance_animator.dart
 import 'package:flutter/material.dart';
 
 class MessageEntranceAnimator extends StatefulWidget {

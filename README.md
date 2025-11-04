@@ -1,4 +1,4 @@
-# LinguaChat
+# VocaChat
 
 A Flutter project for mobile app development.
 

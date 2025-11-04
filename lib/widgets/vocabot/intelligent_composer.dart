@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/intelligent_composer.dart
+// lib/widgets/vocabot/intelligent_composer.dart
 import 'package:flutter/material.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:vocachat/services/stt_service.dart';

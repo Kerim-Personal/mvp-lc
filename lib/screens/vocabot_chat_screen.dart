@@ -9,7 +9,7 @@ import 'package:vocachat/services/vocabot_service.dart';
 import 'package:vocachat/models/grammar_analysis.dart';
 import 'package:vocachat/models/grammar_quiz.dart';
 import 'package:vocachat/models/message_unit.dart';
-import 'package:vocachat/widgets/linguabot/linguabot.dart';
+import 'package:vocachat/widgets/vocabot/linguabot.dart';
 import 'package:vocachat/utils/text_metrics.dart';
 import 'package:vocachat/widgets/message_composer.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,8 +18,8 @@ import 'package:circle_flags/circle_flags.dart';
 import 'package:vocachat/services/local_chat_storage.dart';
 import 'package:vocachat/models/lesson_model.dart';
 import 'package:vocachat/services/streak_service.dart';
-import 'package:vocachat/widgets/linguabot/language_data.dart';
-import 'package:vocachat/widgets/linguabot/linguabot_settings.dart';
+import 'package:vocachat/widgets/vocabot/language_data.dart';
+import 'package:vocachat/widgets/vocabot/linguabot_settings.dart';
 
 // --- MAIN SCREEN: THE HEART OF THE SIMULATOR ---
 

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:vocachat/services/vocabot_service.dart';
 import 'package:vocachat/models/message_unit.dart';
 import 'package:vocachat/widgets/message_composer.dart';
-import 'package:vocachat/widgets/linguabot/linguabot.dart';
+import 'package:vocachat/widgets/vocabot/linguabot.dart';
 import 'package:vocachat/utils/text_metrics.dart';
 
 class ScenarioChatScreen extends StatefulWidget {

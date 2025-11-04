@@ -1,4 +1,4 @@
-// lib/widgets/linguabot/metric_gauge.dart
+// lib/widgets/vocabot/metric_gauge.dart
 import 'package:flutter/material.dart';
 
 class MetricGauge extends StatefulWidget {
