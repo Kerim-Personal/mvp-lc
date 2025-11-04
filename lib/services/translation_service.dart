@@ -44,7 +44,7 @@ class TranslationModelDownloadState {
       inProgress: inProgress ?? this.inProgress,
       downloaded: downloaded ?? this.downloaded,
       total: total ?? this.total,
-      error: error,
+      error: error ?? this.error,
       completed: completed ?? this.completed,
       targetCode: targetCode ?? this.targetCode,
     );
@@ -85,7 +85,6 @@ class TranslationService {
     {'code': 'de', 'label': 'Deutsch'},
     {'code': 'el', 'label': 'Ελληνικά'},
     {'code': 'gu', 'label': 'ગુજરાતી'},
-    {'code': 'he', 'label': 'עברית'},
     {'code': 'hi', 'label': 'हिन्दी'},
     {'code': 'hu', 'label': 'Magyar'},
     {'code': 'is', 'label': 'Íslenska'},
@@ -150,7 +149,6 @@ class TranslationService {
     'de': TranslateLanguage.german,
     'el': TranslateLanguage.greek,
     'gu': TranslateLanguage.gujarati,
-    'he': TranslateLanguage.hebrew,
     'hi': TranslateLanguage.hindi,
     'hu': TranslateLanguage.hungarian,
     'is': TranslateLanguage.icelandic,
@@ -339,30 +337,9 @@ class TranslationService {
         possibles.sort((a, b) => b.confidence.compareTo(a.confidence));
         code = possibles.first.languageTag;
       }
-
-      // Hâlâ belirsizse basit heuristik: İngilizce ipuçları vs Türkçe ipuçları
+      // Hâlâ belirsizse varsayılanı İngilizce kabul et
       if (code == 'und') {
-        final s = source.toLowerCase();
-        final englishHints = [' the ', ' and ', ' is ', ' are ', ' you ', 'hello', ' hi ', ' i ', "i'm", "i am", ' my '];
-        final turkishHints = [' ve ', ' ile ', ' mi', ' mı', ' mu', ' mü', 'merhaba', 'nasıl', 'teşekkür', 'evet', 'hayır', 'lütfen', 'ben ', ' sen ', ' biz ', ' siz ', ' onlar '];
-        // Yaygın Türkçe ek/sonekleri
-        final trSuffixes = [
-          'yorum', 'yorsun', 'yoruz', 'yorsunuz', 'yorlar',
-          'ıyorum', 'iyorsun', 'iyoruz', 'iyorsunuz', 'iyorlar',
-          'acak', 'ecek', 'mış', 'miş', 'muş', 'müş', 'dır', 'dir', 'dur', 'dür',
-          'lar', 'ler', 'dan', 'den', 'ten', 'tan', 'ında', 'inde', 'undan', 'ünden', 'dır', 'dir'
-        ];
-        final enRegex = RegExp("^[a-zA-Z0-9 ,.!?\-\'\"]+");
-        bool enHit = englishHints.any((h) => s.contains(h)) || enRegex.hasMatch(s);
-        bool trHit = turkishHints.any((h) => s.contains(h)) || RegExp(r'[çğıöşü]').hasMatch(s) || trSuffixes.any((suf) => s.endsWith(suf));
-        if (enHit && !trHit) code = 'en';
-        if (trHit && !enHit) code = 'tr';
-        // eşitlikte kısa tek kelimelerde: hello/hi -> en, merhaba -> tr
-        if (code == 'und') {
-          if (s.trim() == 'hello' || s.trim() == 'hi') code = 'en';
-          if (s.trim() == 'merhaba') code = 'tr';
-          if (code == 'und') code = 'en';
-        }
+        code = 'en';
       }
     }
 

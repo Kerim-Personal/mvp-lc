@@ -347,8 +347,6 @@ class _MessageComposerState extends State<MessageComposer> {
           return 'fi';
         case 'el':
           return 'gr';
-        case 'he':
-          return 'il';
         case 'vi':
           return 'vn';
         case 'id':
