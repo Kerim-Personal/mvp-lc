@@ -366,43 +366,32 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
           IconButton(onPressed: _openReaderSettings, icon: const Icon(Icons.tune_rounded)),
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              if (story.description != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                  child: Text(story.description!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: _foregroundColor.withValues(alpha: 0.7))),
-                ),
-              Expanded(
-                child: _BookView(
-                  story: story,
-                  playingFull: _playingFull,
-                  currentSentenceIndex: _currentSentenceIndex,
-                  translated: _translated,
-                  showTranslation: _showTranslation,
-                  loadingTranslation: _loadingTranslation,
-                  onTapSentence: (i) => _speakSentence(i),
-                  onLongPressSentence: (i) => _onLongPressSentence(i),
-                  sentenceStyleBuilder: (highlight)=>_sentenceTextStyle(highlight),
-                  translationStyle: _translationTextStyle(),
-                  backgroundColor: _backgroundColor,
-                  pageColor: _pageColor,
-                  borderColor: _borderColor,
-                  pageWidthFactor: _pageWidthFactor,
-                ),
-              ),
-            ],
-          ),
-          if (_eyeProtectionOverlay != null)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  color: _eyeProtectionOverlay,
-                ),
-              ),
+          if (story.description != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Text(story.description!, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: _foregroundColor.withValues(alpha: 0.7))),
             ),
+          Expanded(
+            child: _BookView(
+              story: story,
+              playingFull: _playingFull,
+              currentSentenceIndex: _currentSentenceIndex,
+              translated: _translated,
+              showTranslation: _showTranslation,
+              loadingTranslation: _loadingTranslation,
+              onTapSentence: (i) => _speakSentence(i),
+              onLongPressSentence: (i) => _onLongPressSentence(i),
+              sentenceStyleBuilder: (highlight)=>_sentenceTextStyle(highlight),
+              translationStyle: _translationTextStyle(),
+              backgroundColor: _backgroundColor,
+              pageColor: _pageColor,
+              borderColor: _borderColor,
+              pageWidthFactor: _pageWidthFactor,
+              eyeProtectionOverlay: _eyeProtectionOverlay,
+            ),
+          ),
         ],
       ),
       bottomSheet: _buildBottomBar(totalSentences),
@@ -443,6 +432,9 @@ class _PracticeReadingStoryScreenState extends State<PracticeReadingStoryScreen>
                           activeTrackColor: _accentColor,
                           thumbColor: _accentColor,
                           inactiveTrackColor: _accentColor.withValues(alpha: 0.25),
+                          overlayColor: _accentColor.withValues(alpha: 0.12),
+                          valueIndicatorColor: _borderColor,
+                          valueIndicatorTextStyle: TextStyle(color: _foregroundColor, fontWeight: FontWeight.w600),
                         ),
                         child: Slider(
                           value: _currentSentenceIndex.toDouble().clamp(0, (totalSentences - 1).toDouble()),
@@ -508,6 +500,7 @@ class _BookView extends StatelessWidget {
   final Color pageColor;
   final Color borderColor;
   final double pageWidthFactor;
+  final Color? eyeProtectionOverlay;
 
   const _BookView({
     required this.story,
@@ -524,6 +517,7 @@ class _BookView extends StatelessWidget {
     required this.pageColor,
     required this.borderColor,
     required this.pageWidthFactor,
+    required this.eyeProtectionOverlay,
   });
 
   @override
@@ -600,23 +594,38 @@ class _BookView extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: 680 * pageWidthFactor + 0),
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 32, 24, 140),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: pageColor,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0,8)),
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0,1)),
-                ],
-                border: Border.all(color: borderColor, width: 1),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(30, 32, 30, 60),
-                child: RichText(
-                  text: TextSpan(style: sentenceStyleBuilder(false), children: spans),
-                  textAlign: TextAlign.justify,
+            child: Stack(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: pageColor,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0,8)),
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0,1)),
+                    ],
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(30, 32, 30, 60),
+                    child: RichText(
+                      text: TextSpan(style: sentenceStyleBuilder(false), children: spans),
+                      textAlign: TextAlign.justify,
+                    ),
+                  ),
                 ),
-              ),
+                if (eyeProtectionOverlay != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: eyeProtectionOverlay,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
