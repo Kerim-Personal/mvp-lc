@@ -32,6 +32,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
   // Dinamik ilerleme (yalnızca gramer)
   Map<String, double> _levelProgress = {};
   bool _progressLoading = true;
+  String _highestUnlockedLevel = 'A1'; // Firebase'den yüklenecek
 
   @override
   void initState() {
@@ -48,7 +49,17 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     );
 
     _entryAnimationController.forward();
+    _loadHighestLevel();
     _computeProgress();
+  }
+
+  Future<void> _loadHighestLevel() async {
+    final level = await GrammarProgressService.instance.getHighestLevel();
+    if (mounted) {
+      setState(() {
+        _highestUnlockedLevel = level;
+      });
+    }
   }
 
   Future<void> _computeProgress() async {
@@ -82,6 +93,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.replayTrigger != widget.replayTrigger) {
       _entryAnimationController.forward(from: 0);
+      _loadHighestLevel();
       _computeProgress();
     }
   }
@@ -105,15 +117,21 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
       lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
     }
 
-    // Kilit mantığı: A1 her zaman açık. Diğer seviye, bir önceki %100 tamamlanmadan kilitli.
+    // Kilit mantığı: Firebase'deki en yüksek seviyeye kadar açık + bir önceki seviye %100 tamamlanmışsa bir sonraki açılır
     bool isLevelLocked(int index) {
-      if (index == 0) return false; // Yalnızca A1 daima açık
+      final highestIndex = levels.indexOf(_highestUnlockedLevel);
+
+      // Firebase'deki en yüksek seviyeye kadar tüm seviyeler açık
+      if (index <= highestIndex) return false;
+
       // Yükleniyorken kilitli tut
       if (_progressLoading) return true;
+
+      // Bir sonraki seviye: önceki seviye %100 tamamlanmışsa aç
       final prevLevel = levels[index - 1];
-      // Gramer: önceki seviye tamamen bitti mi?
       final prevHasLessons = (lessonsByLevel[prevLevel] ?? const <Lesson>[]).isNotEmpty;
       final prevGrammarOk = !prevHasLessons ? true : ((_levelProgress[prevLevel] ?? 0.0) >= 1.0);
+
       return !prevGrammarOk;
     }
 
@@ -174,6 +192,10 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                       );
                       return;
                     }
+
+                    // Seviye açıldı, Firebase'e en yüksek seviyeyi kaydet
+                    await GrammarProgressService.instance.updateHighestLevel(level);
+
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -181,10 +203,12 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                           level: level,
                           lessons: lessonsInLevel,
                           color: levelColors[index],
+                          highestUnlockedLevel: _highestUnlockedLevel,
                         ),
                       ),
                     );
                     await _computeProgress();
+                    await _loadHighestLevel(); // Güncel seviyeyi tekrar yükle
                   },
                 ),
               );
@@ -419,12 +443,19 @@ class _CosmicPathPainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
-// --- GRAMER SEVİYE DETAY SAYFASI (DEĞİŞİKLİK YOK) ---
+// --- GRAMER SEVİYE DETAY SAYFASI ---
 class GrammarLevelScreen extends StatefulWidget {
   final String level;
   final List<Lesson> lessons;
   final MaterialColor color;
-  const GrammarLevelScreen({super.key, required this.level, required this.lessons, required this.color});
+  final String highestUnlockedLevel;
+  const GrammarLevelScreen({
+    super.key,
+    required this.level,
+    required this.lessons,
+    required this.color,
+    required this.highestUnlockedLevel,
+  });
   @override
   State<GrammarLevelScreen> createState() => _GrammarLevelScreenState();
 }
@@ -518,10 +549,24 @@ class _GrammarLevelScreenState extends State<GrammarLevelScreen> {
               itemBuilder: (context, index) {
                 final lesson = widget.lessons[index];
                 final isCompleted = _completedGlobal.contains(lesson.contentPath);
-                final bool prevDone = index == 0
-                    ? true
-                    : _completedGlobal.contains(widget.lessons[index - 1].contentPath);
-                final bool isLocked = !isCompleted && !prevDone;
+
+                // Kilit mantığı: En yüksek seviyeden önceki seviyelerin TÜM konuları açık
+                final levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+                final currentLevelIndex = levels.indexOf(widget.level);
+                final highestLevelIndex = levels.indexOf(widget.highestUnlockedLevel);
+
+                bool isLocked;
+                if (currentLevelIndex < highestLevelIndex) {
+                  // Önceki seviyeler: TÜM konular açık
+                  isLocked = false;
+                } else {
+                  // En yüksek seviye: Normal kilit mantığı (önceki konu tamamlanmalı)
+                  final bool prevDone = index == 0
+                      ? true
+                      : _completedGlobal.contains(widget.lessons[index - 1].contentPath);
+                  isLocked = !isCompleted && !prevDone;
+                }
+
                 return _LessonTopicTile(
                   lesson: lesson,
                   color: widget.color,
