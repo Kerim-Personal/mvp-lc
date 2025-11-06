@@ -31,6 +31,17 @@ function toPublicUser(data) {
   };
 }
 
+function mondayKeyUTC(d = new Date()) {
+  // Haftanın pazartesi tarihini YYYY-MM-DD formatında döndür
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
+  const diff = day === 0 ? -6 : 1 - day; // Pazartesiye göre fark
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
+  const y = monday.getUTCFullYear();
+  const m = String(monday.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(monday.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 // users -> publicUsers senkronizasyonu
 exports.onUserWritePublicProjection = functions
   .region('us-central1')
@@ -40,16 +51,53 @@ exports.onUserWritePublicProjection = functions
     const publicRef = db.collection('publicUsers').doc(userId);
 
     if (!change.after.exists) {
-      // Silinmiş: publicUsers da sil
       await publicRef.delete().catch((e) => console.error('publicUsers delete error:', e));
       return null;
     }
 
+    const beforeData = change.before.exists ? change.before.data() : null;
     const afterData = change.after.data();
     const pub = toPublicUser(afterData);
+
     try {
-      // Artık level alanını geriye dönük silmiyoruz; sadece projeksiyonu yaz
-      await publicRef.set(pub, { merge: true });
+      const pubSnap = await publicRef.get();
+      let updates = { ...pub };
+
+      const prevTotal = (beforeData && typeof beforeData.totalRoomTime === 'number') ? beforeData.totalRoomTime : 0;
+      const newTotal = (afterData && typeof afterData.totalRoomTime === 'number') ? afterData.totalRoomTime : 0;
+      let delta = newTotal - prevTotal;
+      if (!Number.isFinite(delta) || delta < 0) delta = 0;
+      console.log('onUserWritePublicProjection delta calc', { userId, prevTotal, newTotal, delta });
+
+      const weekKeyNow = mondayKeyUTC();
+
+      if (delta > 0) {
+        let prevWeekKey = null;
+        let prevWeekly = 0;
+        if (pubSnap.exists) {
+          const d = pubSnap.data() || {};
+          prevWeekKey = typeof d.weeklyRoomWeekKey === 'string' ? d.weeklyRoomWeekKey : null;
+          prevWeekly = typeof d.weeklyRoomTime === 'number' ? d.weeklyRoomTime : 0;
+        }
+        if (prevWeekKey === weekKeyNow) {
+          updates.weeklyRoomTime = prevWeekly + delta;
+          updates.weeklyRoomWeekKey = weekKeyNow;
+        } else {
+          updates.weeklyRoomTime = delta;
+            updates.weeklyRoomWeekKey = weekKeyNow;
+        }
+      } else {
+        // delta yok: weekly alanları hiç yoksa oluştur (tek seferlik başlangıç)
+        const existing = pubSnap.exists ? (pubSnap.data() || {}) : {};
+        if (existing.weeklyRoomTime === undefined || existing.weeklyRoomWeekKey === undefined) {
+          updates.weeklyRoomTime = typeof existing.weeklyRoomTime === 'number' ? existing.weeklyRoomTime : 0;
+          updates.weeklyRoomWeekKey = existing.weeklyRoomWeekKey || weekKeyNow;
+          console.log('Initializing weekly fields', { userId, weekKey: updates.weeklyRoomWeekKey });
+        }
+      }
+
+      await publicRef.set(updates, { merge: true });
+      console.log('publicUsers updated', { userId, weeklyRoomTime: updates.weeklyRoomTime });
     } catch (e) {
       console.error('publicUsers set error:', e);
     }
@@ -71,7 +119,9 @@ exports.deleteUserAccount = functions
       // 1) Rezerve kullanıcı adlarını serbest bırak
       try {
         const usernamesSnap = await db.collection('usernames').where('uid', '==', uid).get();
-        if (!usernamesSnap.empty) {
+        if (usernamesSnap.empty) {
+          // no-op
+        } else {
           const batchArray = [];
           let batch = db.batch();
           let opCount = 0;
@@ -175,7 +225,6 @@ exports.backfillPublicUsers = functions
       const batch = db.batch();
       for (const doc of snap.docs) {
         const pub = toPublicUser(doc.data());
-        // Artık level alanını geriye dönük silmiyoruz
         batch.set(db.collection('publicUsers').doc(doc.id), pub, { merge: true });
         total++;
       }

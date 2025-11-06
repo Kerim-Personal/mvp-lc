@@ -62,6 +62,8 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
   // Oturum süresi takibi (leaderboard için totalRoomTime)
   DateTime? _sessionStart;
   static const int _maxSessionSeconds = 6 * 60 * 60; // 6 saat güvenlik sınırı
+  Timer? _sessionFlushTimer; // periyodik flush
+  DateTime _lastFlushTime = DateTime.now();
 
   @override
   void initState() {
@@ -73,14 +75,19 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
     _blurAnimation = Tween<double>(begin: 20.0, end: 0.0).animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOut));
 
-    // Eski: İngilizce sabit mesaj ekleniyordu. Artık profil yüklendikten sonra hedef dile göre eklenecek.
     _entryController.forward();
     _loadUserProfile();
+
+    // Periyodik flush: her 60 sn'de bir biriken süreyi yaz
+    _sessionFlushTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _commitAndResetSessionTime();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _sessionFlushTimer?.cancel();
     _commitAndResetSessionTime();
     _backgroundController.dispose();
     _entryController.dispose();
@@ -115,17 +122,15 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
             .collection('users')
             .doc(user.uid)
             .update({'totalRoomTime': FieldValue.increment(safeSeconds)});
-        // Kullanıcı etkinliği gerçekleşti: streak'i güncelle
+        _lastFlushTime = DateTime.now();
+        // Streak güncellemesi
         try {
           await StreakService.updateStreakOnActivity(uid: user.uid);
-        } catch (_) {
-          // sessizce geç: offline veya yarış koşulu olabilir
-        }
+        } catch (_) {}
       } catch (_) {
-        // sessiz: offline veya yetki hatası olabilir
+        // offline/yetki: sessizce geç
       }
     }
-    // Yeni dilim için başlangıcı sıfırla
     _sessionStart = DateTime.now();
   }
 
@@ -520,6 +525,11 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
 
   Future<void> _sendMessage(String text) async {
     if (text.isEmpty || !_botReady) return;
+
+    // Hızlı ilerleme için: Son flush üzerinden 20 sn'den fazla geçtiyse kaydet
+    if (DateTime.now().difference(_lastFlushTime).inSeconds >= 20) {
+      _commitAndResetSessionTime();
+    }
 
     // Gramer analizi: her durumda paralel başlat
     final Future<GrammarAnalysis?> analysisFuture = _botService.analyzeGrammar(text);

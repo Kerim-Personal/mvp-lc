@@ -154,25 +154,59 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Future<List<LeaderboardUser>> _fetchLeaderboardData() async {
-    // Artık leaderboard toplam oda zamanına göre (totalRoomTime alanı) sıralanıyor
+    final bool isWeekly = _leaderboardType == 'weekly';
+    final String metricField = isWeekly ? 'weeklyRoomTime' : 'totalRoomTime';
+
     Query baseQuery = FirebaseFirestore.instance
         .collection('publicUsers')
-        .orderBy('totalRoomTime', descending: true)
+        .orderBy(metricField, descending: true)
         .limit(100);
 
     QuerySnapshot snapshot = await baseQuery.get();
     if (snapshot.docs.isEmpty) {
       return [];
     }
-    return _mapUsersFromSnapshot(snapshot);
+    // Weekly’de tüm değerler 0 veya alan yoksa fallback
+    if (isWeekly) {
+      bool allZero = true;
+      for (final d in snapshot.docs) {
+        final data = d.data() as Map<String, dynamic>;
+        final v = (data['weeklyRoomTime'] as num?)?.toInt() ?? 0;
+        if (v > 0) { allZero = false; break; }
+      }
+      if (allZero) {
+        // Fallback: totalRoomTime’a göre çek
+        final altSnap = await FirebaseFirestore.instance
+            .collection('publicUsers')
+            .orderBy('totalRoomTime', descending: true)
+            .limit(100)
+            .get();
+        snapshot = altSnap; // metricField yine weeklyRoomTime kalacak ama değerler 0 ise gösterir, kullanıcıya boş görünmez
+      }
+    }
+    return _mapUsersFromSnapshot(snapshot, metricField: metricField);
   }
 
-  List<LeaderboardUser> _mapUsersFromSnapshot(QuerySnapshot snapshot) {
+  List<LeaderboardUser> _mapUsersFromSnapshot(QuerySnapshot snapshot, {required String metricField}) {
+    int _readMetric(Map<String, dynamic> data) {
+      // Geriye dönük uyumluluk: farklı isimlerde tutulmuş olabilir
+      if (metricField == 'weeklyRoomTime') {
+        return (data['weeklyRoomTime'] as num?)?.toInt() ??
+            (data['weeklySeconds'] as num?)?.toInt() ??
+            (data['weeklyPoints'] as num?)?.toInt() ??
+            (data['weekRoomTime'] as num?)?.toInt() ?? 0;
+      }
+      // default overall
+      return (data['totalRoomTime'] as num?)?.toInt() ??
+          (data['roomTime'] as num?)?.toInt() ?? 0;
+    }
+
     final users = snapshot.docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
       final status = data['status'];
       return status == null || (status != 'banned' && status != 'deleted');
     }).toList();
+
     return users.asMap().entries.map((entry) {
       final doc = entry.value;
       final data = doc.data() as Map<String, dynamic>;
@@ -182,7 +216,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         name: (data['displayName'] as String?)?.trim().isNotEmpty == true ? data['displayName'] : 'Unknown',
         avatarUrl: (data['avatarUrl'] as String?)?.trim().isNotEmpty == true ? data['avatarUrl'] : 'https://api.dicebear.com/8.x/micah/svg?seed=guest',
         streak: (data['streak'] as num?)?.toInt() ?? 0,
-        totalRoomSeconds: (data['totalRoomTime'] as num?)?.toInt() ?? 0,
+        totalRoomSeconds: _readMetric(data),
         isPremium: data['isPremium'] == true,
         role: (data['role'] as String?) ?? 'user',
       );
