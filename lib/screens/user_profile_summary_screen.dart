@@ -387,14 +387,6 @@ class UserProfileSummaryScreen extends StatelessWidget {
               final bool isSvgAvatar = avatarUrl != null && (avatarUrl!.toLowerCase().endsWith('.svg') || avatarUrl!.contains('dicebear.com') || avatarUrl!.contains('image/svg'));
 
               List<Widget> badges = [];
-              // Sıralama badge'i
-              badges.add(_compactIconBadge(
-                context,
-                Icons.emoji_events,
-                '#${user.rank}',
-                cs.primary
-              ));
-
               // Role badge'i
               if (role == 'admin') {
                 badges.add(_compactIconBadge(
@@ -498,7 +490,53 @@ class UserProfileSummaryScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
-                          )
+                          ),
+                          const SizedBox(width: 8),
+                          // Sıralama badge'i - büyük ve gösterişli
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  cs.primary.withValues(alpha: 0.2),
+                                  cs.primary.withValues(alpha: 0.15),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: cs.primary.withValues(alpha: 0.4),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: cs.primary.withValues(alpha: 0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.emoji_events,
+                                  size: 24,
+                                  color: cs.primary,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '#${user.rank}',
+                                  style: TextStyle(
+                                    color: cs.primary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
