@@ -705,7 +705,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               recognizer: TapGestureRecognizer()
                 ..onTap = () async {
-                  final uri = Uri.parse('https://www.codenzi.com/vocachat-terms.html');
+                  final uri = Uri.parse('https://www.codenzi.com/vocachat-term.html');
                   if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(

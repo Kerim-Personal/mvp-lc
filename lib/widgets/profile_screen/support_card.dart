@@ -32,7 +32,7 @@ class SupportCard extends StatelessWidget {
             title: const Text('Terms of Service', style: TextStyle(fontWeight: FontWeight.w600)),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             onTap: () async {
-              final uri = Uri.parse('https://www.codenzi.com/vocachat-terms.html');
+              final uri = Uri.parse('https://www.codenzi.com/vocachat-term.html');
               if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Could not open Terms of Service')),
