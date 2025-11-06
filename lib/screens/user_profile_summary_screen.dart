@@ -43,7 +43,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
   Widget _modernStatCard(BuildContext context, String label, String value, {IconData? icon, Color? iconColor}) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
@@ -72,7 +72,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: () {},
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -85,13 +85,13 @@ class UserProfileSummaryScreen extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 if (icon != null)
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: (iconColor ?? cs.primary).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       icon,
@@ -99,7 +99,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
                       color: iconColor ?? cs.primary,
                     ),
                   ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   value,
                   textAlign: TextAlign.center,
@@ -120,7 +120,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
   Widget _modernStatCardWithFlag(BuildContext context, String label, String languageCode) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
@@ -149,7 +149,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: () {},
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -162,16 +162,16 @@ class UserProfileSummaryScreen extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: cs.tertiary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: _buildNativeLanguageFlag(languageCode, 20),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   languageCode.toUpperCase(),
                   textAlign: TextAlign.center,
@@ -198,7 +198,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
@@ -227,7 +227,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: () {},
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -240,12 +240,12 @@ class UserProfileSummaryScreen extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: cs.tertiary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -257,7 +257,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   languageCodes.map((code) => code.toUpperCase()).join(' • '),
                   textAlign: TextAlign.center,
@@ -424,13 +424,13 @@ class UserProfileSummaryScreen extends StatelessWidget {
 
               return SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Hero Profile Section - Kompakt
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         gradient: LinearGradient(
@@ -452,32 +452,32 @@ class UserProfileSummaryScreen extends StatelessWidget {
                       child: Row(
                         children: [
                           CircleAvatar(
-                            radius: 28,
+                            radius: 24,
                             backgroundColor: cs.surfaceContainerHighest,
                             child: avatarUrl == null
-                                ? Icon(Icons.person, color: cs.onSurfaceVariant)
+                                ? Icon(Icons.person, color: cs.onSurfaceVariant, size: 24)
                                 : ClipOval(
                                     child: isSvgAvatar
                                         ? SvgPicture.network(
                                             avatarUrl!,
-                                            width: 56,
-                                            height: 56,
+                                            width: 48,
+                                            height: 48,
                                             placeholderBuilder: (_) => const SizedBox(
-                                              width: 24,
-                                              height: 24,
+                                              width: 20,
+                                              height: 20,
                                               child: CircularProgressIndicator(strokeWidth: 2),
                                             ),
                                           )
                                         : Image.network(
                                             avatarUrl!,
-                                            width: 56,
-                                            height: 56,
+                                            width: 48,
+                                            height: 48,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Icon(Icons.person, color: cs.onSurfaceVariant),
+                                            errorBuilder: (_, __, ___) => Icon(Icons.person, color: cs.onSurfaceVariant, size: 24),
                                           ),
                                   ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,14 +486,14 @@ class UserProfileSummaryScreen extends StatelessWidget {
                                   displayName,
                                   style: TextStyle(
                                     color: cs.onSurface,
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
+                                  spacing: 6,
+                                  runSpacing: 6,
                                   children: badges,
                                 ),
                               ],
@@ -503,7 +503,7 @@ class UserProfileSummaryScreen extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     // Basic stats
                     _modernStatCard(
