@@ -72,10 +72,21 @@ class UserProfileSummaryScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: () {},
           child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (icon != null) ...[
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (icon != null)
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -88,30 +99,14 @@ class UserProfileSummaryScreen extends StatelessWidget {
                       color: iconColor ?? cs.primary,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: cs.onSurface,
                   ),
                 ),
               ],
@@ -154,9 +149,20 @@ class UserProfileSummaryScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: () {},
           child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -165,29 +171,100 @@ class UserProfileSummaryScreen extends StatelessWidget {
                   ),
                   child: _buildNativeLanguageFlag(languageCode, 20),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 6),
+                Text(
+                  languageCode.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _modernStatCardWithMultipleFlags(BuildContext context, String label, List<String> languageCodes) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Boş ise placeholder göster
+    if (languageCodes.isEmpty) {
+      languageCodes = ['-'];
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.surfaceContainerHighest.withValues(alpha: 0.8),
+            cs.surfaceContainer.withValues(alpha: 0.6),
+          ],
+        ),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {},
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: cs.tertiary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        languageCode.toUpperCase(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: cs.onSurface,
-                        ),
-                      ),
+                      for (int i = 0; i < languageCodes.length && i < 3; i++) ...[
+                        if (i > 0) const SizedBox(width: 4),
+                        _buildNativeLanguageFlag(languageCodes[i], 20),
+                      ],
                     ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  languageCodes.map((code) => code.toUpperCase()).join(' • '),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: cs.onSurface,
                   ),
                 ),
               ],
@@ -289,8 +366,18 @@ class UserProfileSummaryScreen extends StatelessWidget {
               final highestStreak = (data['highestStreak'] as int?) ?? streak;
               final nativeLanguage = (data['nativeLanguage'] as String?) ?? '-';
               final learningLanguage = (data['learningLanguage'] as String?) ?? '-';
-              final levelRaw = data['level'];
-              final level = levelRaw == null ? '-' : levelRaw.toString();
+              // Son 3 öğrenilen dili al
+              List<String> recentLearningLanguages = [];
+              if (data['recentLearningLanguages'] != null) {
+                recentLearningLanguages = List<String>.from(data['recentLearningLanguages']);
+              } else if (learningLanguage != '-') {
+                recentLearningLanguages = [learningLanguage];
+              }
+              // Level artık public gösterimde kullanılmıyor
+              // final levelRaw = data['level'];
+              // final level = levelRaw == null ? '-' : levelRaw.toString();
+              // Yeni: publicUsers dokümanından grammarHighestLevel oku
+              final grammarHighestLevel = (data['grammarHighestLevel'] as String?) ?? '-';
               final createdAtTs = data['createdAt'];
               DateTime? createdAt;
               if (createdAtTs is Timestamp) createdAt = createdAtTs.toDate();
@@ -419,14 +506,58 @@ class UserProfileSummaryScreen extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // Basic stats
-                    _modernStatCard(context, 'Level', level, icon: Icons.school, iconColor: cs.primary),
-                    if (nativeLanguage != '-')
-                      _modernStatCardWithFlag(context, 'Native Language', nativeLanguage),
-                    if (learningLanguage != '-')
-                      _modernStatCardWithFlag(context, 'Learning Language', learningLanguage),
-                    _modernStatCard(context, 'Streak', streak.toString(), icon: Icons.local_fire_department, iconColor: Colors.deepOrange),
-                    _modernStatCard(context, 'Highest Streak', highestStreak.toString(), icon: Icons.whatshot, iconColor: Colors.amber),
-                    if (createdAtStr != '-') _modernStatCard(context, 'Member since', createdAtStr, icon: Icons.calendar_today, iconColor: cs.secondary),
+                    _modernStatCard(
+                      context,
+                      'Level',
+                      grammarHighestLevel,
+                      icon: Icons.translate,
+                      iconColor: cs.tertiary,
+                    ),
+
+                    _modernStatCardWithFlag(
+                      context,
+                      'Native Language',
+                      nativeLanguage,
+                    ),
+
+                    _modernStatCardWithMultipleFlags(
+                      context,
+                      'Learning Languages',
+                      recentLearningLanguages,
+                    ),
+
+                    // Streak stats - yan yana
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _modernStatCard(
+                            context,
+                            'Streak',
+                            streak.toString(),
+                            icon: Icons.local_fire_department,
+                            iconColor: Colors.deepOrange,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _modernStatCard(
+                            context,
+                            'Highest Streak',
+                            highestStreak.toString(),
+                            icon: Icons.whatshot,
+                            iconColor: Colors.amber,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    _modernStatCard(
+                      context,
+                      'Member since',
+                      createdAtStr,
+                      icon: Icons.calendar_today,
+                      iconColor: cs.secondary,
+                    ),
                   ],
                 ),
               );
@@ -440,7 +571,8 @@ class UserProfileSummaryScreen extends StatelessWidget {
   Widget _compactIconBadge(BuildContext context, IconData icon, String text, Color color) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
@@ -454,7 +586,11 @@ class UserProfileSummaryScreen extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               text,
-              style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
           ]
         ],

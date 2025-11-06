@@ -16,7 +16,9 @@ function toPublicUser(data) {
     nativeLanguage: data.nativeLanguage || null,
     learningLanguage: data.learningLanguage || null,
     learningLanguageLevel: data.learningLanguageLevel || null,
-    level: data.level || null,
+    // Yeni: kullanıcıya ait en yüksek grammar seviyesi
+    grammarHighestLevel: data.grammarHighestLevel || null,
+    // level alanını artık public'a çıkarmıyoruz
     // Gamification/istatistikler (hassas token/email vs yok)
     streak: typeof data.streak === 'number' ? data.streak : 0,
     highestStreak: typeof data.highestStreak === 'number' ? data.highestStreak : 0,
@@ -46,6 +48,7 @@ exports.onUserWritePublicProjection = functions
     const afterData = change.after.data();
     const pub = toPublicUser(afterData);
     try {
+      // Artık level alanını geriye dönük silmiyoruz; sadece projeksiyonu yaz
       await publicRef.set(pub, { merge: true });
     } catch (e) {
       console.error('publicUsers set error:', e);
@@ -172,6 +175,7 @@ exports.backfillPublicUsers = functions
       const batch = db.batch();
       for (const doc of snap.docs) {
         const pub = toPublicUser(doc.data());
+        // Artık level alanını geriye dönük silmiyoruz
         batch.set(db.collection('publicUsers').doc(doc.id), pub, { merge: true });
         total++;
       }

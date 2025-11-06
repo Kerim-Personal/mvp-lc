@@ -59,6 +59,12 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
       }
     });
     _fetchUserNativeLanguage();
+    // Emniyet: 10 sn içinde dil yüklenmezse spinnerı kapat.
+    Timer(const Duration(seconds: 10), () {
+      if (mounted && _loadingUserLang) {
+        setState(() { _loadingUserLang = false; });
+      }
+    });
   }
 
   void _initializeTts() {
@@ -89,22 +95,41 @@ class _VocabularyPackScreenState extends State<VocabularyPackScreen> {
   }
 
   Future<void> _fetchUserNativeLanguage() async {
+    String code = 'en';
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      final data = snap.data();
-      final code = (data?['nativeLanguage'] as String?) ?? 'en';
+      if (user != null) {
+        final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final data = snap.data();
+        final fetched = (data?['nativeLanguage'] as String?)?.trim();
+        if (fetched != null && fetched.isNotEmpty) {
+          code = fetched;
+        }
+      }
       _nativeLanguageCode = code;
       if (mounted) setState(() {});
-      // Modeller hazır mı kontrol et, değilse indir.
-      _modelsReady = await TranslationService.instance.isModelReady(code);
-      if (!_modelsReady) {
-        await TranslationService.instance.preDownloadModels(code);
+      // Model hazırlığını UI'yı sonsuza dek bloklamayacak şekilde timeout ile kısıtla.
+      Future<void> prepare() async {
         _modelsReady = await TranslationService.instance.isModelReady(code);
+        if (!_modelsReady) {
+          try {
+            await TranslationService.instance.preDownloadModels(code);
+            _modelsReady = await TranslationService.instance.isModelReady(code);
+          } catch (_) {
+            // İndirme başarısızsa sessizce devam; kullanıcı yine kartları görecek.
+          }
+        }
       }
-    } catch (_) {}
-    if (mounted) setState(() { _loadingUserLang = false; });
+      await prepare().timeout(const Duration(seconds: 8), onTimeout: () {
+        // Timeout durumunda yine de devam edip ekranı açıyoruz.
+      });
+    } catch (_) {
+      // Hata durumunda varsayılan İngilizce ile devam.
+    } finally {
+      if (mounted) {
+        setState(() { _loadingUserLang = false; });
+      }
+    }
   }
 
   Future<void> _restoreProgress() async {

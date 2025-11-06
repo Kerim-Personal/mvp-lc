@@ -155,7 +155,7 @@ class PracticeTab extends StatelessWidget {
 class _PracticeModeCard extends StatelessWidget {
   final ModeData data;
   final bool compact;
-  final bool isPremium; // Premium ise rozet gösterme
+  final bool isPremium; // Premium ise rozet gösterme (artık kullanılmıyor - sadece ileride gerekirse)
   const _PracticeModeCard({required this.data, this.compact = false, this.isPremium = false});
 
   Future<void> _handleTap(BuildContext context) async {
@@ -311,36 +311,7 @@ class _PracticeModeCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Premium değilse sağ üstte küçük bir PRO rozeti/kilit işareti (overlay)
-                if (!isPremium)
-                  Positioned(
-                    top: compact ? 8 : 10,
-                    right: compact ? 8 : 10,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: compact ? 4 : 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.lock_rounded, size: compact ? 12 : 14, color: Colors.amberAccent),
-                          SizedBox(width: compact ? 4 : 6),
-                          Text(
-                            'PRO',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: compact ? 10 : 11.5,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // PRO / kilit rozeti kaldırıldı (kullanıcı isteği)
               ],
             ),
           ),

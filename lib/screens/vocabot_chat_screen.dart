@@ -361,13 +361,51 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
     try {
       if (user != null) {
         final Map<String, dynamic> payload = {};
-        if (!isSameLanguage) payload['learningLanguage'] = newCode;
+        if (!isSameLanguage) {
+          payload['learningLanguage'] = newCode;
+
+          // Son 3 öğrenilen dili tut
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          List<String> recentLanguages = [];
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            if (data != null && data['recentLearningLanguages'] != null) {
+              recentLanguages = List<String>.from(data['recentLearningLanguages']);
+            }
+          }
+
+          // Yeni dili listenin başına ekle
+          recentLanguages.remove(newCode); // Varsa çıkar
+          recentLanguages.insert(0, newCode); // Başa ekle
+
+          // Sadece son 3'ü tut
+          if (recentLanguages.length > 3) {
+            recentLanguages = recentLanguages.sublist(0, 3);
+          }
+
+          payload['recentLearningLanguages'] = recentLanguages;
+        }
         if (level != null) payload['learningLanguageLevel'] = level;
         if (payload.isNotEmpty) {
           await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .set(payload, SetOptions(merge: true));
+
+          // publicUsers'a da yaz
+          if (!isSameLanguage) {
+            await FirebaseFirestore.instance
+                .collection('publicUsers')
+                .doc(user.uid)
+                .set({
+                  'learningLanguage': newCode,
+                  'recentLearningLanguages': payload['recentLearningLanguages'],
+                }, SetOptions(merge: true));
+          }
         }
       }
     } catch (_) {
