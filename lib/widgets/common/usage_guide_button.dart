@@ -62,7 +62,7 @@ class _UsageGuideButtonState extends State<UsageGuideButton> with SingleTickerPr
                     width: 56,
                     height: 56,
                     child: Center(
-                      child: Icon(Icons.menu_book_outlined, size: 30, color: fg),
+                      child: Icon(Icons.explore_outlined, size: 30, color: fg),
                     ),
                   ),
                   if (glow > 0.25)
@@ -108,7 +108,7 @@ void _showUsageGuideDialog(BuildContext context) {
       ],
     ),
     (
-      icon: Icons.library_books_outlined,
+      icon: Icons.translate_outlined, // kitap ikonundan çeviri ikonuna geçildi
       title: 'Vocabulary',
       items: const [
         'Start with "Daily Life" pack first.',
@@ -196,7 +196,7 @@ void _showUsageGuideDialog(BuildContext context) {
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                             ),
-                            child: const Icon(Icons.menu_book_outlined, color: Colors.white, size: 28),
+                            child: const Icon(Icons.explore_outlined, color: Colors.white, size: 28),
                           ),
                           const SizedBox(width: 14),
                           Expanded(

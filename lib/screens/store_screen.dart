@@ -397,7 +397,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Dil öğreniminde sınır tanıma',
+                        'Go beyond limits in language learning',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.white70,

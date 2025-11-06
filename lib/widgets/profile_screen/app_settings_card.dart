@@ -297,8 +297,6 @@ class _AppSettingsCardState extends State<AppSettingsCard> {
               );
             },
           ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          // KALDIRILDI: Blocked Users ListTile
         ],
       ),
     );

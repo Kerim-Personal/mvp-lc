@@ -423,7 +423,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
 
                               // Subtitle
                               const Text(
-                                'Dil öğreniminde sınır tanıma',
+                                'Push your limits in language learning',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.white70,

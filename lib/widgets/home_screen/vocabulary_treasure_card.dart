@@ -36,7 +36,7 @@ class VocabularyTreasureCard extends StatelessWidget {
             ]),
         child: Row(
           children: [
-            const Icon(Icons.menu_book_outlined, color: Colors.white, size: 32),
+            const Icon(Icons.auto_stories_outlined, color: Colors.white, size: 32), // Değiştirildi: önce menu_book_outlined idi
             const SizedBox(width: 15),
             Expanded(
               child: Column(
