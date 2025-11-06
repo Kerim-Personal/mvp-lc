@@ -55,7 +55,7 @@ service cloud.firestore {
     function isValidSupportCreate(data) {
       return data.userId == request.auth.uid &&
              data.subject is string && data.subject.size() > 2 && data.subject.size() <= 120 &&
-             data.message is string && data.message.size() >= 10 && data.message.size() <= 5000 &&
+             data.message is string && data.message.size() >= 10 && data.message.size() <= 1000 &&
              data.status == 'open';
     }
 
@@ -233,7 +233,7 @@ service cloud.firestore {
           request.resource.data.senderRole == 'admin'
         )) &&
         request.resource.data.keys().hasOnly(['senderId','senderRole','message','timestamp','attachments']) &&
-        request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 5000 &&
+        request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 1000 &&
         request.resource.data.timestamp == request.time &&
         isValidAttachments(request.resource.data.attachments);
         allow update, delete: if false;

@@ -29,7 +29,6 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
   // Seçilebilir konu başlıkları (genel)
   static const List<String> _subjectOptions = [
     'Payment / Subscription',
-    'Matching / Partner Finding',
     'App Bug Report',
     'Account / Login',
     'Performance / Speed',
@@ -430,12 +429,13 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> with Ticker
                                   controller: _messageCtrl,
                                   minLines: 6,
                                   maxLines: 12,
+                                  maxLength: 1000,
                                   decoration: const InputDecoration(
                                     labelText: 'Describe your issue',
                                     hintText: 'Steps, screen, device info etc.',
                                     border: OutlineInputBorder(),
                                   ),
-                                  validator: (v) => (v == null || v.trim().length < 10) ? 'Add more detail' : null,
+                                  validator: (v) => (v == null || v.trim().length < 10) ? 'Add more detail (min 10 chars)' : null,
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
