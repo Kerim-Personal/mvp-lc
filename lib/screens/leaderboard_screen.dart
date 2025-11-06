@@ -2,6 +2,7 @@
 
 import 'dart:ui' show ImageFilter;
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -84,11 +85,22 @@ class _CommunityScreenState extends State<CommunityScreen>
   bool _leaderboardLoading = false;
   Object? _leaderboardError;
 
+  // Haftalık geri sayım (cihaz saati ile, offline)
+  Timer? _weeklyCountdownTimer;
+  Duration _weeklyTimeLeft = Duration.zero;
+
   @override
   void initState() {
     super.initState();
     _loadLeaderboard(initial: true);
     _maybeShowWeeklyRewardIntro();
+    _startWeeklyCountdownTicker();
+  }
+
+  @override
+  void dispose() {
+    _weeklyCountdownTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _maybeShowWeeklyRewardIntro() async {
@@ -103,6 +115,44 @@ class _CommunityScreenState extends State<CommunityScreen>
       await _showWeeklyRewardDialog();
       final p = await SharedPreferences.getInstance();
       await p.setBool(key, true);
+    });
+  }
+
+  // Pazartesi 00:00 (yerel saat) haftalık reset kabul edilir
+  DateTime _nextWeeklyResetLocal([DateTime? nowParam]) {
+    final now = nowParam ?? DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final daysToMonday = ((DateTime.monday - now.weekday) + 7) % 7;
+    DateTime next = todayMidnight.add(Duration(days: daysToMonday));
+    // Eğer şu an Pazartesi 00:00'dan sonra ise, bir sonraki haftanın Pazartesi'si
+    if (now.isAfter(next)) {
+      next = next.add(const Duration(days: 7));
+    }
+    return next; // yerel zaman
+  }
+
+  void _updateWeeklyTimeLeft() {
+    final now = DateTime.now();
+    final target = _nextWeeklyResetLocal(now);
+    var diff = target.difference(now);
+    if (diff.isNegative) diff = Duration.zero;
+    final prev = _weeklyTimeLeft; // lokal önceki değer
+    if (!mounted) return;
+    setState(() {
+      _weeklyTimeLeft = diff;
+    });
+    if (_leaderboardType == 'weekly' && prev > Duration.zero && diff == Duration.zero) {
+      _loadLeaderboard(force: true);
+    }
+  }
+
+  void _startWeeklyCountdownTicker() {
+    _weeklyCountdownTimer?.cancel();
+    // İlk değer
+    _updateWeeklyTimeLeft();
+    // Her dakika güncelle (saniye hassasiyeti gerekmiyor)
+    _weeklyCountdownTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _updateWeeklyTimeLeft();
     });
   }
 
@@ -314,14 +364,80 @@ class _CommunityScreenState extends State<CommunityScreen>
               HapticFeedback.selectionClick();
               setState(() { _leaderboardType = val; });
               _loadLeaderboard(force: false);
+              // Mod değiştiğinde geri sayımı hemen güncelle
+              if (val == 'weekly') {
+                _updateWeeklyTimeLeft();
+              }
             },
           ),
+          // Haftalık modda geri sayım rozeti
+          if (_leaderboardType == 'weekly') ...[
+            const SizedBox(height: 10),
+            _buildWeeklyCountdownBadge(),
+          ],
           const SizedBox(height: 12),
           // Top 3 Podyum
           _buildTopPodium(),
           const SizedBox(height: 12),
           // Kullanıcı sırası veya bilgi kartı
           _buildMyRankOrHint(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyCountdownBadge() {
+    final cs = Theme.of(context).colorScheme;
+    final total = _weeklyTimeLeft.inSeconds <= 0 ? Duration.zero : _weeklyTimeLeft;
+
+    String formatRemaining(Duration d) {
+      if (d == Duration.zero) return 'Bitti';
+      final days = d.inDays;
+      final hours = d.inHours % 24;
+      final minutes = d.inMinutes % 60;
+      if (days > 0) return '${days}g ${hours}s';
+      if (hours > 0) return '${hours}s ${minutes}dk';
+      return '${minutes}dk';
+    }
+
+    final timeText = formatRemaining(total);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.timer_outlined,
+            size: 18,
+            color: cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Weekly leaderboard resets in: ',
+            style: TextStyle(
+              fontSize: 13,
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            timeText,
+            style: TextStyle(
+              fontSize: 13,
+              color: cs.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
