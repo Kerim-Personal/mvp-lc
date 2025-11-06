@@ -373,11 +373,21 @@ class UserProfileSummaryScreen extends StatelessWidget {
               } else if (learningLanguage != '-') {
                 recentLearningLanguages = [learningLanguage];
               }
+
+              // Eğer learning languages boşsa, varsayılan olarak İngilizce göster
+              if (recentLearningLanguages.isEmpty) {
+                recentLearningLanguages = ['en'];
+              }
               // Level artık public gösterimde kullanılmıyor
               // final levelRaw = data['level'];
               // final level = levelRaw == null ? '-' : levelRaw.toString();
               // Yeni: publicUsers dokümanından grammarHighestLevel oku
-              final grammarHighestLevel = (data['grammarHighestLevel'] as String?) ?? '-';
+              String grammarHighestLevel = (data['grammarHighestLevel'] as String?) ?? '-';
+
+              // Eğer level boşsa, varsayılan olarak Beginner göster
+              if (grammarHighestLevel == '-') {
+                grammarHighestLevel = 'Beginner';
+              }
               final createdAtTs = data['createdAt'];
               DateTime? createdAt;
               if (createdAtTs is Timestamp) createdAt = createdAtTs.toDate();
