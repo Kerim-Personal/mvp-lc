@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -43,9 +44,17 @@ class _PrepositionsOfTimeLessonScreenState
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,12 +65,13 @@ class _PrepositionsOfTimeLessonScreenState
       // ignore ensureReady failures, attempt translation anyway
     }
     try {
-      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      final translated =
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -97,7 +107,9 @@ class _PrepositionsOfTimeLessonScreenState
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -112,14 +124,15 @@ class _PrepositionsOfTimeLessonScreenState
                               SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2)),
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
+                      final translated = snapshot.data ?? _stripMarkdown(source);
                       return Text(translated,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w500));
@@ -151,7 +164,9 @@ class _PrepositionsOfTimeLessonScreenState
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -221,6 +236,7 @@ class _PrepositionsOfTimeLessonScreenState
                   child: _LessonBlock(
                     icon: Icons.lightbulb_outline,
                     title: 'What are Prepositions of Time?',
+                    // Veri zaten Markdown formatındaydı
                     content:
                     "Prepositions of time are small but important words that tell us when an action takes place. Just like with place, the main ones are **in, on,** and **at**. Let's see how they work with time.",
                     onSpeak: _speak,
@@ -232,11 +248,24 @@ class _PrepositionsOfTimeLessonScreenState
                   interval: const Interval(0.2, 0.8),
                   child: _SimplifiedClickableCard(
                     title: 'The Golden Rule: from general to specific',
-                    headers: const ['Preposition', 'Use', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Preposition**', '**Use**', '**Example**'],
                     rows: const [
-                      ['in', 'For general periods (months, seasons, years)', 'I was born in 1995.'],
-                      ['on', 'For specific days or dates', 'The party is on Friday.'],
-                      ['at', 'For a precise moment in time', 'I will meet you at 7 PM.'],
+                      [
+                        '**in**',
+                        'For general periods (months, seasons, years)',
+                        'I was born **in** 1995.'
+                      ],
+                      [
+                        '**on**',
+                        'For specific days or dates',
+                        'The party is **on** Friday.'
+                      ],
+                      [
+                        '**at**',
+                        'For a precise moment in time',
+                        'I will meet you **at** 7 PM.'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -248,6 +277,7 @@ class _PrepositionsOfTimeLessonScreenState
                   child: _LessonBlock(
                     icon: Icons.star_border,
                     title: '"in" for Periods of Time',
+                    // Veri Markdown formatına güncellendi
                     content:
                     "Use **'in'** for longer periods, such as months, seasons, years, decades, or centuries. It’s also used for parts of the day.",
                     onSpeak: _speak,
@@ -259,19 +289,20 @@ class _PrepositionsOfTimeLessonScreenState
                   interval: const Interval(0.4, 1.0),
                   child: _ExampleCard(
                     title: 'Examples for "in"',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.calendar_today,
-                          category: 'Months:',
-                          sentence: 'We go on holiday **in** July.'),
+                          category: '**Months:**',
+                          sentence: '*We go on holiday **in** July.*'),
                       Example(
                           icon: Icons.wb_sunny_outlined,
-                          category: 'Seasons:',
-                          sentence: 'It snows **in** winter.'),
+                          category: '**Seasons:**',
+                          sentence: '*It snows **in** winter.*'),
                       Example(
                           icon: Icons.access_time_outlined,
-                          category: 'Part of day:',
-                          sentence: 'I read the news **in** the morning.'),
+                          category: '**Part of day:**',
+                          sentence: '*I read the news **in** the morning.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -283,6 +314,7 @@ class _PrepositionsOfTimeLessonScreenState
                   child: _LessonBlock(
                     icon: Icons.event,
                     title: '"on" for Dates and Days',
+                    // Veri Markdown formatına güncellendi
                     content:
                     "Use **'on'** when you are talking about a specific day of the week or a specific date. You can think of it as being 'on' a calendar day.",
                     onSpeak: _speak,
@@ -294,19 +326,20 @@ class _PrepositionsOfTimeLessonScreenState
                   interval: const Interval(0.6, 1.0),
                   child: _ExampleCard(
                     title: 'Examples for "on"',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.access_time_outlined,
-                          category: 'Day of week:',
-                          sentence: 'I will see you **on** Monday.'),
+                          category: '**Day of week:**',
+                          sentence: '*I will see you **on** Monday.*'),
                       Example(
                           icon: Icons.cake_outlined,
-                          category: 'Date:',
-                          sentence: 'Her birthday is **on** August 20th.'),
+                          category: '**Date:**',
+                          sentence: '*Her birthday is **on** August 20th.*'),
                       Example(
                           icon: Icons.holiday_village_outlined,
-                          category: 'Special day:',
-                          sentence: 'We get presents **on** Christmas Day.'),
+                          category: '**Special day:**',
+                          sentence: '*We get presents **on** Christmas Day.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -318,6 +351,7 @@ class _PrepositionsOfTimeLessonScreenState
                   child: _LessonBlock(
                     icon: Icons.schedule_outlined,
                     title: '"at" for Specific Times',
+                    // Veri Markdown formatına güncellendi
                     content:
                     "Use **'at'** for a very precise or specific point in time, like a clock time or a holiday period.",
                     onSpeak: _speak,
@@ -329,19 +363,20 @@ class _PrepositionsOfTimeLessonScreenState
                   interval: const Interval(0.8, 1.0),
                   child: _ExampleCard(
                     title: 'Examples for "at"',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.alarm,
-                          category: 'Clock time:',
-                          sentence: 'The train leaves **at** 9 AM.'),
+                          category: '**Clock time:**',
+                          sentence: '*The train leaves **at** 9 AM.*'),
                       Example(
                           icon: Icons.nightlight_outlined,
-                          category: 'Holiday:',
-                          sentence: 'They sing songs **at** Christmas.'),
+                          category: '**Holiday:**',
+                          sentence: '*They sing songs **at** Christmas.*'),
                       Example(
                           icon: Icons.dark_mode,
-                          category: 'Night:',
-                          sentence: 'She studies **at** night.'),
+                          category: '**Night:**',
+                          sentence: '*She studies **at** night.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -372,6 +407,26 @@ class _LessonBlock extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -419,13 +474,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -503,11 +556,45 @@ class _ExampleListItem extends StatelessWidget {
         required this.onSpeak,
         required this.onTranslate});
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isDark ? Colors.indigo.shade900.withOpacity(0.25) : Colors.indigo.shade50,
+      color: isDark
+          ? Colors.indigo.shade900.withOpacity(0.25)
+          : Colors.indigo.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
@@ -521,25 +608,20 @@ class _ExampleListItem extends StatelessWidget {
             children: [
               Icon(example.icon, size: 22, color: Colors.indigo.shade600),
               const SizedBox(width: 12),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      example.category,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
                     ),
-                    Text(
-                      example.sentence,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                      ),
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
                     ),
                   ],
                 ),
@@ -566,6 +648,35 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 15,
+        color: isDark ? Colors.indigoAccent.shade200 : Colors.indigo.shade800,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.indigoAccent.shade200 : Colors.indigo.shade800,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -602,18 +713,19 @@ class _SimplifiedClickableCard extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: DataTable(
               showCheckboxColumn: false,
-              headingTextStyle: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isDark
-                    ? Colors.indigoAccent.shade200
-                    : Colors.indigo.shade800,
-                fontSize: 15,
-              ),
-              dataTextStyle: TextStyle(
-                color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                fontSize: 16,
-              ),
-              columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+              // Stil özellikleri kaldırıldı
+              // headingTextStyle: ...,
+              // dataTextStyle: ...,
+              columns: headers.map((h) {
+                // DataColumn label'ı MarkdownBody olarak güncellendi
+                return DataColumn(
+                  label: MarkdownBody(
+                    data: h,
+                    selectable: false,
+                    styleSheet: _getHeaderStyle(context),
+                  ),
+                );
+              }).toList(),
               rows: rows.map((row) {
                 final String textJoined = row.join('. ');
                 return DataRow(
@@ -621,10 +733,16 @@ class _SimplifiedClickableCard extends StatelessWidget {
                     if (isSelected != null) onSpeak(textJoined);
                   },
                   cells: row.map((cell) {
+                    // DataCell çocuğu MarkdownBody olarak güncellendi
                     return DataCell(
                       GestureDetector(
                         onLongPress: () => onTranslate(textJoined),
-                        child: Text(cell),
+                        behavior: HitTestBehavior.opaque,
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
+                        ),
                       ),
                     );
                   }).toList(),
@@ -652,14 +770,29 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
-  @override
-  Widget build(BuildContext context) {
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseText = TextStyle(
       fontSize: 16,
       height: 1.5,
       color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
     );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: 2,
       shadowColor: Colors.amber.withOpacity(0.1),
@@ -700,7 +833,7 @@ class _TipCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ...tips.map((tip) {
-              final parts = tip.split('**');
+              // RichText ve split logic'i kaldırıldı
               return Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -713,25 +846,12 @@ class _TipCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('💡 ', style: TextStyle(fontSize: 16)),
+                        // RichText, MarkdownBody ile değiştirildi
                         Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: baseText,
-                              children: [
-                                for (int i = 0; i < parts.length; i++)
-                                  TextSpan(
-                                    text: parts[i],
-                                    style: i.isOdd
-                                        ? TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black,
-                                    )
-                                        : null,
-                                  ),
-                              ],
-                            ),
+                          child: MarkdownBody(
+                            data: tip,
+                            selectable: false,
+                            styleSheet: _getMdStyle(context),
                           ),
                         ),
                       ],

@@ -57,6 +57,7 @@ dependencies:
   http: ^1.2.1
   characters: ^1.3.0
   change_app_package_name: ^1.5.0
+  flutter_markdown: ^0.7.4+1
 
 
 # Mobil hedefte sürüm uyuşmazlığını çözmek için web paketini override ediyoruz

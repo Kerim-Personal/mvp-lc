@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 // --- MAIN LESSON SCREEN ---
 
@@ -44,7 +45,10 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
 
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,13 +60,19 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
     }
     try {
       final translated =
-      await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
+  }
+
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    // **, __, *, _ karakterlerini kaldırır
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
   }
 
   Future<void> _showTranslateSheet(String source) async {
@@ -97,7 +107,8 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source), style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -119,7 +130,7 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
+                      final translated = snapshot.data ?? _stripMarkdown(source);
                       return Text(translated,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w500));
@@ -151,7 +162,9 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -235,12 +248,12 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
                     examples: const [
                       Example(
                           icon: Icons.shopping_bag_outlined,
-                          category: '"A" for consonant sounds:',
-                          sentence: 'I need a bag.'),
+                          category: '**"A" for consonant sounds:**',
+                          sentence: '*I need a bag.*'),
                       Example(
                           icon: Icons.local_airport_outlined,
-                          category: '"An" for vowel sounds:',
-                          sentence: 'I ate an apple.'),
+                          category: '**"An" for vowel sounds:**',
+                          sentence: '*I ate an apple.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -251,11 +264,11 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: '"A" vs. "An" with Examples',
-                    headers: const ['With Consonants', 'With Vowels'],
+                    headers: const ['**With Consonants**', '**With Vowels**'],
                     rows: const [
-                      ['a car', 'an orange'],
-                      ['a house', 'an hour'],
-                      ['a university', 'an umbrella'],
+                      ['**a** car', '**an** orange'],
+                      ['**a** house', '**an** hour'],
+                      ['**a** university', '**an** umbrella'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -278,11 +291,11 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
                   interval: const Interval(0.5, 1.0),
                   child: _SimplifiedClickableCard(
                     title: '"The" with Examples',
-                    headers: const ['Example', 'Explanation'],
+                    headers: const ['**Example**', '**Explanation**'],
                     rows: const [
-                      ['Can you close the door?', 'We both know which door.'],
-                      ['I visited the Eiffel Tower.', 'There is only one.'],
-                      ['He is the best player.', 'Specific and unique.'],
+                      ['Can you close **the** door?', 'We both know which door.'],
+                      ['I visited **the** Eiffel Tower.', 'There is only one.'],
+                      ['He is **the** best player.', 'Specific and unique.'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -326,6 +339,25 @@ class _LessonBlock extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -373,13 +405,10 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -457,6 +486,31 @@ class _ExampleListItem extends StatelessWidget {
         required this.onSpeak,
         required this.onTranslate});
 
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -477,25 +531,22 @@ class _ExampleListItem extends StatelessWidget {
             children: [
               Icon(example.icon, size: 22, color: Colors.purple.shade600),
               const SizedBox(width: 12),
-              Expanded( // Değişiklik burada
-                child: Column( // Ve burada
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      example.category,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
+                      // Opsiyonel: MarkdownBody varsayılan olarak padding ekler, bunu kaldırabilirsiniz
+                      // shrinkWrap: true,
                     ),
-                    Text(
-                      example.sentence,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                      ),
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
+                      // shrinkWrap: true,
                     ),
                   ],
                 ),
@@ -522,6 +573,34 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 15,
+        color: isDark ? Colors.purpleAccent.shade200 : Colors.purple.shade800,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.purpleAccent.shade200 : Colors.purple.shade800,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -558,18 +637,18 @@ class _SimplifiedClickableCard extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: DataTable(
               showCheckboxColumn: false,
-              headingTextStyle: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isDark
-                    ? Colors.purpleAccent.shade200
-                    : Colors.purple.shade800,
-                fontSize: 15,
-              ),
-              dataTextStyle: TextStyle(
-                color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                fontSize: 16,
-              ),
-              columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+              // Bu stiller artık Markdown tarafından yönetiliyor
+              // headingTextStyle: ...,
+              // dataTextStyle: ...,
+              columns: headers.map((h) {
+                return DataColumn(
+                  label: MarkdownBody(
+                    data: h,
+                    selectable: false,
+                    styleSheet: _getHeaderStyle(context),
+                  ),
+                );
+              }).toList(),
               rows: rows.map((row) {
                 final String textJoined = row.join('. ');
                 return DataRow(
@@ -580,7 +659,13 @@ class _SimplifiedClickableCard extends StatelessWidget {
                     return DataCell(
                       GestureDetector(
                         onLongPress: () => onTranslate(textJoined),
-                        child: Text(cell),
+                        // Dokunma alanını genişletmek için
+                        behavior: HitTestBehavior.opaque,
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
+                        ),
                       ),
                     );
                   }).toList(),
@@ -608,14 +693,29 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
-  @override
-  Widget build(BuildContext context) {
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseText = TextStyle(
       fontSize: 16,
       height: 1.5,
       color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
     );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 2,
       shadowColor: Colors.amber.withOpacity(0.1),
@@ -656,7 +756,6 @@ class _TipCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ...tips.map((tip) {
-              final parts = tip.split('**');
               return Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -670,24 +769,10 @@ class _TipCard extends StatelessWidget {
                       children: [
                         const Text('💡 ', style: TextStyle(fontSize: 16)),
                         Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: baseText,
-                              children: [
-                                for (int i = 0; i < parts.length; i++)
-                                  TextSpan(
-                                    text: parts[i],
-                                    style: i.isOdd
-                                        ? TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black,
-                                    )
-                                        : null,
-                                  ),
-                              ],
-                            ),
+                          child: MarkdownBody(
+                            data: tip,
+                            selectable: false,
+                            styleSheet: _getMdStyle(context),
                           ),
                         ),
                       ],
