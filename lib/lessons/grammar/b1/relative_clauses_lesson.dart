@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -13,11 +14,12 @@ class RelativeClausesLessonScreen extends StatefulWidget {
   const RelativeClausesLessonScreen({super.key});
 
   @override
-  State<RelativeClausesLessonScreen> createState() => _RelativeClausesLessonScreenState();
+  State<RelativeClausesLessonScreen> createState() =>
+      _RelativeClausesLessonScreenState();
 }
 
-class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScreen>
-    with TickerProviderStateMixin {
+class _RelativeClausesLessonScreenState
+    extends State<RelativeClausesLessonScreen> with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
 
@@ -31,7 +33,8 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -41,23 +44,34 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
-    if (_translationCache.containsKey(cacheKey)) return _translationCache[cacheKey]!;
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
     try {
       await TranslationService.instance.ensureReady(target);
     } catch (_) {
       // ignore ensureReady failures, attempt translation anyway
     }
     try {
-      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      final translated =
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -85,14 +99,20 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                     children: const [
                       Icon(Icons.translate, color: Colors.teal),
                       SizedBox(width: 8),
-                      Text('Translation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Translation',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text('Original', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  const Text('Original',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
-                  const Text('Translation', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text('Translation',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
                   FutureBuilder<String>(
                     future: translationFuture,
                     builder: (context, snapshot) {
@@ -101,15 +121,21 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -138,7 +164,9 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -208,8 +236,9 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                   child: _LessonBlock(
                     icon: Icons.call_merge,
                     title: 'Relative Clauses: Who, Which, That, Whose',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Relative clauses give extra information about a noun. They are introduced by relative pronouns like 'who' (for people), 'which' (for things), 'that' (for both), and 'whose' (possessive).",
+                    "Relative clauses give **extra information** about a noun. They are introduced by relative pronouns like **'who'** (for people), **'which'** (for things), **'that'** (for both), and **'whose'** (possessive).",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -219,19 +248,22 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'Defining vs Non-Defining Clauses',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.check_circle,
-                          category: 'Defining (Essential):',
-                          sentence: 'The man who lives next door is a doctor. (Identifies which man)'),
+                          category: '**Defining (Essential):**',
+                          sentence:
+                          '*The man **who lives next door** is a doctor. (Identifies which man)*'),
                       Example(
                           icon: Icons.info_outline,
-                          category: 'Non-Defining (Extra):',
-                          sentence: 'My brother, who lives in London, is coming tomorrow. (Extra information)'),
+                          category: '**Non-Defining (Extra):**',
+                          sentence:
+                          '*My brother, **who lives in London**, is coming tomorrow. (Extra info, uses commas)*'),
                       Example(
                           icon: Icons.remove_circle,
-                          category: 'No Commas in Defining:',
-                          sentence: 'The book that I read was interesting.'),
+                          category: '**No Commas in Defining:**',
+                          sentence: '*The book **that I read** was interesting.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -242,15 +274,28 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Relative Pronouns',
-                    headers: const ['Pronoun', 'Use', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Pronoun**', '**Use**', '**Example**'],
                     rows: const [
-                      ['who', 'People (subject)', 'The woman who works here is my sister.'],
-                      ['whom', 'People (object, formal)', 'The man whom I met yesterday is a teacher.'],
-                      ['which', 'Things/Animals', 'The book which I bought is expensive.'],
-                      ['that', 'People/Things (informal)', 'The person that called is waiting.'],
-                      ['whose', 'Possession', 'The girl whose bag is red is my friend.'],
-                      ['where', 'Places', 'The city where I was born is beautiful.'],
-                      ['when', 'Time', 'I remember the day when we met.'],
+                      ['**who**', 'People (subject)', '*The woman **who** works here is my sister.*'],
+                      [
+                        '**whom**',
+                        'People (object, formal)',
+                        '*The man **whom** I met yesterday is a teacher.*'
+                      ],
+                      ['**which**', 'Things/Animals', '*The book **which** I bought is expensive.*'],
+                      [
+                        '**that**',
+                        'People/Things (defining)',
+                        '*The person **that** called is waiting.*'
+                      ],
+                      [
+                        '**whose**',
+                        'Possession',
+                        '*The girl **whose** bag is red is my friend.*'
+                      ],
+                      ['**where**', 'Places', '*The city **where** I was born is beautiful.*'],
+                      ['**when**', 'Time', '*I remember the day **when** we met.*'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -261,12 +306,29 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Omitting Relative Pronouns',
-                    headers: const ['Situation', 'Example', 'Omitted Version'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Situation**', '**Example**', '**Omitted Version**'],
                     rows: const [
-                      ['Object pronoun', 'The book that I read...', 'The book I read...'],
-                      ['In defining clauses', 'The man who I saw...', 'The man I saw...'],
-                      ['Not subject', 'The house which we bought...', 'The house we bought...'],
-                      ['Never omit in non-defining', 'My sister, who lives abroad...', '(Cannot omit)'],
+                      [
+                        'Object pronoun',
+                        '*The book **that** I read...*',
+                        '*The book I read...*'
+                      ],
+                      [
+                        'In defining clauses',
+                        '*The man **who** I saw...*',
+                        '*The man I saw...*'
+                      ],
+                      [
+                        'Not subject',
+                        '*The house **which** we bought...*',
+                        '*The house we bought...*'
+                      ],
+                      [
+                        'Never omit in non-defining',
+                        '*My sister, **who** lives abroad...*',
+                        '*(Cannot omit)*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -277,11 +339,24 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                   interval: const Interval(0.5, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Prepositions in Relative Clauses',
-                    headers: const ['Structure', 'Example', 'Alternative'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Structure**', '**Example**', '**Alternative (less formal)**'],
                     rows: const [
-                      ['Prep + which/whom', 'The person to whom I spoke...', 'The person who I spoke to...'],
-                      ['Prep + which', 'The house in which I live...', 'The house which I live in...'],
-                      ['Prep + whose', 'The man with whose car I came...', 'The man whose car I came with...'],
+                      [
+                        'Prep + which/whom',
+                        '*The person **to whom** I spoke...*',
+                        '*The person **who** I spoke **to**...*'
+                      ],
+                      [
+                        'Prep + which',
+                        '*The house **in which** I live...*',
+                        '*The house **which** I live **in**...*'
+                      ],
+                      [
+                        'Prep + whose',
+                        '*The man **with whose** car I came...*',
+                        '*The man **whose** car I came **with**...*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -292,10 +367,11 @@ class _RelativeClausesLessonScreenState extends State<RelativeClausesLessonScree
                   interval: const Interval(0.6, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Commas:** Use commas for non-defining clauses, no commas for defining.',
-                      '**That vs Which:** "That" is more common in defining clauses, "which" in non-defining.',
-                      '**What vs That:** "What" means "the thing that", not a relative pronoun.',
+                      '**Commas are key:** Use commas for **non-defining** clauses (extra info). No commas for **defining** clauses (essential info).',
+                      '**"That" vs "Which":** **"That"** is generally preferred in defining clauses. **"Which"** must be used in non-defining clauses (after a comma).',
+                      '**"What" is NOT a relative pronoun:** "What" means "the thing that". *I know **what** you mean.* (NOT *I know the thing what...*)',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -317,22 +393,28 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (mor) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.deepPurple.shade900.withOpacity(0.3) : Colors.deepPurple.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(color: isDark ? Colors.deepPurple.shade800 : Colors.deepPurple.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up, color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(
+                  color: isDark
+                      ? Colors.deepPurple.shade200
+                      : Colors.deepPurple.shade900,
+                  fontSize: 14),
             ),
           ),
         ],
@@ -385,6 +467,26 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -431,13 +533,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -495,7 +595,8 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -509,17 +610,55 @@ class _ExampleListItem extends StatelessWidget {
   final Function(String) onSpeak;
   final Function(String) onTranslate;
 
-  const _ExampleListItem({required this.example, required this.onSpeak, required this.onTranslate});
+  const _ExampleListItem(
+      {required this.example,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isDark ? Colors.deepPurple.shade900.withOpacity(0.25) : Colors.deepPurple.shade50,
+      color: isDark
+          ? Colors.deepPurple.shade900.withOpacity(0.25)
+          : Colors.deepPurple.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
-        onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -528,23 +667,22 @@ class _ExampleListItem extends StatelessWidget {
             children: [
               Icon(example.icon, size: 22, color: Colors.deepPurple.shade600),
               const SizedBox(width: 12),
-              Text(
-                example.category,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  example.sentence,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
+                    ),
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -570,10 +708,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -596,7 +768,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -607,41 +779,53 @@ class _SimplifiedClickableCard extends StatelessWidget {
                 color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                 width: 1,
               ),
+              // Sütun genişliklerini ayarlamak için eklendi
+              columnWidths: const {
+                0: FlexColumnWidth(1.2),
+                1: FlexColumnWidth(1.5),
+                2: FlexColumnWidth(2.5),
+              },
               children: [
                 TableRow(
                   decoration: BoxDecoration(
                     color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                   ),
-                  children: headers.map((h) => Padding(
+                  children: headers
+                      .map((h) => Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: InkWell(
                       onTap: () => onSpeak(h),
                       onLongPress: () => onTranslate(h),
-                      child: Text(
-                        h,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: onSurface,
-                        ),
+                      // Text, MarkdownBody olarak değiştirildi
+                      child: MarkdownBody(
+                        data: h,
+                        selectable: false,
+                        styleSheet: _getHeaderStyle(context),
                       ),
                     ),
-                  )).toList(),
+                  ))
+                      .toList(),
                 ),
-                ...rows.map((row) => TableRow(
-                  children: row.map((cell) => Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: InkWell(
-                      onTap: () => onSpeak(cell),
-                      onLongPress: () => onTranslate(cell),
-                      child: Text(
-                        cell,
-                        style: TextStyle(
-                          color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                ...rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return TableRow(
+                    children: row
+                        .map((cell) => Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: InkWell(
+                        onTap: () => onSpeak(textJoined),
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
                         ),
                       ),
-                    ),
-                  )).toList(),
-                )),
+                    ))
+                        .toList(),
+                  );
+                }),
               ],
             ),
           ],
@@ -664,6 +848,26 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -681,7 +885,8 @@ class _TipCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 28),
+                Icon(Icons.lightbulb_outline,
+                    color: Colors.amber.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -712,13 +917,11 @@ class _TipCard extends StatelessWidget {
                 onLongPress: () => onTranslate(tip),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    tip,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                    ),
+                  // Text, MarkdownBody olarak değiştirildi
+                  child: MarkdownBody(
+                    data: tip,
+                    selectable: false,
+                    styleSheet: _getMdStyle(context),
                   ),
                 ),
               ),

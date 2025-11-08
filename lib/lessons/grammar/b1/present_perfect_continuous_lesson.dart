@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -13,10 +14,12 @@ class PresentPerfectContinuousLessonScreen extends StatefulWidget {
   const PresentPerfectContinuousLessonScreen({super.key});
 
   @override
-  State<PresentPerfectContinuousLessonScreen> createState() => _PresentPerfectContinuousLessonScreenState();
+  State<PresentPerfectContinuousLessonScreen> createState() =>
+      _PresentPerfectContinuousLessonScreenState();
 }
 
-class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectContinuousLessonScreen>
+class _PresentPerfectContinuousLessonScreenState
+    extends State<PresentPerfectContinuousLessonScreen>
     with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
@@ -31,7 +34,8 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -41,23 +45,34 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
-    if (_translationCache.containsKey(cacheKey)) return _translationCache[cacheKey]!;
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
     try {
       await TranslationService.instance.ensureReady(target);
     } catch (_) {
       // ignore ensureReady failures, attempt translation anyway
     }
     try {
-      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      final translated =
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -85,14 +100,20 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                     children: const [
                       Icon(Icons.translate, color: Colors.teal),
                       SizedBox(width: 8),
-                      Text('Translation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Translation',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text('Original', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  const Text('Original',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
-                  const Text('Translation', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text('Translation',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
                   FutureBuilder<String>(
                     future: translationFuture,
                     builder: (context, snapshot) {
@@ -101,15 +122,21 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -138,7 +165,9 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -165,7 +194,7 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      fontSize: 22)),
+                      fontSize: 16)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -187,7 +216,7 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                       Text(
                         'Ongoing Actions and Duration',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: Colors.white.withOpacity(0.8),
                           fontSize: 18,
                         ),
                       ),
@@ -208,8 +237,9 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                   child: _LessonBlock(
                     icon: Icons.timeline,
                     title: 'Present Perfect Continuous: Have/Has Been + Verb-ing',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "The Present Perfect Continuous tense shows actions that started in the past and are still continuing, or have recently stopped. It's formed with 'have/has been' + verb-ing. It emphasizes duration and continuity!",
+                    "The Present Perfect Continuous tense shows actions that **started in the past and are still continuing**, or have **recently stopped**. It's formed with **'have/has been' + verb-ing**. It emphasizes **duration** and **continuity**!",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -219,19 +249,20 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'When to Use Present Perfect Continuous',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.access_time,
-                          category: 'Ongoing Actions:',
-                          sentence: 'I have been studying for 3 hours.'),
+                          category: '**Ongoing Actions:**',
+                          sentence: '*I **have been studying** for 3 hours.*'),
                       Example(
                           icon: Icons.wb_sunny,
-                          category: 'Recent Activities:',
-                          sentence: 'It has been raining all day.'),
+                          category: '**Recent Activities:**',
+                          sentence: '*It **has been raining** all day.*'),
                       Example(
                           icon: Icons.face,
-                          category: 'Experiences:',
-                          sentence: 'She has been living here for 5 years.'),
+                          category: '**Experiences (duration):**',
+                          sentence: '*She **has been living** here for 5 years.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -242,13 +273,18 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Positive Sentences',
-                    headers: const ['Subject', 'Have/Has Been + Verb-ing', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Subject**', '**Have/Has Been + Verb-ing**', '**Example**'],
                     rows: const [
-                      ['I', 'have been studying', 'I have been studying English.'],
-                      ['You', 'have been working', 'You have been working hard.'],
-                      ['He/She/It', 'has been raining', 'It has been raining.'],
-                      ['We', 'have been living', 'We have been living here.'],
-                      ['They', 'have been playing', 'They have been playing football.'],
+                      ['I', '**have been** studying', '*I **have been studying** English.*'],
+                      ['You', '**have been** working', '*You **have been working** hard.*'],
+                      ['He/She/It', '**has been** raining', '*It **has been raining**.*'],
+                      ['We', '**have been** living', '*We **have been living** here.*'],
+                      [
+                        'They',
+                        '**have been** playing',
+                        '*They **have been playing** football.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -259,13 +295,34 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Negative Sentences: Have/Has Not Been + Verb-ing',
-                    headers: const ['Full Form', 'Contraction', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Full Form**', '**Contraction**', '**Example**'],
                     rows: const [
-                      ['I have not been studying.', "I haven\'t been studying.", "I haven\'t been studying."],
-                      ['You have not been working.', "You haven\'t been working.", "You haven\'t been working."],
-                      ['She has not been raining.', "She hasn\'t been raining.", "It hasn\'t been raining."],
-                      ['We have not been living.', "We haven\'t been living.", "We haven\'t been living."],
-                      ['They have not been playing.', "They haven\'t been playing.", "They haven\'t been playing."],
+                      [
+                        '*I **have not been** studying.*',
+                        '*I **haven\'t been** studying.*',
+                        '*I **haven\'t been** studying.*'
+                      ],
+                      [
+                        '*You **have not been** working.*',
+                        '*You **haven\'t been** working.*',
+                        '*You **haven\'t been** working.*'
+                      ],
+                      [
+                        '*It **has not been** raining.*',
+                        '*It **hasn\'t been** raining.*',
+                        '*It **hasn\'t been** raining.*'
+                      ],
+                      [
+                        '*We **have not been** living.*',
+                        '*We **haven\'t been** living.*',
+                        '*We **haven\'t been** living.*'
+                      ],
+                      [
+                        '*They **have not been** playing.*',
+                        '*They **haven\'t been** playing.*',
+                        '*They **haven\'t been** playing.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -276,13 +333,34 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                   interval: const Interval(0.5, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Question Sentences: Have/Has + Subject + Been + Verb-ing?',
-                    headers: const ['Question', 'Short Answer', 'Full Answer'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Question**', '**Short Answer**', '**Full Answer**'],
                     rows: const [
-                      ['Have I been studying?', 'Yes, you have.', 'Yes, you have been studying.'],
-                      ['Have you been working?', 'No, I haven\'t.', 'No, I haven\'t been working.'],
-                      ['Has it been raining?', 'Yes, it has.', 'Yes, it has been raining.'],
-                      ['Have we been living?', 'No, we haven\'t.', 'No, we haven\'t been living.'],
-                      ['Have they been playing?', 'Yes, they have.', 'Yes, they have been playing.'],
+                      [
+                        '***Have** I **been** studying?*',
+                        '*Yes, you **have**.*',
+                        '*Yes, you **have been** studying.*'
+                      ],
+                      [
+                        '***Have** you **been** working?*',
+                        '*No, I **haven\'t**.*',
+                        '*No, I **haven\'t been** working.*'
+                      ],
+                      [
+                        '***Has** it **been** raining?*',
+                        '*Yes, it **has**.*',
+                        '*Yes, it **has been** raining.*'
+                      ],
+                      [
+                        '***Have** we **been** living?*',
+                        '*No, we **haven\'t**.*',
+                        '*No, we **haven\'t been** living.*'
+                      ],
+                      [
+                        '***Have** they **been** playing?*',
+                        '*Yes, they **have**.*',
+                        '*Yes, they **have been** playing.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -293,10 +371,11 @@ class _PresentPerfectContinuousLessonScreenState extends State<PresentPerfectCon
                   interval: const Interval(0.6, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Duration Words:** Use with "for" (period) and "since" (starting point). E.g., "for 2 hours", "since morning".',
-                      '**Vs Present Perfect Simple:** Use continuous for ongoing actions, simple for completed actions.',
-                      '**Stative Verbs:** Don\'t use with verbs like "know", "like", "believe" – use Present Perfect Simple instead.',
+                      '**Duration Words:** Use with "**for**" (period) and "**since**" (starting point). E.g., *"**for** 2 hours"*, *"**since** morning"*.',
+                      '**Vs. Present Perfect Simple:** Use **continuous** for ongoing *duration* (*I\'ve been reading*). Use **simple** for *completed* actions or *results* (*I\'ve read that book*).',
+                      '**Stative Verbs:** Don\'t use with verbs like *know, like, believe* – use Present Perfect Simple instead.',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -318,22 +397,32 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (yeşil/teal) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.green.shade900.withOpacity(0.3) : Colors.green.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(
+            color: isDark
+                ? Colors.green.shade800
+                : Colors.green.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up,
+              color: isDark ? Colors.green.shade300 : Colors.green.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(
+                  color: isDark
+                      ? Colors.green.shade200
+                      : Colors.green.shade900,
+                  fontSize: 14),
             ),
           ),
         ],
@@ -386,13 +475,33 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -432,13 +541,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -468,7 +575,7 @@ class _ExampleCard extends StatelessWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -496,7 +603,8 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -510,17 +618,54 @@ class _ExampleListItem extends StatelessWidget {
   final Function(String) onSpeak;
   final Function(String) onTranslate;
 
-  const _ExampleListItem({required this.example, required this.onSpeak, required this.onTranslate});
+  const _ExampleListItem(
+      {required this.example,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isDark ? Colors.teal.shade900.withValues(alpha: 0.25) : Colors.teal.shade50,
+      color:
+      isDark ? Colors.teal.shade900.withOpacity(0.25) : Colors.teal.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
-        onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -529,23 +674,22 @@ class _ExampleListItem extends StatelessWidget {
             children: [
               Icon(example.icon, size: 22, color: Colors.teal.shade600),
               const SizedBox(width: 12),
-              Text(
-                example.category,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  example.sentence,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
+                    ),
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -571,13 +715,47 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -597,7 +775,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -608,41 +786,53 @@ class _SimplifiedClickableCard extends StatelessWidget {
                 color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                 width: 1,
               ),
+              // Sütun genişliklerini ayarlamak için eklendi
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(2),
+                2: FlexColumnWidth(2),
+              },
               children: [
                 TableRow(
                   decoration: BoxDecoration(
                     color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                   ),
-                  children: headers.map((h) => Padding(
+                  children: headers
+                      .map((h) => Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: InkWell(
                       onTap: () => onSpeak(h),
                       onLongPress: () => onTranslate(h),
-                      child: Text(
-                        h,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: onSurface,
-                        ),
+                      // Text, MarkdownBody olarak değiştirildi
+                      child: MarkdownBody(
+                        data: h,
+                        selectable: false,
+                        styleSheet: _getHeaderStyle(context),
                       ),
                     ),
-                  )).toList(),
+                  ))
+                      .toList(),
                 ),
-                ...rows.map((row) => TableRow(
-                  children: row.map((cell) => Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: InkWell(
-                      onTap: () => onSpeak(cell),
-                      onLongPress: () => onTranslate(cell),
-                      child: Text(
-                        cell,
-                        style: TextStyle(
-                          color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                ...rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return TableRow(
+                    children: row
+                        .map((cell) => Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: InkWell(
+                        onTap: () => onSpeak(textJoined),
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
                         ),
                       ),
-                    ),
-                  )).toList(),
-                )),
+                    ))
+                        .toList(),
+                  );
+                }),
               ],
             ),
           ],
@@ -665,13 +855,33 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -682,7 +892,8 @@ class _TipCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 28),
+                Icon(Icons.lightbulb_outline,
+                    color: Colors.amber.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -713,13 +924,11 @@ class _TipCard extends StatelessWidget {
                 onLongPress: () => onTranslate(tip),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    tip,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                    ),
+                  // Text, MarkdownBody olarak değiştirildi
+                  child: MarkdownBody(
+                    data: tip,
+                    selectable: false,
+                    styleSheet: _getMdStyle(context),
                   ),
                 ),
               ),

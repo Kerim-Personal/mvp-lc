@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -13,11 +14,12 @@ class GerundsInfinitivesLessonScreen extends StatefulWidget {
   const GerundsInfinitivesLessonScreen({super.key});
 
   @override
-  State<GerundsInfinitivesLessonScreen> createState() => _GerundsInfinitivesLessonScreenState();
+  State<GerundsInfinitivesLessonScreen> createState() =>
+      _GerundsInfinitivesLessonScreenState();
 }
 
-class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLessonScreen>
-    with TickerProviderStateMixin {
+class _GerundsInfinitivesLessonScreenState
+    extends State<GerundsInfinitivesLessonScreen> with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
 
@@ -31,7 +33,8 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -41,23 +44,34 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
-    if (_translationCache.containsKey(cacheKey)) return _translationCache[cacheKey]!;
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
     try {
       await TranslationService.instance.ensureReady(target);
     } catch (_) {
       // ignore ensureReady failures, attempt translation anyway
     }
     try {
-      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      final translated =
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -85,14 +99,20 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                     children: const [
                       Icon(Icons.translate, color: Colors.teal),
                       SizedBox(width: 8),
-                      Text('Translation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Translation',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text('Original', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  const Text('Original',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
-                  const Text('Translation', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text('Translation',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
                   FutureBuilder<String>(
                     future: translationFuture,
                     builder: (context, snapshot) {
@@ -101,15 +121,21 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -138,7 +164,9 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -208,8 +236,9 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                   child: _LessonBlock(
                     icon: Icons.functions,
                     title: 'Gerunds (-ing) vs Infinitives (to + verb)',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Gerunds are verb forms ending in -ing that function as nouns. Infinitives are 'to + base verb'. Many verbs are followed by one or the other, and sometimes both are possible with different meanings.",
+                    "**Gerunds** are verb forms ending in **-ing** that function as nouns. **Infinitives** are **'to + base verb'**. Many verbs are followed by one or the other, and sometimes both are possible with different meanings.",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -219,19 +248,20 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'Verbs Followed by Gerunds',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.stop,
-                          category: 'Stop + Gerund:',
-                          sentence: 'I stopped smoking. (quit the habit)'),
+                          category: '**Stop + Gerund:**',
+                          sentence: '*I **stopped smoking**. (quit the habit)*'),
                       Example(
                           icon: Icons.favorite,
-                          category: 'Enjoy + Gerund:',
-                          sentence: 'She enjoys reading books.'),
+                          category: '**Enjoy + Gerund:**',
+                          sentence: '*She **enjoys reading** books.*'),
                       Example(
                           icon: Icons.thumbs_up_down,
-                          category: 'Mind + Gerund:',
-                          sentence: 'Do you mind waiting?'),
+                          category: '**Mind + Gerund:**',
+                          sentence: '*Do you **mind waiting**?*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -242,13 +272,14 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Verbs Followed by Infinitives',
-                    headers: const ['Verb', 'Example', 'Meaning'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Verb**', '**Example**', '**Meaning**'],
                     rows: const [
-                      ['decide', 'I decided to go.', 'Make a choice'],
-                      ['hope', 'She hopes to win.', 'Wish for something'],
-                      ['promise', 'He promised to help.', 'Give assurance'],
-                      ['want', 'They want to learn.', 'Desire'],
-                      ['need', 'We need to eat.', 'Require'],
+                      ['**decide**', '*I **decided to go**.*', 'Make a choice'],
+                      ['**hope**', '*She **hopes to win**.*', 'Wish for something'],
+                      ['**promise**', '*He **promised to help**.*', 'Give assurance'],
+                      ['**want**', '*They **want to learn**.*', 'Desire'],
+                      ['**need**', '*We **need to eat**.*', 'Require'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -259,13 +290,29 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Verbs with Both (Different Meanings)',
-                    headers: const ['Verb', 'Gerund Example', 'Infinitive Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Verb**', '**Gerund Example**', '**Infinitive Example**'],
                     rows: const [
-                      ['stop', 'I stopped smoking.', 'I stopped to smoke.'],
-                      ['remember', 'I remember meeting her.', 'I remembered to call her.'],
-                      ['try', 'Try pushing the button.', 'Try to push the button.'],
-                      ['forget', 'I forgot meeting him.', 'I forgot to meet him.'],
-                      ['regret', 'I regret saying that.', 'I regret to inform you...'],
+                      [
+                        '**stop**',
+                        '*I **stopped smoking**.* (quit)',
+                        '*I **stopped to smoke**.* (pause)'
+                      ],
+                      [
+                        '**remember**',
+                        '*I **remember meeting** her.* (past memory)',
+                        '*I **remembered to call** her.* (future task)'
+                      ],
+                      [
+                        '**try**',
+                        '*Try **pushing** it.* (experiment)',
+                        '*Try **to push** it.* (attempt)'
+                      ],
+                      [
+                        '**forget**',
+                        '*I **forgot meeting** him.* (no memory)',
+                        '*I **forgot to meet** him.* (task)'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -276,13 +323,22 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                   interval: const Interval(0.5, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Prepositions + Gerunds',
-                    headers: const ['Preposition', 'Example', 'Common Use'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Preposition**', '**Example**', '**Common Use**'],
                     rows: const [
-                      ['interested in', 'I\'m interested in learning Spanish.', 'Hobbies/Topics'],
-                      ['good at', 'She\'s good at painting.', 'Skills'],
-                      ['afraid of', 'He\'s afraid of flying.', 'Fears'],
-                      ['tired of', 'We\'re tired of waiting.', 'Boredom'],
-                      ['instead of', 'Instead of watching TV...', 'Alternatives'],
+                      [
+                        '**interested in**',
+                        '*I\'m **interested in learning** Spanish.*',
+                        'Hobbies/Topics'
+                      ],
+                      ['**good at**', '*She\'s **good at painting**.*', 'Skills'],
+                      ['**afraid of**', '*He\'s **afraid of flying**.*', 'Fears'],
+                      ['**tired of**', '*We\'re **tired of waiting**.*', 'Boredom'],
+                      [
+                        '**instead of**',
+                        '***Instead of watching** TV...*',
+                        'Alternatives'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -293,11 +349,12 @@ class _GerundsInfinitivesLessonScreenState extends State<GerundsInfinitivesLesso
                   interval: const Interval(0.6, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Go + Gerund:** For activities like "go shopping", "go swimming".',
-                      '**Like + Gerund/To:** "I like swimming" (general), "I\'d like to swim" (specific).',
-                      '**Verbs of Perception:** See/hear/feel + object + bare infinitive: "I saw him run."',
-                      '**Make/Let:** "Make someone do something", "Let someone do something".',
+                      '**"Go" + Gerund:** For activities like "**go** shopping", "**go** swimming".',
+                      '**"Like" + Gerund/Infinitive:** *"I **like swimming**"* (general enjoyment) vs. *"I **like to swim** in the morning"* (habit/preference).',
+                      '**Verbs of Perception:** *see/hear/feel* + object + bare infinitive: *"I **saw him run**."* (watch the whole action)',
+                      '**Make/Let:** Use bare infinitive (no "to"): *"My boss **made me work** late."* / *"She **let him go**."*',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -319,22 +376,23 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (yeşil) uyacak şekilde düzeltildi
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: Colors.lightGreen.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(color: Colors.lightGreen.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up, color: Colors.lightGreen.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(color: Colors.lightGreen.shade900, fontSize: 14),
             ),
           ),
         ],
@@ -387,6 +445,26 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -433,13 +511,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -497,10 +573,11 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
-       ),
+        ),
       ),
     );
   }
@@ -511,17 +588,55 @@ class _ExampleListItem extends StatelessWidget {
   final Function(String) onSpeak;
   final Function(String) onTranslate;
 
-  const _ExampleListItem({required this.example, required this.onSpeak, required this.onTranslate});
+  const _ExampleListItem(
+      {required this.example,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isDark ? Colors.lightGreen.shade900.withOpacity(0.25) : Colors.lightGreen.shade50,
+      color: isDark
+          ? Colors.lightGreen.shade900.withOpacity(0.25)
+          : Colors.lightGreen.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
-        onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -530,23 +645,22 @@ class _ExampleListItem extends StatelessWidget {
             children: [
               Icon(example.icon, size: 22, color: Colors.lightGreen.shade600),
               const SizedBox(width: 12),
-              Text(
-                example.category,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  example.sentence,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
+                    ),
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -572,10 +686,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -598,7 +746,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -609,41 +757,53 @@ class _SimplifiedClickableCard extends StatelessWidget {
                 color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                 width: 1,
               ),
+              // Sütun genişliklerini ayarlamak için eklendi
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(2),
+                2: FlexColumnWidth(1.2),
+              },
               children: [
                 TableRow(
                   decoration: BoxDecoration(
                     color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                   ),
-                  children: headers.map((h) => Padding(
+                  children: headers
+                      .map((h) => Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: InkWell(
                       onTap: () => onSpeak(h),
                       onLongPress: () => onTranslate(h),
-                      child: Text(
-                        h,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: onSurface,
-                        ),
+                      // Text, MarkdownBody olarak değiştirildi
+                      child: MarkdownBody(
+                        data: h,
+                        selectable: false,
+                        styleSheet: _getHeaderStyle(context),
                       ),
                     ),
-                  )).toList(),
+                  ))
+                      .toList(),
                 ),
-                ...rows.map((row) => TableRow(
-                  children: row.map((cell) => Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: InkWell(
-                      onTap: () => onSpeak(cell),
-                      onLongPress: () => onTranslate(cell),
-                      child: Text(
-                        cell,
-                        style: TextStyle(
-                          color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                ...rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return TableRow(
+                    children: row
+                        .map((cell) => Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: InkWell(
+                        onTap: () => onSpeak(textJoined),
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
                         ),
                       ),
-                    ),
-                  )).toList(),
-                )),
+                    ))
+                        .toList(),
+                  );
+                }),
               ],
             ),
           ],
@@ -666,6 +826,26 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -683,7 +863,8 @@ class _TipCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 28),
+                Icon(Icons.lightbulb_outline,
+                    color: Colors.amber.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -714,13 +895,11 @@ class _TipCard extends StatelessWidget {
                 onLongPress: () => onTranslate(tip),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    tip,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                    ),
+                  // Text, MarkdownBody olarak değiştirildi
+                  child: MarkdownBody(
+                    data: tip,
+                    selectable: false,
+                    styleSheet: _getMdStyle(context),
                   ),
                 ),
               ),
