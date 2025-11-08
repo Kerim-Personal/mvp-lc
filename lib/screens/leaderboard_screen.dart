@@ -391,13 +391,13 @@ class _CommunityScreenState extends State<CommunityScreen>
     final total = _weeklyTimeLeft.inSeconds <= 0 ? Duration.zero : _weeklyTimeLeft;
 
     String formatRemaining(Duration d) {
-      if (d == Duration.zero) return 'Bitti';
+      if (d == Duration.zero) return 'Ended';
       final days = d.inDays;
       final hours = d.inHours % 24;
       final minutes = d.inMinutes % 60;
-      if (days > 0) return '${days}g ${hours}s';
-      if (hours > 0) return '${hours}s ${minutes}dk';
-      return '${minutes}dk';
+      if (days > 0) return '${days}d ${hours}h';
+      if (hours > 0) return '${hours}h ${minutes}m';
+      return '${minutes}m';
     }
 
     final timeText = formatRemaining(total);
