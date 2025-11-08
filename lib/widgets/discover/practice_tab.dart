@@ -10,6 +10,7 @@ import 'package:vocachat/screens/practice_speaking_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vocachat/widgets/home_screen/premium_upsell_dialog.dart';
+import 'package:vocachat/screens/store_screen.dart';
 
 // --- VERİ MODELLERİ ---
 // Sınıf, "private type in a public API" hatasını çözmek için herkese açık hale getirildi.
@@ -76,10 +77,10 @@ class PracticeTab extends StatelessWidget {
     final Stream<bool> premiumStream = (user == null)
         ? Stream<bool>.value(false)
         : FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .snapshots()
-            .map((doc) => (doc.data()?['isPremium'] == true));
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .map((doc) => (doc.data()?['isPremium'] == true));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -105,15 +106,15 @@ class PracticeTab extends StatelessWidget {
                               return Row(
                                 children: practiceModes
                                     .map((mode) => Expanded(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                            child: _PracticeModeCard(
-                                              data: mode,
-                                              compact: false,
-                                              isPremium: isPremium,
-                                            ),
-                                          ),
-                                        ))
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                    child: _PracticeModeCard(
+                                      data: mode,
+                                      compact: false,
+                                      isPremium: isPremium,
+                                    ),
+                                  ),
+                                ))
                                     .toList(),
                               );
                             } else {
@@ -155,7 +156,7 @@ class PracticeTab extends StatelessWidget {
 class _PracticeModeCard extends StatelessWidget {
   final ModeData data;
   final bool compact;
-  final bool isPremium; // Premium ise rozet gösterme (artık kullanılmıyor - sadece ileride gerekirse)
+  final bool isPremium; // Premium ise rozet gösterme
   const _PracticeModeCard({required this.data, this.compact = false, this.isPremium = false});
 
   Future<void> _handleTap(BuildContext context) async {
@@ -191,6 +192,12 @@ class _PracticeModeCard extends StatelessWidget {
         builder: (_) => const PremiumUpsellDialog(),
       );
       if (result == 'discover') {
+        // 3) Kullanıcı keşfet dedi -> StoreScreen'e yönlendir
+        if (context.mounted) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const StoreScreen()),
+          );
+        }
         // PremiumUpsellDialog, Discover seçildiğinde PaywallScreen'i açar.
         // Burada ekstra bir yönlendirme yapmaya gerek yok.
         return;
@@ -311,7 +318,36 @@ class _PracticeModeCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                // PRO / kilit rozeti kaldırıldı (kullanıcı isteği)
+                // Premium değilse sağ üstte küçük bir PRO rozeti/kilit işareti (overlay)
+                if (!isPremium)
+                  Positioned(
+                    top: compact ? 8 : 10,
+                    right: compact ? 8 : 10,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: compact ? 4 : 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_rounded, size: compact ? 12 : 14, color: Colors.amberAccent),
+                          SizedBox(width: compact ? 4 : 6),
+                          Text(
+                            'PRO',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: compact ? 10 : 11.5,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

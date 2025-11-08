@@ -41,25 +41,20 @@ class _GrammarLessonWrapperState extends State<GrammarLessonWrapper> with Single
   }
 
   Future<void> _toggleCompleted() async {
-    if (_updating) return;
+    if (_updating || _completed) return; // Zaten tamamlanmışsa hiçbir şey yapma
     setState(() { _updating = true; });
-    if (_completed) {
-      await GrammarProgressService.instance.unmarkCompleted(widget.contentPath);
-      if (mounted) setState(() { _completed = false; });
-    } else {
-      await GrammarProgressService.instance.markCompleted(widget.contentPath);
-      if (mounted) {
-        setState(() {
-          _completed = true;
-          _playCelebration = true; // animasyonu tetikle
-        });
-        // Animasyon kontrolü (composition yüklendikten sonra süre ayarlanacak)
-      }
+    await GrammarProgressService.instance.markCompleted(widget.contentPath);
+    if (mounted) {
+      setState(() {
+        _completed = true;
+        _playCelebration = true; // animasyonu tetikle
+      });
+      // Animasyon kontrolü (composition yüklendikten sonra süre ayarlanacak)
     }
     if (mounted) setState(() { _updating = false; });
   }
 
-  bool get _showButton => !_loading && _atEnd; // sadece sonuna gelince
+  bool get _showButton => !_loading && _atEnd && !_completed; // Tamamlanmamışsa ve sonuna gelince
 
   bool _handleScroll(ScrollNotification n) {
     // Sadece kök (depth == 0) dikey scroll'ları dikkate al

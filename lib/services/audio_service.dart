@@ -12,7 +12,7 @@ class AudioService {
   static const _clickSoundEnabledKey = 'click_sound_enabled';
   static const _musicVolumeKey = 'music_volume';
   // Arka plan müziği için varsayılan düşük seviye (0.0 - 1.0)
-  static const double _defaultMusicVolume = 0.18;
+  static const double _defaultMusicVolume = 0.1;
   double _musicVolume = _defaultMusicVolume;
   double get musicVolume => _musicVolume;
 

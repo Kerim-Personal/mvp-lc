@@ -30,9 +30,13 @@ class _VocabularyTabState extends State<VocabularyTab> {
   int wc(String key) => vocabularyDataClean[key]?.length ?? 0;
 
   // Seviye bazlı ilerlemeler
+  // ignore: unused_field
   Map<String, double> _grammarLevelProgress = {};
+  // ignore: unused_field
   bool _grammarLoading = true;
+  // ignore: unused_field
   Map<String, double> _vocabLevelProgress = {};
+  // ignore: unused_field
   bool _vocabLoading = true;
 
   @override
@@ -138,79 +142,89 @@ class _VocabularyTabState extends State<VocabularyTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Map<String, Set<String>>>(
-      valueListenable: VocabularyProgressRepository.instance.progressNotifier,
-      builder: (context, progressMap, _) {
-        // Önce tüm paket ViewModel'lerini hazırla
-        final allPacks = _metas.map((m) {
-          final total = wc(m.title);
-          final learnedCount = progressMap[m.title]?.length ?? 0;
-          final prog = total == 0 ? 0.0 : (learnedCount / total).clamp(0.0, 1.0);
-          final level = vocabularyPackLevel[m.title];
-          bool locked = false;
-          if (level != null && level != 'A1') {
-            final prev = previousLevelOf(level);
-            final grammarOk = !_grammarLoading && ((_grammarLevelProgress[prev] ?? 0.0) >= 1.0);
-            final vocabOk = !_vocabLoading && ((_vocabLevelProgress[prev] ?? 0.0) >= 1.0);
-            locked = !(grammarOk && vocabOk);
-          }
-          return VocabularyPack(
-            title: m.title,
-            icon: m.icon,
-            color1: m.color1,
-            color2: m.color2,
-            wordCount: total,
-            progress: prog,
-            isLocked: locked,
-          );
-        }).toList();
+    // Dış katmanda grammarHighestLevel değiştiğinde yeniden çizmek için listener
+    return ValueListenableBuilder<String>(
+      valueListenable: GrammarProgressService.instance.highestLevelNotifier,
+      builder: (context, highestGrammarLevel, _) {
+        return ValueListenableBuilder<Map<String, Set<String>>>(
+          valueListenable: VocabularyProgressRepository.instance.progressNotifier,
+          builder: (context, progressMap, _) {
+            // Önce tüm paket ViewModel'lerini hazırla
+            const order = ['A1','A2','B1','B2','C1','C2'];
+            final highestIdx = order.indexOf(highestGrammarLevel);
 
-        // CEFR seviyelerine göre grupla ve alfabetik sırala
-        final Map<String, List<VocabularyPack>> grouped = {
-          for (final l in cefrLevels) l: <VocabularyPack>[]
-        };
-        for (final p in allPacks) {
-          final lvl = vocabularyPackLevel[p.title] ?? 'A1';
-          grouped.putIfAbsent(lvl, () => <VocabularyPack>[]).add(p);
-        }
-        for (final l in grouped.keys) {
-          grouped[l]?.sort((a, b) => a.title.compareTo(b.title));
-        }
+            final allPacks = _metas.map((m) {
+              final total = wc(m.title);
+              final learnedCount = progressMap[m.title]?.length ?? 0;
+              final prog = total == 0 ? 0.0 : (learnedCount / total).clamp(0.0, 1.0);
+              final level = vocabularyPackLevel[m.title] ?? 'A1';
 
-        // Bölüm widget'ları: boş seviyeleri atla, her seviyede en fazla 6 kart göster
-        final List<Widget> sections = [];
-        for (final level in cefrLevels) {
-          final original = grouped[level] ?? const <VocabularyPack>[];
-          if (original.isEmpty) continue;
-          List<VocabularyPack> displayList = List.of(original);
-          if (displayList.length > 6) {
-            displayList = displayList.take(6).toList();
-          }
-          sections.add(
-            Padding(
-              padding: const EdgeInsets.only(left: 4.0, bottom: 12.0, top: 8.0),
-              child: SectionTitle(title: '$level Vocabulary'),
-            ),
-          );
-          sections.add(
-            GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: displayList.length,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index) => VocabularyPackCard(pack: displayList[index]),
-            ),
-          );
-        }
+              // Yeni kilit mantığı: grammarHighestLevel üzerindeki seviyeler kilitli
+              final levelIdx = order.indexOf(level);
+              bool locked = false;
+              if (levelIdx >= 0 && highestIdx >= 0 && levelIdx > highestIdx) {
+                locked = true;
+              }
 
-        return ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: sections,
+              return VocabularyPack(
+                title: m.title,
+                icon: m.icon,
+                color1: m.color1,
+                color2: m.color2,
+                wordCount: total,
+                progress: prog,
+                isLocked: locked,
+              );
+            }).toList();
+
+            // CEFR seviyelerine göre grupla ve alfabetik sırala
+            final Map<String, List<VocabularyPack>> grouped = {
+              for (final l in cefrLevels) l: <VocabularyPack>[]
+            };
+            for (final p in allPacks) {
+              final lvl = vocabularyPackLevel[p.title] ?? 'A1';
+              grouped.putIfAbsent(lvl, () => <VocabularyPack>[]).add(p);
+            }
+            for (final l in grouped.keys) {
+              grouped[l]?.sort((a, b) => a.title.compareTo(b.title));
+            }
+
+            // Bölüm widget'ları: boş seviyeleri atla, her seviyede en fazla 6 kart göster
+            final List<Widget> sections = [];
+            for (final level in cefrLevels) {
+              final original = grouped[level] ?? const <VocabularyPack>[];
+              if (original.isEmpty) continue;
+              List<VocabularyPack> displayList = List.of(original);
+              if (displayList.length > 6) {
+                displayList = displayList.take(6).toList();
+              }
+              sections.add(
+                Padding(
+                  padding: const EdgeInsets.only(left: 4.0, bottom: 12.0, top: 8.0),
+                  child: SectionTitle(title: '$level Vocabulary'),
+                ),
+              );
+              sections.add(
+                GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: displayList.length,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemBuilder: (context, index) => VocabularyPackCard(pack: displayList[index]),
+                ),
+              );
+            }
+
+            return ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: sections,
+            );
+          },
         );
       },
     );
@@ -247,8 +261,9 @@ class VocabularyPackCard extends StatelessWidget {
     return InkWell(
       onTap: () {
         if (pack.isLocked) {
+          final needed = vocabularyPackLevel[pack.title] ?? 'A1';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This pack is locked. Complete previous level Grammar and Vocabulary 100% to unlock.')),
+            SnackBar(content: Text('This pack is locked. Reach Grammar level $needed to unlock.')),
           );
           return;
         }

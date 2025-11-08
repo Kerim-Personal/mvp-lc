@@ -33,6 +33,7 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
   Map<String, double> _levelProgress = {};
   bool _progressLoading = true;
   String _highestUnlockedLevel = 'A1'; // Firebase'den yüklenecek
+  bool _isBeginner = false; // A1 tamamen bitene kadar beginner kabul edilir
 
   @override
   void initState() {
@@ -98,7 +99,10 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
       final done = list.where((l) => completed.contains(l.contentPath)).length;
       result[level] = done / list.length;
     }
-    if (mounted) setState(() { _levelProgress = result; _progressLoading = false; });
+    final bool beginner = ((grouped['A1'] ?? const <Lesson>[]).isEmpty)
+        ? false
+        : ((result['A1'] ?? 0.0) < 1.0);
+    if (mounted) setState(() { _levelProgress = result; _progressLoading = false; _isBeginner = beginner; });
   }
 
 
@@ -131,22 +135,12 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
       lessonsByLevel.putIfAbsent(lesson.level, () => []).add(lesson);
     }
 
-    // Kilit mantığı: Firebase'deki en yüksek seviyeye kadar açık + bir önceki seviye %100 tamamlanmışsa bir sonraki açılır
+    // Kilit mantığı: highestUnlockedLevel'e kadar olan + bir sonraki seviye açık, ötesi kilitli
     bool isLevelLocked(int index) {
       final highestIndex = levels.indexOf(_highestUnlockedLevel);
-
-      // Firebase'deki en yüksek seviyeye kadar tüm seviyeler açık
-      if (index <= highestIndex) return false;
-
-      // Yükleniyorken kilitli tut
-      if (_progressLoading) return true;
-
-      // Bir sonraki seviye: önceki seviye %100 tamamlanmışsa aç
-      final prevLevel = levels[index - 1];
-      final prevHasLessons = (lessonsByLevel[prevLevel] ?? const <Lesson>[]).isNotEmpty;
-      final prevGrammarOk = !prevHasLessons ? true : ((_levelProgress[prevLevel] ?? 0.0) >= 1.0);
-
-      return !prevGrammarOk;
+      final baseIndex = _isBeginner ? -1 : highestIndex; // Beginner ise sadece A1 açık
+      if (baseIndex < -1) return true;
+      return index > baseIndex + 1; // örn. highest=B2 ise C1 açık, C2 kilitli
     }
 
     // OPTİMİZASYON: Yüksekliği içeriğe göre dinamik olarak hesapla
@@ -195,19 +189,17 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
                   onTap: () async {
                     if (locked) {
                       final prevLevel = index > 0 ? levels[index - 1] : null;
-                      final prevGrammar = prevLevel == null ? 0.0 : (_levelProgress[prevLevel] ?? 0.0);
-                      final gPct = (prevGrammar * 100).round();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(prevLevel == null
                               ? 'This level is currently locked.'
-                              : 'Unlock $level by completing $prevLevel Grammar 100%. (Grammar $gPct%)')
+                              : 'Complete $prevLevel to unlock $level.'),
                         ),
                       );
                       return;
                     }
 
-                    // Seviye açıldı, Firebase'e en yüksek seviyeyi kaydet
+                    // Yalnızca tamamen bitmiş seviyeyi yükseltmeyi dene
                     await GrammarProgressService.instance.updateHighestLevel(level);
 
                     await Navigator.push(

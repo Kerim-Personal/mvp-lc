@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vocachat/data/lesson_data.dart';
 
 class GrammarProgressService {
   GrammarProgressService._();
@@ -14,7 +15,7 @@ class GrammarProgressService {
   bool _loaded = false; // SharedPreferences + ilk deneme yapıldı mı
   bool _firebaseLevelLoaded = false; // Firebase'den başarılı şekilde bir seviye okundu mu
   String? _loadedUserId; // Hangi kullanıcı için yüklendiğini takip et
-  String _highestLevel = 'A1'; // Varsayılan seviye
+  String _highestLevel = 'A1'; // Varsayılan seviye (tamamlanmış ilk seviye yoksa Beginner olarak raporlanacak)
   final ValueNotifier<String> highestLevelNotifier = ValueNotifier<String>('A1');
   bool _authListenerAttached = false;
 
@@ -55,30 +56,27 @@ class GrammarProgressService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return; // Auth henüz hazır değil, sonra yeniden denenecek
 
-      // Kullanıcı değiştiyse yeniden sıfırla
       if (_loadedUserId != null && _loadedUserId != user.uid) {
         _firebaseLevelLoaded = false; // Yeni kullanıcı için tekrar dene
       }
 
       if (_firebaseLevelLoaded) return; // Zaten aldık
 
-      // Önce users koleksiyonu
       final usersDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
 
-      String? level;
+      String? remoteLevel;
       if (usersDoc.exists && usersDoc.data() != null) {
         final data = usersDoc.data()!;
         final raw = data['grammarHighestLevel'];
         if (raw is String && raw.trim().isNotEmpty) {
-          level = raw.trim();
+          remoteLevel = raw.trim();
         }
       }
 
-      // Fallback: publicUsers koleksiyonu (profil burada okuyor)
-      if (level == null) {
+      if (remoteLevel == null) {
         final publicDoc = await FirebaseFirestore.instance
             .collection('publicUsers')
             .doc(user.uid)
@@ -87,21 +85,56 @@ class GrammarProgressService {
           final data = publicDoc.data()!;
           final raw = data['grammarHighestLevel'];
           if (raw is String && raw.trim().isNotEmpty) {
-            level = raw.trim();
+            remoteLevel = raw.trim();
           }
         }
       }
 
-      // Seviye doğrulaması
-      const allowed = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-      if (level != null && allowed.contains(level)) {
-        if (_highestLevel != level) {
-          _highestLevel = level;
-          highestLevelNotifier.value = _highestLevel; // UI haberdar et
+      const allowed = ['Beginner', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      final localCalculated = _recalculateHighestLevelFromCompleted();
+
+      if (remoteLevel != null && allowed.contains(remoteLevel)) {
+        // Index karşılaştırması
+        final order = ['Beginner', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+        final remoteIdx = order.indexOf(remoteLevel);
+        final localIdx = order.indexOf(localCalculated);
+
+        // UI başlangıçta lokal zinciri gösterir
+        var displayLevel = localCalculated == 'Beginner' ? 'A1' : localCalculated;
+        if (_highestLevel != displayLevel) {
+          _highestLevel = displayLevel;
+          highestLevelNotifier.value = _highestLevel;
         }
+
+        if (localIdx > remoteIdx) {
+          // Lokal daha yüksek -> remote yükselt
+          await _saveHighestLevelToFirebase(localCalculated);
+        } else if (remoteIdx > localIdx) {
+          // Remote daha yüksek -> tüm alt seviyeleri ve belirtilen seviyeyi tamamla
+          if (remoteLevel != 'Beginner') {
+            await _completeLevelsUpTo(remoteLevel);
+            final recalculated = _recalculateHighestLevelFromCompleted();
+            // Beklenen: recalculated remoteLevel ile aynı
+            final finalDisplay = recalculated == 'Beginner' ? 'A1' : recalculated;
+            if (_highestLevel != finalDisplay) {
+              _highestLevel = finalDisplay;
+              highestLevelNotifier.value = _highestLevel;
+            }
+            // Firebase senkron (remote zaten doğruysa yine de yazmak idempotent)
+            await _saveHighestLevelToFirebase(remoteLevel);
+          }
+        }
+      } else {
+        // Remote yok veya geçersiz -> lokal kullan + remote'a yaz
+        final displayLevel = localCalculated == 'Beginner' ? 'A1' : localCalculated;
+        if (_highestLevel != displayLevel) {
+          _highestLevel = displayLevel;
+          highestLevelNotifier.value = _highestLevel;
+        }
+        await _saveHighestLevelToFirebase(localCalculated);
       }
 
-      _firebaseLevelLoaded = true; // Bir kez denendi (başarılı ya da değil)
+      _firebaseLevelLoaded = true;
       _loadedUserId = user.uid;
     } catch (e) {
       // Sessiz geç
@@ -111,6 +144,47 @@ class GrammarProgressService {
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(_completed.toList()));
+  }
+
+  // Yeni: Belirtilen seviyeye kadar (dahil) tüm dersleri tamamlanmış işaretler
+  Future<bool> _completeLevelsUpTo(String level) async {
+    const order = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    final targetIdx = order.indexOf(level);
+    if (targetIdx < 0) return false; // Geçersiz seviye
+    bool changed = false;
+    for (final lesson in grammarLessons) {
+      final idx = order.indexOf(lesson.level);
+      if (idx >= 0 && idx <= targetIdx) {
+        if (_completed.add(lesson.contentPath)) changed = true;
+      }
+    }
+    if (changed) {
+      await _persist();
+    }
+    return changed;
+  }
+
+  // --- Yeni yardımcılar: tamamlanan derslerden seviye hesaplama ---
+  String _recalculateHighestLevelFromCompleted() {
+    const orderedLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    String? lastFull;
+    for (final level in orderedLevels) {
+      final levelLessons = grammarLessons.where((l) => l.level == level).toList();
+      if (levelLessons.isEmpty) continue; // Seviye dersi yoksa atla
+      final allDone = levelLessons.every((l) => _completed.contains(l.contentPath));
+      if (allDone) {
+        lastFull = level;
+      } else {
+        break; // İlk eksik bulunan seviye zinciri sonlandırır
+      }
+    }
+    return lastFull ?? 'Beginner';
+  }
+
+  bool _isLevelFullyCompleted(String level) {
+    final levelLessons = grammarLessons.where((l) => l.level == level).toList();
+    if (levelLessons.isEmpty) return false;
+    return levelLessons.every((l) => _completed.contains(l.contentPath));
   }
 
   Future<Set<String>> getCompleted() async {
@@ -127,15 +201,19 @@ class GrammarProgressService {
     await _ensureLoaded();
     if (_completed.add(id)) {
       await _persist();
+      // Ders tamamlandıktan sonra seviye yeniden hesaplanır
+      final newCalculated = _recalculateHighestLevelFromCompleted();
+      // Notifier'da Beginner durumunda A1 başlangıç seviyesi göstermek için mantığı koruyoruz
+      final displayLevel = newCalculated == 'Beginner' ? 'A1' : newCalculated;
+      if ((_highestLevel != displayLevel) || !_firebaseLevelLoaded) {
+        _highestLevel = displayLevel;
+        highestLevelNotifier.value = _highestLevel;
+      }
+      // Firebase senkronizasyonu: Beginner dahil gerçek hesaplanan değer
+      await _saveHighestLevelToFirebase(newCalculated);
     }
   }
 
-  Future<void> unmarkCompleted(String id) async {
-    await _ensureLoaded();
-    if (_completed.remove(id)) {
-      await _persist();
-    }
-  }
 
   Future<double> levelProgress(String level, Iterable<String> levelContentIds) async {
     await _ensureLoaded();
@@ -148,7 +226,6 @@ class GrammarProgressService {
   /// Kullanıcının ulaştığı en yüksek grammar seviyesini döner (gerekirse yeniden Firebase'den çeker)
   Future<String> getHighestLevel() async {
     await _ensureLoaded();
-    // Auth hazır olduysa ama firebase seviyesi hiç okunmamışsa veya kullanıcı değiştiyse tekrar dene
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && (!_firebaseLevelLoaded || _loadedUserId != user.uid)) {
       await _maybeLoadHighestLevelFromFirebase();
@@ -157,39 +234,31 @@ class GrammarProgressService {
     return _highestLevel;
   }
 
-  /// Kullanıcının grammar seviyesini günceller ve Firebase'e kaydeder
-  /// Seviyeler: A1, A2, B1, B2, C1, C2
+  // Kullanıcının tamamen bitirdiği seviye için güncelleme; bitmemişse yok sayılır
   Future<void> updateHighestLevel(String newLevel) async {
     await _ensureLoaded();
-    // Kullanıcı henüz yüklenmemişse tekrar dene
     await _maybeLoadHighestLevelFromFirebase();
-
     final levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    final normalized = newLevel.toUpperCase();
+    if (!levels.contains(normalized)) return; // geçersiz
+    if (!_isLevelFullyCompleted(normalized)) return; // seviye tam bitmeden yükseltme yok
     final currentIndex = levels.indexOf(_highestLevel);
-    final newIndex = levels.indexOf(newLevel);
-
-    // Geçersiz giriş kontrolü
-    if (newIndex == -1) return;
-
-    // Sadece daha yüksek bir seviyeyse güncelle
+    final newIndex = levels.indexOf(normalized);
     if (newIndex > currentIndex) {
-      _highestLevel = newLevel;
-      highestLevelNotifier.value = _highestLevel; // UI'ya bildir
-      _firebaseLevelLoaded = true; // Artık biliyoruz
-      await _saveHighestLevelToFirebase(newLevel);
+      _highestLevel = normalized;
+      highestLevelNotifier.value = _highestLevel;
+      _firebaseLevelLoaded = true;
+      await _saveHighestLevelToFirebase(normalized);
     }
   }
 
-  /// En yüksek seviyeyi Firebase'e kaydeder (hem users hem publicUsers)
   Future<void> _saveHighestLevelToFirebase(String level) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-
       final data = {
         'grammarHighestLevel': level,
       };
-
       final batch = FirebaseFirestore.instance.batch();
       final usersRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
       final publicRef = FirebaseFirestore.instance.collection('publicUsers').doc(user.uid);
@@ -197,7 +266,7 @@ class GrammarProgressService {
       batch.set(publicRef, data, SetOptions(merge: true));
       await batch.commit();
     } catch (e) {
-      // Hata durumunda sessizce devam et
+      // Sessiz geç
     }
   }
 }
