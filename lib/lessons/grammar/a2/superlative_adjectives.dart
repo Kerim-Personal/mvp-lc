@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -13,10 +14,12 @@ class SuperlativeAdjectivesLessonScreen extends StatefulWidget {
   const SuperlativeAdjectivesLessonScreen({super.key});
 
   @override
-  State<SuperlativeAdjectivesLessonScreen> createState() => _SuperlativeAdjectivesLessonScreenState();
+  State<SuperlativeAdjectivesLessonScreen> createState() =>
+      _SuperlativeAdjectivesLessonScreenState();
 }
 
-class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjectivesLessonScreen>
+class _SuperlativeAdjectivesLessonScreenState
+    extends State<SuperlativeAdjectivesLessonScreen>
     with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
@@ -31,7 +34,8 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -41,23 +45,34 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
-    if (_translationCache.containsKey(cacheKey)) return _translationCache[cacheKey]!;
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
     try {
       await TranslationService.instance.ensureReady(target);
     } catch (_) {
       // ignore ensureReady failures, attempt translation anyway
     }
     try {
-      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      final translated =
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -85,14 +100,20 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
                     children: const [
                       Icon(Icons.translate, color: Colors.teal),
                       SizedBox(width: 8),
-                      Text('Translation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Translation',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text('Original', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  const Text('Original',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
-                  const Text('Translation', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text('Translation',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
                   FutureBuilder<String>(
                     future: translationFuture,
                     builder: (context, snapshot) {
@@ -101,15 +122,21 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -138,7 +165,9 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -208,8 +237,9 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
                   child: _LessonBlock(
                     icon: Icons.military_tech_outlined,
                     title: 'Superlative Adjectives: The Highest Degree',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Superlative adjectives show the highest degree of a quality. They compare one thing against all others in a group. Use 'the' + superlative form, and remember the spelling rules!",
+                    "Superlative adjectives show the **highest degree** of a quality. They compare one thing against **all others** in a group. Use **'the' + superlative form**, and remember the spelling rules!",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -219,19 +249,20 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'Short Adjectives (1 syllable)',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.trending_up,
-                          category: 'Add -est:',
-                          sentence: 'big → the biggest, fast → the fastest'),
+                          category: '**Add -est:**',
+                          sentence: '*big → **the** bigg**est**, fast → **the** fast**est***'),
                       Example(
                           icon: Icons.spellcheck,
-                          category: 'Consonant + y → iest:',
-                          sentence: 'easy → the easiest, happy → the happiest'),
+                          category: '**Consonant + y → iest:**',
+                          sentence: '*easy → **the** eas**iest**, happy → **the** happ**iest***'),
                       Example(
                           icon: Icons.repeat_one,
-                          category: 'Consonant-vowel-consonant + est:',
-                          sentence: 'hot → the hottest, big → the biggest'),
+                          category: '**CVC + est:** (Double consonant)',
+                          sentence: '*hot → **the** ho**ttest**, big → **the** bi**ggest***'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -242,12 +273,29 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Long Adjectives (2+ syllables)',
-                    headers: const ['Adjective', 'Superlative', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Adjective**', '**Superlative**', '**Example**'],
                     rows: const [
-                      ['expensive', 'the most expensive', 'This is the most expensive car.'],
-                      ['beautiful', 'the most beautiful', 'She is the most beautiful.'],
-                      ['interesting', 'the most interesting', 'This is the most interesting book.'],
-                      ['difficult', 'the most difficult', 'Math is the most difficult subject.'],
+                      [
+                        'expensive',
+                        '**the most** expensive',
+                        '*This is **the most expensive** car.*'
+                      ],
+                      [
+                        'beautiful',
+                        '**the most** beautiful',
+                        '*She is **the most beautiful**.*'
+                      ],
+                      [
+                        'interesting',
+                        '**the most** interesting',
+                        '*This is **the most interesting** book.*'
+                      ],
+                      [
+                        'difficult',
+                        '**the most** difficult',
+                        '*Math is **the most difficult** subject.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -258,13 +306,18 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Irregular Superlatives',
-                    headers: const ['Adjective', 'Superlative', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Adjective**', '**Superlative**', '**Example**'],
                     rows: const [
-                      ['good', 'the best', 'This pizza is the best.'],
-                      ['bad', 'the worst', 'This is the worst movie.'],
-                      ['far', 'the farthest/furthest', 'London is the farthest city.'],
-                      ['little', 'the least', 'I have the least money.'],
-                      ['many/much', 'the most', 'I have the most friends.'],
+                      ['good', '**the best**', '*This pizza is **the best**.*'],
+                      ['bad', '**the worst**', '*This is **the worst** movie.*'],
+                      [
+                        'far',
+                        '**the farthest/furthest**',
+                        '*London is **the farthest** city.*'
+                      ],
+                      ['little', '**the least**', '*I have **the least** money.*'],
+                      ['many/much', '**the most**', '*I have **the most** friends.*'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -275,11 +328,12 @@ class _SuperlativeAdjectivesLessonScreenState extends State<SuperlativeAdjective
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Always use "the":** Superlatives need "the": "the biggest", "the most beautiful".',
-                      '**In/of phrases:** "The best in the class" or "The most beautiful of all".',
-                      '**Ever vs never:** "The best movie ever" or "The worst day never".',
-                      '**One of the + superlative:** "One of the most interesting books I\'ve read."',
+                      '**Always use "the":** Superlatives almost always need **"the"**: *the biggest, the most beautiful.*',
+                      '**In/of phrases:** Use "in" for places/groups (*the best **in** the class*) or "of" for a time period (*the best day **of** my life*).',
+                      '**Ever:** Used for emphasis: *This is the best movie I have **ever** seen.*',
+                      '**"One of the..."**: Use with a plural noun: *She is **one of the most** interesting *people* I know.*',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -301,6 +355,7 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Bu widget'ın renkleri zaten tema (amber/orange) ile uyumlu.
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
@@ -388,6 +443,26 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -434,18 +509,16 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
           ],
-       ),
+        ),
       ),
     );
   }
@@ -464,6 +537,39 @@ class _ExampleCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.amber.shade300 : Colors.amber.shade700,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.amber.shade300 : Colors.amber.shade700,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        height: 1.4,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -481,7 +587,8 @@ class _ExampleCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 28),
+                Icon(Icons.lightbulb_outline,
+                    color: Colors.amber.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -506,48 +613,42 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((example) => Padding(
               padding: const EdgeInsets.only(bottom: 16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(example.icon, color: Colors.amber.shade600, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          example.category,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.amber.shade700,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onSpeak('${example.category} ${example.sentence}'),
+                onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(example.icon,
+                        color: Colors.amber.shade600, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Text, MarkdownBody olarak değiştirildi
+                          MarkdownBody(
+                            data: example.category,
+                            selectable: false,
+                            styleSheet: _getCategoryStyle(context),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: () => onSpeak(example.sentence),
-                          onLongPress: () => onTranslate(example.sentence),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2.0),
-                            child: Text(
-                              example.sentence,
-                              style: TextStyle(
-                                fontSize: 16,
-                                height: 1.4,
-                                color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                              ),
-                            ),
+                          const SizedBox(height: 4),
+                          // InkWell içindeki Text, MarkdownBody olarak değiştirildi
+                          MarkdownBody(
+                            data: example.sentence,
+                            selectable: false,
+                            styleSheet: _getSentenceStyle(context),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             )),
           ],
-       ),
+        ),
       ),
     );
   }
@@ -568,10 +669,45 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 14,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 14,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -585,7 +721,8 @@ class _SimplifiedClickableCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.table_chart_outlined, color: Colors.amber.shade700, size: 28),
+                Icon(Icons.table_chart_outlined,
+                    color: Colors.amber.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -599,7 +736,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: onSurface,
+                          color: onSurface(context),
                         ),
                       ),
                     ),
@@ -618,44 +755,45 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                   ),
-                  children: headers.map((header) => Padding(
+                  children: headers
+                      .map((header) => Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(6),
                       onTap: () => onSpeak(header),
                       onLongPress: () => onTranslate(header),
-                      child: Text(
-                        header,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: onSurface,
-                        ),
+                      // Text, MarkdownBody olarak değiştirildi
+                      child: MarkdownBody(
+                        data: header,
+                        selectable: false,
+                        styleSheet: _getHeaderStyle(context),
                       ),
                     ),
-                  )).toList(),
+                  ))
+                      .toList(),
                 ),
                 ...rows.map((row) => TableRow(
-                  children: row.map((cell) => Padding(
+                  children: row
+                      .map((cell) => Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(6),
                       onTap: () => onSpeak(cell),
                       onLongPress: () => onTranslate(cell),
-                      child: Text(
-                        cell,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                        ),
+                      // Text, MarkdownBody olarak değiştirildi
+                      child: MarkdownBody(
+                        data: cell,
+                        selectable: false,
+                        styleSheet: _getCellStyle(context),
                       ),
                     ),
-                  )).toList(),
+                  ))
+                      .toList(),
                 )),
               ],
             ),
           ],
-       ),
+        ),
       ),
     );
   }
@@ -674,6 +812,31 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -691,7 +854,8 @@ class _TipCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.tips_and_updates_outlined, color: Colors.amber.shade700, size: 28),
+                Icon(Icons.tips_and_updates_outlined,
+                    color: Colors.amber.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -719,7 +883,8 @@ class _TipCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_circle_outline, color: Colors.amber.shade600, size: 20),
+                  Icon(Icons.check_circle_outline,
+                      color: Colors.amber.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
@@ -728,13 +893,11 @@ class _TipCard extends StatelessWidget {
                       onLongPress: () => onTranslate(tip),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2.0),
-                        child: Text(
-                          tip,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.5,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                          ),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: tip,
+                          selectable: false,
+                          styleSheet: _getMdStyle(context),
                         ),
                       ),
                     ),
@@ -743,7 +906,7 @@ class _TipCard extends StatelessWidget {
               ),
             )),
           ],
-       ),
+        ),
       ),
     );
   }
