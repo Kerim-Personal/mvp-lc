@@ -49,16 +49,35 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     );
 
     _entryAnimationController.forward();
+    _attachHighestLevelListener();
     _loadHighestLevel();
     _computeProgress();
+  }
+
+  void _attachHighestLevelListener() {
+    GrammarProgressService.instance.highestLevelNotifier.addListener(_onHighestLevelChanged);
+  }
+
+  void _onHighestLevelChanged() {
+    final newLevel = GrammarProgressService.instance.highestLevelNotifier.value;
+    if (mounted && _highestUnlockedLevel != newLevel) {
+      setState(() { _highestUnlockedLevel = newLevel; });
+      // Seviyesi yükselmişse progresi tekrar al (örneğin yeni seviye açıldı)
+      _computeProgress();
+    }
+  }
+
+  @override
+  void dispose() {
+    GrammarProgressService.instance.highestLevelNotifier.removeListener(_onHighestLevelChanged);
+    _entryAnimationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadHighestLevel() async {
     final level = await GrammarProgressService.instance.getHighestLevel();
     if (mounted) {
-      setState(() {
-        _highestUnlockedLevel = level;
-      });
+      setState(() { _highestUnlockedLevel = level; });
     }
   }
 
@@ -82,11 +101,6 @@ class _GrammarTabState extends State<GrammarTab> with TickerProviderStateMixin {
     if (mounted) setState(() { _levelProgress = result; _progressLoading = false; });
   }
 
-  @override
-  void dispose() {
-    _entryAnimationController.dispose();
-    super.dispose();
-  }
 
   @override
   void didUpdateWidget(covariant GrammarTab oldWidget) {
