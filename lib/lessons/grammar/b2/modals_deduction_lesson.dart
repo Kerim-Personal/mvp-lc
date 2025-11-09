@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -17,8 +18,8 @@ class ModalsDeductionLessonScreen extends StatefulWidget {
       _ModalsDeductionLessonScreenState();
 }
 
-class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScreen>
-    with TickerProviderStateMixin {
+class _ModalsDeductionLessonScreenState
+    extends State<ModalsDeductionLessonScreen> with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
 
@@ -32,7 +33,8 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -42,9 +44,17 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,12 +66,12 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
     }
     try {
       final translated =
-      await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -97,7 +107,9 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -109,15 +121,21 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -146,7 +164,9 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -216,8 +236,9 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
                   child: _LessonBlock(
                     icon: Icons.lightbulb,
                     title: 'Modals of Deduction: Must, May, Might, Could, Can\'t',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Modals of deduction are used to make logical conclusions based on evidence. 'Must' shows strong certainty, 'may/might/could' show possibility, and 'can\'t' shows impossibility. They are used in present and past contexts.",
+                    "Modals of deduction are used to make **logical conclusions** based on evidence. **'Must'** shows strong certainty (90-100%), **'may/might/could'** show possibility (30-50%), and **'can\'t'** shows impossibility (0-10%).",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -227,19 +248,22 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'Present Deduction',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.check_circle,
-                          category: 'Strong Certainty (Must):',
-                          sentence: 'The lights are off. She must be asleep.'),
+                          category: '**Strong Certainty (Must):**',
+                          sentence: '*The lights are off. She **must be** asleep.*'),
                       Example(
                           icon: Icons.question_mark,
-                          category: 'Possibility (May/Might/Could):',
-                          sentence: 'It\'s raining. She may have taken an umbrella.'),
+                          category: '**Possibility (May/Might/Could):**',
+                          sentence:
+                          '*He isn\'t answering. He **might be** busy.*'),
                       Example(
                           icon: Icons.cancel,
-                          category: 'Impossibility (Can\'t):',
-                          sentence: 'He\'s only 5. He can\'t drive a car.'),
+                          category: '**Impossibility (Can\'t):**',
+                          sentence:
+                          '*That **can\'t be** true! It sounds crazy.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -250,13 +274,25 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Present Deduction Examples',
-                    headers: const ['Situation', 'Deduction', 'Modal Used'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Situation**', '**Deduction**', '**Modal Used**'],
                     rows: const [
-                      ['The phone is ringing.', 'Someone must want to talk to you.', 'Must (certainty)'],
-                      ['She\'s smiling.', 'She might be happy.', 'Might (possibility)'],
-                      ['He\'s wet.', 'It may have rained.', 'May (possibility)'],
-                      ['The door is locked.', 'They could be out.', 'Could (possibility)'],
-                      ['She\'s 3 years old.', 'She can\'t read books.', 'Can\'t (impossibility)'],
+                      [
+                        'The phone is ringing.',
+                        '*Someone **must** want to talk.*',
+                        'Must (certainty)'
+                      ],
+                      ['She\'s smiling.', '*She **might be** happy.*', 'Might (possibility)'],
+                      [
+                        'He\'s shivering.',
+                        '*He **could be** cold.*',
+                        'Could (possibility)'
+                      ],
+                      [
+                        'The door is locked.',
+                        '*They **can\'t be** home.*',
+                        'Can\'t (impossibility)'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -266,14 +302,35 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
                   controller: _controller,
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
-                    title: 'Past Deduction',
-                    headers: const ['Situation', 'Deduction', 'Modal Used'],
+                    title: 'Past Deduction (Modal + have + Past Participle)',
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Situation**', '**Deduction**', '**Modal Used**'],
                     rows: const [
-                      ['The ground is wet.', 'It must have rained.', 'Must have (certainty)'],
-                      ['She\'s tired.', 'She might have stayed up late.', 'Might have (possibility)'],
-                      ['He\'s happy.', 'He may have won the lottery.', 'May have (possibility)'],
-                      ['The cake is gone.', 'They could have eaten it.', 'Could have (possibility)'],
-                      ['He\'s only 10.', 'He can\'t have driven the car.', 'Can\'t have (impossibility)'],
+                      [
+                        'The ground is wet.',
+                        '*It **must have rained**.*',
+                        'Must have (certainty)'
+                      ],
+                      [
+                        'She\'s tired.',
+                        '*She **might have stayed** up late.*',
+                        'Might have (possibility)'
+                      ],
+                      [
+                        'He\'s happy.',
+                        '*He **may have won** the lottery.*',
+                        'May have (possibility)'
+                      ],
+                      [
+                        'The cake is gone.',
+                        '*They **could have eaten** it.*',
+                        'Could have (possibility)'
+                      ],
+                      [
+                        'His keys are on the table.',
+                        '*He **can\'t have left** yet.*',
+                        'Can\'t have (impossibility)'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -284,10 +341,11 @@ class _ModalsDeductionLessonScreenState extends State<ModalsDeductionLessonScree
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Must vs Have to:** Must expresses deduction, have to expresses obligation.',
-                      '**May/Might/Could:** Similar meaning, might is slightly less certain.',
-                      '**Negative:** Use must not for prohibition, can\'t for impossibility.',
+                      '**"Must" vs "Have to":** For deduction, always use **"must"**. *"Have to"* is for obligation (rules).',
+                      '**"May/Might/Could":** These are very similar for possibility. **"Might"** is slightly less certain than "may".',
+                      '**Negative:** For impossibility, use **"can\'t"** or **"couldn\'t"**. Use **"must not" (mustn\'t)** for *prohibition* (telling someone not to do something), not for deduction.',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -309,22 +367,28 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (mavi) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(
+            color: isDark ? Colors.blue.shade800 : Colors.blue.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up,
+              color: isDark ? Colors.blue.shade300 : Colors.blue.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(
+                  color: isDark ? Colors.blue.shade200 : Colors.blue.shade900,
+                  fontSize: 14),
             ),
           ),
         ],
@@ -377,6 +441,31 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -423,13 +512,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -487,7 +574,8 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -507,55 +595,71 @@ class _ExampleListItem extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        height: 1.4,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(example.icon, color: Colors.blue.shade600, size: 24),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => onSpeak(example.category),
-                onLongPress: () => onTranslate(example.category),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(
-                    example.category,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                    ),
-                  ),
+    // Bu widget'taki Row yapısı korundu, sadece Text'ler MarkdownBody'ye dönüştürüldü
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => onSpeak('${example.category} ${example.sentence}'),
+      onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(example.icon, color: Colors.blue.shade600, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MarkdownBody(
+                  data: example.category,
+                  selectable: false,
+                  styleSheet: _getCategoryStyle(context),
                 ),
-              ),
-              const SizedBox(height: 4),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => onSpeak(example.sentence),
-                onLongPress: () => onTranslate(example.sentence),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    example.sentence,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.4,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                    ),
-                  ),
+                const SizedBox(height: 4),
+                MarkdownBody(
+                  data: example.sentence,
+                  selectable: false,
+                  styleSheet: _getSentenceStyle(context),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -587,10 +691,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -613,7 +751,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -622,22 +760,43 @@ class _SimplifiedClickableCard extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: headers.map((h) => DataColumn(
+                columns: headers
+                    .map((h) => DataColumn(
                   label: InkWell(
                     onTap: () => onSpeak(h),
                     onLongPress: () => onTranslate(h),
-                    child: Text(h, style: TextStyle(fontWeight: FontWeight.bold, color: onSurface)),
-                  ),
-                )).toList(),
-                rows: rows.map((r) => DataRow(
-                  cells: r.map((c) => DataCell(
-                    InkWell(
-                      onTap: () => onSpeak(c),
-                      onLongPress: () => onTranslate(c),
-                      child: Text(c, style: TextStyle(color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: h,
+                      selectable: false,
+                      styleSheet: _getHeaderStyle(context),
                     ),
-                  )).toList(),
-                )).toList(),
+                  ),
+                ))
+                    .toList(),
+                rows: rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return DataRow(
+                    // Satır tıklaması eklendi
+                    onSelectChanged: (isSelected) {
+                      if (isSelected != null) onSpeak(textJoined);
+                    },
+                    cells: row
+                        .map((cell) => DataCell(
+                      GestureDetector(
+                        // Hücre uzun basma eklendi
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
+                        ),
+                      ),
+                    ))
+                        .toList(),
+                  );
+                }).toList(),
               ),
             ),
           ],
@@ -659,6 +818,26 @@ class _TipCard extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.4,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -697,7 +876,8 @@ class _TipCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lightbulb, color: Colors.blue.shade600, size: 20),
+                  Icon(Icons.lightbulb,
+                      color: Colors.blue.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
@@ -706,13 +886,11 @@ class _TipCard extends StatelessWidget {
                       onLongPress: () => onTranslate(tip),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Text(
-                          tip,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.4,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                          ),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: tip,
+                          selectable: false,
+                          styleSheet: _getMdStyle(context),
                         ),
                       ),
                     ),

@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -32,7 +33,8 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -42,9 +44,17 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,12 +66,12 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
     }
     try {
       final translated =
-      await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -97,7 +107,9 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -109,15 +121,21 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -146,7 +164,9 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -216,8 +236,9 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                   child: _LessonBlock(
                     icon: Icons.timeline,
                     title: 'Future Perfect: Will Have + Past Participle',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "The Future Perfect describes an action that will be completed before a specific time in the future. It uses 'will have' + past participle. It's often used with time expressions like 'by next year', 'by the time', etc.",
+                    "The Future Perfect describes an action that **will be completed before** a specific time in the future. It's formed with **'will have' + past participle**. It's often used with time expressions like *'by next year'*, *'by the time'*, etc.",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -227,19 +248,23 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'When to Use Future Perfect',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.work,
-                          category: 'Achievements:',
-                          sentence: 'By next year, I will have graduated from university.'),
+                          category: '**Achievements:**',
+                          sentence:
+                          '*By next year, I **will have graduated** from university.*'),
                       Example(
                           icon: Icons.flight,
-                          category: 'Travel Plans:',
-                          sentence: 'By the time we arrive, they will have left.'),
+                          category: '**Travel Plans:**',
+                          sentence:
+                          '*By the time we arrive, they **will have left**.*'),
                       Example(
                           icon: Icons.book,
-                          category: 'Reading Goals:',
-                          sentence: 'I will have finished this book by tomorrow.'),
+                          category: '**Reading Goals:**',
+                          sentence:
+                          '*I **will have finished** this book by tomorrow.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -250,13 +275,32 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Structure: Will Have + Past Participle',
-                    headers: const ['Subject', 'Will Have', 'Past Participle', 'Time Expression', 'Full Sentence'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const [
+                      '**Subject**',
+                      '**Will Have**',
+                      '**Past Participle**',
+                      '**Time Expression**',
+                      '**Full Sentence**'
+                    ],
                     rows: const [
-                      ['I', 'will have', 'finished', 'by 5 PM', 'I will have finished by 5 PM.'],
-                      ['She', 'will have', 'arrived', 'by tomorrow', 'She will have arrived by tomorrow.'],
-                      ['We', 'will have', 'eaten', 'by then', 'We will have eaten by then.'],
-                      ['They', 'will have', 'built', 'the house by next year', 'They will have built the house by next year.'],
-                      ['You', 'will have', 'learned', 'English by then', 'You will have learned English by then.'],
+                      ['I', '**will have**', '**finished**', '*by 5 PM*', '*I will have finished by 5 PM.*'],
+                      ['She', '**will have**', '**arrived**', '*by tomorrow*', '*She will have arrived by tomorrow.*'],
+                      ['We', '**will have**', '**eaten**', '*by then*', '*We will have eaten by then.*'],
+                      [
+                        'They',
+                        '**will have**',
+                        '**built**',
+                        '*the house by next year*',
+                        '*They will have built the house by next year.*'
+                      ],
+                      [
+                        'You',
+                        '**will have**',
+                        '**learned**',
+                        '*English by then*',
+                        '*You will have learned English by then.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -267,11 +311,12 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Negative Forms',
-                    headers: const ['Subject', 'Will Not Have', 'Past Participle', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Subject**', '**Will Not Have**', '**Past Participle**', '**Example**'],
                     rows: const [
-                      ['I', 'will not have', 'finished', 'I will not have finished by 5 PM.'],
-                      ['She', 'won\'t have', 'arrived', 'She won\'t have arrived by tomorrow.'],
-                      ['We', 'won\'t have', 'eaten', 'We won\'t have eaten by then.'],
+                      ['I', '**will not have**', '**finished**', '*I **will not have finished** by 5 PM.*'],
+                      ['She', '**won\'t have**', '**arrived**', '*She **won\'t have arrived** by tomorrow.*'],
+                      ['We', '**won\'t have**', '**eaten**', '*We **won\'t have eaten** by then.*'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -282,11 +327,24 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                   interval: const Interval(0.5, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Questions',
-                    headers: const ['Question Type', 'Example', 'Answer'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Question Type**', '**Example**', '**Answer**'],
                     rows: const [
-                      ['Yes/No Question', 'Will you have finished by 5 PM?', 'Yes, I will. / No, I won\'t.'],
-                      ['Wh- Question', 'What will you have done by then?', 'I will have finished my work.'],
-                      ['How Question', 'How long will you have studied?', 'I will have studied for 2 hours.'],
+                      [
+                        'Yes/No Question',
+                        '*Will you **have finished** by 5 PM?*',
+                        '*Yes, I will. / No, I won\'t.*'
+                      ],
+                      [
+                        'Wh- Question',
+                        '*What **will** you **have done** by then?*',
+                        '*I will have finished my work.*'
+                      ],
+                      [
+                        'How Question',
+                        '*How long **will** you **have studied**?*',
+                        '*I will have studied for 2 hours.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -297,10 +355,11 @@ class _FuturePerfectLessonScreenState extends State<FuturePerfectLessonScreen>
                   interval: const Interval(0.6, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Time Expressions:** Use with "by + time", "by the time + clause".',
-                      '**Past Participle:** Remember irregular verbs: gone, eaten, built, etc.',
-                      '**Future Focus:** Emphasizes completion before a future point.',
+                      '**Time Expressions:** Use with "**by** + time" (*by 5 PM*), or "**by the time** + clause" (*by the time you arrive*).',
+                      '**Past Participle:** Remember irregular verbs: *gone, eaten, built, done, seen, etc.*',
+                      '**Future Focus:** This tense always emphasizes the **completion** of an action *before* a specific point in the future.',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -322,22 +381,30 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (mor) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.purple.shade900.withOpacity(0.3) : Colors.purple.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(
+            color: isDark ? Colors.purple.shade800 : Colors.purple.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up,
+              color: isDark ? Colors.purple.shade300 : Colors.purple.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(
+                  color: isDark
+                      ? Colors.purple.shade200
+                      : Colors.purple.shade900,
+                  fontSize: 14),
             ),
           ),
         ],
@@ -390,6 +457,31 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -436,13 +528,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -465,6 +555,39 @@ class _ExampleCard extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        height: 1.4,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -498,77 +621,45 @@ class _ExampleCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ...examples.map((e) => Padding(
+            ...examples.map((example) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onSpeak('${example.category} ${example.sentence}'),
+                onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(example.icon,
+                        color: Colors.purple.shade600, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Text, MarkdownBody olarak değiştirildi
+                          MarkdownBody(
+                            data: example.category,
+                            selectable: false,
+                            styleSheet: _getCategoryStyle(context),
+                          ),
+                          const SizedBox(height: 4),
+                          // InkWell içindeki Text, MarkdownBody olarak değiştirildi
+                          MarkdownBody(
+                            data: example.sentence,
+                            selectable: false,
+                            styleSheet: _getSentenceStyle(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             )),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ExampleListItem extends StatelessWidget {
-  final Example example;
-  final Function(String) onSpeak;
-  final Function(String) onTranslate;
-
-  const _ExampleListItem({
-    required this.example,
-    required this.onSpeak,
-    required this.onTranslate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(example.icon, color: Colors.purple.shade600, size: 24),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => onSpeak(example.category),
-                onLongPress: () => onTranslate(example.category),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(
-                    example.category,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => onSpeak(example.sentence),
-                onLongPress: () => onTranslate(example.sentence),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    example.sentence,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.4,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -600,10 +691,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -626,7 +751,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -635,22 +760,43 @@ class _SimplifiedClickableCard extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: headers.map((h) => DataColumn(
+                columns: headers
+                    .map((h) => DataColumn(
                   label: InkWell(
                     onTap: () => onSpeak(h),
                     onLongPress: () => onTranslate(h),
-                    child: Text(h, style: TextStyle(fontWeight: FontWeight.bold, color: onSurface)),
-                  ),
-                )).toList(),
-                rows: rows.map((r) => DataRow(
-                  cells: r.map((c) => DataCell(
-                    InkWell(
-                      onTap: () => onSpeak(c),
-                      onLongPress: () => onTranslate(c),
-                      child: Text(c, style: TextStyle(color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: h,
+                      selectable: false,
+                      styleSheet: _getHeaderStyle(context),
                     ),
-                  )).toList(),
-                )).toList(),
+                  ),
+                ))
+                    .toList(),
+                rows: rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return DataRow(
+                    // Satır tıklaması eklendi
+                    onSelectChanged: (isSelected) {
+                      if (isSelected != null) onSpeak(textJoined);
+                    },
+                    cells: row
+                        .map((cell) => DataCell(
+                      GestureDetector(
+                        // Hücre uzun basma eklendi
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
+                        ),
+                      ),
+                    ))
+                        .toList(),
+                  );
+                }).toList(),
               ),
             ),
           ],
@@ -672,6 +818,26 @@ class _TipCard extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.4,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -710,7 +876,8 @@ class _TipCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lightbulb, color: Colors.purple.shade600, size: 20),
+                  Icon(Icons.lightbulb,
+                      color: Colors.purple.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
@@ -719,13 +886,11 @@ class _TipCard extends StatelessWidget {
                       onLongPress: () => onTranslate(tip),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Text(
-                          tip,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.4,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                          ),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: tip,
+                          selectable: false,
+                          styleSheet: _getMdStyle(context),
                         ),
                       ),
                     ),

@@ -1,4 +1,4 @@
-// lib/lessons/grammar/b2/advanced_phrasal_verbs_lesson.dart
+// lib/lessons/grammar/b1/advanced_phrasal_verbs_lesson.dart
 
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -17,7 +18,8 @@ class AdvancedPhrasalVerbsLessonScreen extends StatefulWidget {
       _AdvancedPhrasalVerbsLessonScreenState();
 }
 
-class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsLessonScreen>
+class _AdvancedPhrasalVerbsLessonScreenState
+    extends State<AdvancedPhrasalVerbsLessonScreen>
     with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
@@ -32,7 +34,8 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -42,9 +45,17 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,12 +67,12 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
     }
     try {
       final translated =
-      await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -97,7 +108,9 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -109,15 +122,21 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -146,7 +165,9 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -166,10 +187,10 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.green.shade700,
+            backgroundColor: Colors.deepOrange.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              title: const Text('Advanced Phrasal Verbs',
+              title: const Text('Phrasal Verbs',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -180,8 +201,8 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.green.shade500,
-                      Colors.teal.shade600,
+                      Colors.orange.shade500,
+                      Colors.deepOrange.shade600,
                     ],
                   ),
                 ),
@@ -189,13 +210,13 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.directions_run,
+                      const Icon(Icons.widgets_outlined,
                           size: 70, color: Colors.white24),
                       const SizedBox(height: 8),
                       Text(
-                        'Complex Multi-Word Verbs',
+                        'Verb + Particle (up, on, out...)',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withOpacity(0.85),
                           fontSize: 18,
                         ),
                       ),
@@ -214,10 +235,11 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
                   child: _LessonBlock(
-                    icon: Icons.extension,
-                    title: 'Advanced Phrasal Verbs: Three-Part Verbs',
+                    icon: Icons.extension_outlined,
+                    title: 'What are Phrasal Verbs?',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Advanced phrasal verbs include three-part verbs with a verb, particle, and preposition. They often have idiomatic meanings. Common patterns: verb + particle + preposition. Examples: look forward to, get away with, put up with.",
+                    "Phrasal verbs combine a base verb with one or two particles (prepositions/adverbs), creating a **new meaning**. E.g., **'turn on'**, **'look after'**, **'give up'**. They are very common in everyday English!",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -226,20 +248,33 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                   controller: _controller,
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
-                    title: 'Common Three-Part Phrasal Verbs',
+                    title: 'Common Phrasal Verbs',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
-                          icon: Icons.watch_later,
-                          category: 'Look Forward To:',
-                          sentence: 'I\'m looking forward to the weekend.'),
+                          icon: Icons.lightbulb_outline,
+                          category: '**turn on**',
+                          sentence: '*Please **turn on** the lights.*'),
                       Example(
-                          icon: Icons.run_circle,
-                          category: 'Get Away With:',
-                          sentence: 'He got away with cheating on the test.'),
+                          icon: Icons.lightbulb,
+                          category: '**turn off**',
+                          sentence: '***Turn off** the TV, please.*'),
                       Example(
-                          icon: Icons.thumb_up,
-                          category: 'Put Up With:',
-                          sentence: 'I can\'t put up with his bad behavior.'),
+                          icon: Icons.search,
+                          category: '**look up**',
+                          sentence: '***Look up** the word in a dictionary.*'),
+                      Example(
+                          icon: Icons.favorite_border,
+                          category: '**give up**',
+                          sentence: '*Don\'t **give up**!*'),
+                      Example(
+                          icon: Icons.pets,
+                          category: '**look after**',
+                          sentence: '*She **looks after** her little brother.*'),
+                      Example(
+                          icon: Icons.directions_run,
+                          category: '**run into**',
+                          sentence: '*I **ran into** an old friend.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -249,14 +284,25 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                   controller: _controller,
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
-                    title: 'More Examples',
-                    headers: const ['Phrasal Verb', 'Meaning', 'Example'],
+                    title: 'Separable vs Inseparable',
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Type**', '**Rule**', '**Example**'],
                     rows: const [
-                      ['Come up with', 'Think of an idea', 'She came up with a great plan.'],
-                      ['Get on with', 'Have a good relationship', 'They get on with each other well.'],
-                      ['Go in for', 'Like or enjoy', 'He goes in for extreme sports.'],
-                      ['Keep up with', 'Stay at the same level', 'I can\'t keep up with the latest trends.'],
-                      ['Live up to', 'Meet expectations', 'The movie lived up to my expectations.'],
+                      [
+                        '**Separable**',
+                        'Object can go between verb and particle',
+                        '*turn **the TV** off / turn off **the TV***'
+                      ],
+                      [
+                        '**Pronoun Rule**',
+                        'Pronouns MUST go in the middle',
+                        '*turn **it** off* (NOT: *turn off it*)'
+                      ],
+                      [
+                        '**Inseparable**',
+                        'Object must follow the whole phrasal verb',
+                        '*look after **children*** (NOT: *look children after*)'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -266,13 +312,16 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                   controller: _controller,
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
-                    title: 'Separable vs Inseparable',
-                    headers: const ['Type', 'Example', 'Explanation'],
+                    title: 'Transitive vs Intransitive',
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Type**', '**Takes an Object?**', '**Example**'],
                     rows: const [
-                      ['Separable', 'Look after someone', 'Object can go between verb and particle.'],
-                      ['Inseparable', 'Look forward to something', 'Particle and preposition stay together.'],
-                      ['Separable', 'Put up with noise', 'Can say "put noise up with".'],
-                      ['Inseparable', 'Get away with crime', 'Cannot separate "away with".'],
+                      [
+                        '**Transitive**',
+                        'Yes',
+                        '*look up **a word**, turn off **the light***'
+                      ],
+                      ['**Intransitive**', 'No', '*grow up, wake up*'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -283,10 +332,11 @@ class _AdvancedPhrasalVerbsLessonScreenState extends State<AdvancedPhrasalVerbsL
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Idiomatic:** Many have non-literal meanings.',
-                      '**Context:** Meaning depends on context.',
-                      '**Practice:** Learn in phrases, not isolation.',
+                      '**Memorize in Chunks:** Learn phrasal verbs as a single vocabulary item (verb + particle).',
+                      '**Object Placement:** With separable phrasal verbs, always put pronouns like *it, them, me* in the middle (**turn it off**).',
+                      '**Multiple Meanings:** Many phrasal verbs have literal and idiomatic meanings (**run into** = meet by chance).',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -308,22 +358,30 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (turuncu) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.orange.shade900.withOpacity(0.3) : Colors.orange.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(
+            color: isDark ? Colors.orange.shade800 : Colors.orange.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up,
+              color: isDark ? Colors.orange.shade300 : Colors.orange.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(
+                  color: isDark
+                      ? Colors.orange.shade200
+                      : Colors.orange.shade900,
+                  fontSize: 14),
             ),
           ),
         ],
@@ -376,6 +434,26 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -393,7 +471,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.green.shade700, size: 28),
+                Icon(icon, color: Colors.deepOrange.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -422,13 +500,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -486,7 +562,8 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -500,75 +577,87 @@ class _ExampleListItem extends StatelessWidget {
   final Function(String) onSpeak;
   final Function(String) onTranslate;
 
-  const _ExampleListItem({
-    required this.example,
-    required this.onSpeak,
-    required this.onTranslate,
-  });
+  const _ExampleListItem(
+      {required this.example,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(example.icon, color: Colors.green.shade600, size: 24),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      color: isDark
+          ? Colors.orange.shade900.withOpacity(0.25)
+          : Colors.orange.shade50,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => onSpeak('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => onSpeak(example.category),
-                onLongPress: () => onTranslate(example.category),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(
-                    example.category,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+              Icon(example.icon, size: 22, color: Colors.deepOrange.shade600),
+              const SizedBox(width: 12),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => onSpeak(example.sentence),
-                onLongPress: () => onTranslate(example.sentence),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    example.sentence,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.4,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
-}
-
-class Example {
-  final IconData icon;
-  final String category;
-  final String sentence;
-
-  const Example({
-    required this.icon,
-    required this.category,
-    required this.sentence,
-  });
 }
 
 class _SimplifiedClickableCard extends StatelessWidget {
@@ -586,10 +675,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -612,7 +735,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -621,22 +744,39 @@ class _SimplifiedClickableCard extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: headers.map((h) => DataColumn(
+                columns: headers
+                    .map((h) => DataColumn(
                   label: InkWell(
                     onTap: () => onSpeak(h),
                     onLongPress: () => onTranslate(h),
-                    child: Text(h, style: TextStyle(fontWeight: FontWeight.bold, color: onSurface)),
-                  ),
-                )).toList(),
-                rows: rows.map((r) => DataRow(
-                  cells: r.map((c) => DataCell(
-                    InkWell(
-                      onTap: () => onSpeak(c),
-                      onLongPress: () => onTranslate(c),
-                      child: Text(c, style: TextStyle(color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: h,
+                      selectable: false,
+                      styleSheet: _getHeaderStyle(context),
                     ),
-                  )).toList(),
-                )).toList(),
+                  ),
+                ))
+                    .toList(),
+                rows: rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return DataRow(
+                    cells: row
+                        .map((cell) => DataCell(
+                      InkWell(
+                        onTap: () => onSpeak(textJoined),
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
+                        ),
+                      ),
+                    ))
+                        .toList(),
+                  );
+                }).toList(),
               ),
             ),
           ],
@@ -659,6 +799,26 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -674,49 +834,47 @@ class _TipCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: () => onSpeak(title),
-              onLongPress: () => onTranslate(title),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: onSurface,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...tips.map((tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.lightbulb, color: Colors.green.shade600, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () => onSpeak(tip),
-                      onLongPress: () => onTranslate(tip),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Text(
-                          tip,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.4,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                          ),
+            Row(
+              children: [
+                Icon(Icons.lightbulb_outline,
+                    color: Colors.amber.shade700, size: 28),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onSpeak(title),
+                    onLongPress: () => onTranslate(title),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: onSurface,
                         ),
                       ),
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...tips.map((tip) => Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onSpeak(tip),
+                onLongPress: () => onTranslate(tip),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  // Text, MarkdownBody olarak değiştirildi
+                  child: MarkdownBody(
+                    data: tip,
+                    selectable: false,
+                    styleSheet: _getMdStyle(context),
+                  ),
+                ),
               ),
             )),
           ],
@@ -724,4 +882,16 @@ class _TipCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class Example {
+  final IconData icon;
+  final String category;
+  final String sentence;
+
+  const Example({
+    required this.icon,
+    required this.category,
+    required this.sentence,
+  });
 }

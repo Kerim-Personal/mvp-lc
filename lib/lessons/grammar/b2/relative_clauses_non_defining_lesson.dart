@@ -1,4 +1,4 @@
-// lib/lessons/grammar/b2/relative_clauses_non_defining_lesson.dart
+// lib/lessons/grammar/b1/relative_clauses_non_defining_lesson.dart
 
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -17,7 +18,8 @@ class RelativeClausesNonDefiningLessonScreen extends StatefulWidget {
       _RelativeClausesNonDefiningLessonScreenState();
 }
 
-class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClausesNonDefiningLessonScreen>
+class _RelativeClausesNonDefiningLessonScreenState
+    extends State<RelativeClausesNonDefiningLessonScreen>
     with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
@@ -32,7 +34,8 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -42,9 +45,17 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,12 +67,12 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
     }
     try {
       final translated =
-      await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -97,7 +108,9 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -109,15 +122,21 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -146,7 +165,9 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -166,22 +187,22 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.cyan.shade700,
+            backgroundColor: Colors.deepPurple.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Non-Defining Relative Clauses',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      fontSize: 22)),
+                      fontSize: 16)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.cyan.shade500,
-                      Colors.teal.shade600,
+                      Colors.deepPurple.shade500,
+                      Colors.purple.shade600,
                     ],
                   ),
                 ),
@@ -216,8 +237,9 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
                   child: _LessonBlock(
                     icon: Icons.info_outline,
                     title: 'Non-Defining Relative Clauses: Extra Information',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Non-defining relative clauses give extra information about a noun. They are separated by commas and can be removed without changing the main meaning. Use who/which/whose with commas. Cannot use 'that' in non-defining clauses.",
+                    "Non-defining relative clauses give **extra information** about a noun. They are separated by **commas** and can be removed without changing the main meaning. Use **who, which,** or **whose** with commas. You **cannot** use 'that' in non-defining clauses.",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -227,19 +249,23 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'When to Use Non-Defining Clauses',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.person,
-                          category: 'People (Who/Whose):',
-                          sentence: 'My brother, who lives in London, is coming tomorrow.'),
+                          category: '**People (Who/Whose):**',
+                          sentence:
+                          '*My brother, **who lives in London**, is coming tomorrow.*'),
                       Example(
                           icon: Icons.house,
-                          category: 'Things (Which):',
-                          sentence: 'The house, which was built in 1900, is very old.'),
+                          category: '**Things (Which):**',
+                          sentence:
+                          '*The house, **which was built in 1900**, is very old.*'),
                       Example(
                           icon: Icons.celebration,
-                          category: 'Possession (Whose):',
-                          sentence: 'John, whose car broke down, called a taxi.'),
+                          category: '**Possession (Whose):**',
+                          sentence:
+                          '*John, **whose car broke down**, called a taxi.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -250,13 +276,34 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Structure: Noun + , + Relative Pronoun + Clause + ,',
-                    headers: const ['Noun', 'Relative Pronoun', 'Clause', 'Full Sentence'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Noun**', '**Relative Pronoun**', '**Clause**', '**Full Sentence**'],
                     rows: const [
-                      ['London', 'which', 'is the capital of England', 'London, which is the capital of England, is beautiful.'],
-                      ['My sister', 'who', 'studies medicine', 'My sister, who studies medicine, wants to be a doctor.'],
-                      ['The man', 'whose', 'car is red', 'The man, whose car is red, is my neighbor.'],
-                      ['Paris', 'where', 'I was born', 'Paris, where I was born, is my favorite city.'],
-                      ['Yesterday', 'when', 'it rained', 'Yesterday, when it rained, I stayed home.'],
+                      [
+                        'London',
+                        '**, which**',
+                        '*is the capital of England*',
+                        '*London, which is the capital..., is beautiful.*'
+                      ],
+                      [
+                        'My sister',
+                        '**, who**',
+                        '*studies medicine*',
+                        '*My sister, who studies medicine, wants to be a doctor.*'
+                      ],
+                      [
+                        'The man',
+                        '**, whose**',
+                        '*car is red*',
+                        '*The man, whose car is red, is my neighbor.*'
+                      ],
+                      ['Paris', '**, where**', '*I was born*', '*Paris, where I was born, is my favorite city.*'],
+                      [
+                        'Yesterday',
+                        '**, when**',
+                        '*it rained*',
+                        '*Yesterday, when it rained, I stayed home.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -267,12 +314,29 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Prepositions in Non-Defining Clauses',
-                    headers: const ['Preposition', 'Example', 'Alternative'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Structure**', '**Example**', '**Alternative (less formal)**'],
                     rows: const [
-                      ['in', 'The city in which I live...', 'The city which I live in...'],
-                      ['for', 'The person for whom I work...', 'The person who I work for...'],
-                      ['about', 'The book about which we talked...', 'The book which we talked about...'],
-                      ['with', 'The man with whom I spoke...', 'The man who I spoke with...'],
+                      [
+                        'Prep + which/whom',
+                        '*The city **in which** I live...*',
+                        '*The city **which** I live **in**...*'
+                      ],
+                      [
+                        'Prep + whom',
+                        '*The person **for whom** I work...*',
+                        '*The person **who** I work **for**...*'
+                      ],
+                      [
+                        'Prep + which',
+                        '*The book **about which** we talked...*',
+                        '*The book **which** we talked **about**...*'
+                      ],
+                      [
+                        'Prep + whom',
+                        '*The man **with whom** I spoke...*',
+                        '*The man **who** I spoke **with**...*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -283,11 +347,11 @@ class _RelativeClausesNonDefiningLessonScreenState extends State<RelativeClauses
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Commas Required:** Always use commas to separate non-defining clauses.',
-                      '**Cannot Omit:** Cannot omit relative pronouns in non-defining clauses.',
-                      '**No "That":** Never use "that" in non-defining relative clauses.',
-                      '**All/Every:** Cannot use with "all/every + noun" in non-defining clauses.',
+                      '**Commas Required:** Always use **commas** to separate non-defining clauses from the main sentence.',
+                      '**Cannot Omit:** You **cannot omit** the relative pronoun (who, which, etc.) in a non-defining clause.',
+                      '**No "That":** **Never** use the word "**that**" in non-defining relative clauses. Only use *who* or *which*.',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -309,22 +373,30 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (mor) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.deepPurple.shade900.withOpacity(0.3) : Colors.deepPurple.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(
+            color: isDark ? Colors.deepPurple.shade800 : Colors.deepPurple.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up,
+              color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(
+                  color: isDark
+                      ? Colors.deepPurple.shade200
+                      : Colors.deepPurple.shade900,
+                  fontSize: 14),
             ),
           ),
         ],
@@ -377,6 +449,26 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -394,7 +486,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.cyan.shade700, size: 28),
+                Icon(icon, color: Colors.deepPurple.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -423,18 +515,16 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
           ],
-       ),
+        ),
       ),
     );
   }
@@ -487,7 +577,8 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -501,75 +592,87 @@ class _ExampleListItem extends StatelessWidget {
   final Function(String) onSpeak;
   final Function(String) onTranslate;
 
-  const _ExampleListItem({
-    required this.example,
-    required this.onSpeak,
-    required this.onTranslate,
-  });
+  const _ExampleListItem(
+      {required this.example,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(example.icon, color: Colors.cyan.shade600, size: 24),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      color: isDark
+          ? Colors.deepPurple.shade900.withOpacity(0.25)
+          : Colors.deepPurple.shade50,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => onSpeak('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => onSpeak(example.category),
-                onLongPress: () => onTranslate(example.category),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(
-                    example.category,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+              Icon(example.icon, size: 22, color: Colors.deepPurple.shade600),
+              const SizedBox(width: 12),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => onSpeak(example.sentence),
-                onLongPress: () => onTranslate(example.sentence),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    example.sentence,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.4,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
-}
-
-class Example {
-  final IconData icon;
-  final String category;
-  final String sentence;
-
-  const Example({
-    required this.icon,
-    required this.category,
-    required this.sentence,
-  });
 }
 
 class _SimplifiedClickableCard extends StatelessWidget {
@@ -587,10 +690,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -613,7 +750,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -622,26 +759,47 @@ class _SimplifiedClickableCard extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: headers.map((h) => DataColumn(
+                columns: headers
+                    .map((h) => DataColumn(
                   label: InkWell(
                     onTap: () => onSpeak(h),
                     onLongPress: () => onTranslate(h),
-                    child: Text(h, style: TextStyle(fontWeight: FontWeight.bold, color: onSurface)),
-                  ),
-                )).toList(),
-                rows: rows.map((r) => DataRow(
-                  cells: r.map((c) => DataCell(
-                    InkWell(
-                      onTap: () => onSpeak(c),
-                      onLongPress: () => onTranslate(c),
-                      child: Text(c, style: TextStyle(color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: h,
+                      selectable: false,
+                      styleSheet: _getHeaderStyle(context),
                     ),
-                  )).toList(),
-                )).toList(),
+                  ),
+                ))
+                    .toList(),
+                rows: rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return DataRow(
+                    // Satır tıklaması eklendi
+                    onSelectChanged: (isSelected) {
+                      if (isSelected != null) onSpeak(textJoined);
+                    },
+                    cells: row
+                        .map((cell) => DataCell(
+                      GestureDetector(
+                        // Hücre uzun basma eklendi
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
+                        ),
+                      ),
+                    ))
+                        .toList(),
+                  );
+                }).toList(),
               ),
             ),
           ],
-       ),
+        ),
       ),
     );
   }
@@ -660,6 +818,31 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -675,54 +858,64 @@ class _TipCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: () => onSpeak(title),
-              onLongPress: () => onTranslate(title),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: onSurface,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...tips.map((tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.lightbulb, color: Colors.cyan.shade600, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () => onSpeak(tip),
-                      onLongPress: () => onTranslate(tip),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Text(
-                          tip,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.4,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                          ),
+            Row(
+              children: [
+                Icon(Icons.lightbulb_outline,
+                    color: Colors.amber.shade700, size: 28),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onSpeak(title),
+                    onLongPress: () => onTranslate(title),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: onSurface,
                         ),
                       ),
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...tips.map((tip) => Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onSpeak(tip),
+                onLongPress: () => onTranslate(tip),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  // Text, MarkdownBody olarak değiştirildi
+                  child: MarkdownBody(
+                    data: tip,
+                    selectable: false,
+                    styleSheet: _getMdStyle(context),
+                  ),
+                ),
               ),
             )),
           ],
-       ),
+        ),
       ),
     );
   }
+}
+
+class Example {
+  final IconData icon;
+  final String category;
+  final String sentence;
+
+  const Example({
+    required this.icon,
+    required this.category,
+    required this.sentence,
+  });
 }

@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -32,7 +33,8 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -42,9 +44,17 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,12 +66,12 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
     }
     try {
       final translated =
-      await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -97,7 +107,9 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -109,15 +121,21 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
                             children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
+                      final translated = snapshot.data ?? _stripMarkdown(source);
+                      return Text(translated,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500));
                     },
                   ),
                 ],
@@ -146,7 +164,9 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -216,8 +236,9 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                   child: _LessonBlock(
                     icon: Icons.handyman,
                     title: 'Causative: Have/Get + Object + Past Participle',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "The Causative form is used when you arrange for someone else to do something for you. It uses 'have' or 'get' + object + past participle. 'Have' is more formal, 'get' is more informal. Common verbs: have/get something done, repaired, built, etc.",
+                    "The Causative form is used when you **arrange for someone else** to do something for you. It uses **'have'** or **'get'** + **object** + **past participle**. 'Have' is more formal, 'get' is more informal. Common verbs: *have/get something done, repaired, built, etc.*",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -227,19 +248,22 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'When to Use Causative',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.car_repair,
-                          category: 'Repairs:',
-                          sentence: 'I had my car repaired yesterday.'),
+                          category: '**Repairs:**',
+                          sentence: '*I **had my car repaired** yesterday.*'),
                       Example(
                           icon: Icons.home,
-                          category: 'Home Services:',
-                          sentence: 'They got their house painted last month.'),
+                          category: '**Home Services:**',
+                          sentence:
+                          '*They **got their house painted** last month.*'),
                       Example(
                           icon: Icons.person,
-                          category: 'Personal Services:',
-                          sentence: 'She has her hair cut every six weeks.'),
+                          category: '**Personal Services:**',
+                          sentence:
+                          '*She **has her hair cut** every six weeks.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -250,13 +274,26 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Structure: Have + Object + Past Participle',
-                    headers: const ['Subject', 'Have', 'Object', 'Past Participle', 'Full Sentence'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const [
+                      '**Subject**',
+                      '**Have/Get**',
+                      '**Object**',
+                      '**Past Participle**',
+                      '**Full Sentence**'
+                    ],
                     rows: const [
-                      ['I', 'had', 'my watch', 'repaired', 'I had my watch repaired.'],
-                      ['She', 'has', 'her nails', 'done', 'She has her nails done.'],
-                      ['We', 'had', 'the roof', 'fixed', 'We had the roof fixed.'],
-                      ['They', 'got', 'their car', 'washed', 'They got their car washed.'],
-                      ['You', 'should have', 'your teeth', 'checked', 'You should have your teeth checked.'],
+                      ['I', '**had**', 'my watch', '**repaired**', '*I had my watch repaired.*'],
+                      ['She', '**has**', 'her nails', '**done**', '*She has her nails done.*'],
+                      ['We', '**had**', 'the roof', '**fixed**', '*We had the roof fixed.*'],
+                      ['They', '**got**', 'their car', '**washed**', '*They got their car washed.*'],
+                      [
+                        'You',
+                        '**should have**',
+                        'your teeth',
+                        '**checked**',
+                        '*You should have your teeth checked.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -267,11 +304,16 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                   interval: const Interval(0.4, 1.0),
                   child: _SimplifiedClickableCard(
                     title: 'Negative and Questions',
-                    headers: const ['Type', 'Example', 'Response'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Type**', '**Example**', '**Response**'],
                     rows: const [
-                      ['Negative', 'I didn\'t have my hair cut.', 'No, I didn\'t.'],
-                      ['Question', 'Did you have your car serviced?', 'Yes, I did.'],
-                      ['Wh-Question', 'When did you have your house painted?', 'Last summer.'],
+                      ['**Negative**', '*I **didn\'t have** my hair cut.*', '*No, I didn\'t.*'],
+                      ['**Question**', '*Did you **have** your car serviced?*', '*Yes, I did.*'],
+                      [
+                        '**Wh-Question**',
+                        '*When **did** you **have** your house painted?*',
+                        '*Last summer.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -282,10 +324,11 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Have vs Get:** Have is more formal, get is casual.',
-                      '**Cost:** Often implies paying for a service.',
-                      '**Passive Feel:** The subject doesn\'t do the action.',
+                      '**"Have" vs "Get":** "Have" is slightly more formal. "Get" is more casual and common in speech.',
+                      '**Cost:** This structure often implies paying for a professional service.',
+                      '**Passive Feel:** The subject of the sentence (I, She, We) is *not* the one doing the action (repairing, painting, cutting).',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -307,22 +350,28 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (teal) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.teal.shade900.withOpacity(0.3) : Colors.teal.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(
+            color: isDark ? Colors.teal.shade800 : Colors.teal.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up,
+              color: isDark ? Colors.teal.shade300 : Colors.teal.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(color: Colors.blue.shade900, fontSize: 14),
+              style: TextStyle(
+                  color: isDark ? Colors.teal.shade200 : Colors.teal.shade900,
+                  fontSize: 14),
             ),
           ),
         ],
@@ -375,6 +424,31 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -421,13 +495,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -485,7 +557,8 @@ class _ExampleCard extends StatelessWidget {
             const SizedBox(height: 16),
             ...examples.map((e) => Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
+              child: _ExampleListItem(
+                  example: e, onSpeak: onSpeak, onTranslate: onTranslate),
             )),
           ],
         ),
@@ -505,55 +578,71 @@ class _ExampleListItem extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        height: 1.4,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(example.icon, color: Colors.teal.shade600, size: 24),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => onSpeak(example.category),
-                onLongPress: () => onTranslate(example.category),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(
-                    example.category,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                    ),
-                  ),
+    // Bu widget'taki Row yapısı korundu, sadece Text'ler MarkdownBody'ye dönüştürüldü
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => onSpeak('${example.category} ${example.sentence}'),
+      onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(example.icon, color: Colors.teal.shade600, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MarkdownBody(
+                  data: example.category,
+                  selectable: false,
+                  styleSheet: _getCategoryStyle(context),
                 ),
-              ),
-              const SizedBox(height: 4),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => onSpeak(example.sentence),
-                onLongPress: () => onTranslate(example.sentence),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    example.sentence,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.4,
-                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                    ),
-                  ),
+                const SizedBox(height: 4),
+                MarkdownBody(
+                  data: example.sentence,
+                  selectable: false,
+                  styleSheet: _getSentenceStyle(context),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -585,10 +674,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -611,7 +734,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
@@ -620,22 +743,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: headers.map((h) => DataColumn(
+                // Orijinal dosyadaki stiller kaldırıldı
+                columns: headers
+                    .map((h) => DataColumn(
                   label: InkWell(
                     onTap: () => onSpeak(h),
                     onLongPress: () => onTranslate(h),
-                    child: Text(h, style: TextStyle(fontWeight: FontWeight.bold, color: onSurface)),
-                  ),
-                )).toList(),
-                rows: rows.map((r) => DataRow(
-                  cells: r.map((c) => DataCell(
-                    InkWell(
-                      onTap: () => onSpeak(c),
-                      onLongPress: () => onTranslate(c),
-                      child: Text(c, style: TextStyle(color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: h,
+                      selectable: false,
+                      styleSheet: _getHeaderStyle(context),
                     ),
-                  )).toList(),
-                )).toList(),
+                  ),
+                ))
+                    .toList(),
+                rows: rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return DataRow(
+                    // Satır tıklaması eklendi
+                    onSelectChanged: (isSelected) {
+                      if (isSelected != null) onSpeak(textJoined);
+                    },
+                    cells: row
+                        .map((cell) => DataCell(
+                      GestureDetector(
+                        // Hücre uzun basma eklendi
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
+                        ),
+                      ),
+                    ))
+                        .toList(),
+                  );
+                }).toList(),
               ),
             ),
           ],
@@ -657,6 +802,26 @@ class _TipCard extends StatelessWidget {
     required this.onSpeak,
     required this.onTranslate,
   });
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.4,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -695,7 +860,8 @@ class _TipCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lightbulb, color: Colors.teal.shade600, size: 20),
+                  Icon(Icons.lightbulb,
+                      color: Colors.teal.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
@@ -704,13 +870,11 @@ class _TipCard extends StatelessWidget {
                       onLongPress: () => onTranslate(tip),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Text(
-                          tip,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.4,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                          ),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: tip,
+                          selectable: false,
+                          styleSheet: _getMdStyle(context),
                         ),
                       ),
                     ),
