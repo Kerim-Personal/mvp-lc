@@ -1,4 +1,4 @@
-// lib/lessons/grammar/c2/cohesion_lesson.dart
+// lib/lessons/grammar/c1/cohesion_lesson.dart
 
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 // --- MAIN LESSON SCREEN ---
 
@@ -42,9 +43,17 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
     // Return from cache if available
     if (_translationCache.containsKey(cacheKey)) {
       return _translationCache[cacheKey]!;
@@ -56,12 +65,12 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
     }
     try {
       final translated =
-      await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
       // Fallback to original text if translation fails
-      return text;
+      return cleanText;
     }
   }
 
@@ -97,7 +106,9 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                   const SizedBox(height: 12),
                   const Text('Original',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
+                  // Orijinal metni Markdown'dan temizlenmiş göster
+                  Text(_stripMarkdown(source),
+                      style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 12),
                   const Text('Translation',
                       style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -112,14 +123,15 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                               SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2)),
+                                  child:
+                                  CircularProgressIndicator(strokeWidth: 2)),
                               SizedBox(width: 8),
                               Text('Translating...'),
                             ],
                           ),
                         );
                       }
-                      final translated = snapshot.data ?? source;
+                      final translated = snapshot.data ?? _stripMarkdown(source);
                       return Text(translated,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w500));
@@ -151,7 +163,9 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    final cleanText = _stripMarkdown(text);
+    await flutterTts.speak(cleanText);
   }
 
   @override
@@ -171,7 +185,7 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.purple.shade700,
+            backgroundColor: Colors.deepPurple.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Cohesion',
@@ -185,8 +199,8 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.purple.shade500,
-                      Colors.deepPurple.shade600,
+                      Colors.deepPurple.shade500,
+                      Colors.purple.shade600,
                     ],
                   ),
                 ),
@@ -219,10 +233,11 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
                   child: _LessonBlock(
-                    icon: Icons.lightbulb_outline,
+                    icon: Icons.link,
                     title: 'What is Cohesion?',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Cohesion refers to the way ideas in a text are connected and flow logically from one to the next. It ensures that sentences and paragraphs work together to create a unified whole. Good cohesion makes writing easier to read and understand.",
+                    "**Cohesion** refers to the way ideas in a text are **connected** and flow logically from one to the next. It ensures that sentences and paragraphs work together to create a unified whole. Good cohesion makes writing easier to read and understand.",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -232,19 +247,23 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'Types of Cohesive Devices',
+                    // Veri Markdown formatına güncellendi
                     examples: const [
                       Example(
                           icon: Icons.repeat_outlined,
-                          category: 'Reference:',
-                          sentence: 'Pronouns like it, this, that link back to previous ideas.'),
+                          category: '**Reference:**',
+                          sentence:
+                          '*Pronouns like **it, this, that** link back to previous ideas.*'),
                       Example(
                           icon: Icons.find_replace_outlined,
-                          category: 'Substitution:',
-                          sentence: 'Using words like one, do so instead of repeating nouns.'),
+                          category: '**Substitution:**',
+                          sentence:
+                          '*Using words like **one, do so** instead of repeating nouns.*'),
                       Example(
                           icon: Icons.compare_outlined,
-                          category: 'Conjunctions:',
-                          sentence: 'Words like however, therefore, although connect clauses.'),
+                          category: '**Conjunctions:**',
+                          sentence:
+                          '*Words like **however, therefore, although** connect clauses.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -255,13 +274,26 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Cohesive Devices Examples',
-                    headers: const ['Device', 'Example'],
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Device**', '**Example**'],
                     rows: const [
-                      ['Personal Reference', 'The study was conducted. It showed interesting results.'],
-                      ['Demonstrative Reference', 'These findings are important. This suggests further research.'],
-                      ['Comparative Reference', 'The first method failed. The latter approach succeeded.'],
-                      ['Substitution', 'I need a new phone. This one is broken.'],
-                      ['Ellipsis', 'She can sing, and he can too.'],
+                      [
+                        '**Personal Reference**',
+                        '*The study was conducted. **It** showed interesting results.*'
+                      ],
+                      [
+                        '**Demonstrative**',
+                        '***These** findings are important. **This** suggests...*'
+                      ],
+                      [
+                        '**Comparative**',
+                        '*The first method failed. The **latter** approach succeeded.*'
+                      ],
+                      [
+                        '**Substitution**',
+                        '*I need a new phone. This **one** is broken.*'
+                      ],
+                      ['**Ellipsis**', '*She can sing, and he can (sing) **too**.*'],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -273,8 +305,9 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                   child: _LessonBlock(
                     icon: Icons.text_fields_outlined,
                     title: 'Lexical Cohesion',
+                    // Veri Markdown formatına güncellendi
                     content:
-                    "Lexical cohesion involves using words from the same semantic field or repeating key terms. Synonyms, antonyms, hyponyms, and meronyms can create links. For example, using 'car', 'vehicle', 'automobile' in related sentences.",
+                    "**Lexical cohesion** involves using words from the same **semantic field** or **repeating** key terms. Synonyms, antonyms, and related words create links. For example, using *'car'*, *'vehicle'*, *'automobile'* in related sentences.",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -284,12 +317,12 @@ class _CohesionLessonScreenState extends State<CohesionLessonScreen>
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Tricks',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
                       "**Plan Your Structure:** Outline your ideas before writing to ensure logical flow and use appropriate cohesive devices.",
                       "**Vary Your Language:** While repetition can be cohesive, use synonyms and related terms to avoid monotony.",
-                      "**Use Transitions Wisely:** Conjunctions and adverbials should reflect the relationship between ideas (e.g., contrast, addition, cause).",
-                      "**Read Aloud:** Cohesive writing sounds natural when read. Listen for smooth transitions between ideas.",
-                      "**Practice with Texts:** Analyze academic articles or essays for cohesive devices and try to identify how they improve readability.",
+                      "**Use Transitions Wisely:** Conjunctions and adverbials should reflect the true relationship between ideas (e.g., contrast, addition, cause).",
+                      "**Read Aloud:** Cohesive writing *sounds* natural when read. Listen for smooth transitions.",
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -311,26 +344,31 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Renkler bu dersin temasına (mor) uyacak şekilde düzeltildi
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: isDark ? Colors.deepPurple.shade900.withOpacity(0.3) : Colors.deepPurple.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(
+            color: isDark ? Colors.deepPurple.shade800 : Colors.deepPurple.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.blue.shade700),
+          Icon(Icons.volume_up,
+              color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Tap text to hear it spoken. Long press for translation.',
+              'Tap to hear pronunciation, long press for translation.',
               style: TextStyle(
-                color: Colors.blue.shade900,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+                  color: isDark
+                      ? Colors.deepPurple.shade200
+                      : Colors.deepPurple.shade900,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -352,19 +390,16 @@ class _AnimatedLessonBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: controller,
-        curve: interval,
-      ),
+    final animation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: controller, curve: interval),
     );
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0.0, 0.2),
+        position: animation.drive(Tween<Offset>(
+          begin: const Offset(0, 0.2),
           end: Offset.zero,
-        ).animate(animation),
+        )),
         child: child,
       ),
     );
@@ -386,6 +421,31 @@ class _LessonBlock extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -403,7 +463,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.purple.shade700, size: 28),
+                Icon(icon, color: Colors.deepPurple.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -432,13 +492,11 @@ class _LessonBlock extends StatelessWidget {
               onLongPress: () => onTranslate(content),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                  ),
+                // Text widget'ı MarkdownBody ile değiştirildi
+                child: MarkdownBody(
+                  data: content,
+                  selectable: false,
+                  styleSheet: _getMdStyle(context),
                 ),
               ),
             ),
@@ -516,6 +574,38 @@ class _ExampleListItem extends StatelessWidget {
         required this.onSpeak,
         required this.onTranslate});
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic), // '*' için stil
+      strong: TextStyle( // '**' için stil
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -536,25 +626,20 @@ class _ExampleListItem extends StatelessWidget {
             children: [
               Icon(example.icon, size: 22, color: Colors.purple.shade600),
               const SizedBox(width: 12),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      example.category,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
                     ),
-                    Text(
-                      example.sentence,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                      ),
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
                     ),
                   ],
                 ),
@@ -594,10 +679,44 @@ class _SimplifiedClickableCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: onSurface(context),
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  // Helper to get onSurface color
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -620,53 +739,53 @@ class _SimplifiedClickableCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: onSurface,
+                    color: onSurface(context),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Table(
-              border: TableBorder.all(
-                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
-                width: 1,
-              ),
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: headers
+                    .map((h) => DataColumn(
+                  label: InkWell(
+                    onTap: () => onSpeak(h),
+                    onLongPress: () => onTranslate(h),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: h,
+                      selectable: false,
+                      styleSheet: _getHeaderStyle(context),
+                    ),
                   ),
-                  children: headers.map((h) => Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: InkWell(
-                      onTap: () => onSpeak(h),
-                      onLongPress: () => onTranslate(h),
-                      child: Text(
-                        h,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: onSurface,
+                ))
+                    .toList(),
+                rows: rows.map((row) {
+                  final String textJoined = row.join('. ');
+                  return DataRow(
+                    // Satır tıklaması eklendi
+                    onSelectChanged: (isSelected) {
+                      if (isSelected != null) onSpeak(textJoined);
+                    },
+                    cells: row
+                        .map((cell) => DataCell(
+                      GestureDetector(
+                        // Hücre uzun basma eklendi
+                        onLongPress: () => onTranslate(textJoined),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: cell,
+                          selectable: false,
+                          styleSheet: _getCellStyle(context),
                         ),
                       ),
-                    ),
-                  )).toList(),
-                ),
-                ...rows.map((r) => TableRow(
-                  children: r.map((c) => Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: InkWell(
-                      onTap: () => onSpeak(c),
-                      onLongPress: () => onTranslate(c),
-                      child: Text(
-                        c,
-                        style: TextStyle(
-                          color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                        ),
-                      ),
-                    ),
-                  )).toList(),
-                )),
-              ],
+                    ))
+                        .toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ],
         ),
@@ -688,6 +807,31 @@ class _TipCard extends StatelessWidget {
     required this.onTranslate,
   });
 
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -705,7 +849,8 @@ class _TipCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.tips_and_updates_outlined, color: Colors.green.shade700, size: 28),
+                Icon(Icons.tips_and_updates_outlined,
+                    color: Colors.green.shade700, size: 28), // Tema rengi
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -734,7 +879,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.check_circle_outline,
-                      size: 20, color: Colors.green.shade600),
+                      size: 20, color: Colors.green.shade600), // Tema rengi
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
@@ -743,13 +888,11 @@ class _TipCard extends StatelessWidget {
                       onLongPress: () => onTranslate(tip),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2.0),
-                        child: Text(
-                          tip,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.5,
-                            color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
-                          ),
+                        // Text, MarkdownBody olarak değiştirildi
+                        child: MarkdownBody(
+                          data: tip,
+                          selectable: false,
+                          styleSheet: _getMdStyle(context),
                         ),
                       ),
                     ),

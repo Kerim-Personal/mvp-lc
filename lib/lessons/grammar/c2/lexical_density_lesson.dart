@@ -1,20 +1,25 @@
 // lib/lessons/grammar/c2/lexical_density_lesson.dart
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
+
+// --- MAIN LESSON SCREEN ---
 
 class LexicalDensityLessonScreen extends StatefulWidget {
   const LexicalDensityLessonScreen({super.key});
 
   @override
-  State<LexicalDensityLessonScreen> createState() => _LexicalDensityLessonScreenState();
+  State<LexicalDensityLessonScreen> createState() =>
+      _LexicalDensityLessonScreenState();
 }
 
-class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
-    with TickerProviderStateMixin {
+class _LexicalDensityLessonScreenState
+    extends State<LexicalDensityLessonScreen> with TickerProviderStateMixin {
   late final AnimationController _controller;
   late FlutterTts flutterTts;
   String? _nativeLangCode;
@@ -25,7 +30,8 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return _nativeLangCode = 'en';
-      final snap = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final code = (snap.data()?['nativeLanguage'] as String?)?.trim();
       if (code == null || code.isEmpty) return _nativeLangCode = 'en';
       _nativeLangCode = code;
@@ -35,23 +41,41 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
-    if (_translationCache.containsKey(cacheKey)) return _translationCache[cacheKey]!;
-    try { await TranslationService.instance.ensureReady(target); } catch (_) {}
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
+    // Return from cache if available
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
     try {
-      final translated = await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.ensureReady(target);
+    } catch (_) {
+      // ignore ensureReady failures, attempt translation anyway
+    }
+    try {
+      final translated =
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
-      return text;
+      // Fallback to original text if translation fails
+      return cleanText;
     }
   }
 
   Future<void> _showTranslateSheet(String source) async {
     if (!mounted) return;
-    final future = _translateToNative(source);
+    // Create the future ONCE; prevents re-triggering translation on rebuilds/gestures
+    final translationFuture = _translateToNative(source);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -65,23 +89,37 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: const [Icon(Icons.translate, color: Colors.green), SizedBox(width: 8), Text('Translation', style: TextStyle(fontWeight: FontWeight.bold))]),
+                Row(children: const [
+                  Icon(Icons.translate, color: Colors.deepPurple),
+                  SizedBox(width: 8),
+                  Text('Translation',
+                      style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
+                ]),
                 const SizedBox(height: 12),
-                const Text('Original', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(source),
+                const Text('Original',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                // Orijinal metni Markdown'dan temizlenmiş göster
+                Text(_stripMarkdown(source), style: const TextStyle(fontSize: 16)),
                 const SizedBox(height: 12),
-                const Text('Translation', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const Text('Translation',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
                 FutureBuilder<String>(
-                  future: future,
+                  future: translationFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return Row(children: const [
-                        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                        SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
                         SizedBox(width: 8),
                         Text('Translating...'),
                       ]);
                     }
-                    return Text(snapshot.data ?? source, style: const TextStyle(fontWeight: FontWeight.w500));
+                    return Text(snapshot.data ?? _stripMarkdown(source),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500, fontSize: 16));
                   },
                 ),
               ],
@@ -96,7 +134,9 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
   void initState() {
     super.initState();
     _initializeTts();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..forward();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..forward();
   }
 
   void _initializeTts() {
@@ -106,7 +146,8 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    await flutterTts.speak(_stripMarkdown(text));
   }
 
   @override
@@ -126,25 +167,32 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
             expandedHeight: 250,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.green.shade800,
+            backgroundColor: Colors.deepPurple.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
-              title: const Text('Lexical Density', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+              title: const Text('Lexical Density',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Colors.green.shade600, Colors.teal.shade600],
+                    colors: [Colors.deepPurple.shade500, Colors.purple.shade600],
                   ),
                 ),
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.analytics_outlined, size: 70, color: Colors.white24),
+                      const Icon(Icons.analytics_outlined,
+                          size: 70, color: Colors.white24),
                       const SizedBox(height: 8),
-                      Text('Measuring information density', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 18)),
+                      Text('Measuring information density',
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.8), fontSize: 18)),
                     ],
                   ),
                 ),
@@ -155,16 +203,18 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                const _SpeechHintBox(color: Colors.green),
+                // HATA 1 DÜZELTMESİ: `color` parametresi kaldırıldı.
+                const _SpeechHintBox(),
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
                   child: _LessonBlock(
                     icon: Icons.lightbulb_outline,
-                    accent: Colors.green,
+                    accent: Colors.deepPurple,
                     title: 'What is lexical density?',
+                    // Veri Markdown formatına güncellendi
                     content:
-                        'Lexical density is the proportion of content words (nouns, verbs, adjectives, adverbs) to the total number of words. Higher density often signals more information-dense, academic style.',
+                    'Lexical density is the proportion of **content words** (nouns, verbs, adjectives, adverbs) to the **total number of words**. Higher density often signals a more information-dense, academic style.',
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -174,11 +224,22 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'Identify content vs. function words',
-                    accent: Colors.green,
+                    accent: Colors.deepPurple,
+                    // Veri Markdown formatına güncellendi
                     examples: const [
-                      Example(icon: Icons.filter_alt_outlined, category: 'Content words:', sentence: 'policy, accelerate, sustainable, rapidly'),
-                      Example(icon: Icons.filter_alt_off_outlined, category: 'Function words:', sentence: 'the, and, of, to, is, that, which'),
-                      Example(icon: Icons.text_fields, category: 'Mixed sentence:', sentence: 'The new policy will rapidly accelerate sustainable growth.'),
+                      Example(
+                          icon: Icons.filter_alt_outlined,
+                          category: '**Content words:**',
+                          sentence: '*policy, accelerate, sustainable, rapidly*'),
+                      Example(
+                          icon: Icons.filter_alt_off_outlined,
+                          category: '**Function words:**',
+                          sentence: '*the, and, of, to, is, that, which*'),
+                      Example(
+                          icon: Icons.text_fields,
+                          category: '**Mixed sentence:**',
+                          sentence:
+                          '*The new **policy** will **rapidly** **accelerate** **sustainable** **growth**.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -189,12 +250,28 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Manual estimation (toy example)',
-                    accent: Colors.green,
-                    headers: const ['Text', 'Content words', 'Total words', 'Density'],
+                    accent: Colors.deepPurple,
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Text**', '**Content words**', '**Total words**', '**Density**'],
                     rows: const [
-                      ['We will go to the park.', 'go, park (2)', '6', '≈ 0.33'],
-                      ['Rapid technological progress transforms industries.', 'Rapid, technological, progress, transforms, industries (5)', '5', '1.00'],
-                      ['The report was carefully reviewed by experts.', 'report, carefully, reviewed, experts (4)', '7', '≈ 0.57'],
+                      [
+                        '*We will go to the park.*',
+                        '**go, park** (2)',
+                        '6',
+                        '≈ 0.33'
+                      ],
+                      [
+                        '*Rapid technological progress transforms industries.*',
+                        '**Rapid, technological, progress, transforms, industries** (5)',
+                        '5',
+                        '1.00'
+                      ],
+                      [
+                        '*The report was carefully reviewed by experts.*',
+                        '**report, carefully, reviewed, experts** (4)',
+                        '7',
+                        '≈ 0.57'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -205,10 +282,11 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
                   interval: const Interval(0.4, 1.0),
                   child: _LessonBlock(
                     icon: Icons.rule_outlined,
-                    accent: Colors.green,
+                    accent: Colors.deepPurple,
                     title: 'Formula & interpretation',
+                    // Veri Markdown formatına güncellendi
                     content:
-                        'Density = content words / total words.\nTypical ranges: conversation ~0.30–0.45; academic prose ~0.50–0.65. Use density as an indicator, not an absolute goal—clarity first.',
+                    '**Density = (Content Words / Total Words)**\n\nTypical ranges:\n* Conversation: ~0.30–0.45\n* Academic Prose: ~0.50–0.65\n\nUse density as an indicator, not an absolute goal—**clarity comes first**.',
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -217,13 +295,13 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
                   controller: _controller,
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
-                    accent: Colors.green,
                     title: 'Pro Tips & Pitfalls',
+                    accent: Colors.deepPurple,
                     tips: const [
                       '**Avoid overpacking:** Extremely dense sentences can be hard to parse. Use punctuation and paragraphing.',
                       '**Balance style and audience:** Reports can be denser; instructions to end-users should be simpler.',
-                      '**Nominalization increases density:** Converting verbs to nouns raises density but may reduce readability.',
-                      '**Revise for clarity:** Prefer concrete verbs over abstract nouns when possible.',
+                      '**Nominalization increases density:** Converting verbs to nouns (e.g., *decide* → *decision*) raises density but may reduce readability.',
+                      '**Revise for clarity:** Prefer concrete verbs over abstract nouns when possible for clearer, more direct writing.',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -239,19 +317,35 @@ class _LexicalDensityLessonScreenState extends State<LexicalDensityLessonScreen>
 }
 
 class _SpeechHintBox extends StatelessWidget {
-  final MaterialColor color;
-  const _SpeechHintBox({required this.color});
+  // HATA 1 DÜZELTMESİ: 'color' parametresi kaldırıldı, renkler içeride sabitlendi.
+  const _SpeechHintBox();
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    const color = Colors.deepPurple; // Tema rengi
     return Card(
       elevation: 0,
-      color: isDark ? color.shade900.withValues(alpha: 0.25) : color.shade50,
+      color: isDark ? color.shade900.withOpacity(0.25) : color.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 24),
-      child: const Padding(
-        padding: EdgeInsets.all(12.0),
-        child: Text('Tap text to listen; long-press to translate.'),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Icon(Icons.volume_up,
+                color: isDark ? color.shade300 : color.shade700),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Tap text to listen; long-press to translate.',
+                style: TextStyle(
+                    color: isDark ? color.shade200 : color.shade900,
+                    fontSize: 14),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -261,7 +355,8 @@ class _AnimatedLessonBlock extends StatelessWidget {
   final AnimationController controller;
   final Interval interval;
   final Widget child;
-  const _AnimatedLessonBlock({required this.controller, required this.interval, required this.child});
+  const _AnimatedLessonBlock(
+      {required this.controller, required this.interval, required this.child});
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
@@ -282,14 +377,48 @@ class _LessonBlock extends StatelessWidget {
   final String content;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _LessonBlock({required this.icon, required this.accent, required this.title, required this.content, required this.onSpeak, required this.onTranslate});
+  const _LessonBlock(
+      {required this.icon,
+        required this.accent,
+        required this.title,
+        required this.content,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+      // HATA 2 DÜZELTMESİ: 'li' 'listBullet' olarak değiştirildi
+      listBullet: baseText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -306,7 +435,11 @@ class _LessonBlock extends StatelessWidget {
                 onLongPress: () => onTranslate(title),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: onSurface)),
+                  child: Text(title,
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: onSurface)),
                 ),
               ),
             ),
@@ -318,7 +451,12 @@ class _LessonBlock extends StatelessWidget {
             onLongPress: () => onTranslate(content),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Text(content, style: TextStyle(fontSize: 16, height: 1.5, color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+              // Text widget'ı MarkdownBody ile değiştirildi
+              child: MarkdownBody(
+                data: content,
+                selectable: false,
+                styleSheet: _getMdStyle(context),
+              ),
             ),
           ),
         ]),
@@ -331,7 +469,8 @@ class Example {
   final IconData icon;
   final String category;
   final String sentence;
-  const Example({required this.icon, required this.category, required this.sentence});
+  const Example(
+      {required this.icon, required this.category, required this.sentence});
 }
 
 class _ExampleCard extends StatelessWidget {
@@ -340,14 +479,19 @@ class _ExampleCard extends StatelessWidget {
   final List<Example> examples;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _ExampleCard({required this.title, required this.accent, required this.examples, required this.onSpeak, required this.onTranslate});
+  const _ExampleCard(
+      {required this.title,
+        required this.accent,
+        required this.examples,
+        required this.onSpeak,
+        required this.onTranslate});
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -360,14 +504,22 @@ class _ExampleCard extends StatelessWidget {
             onLongPress: () => onTranslate(title),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: onSurface)),
+              child: Text(title,
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: onSurface)),
             ),
           ),
           const SizedBox(height: 16),
           ...examples.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: _ExampleListItem(example: e, accent: accent, onSpeak: onSpeak, onTranslate: onTranslate),
-              )),
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: _ExampleListItem(
+                example: e,
+                accent: accent,
+                onSpeak: onSpeak,
+                onTranslate: onTranslate),
+          )),
         ]),
       ),
     );
@@ -379,16 +531,55 @@ class _ExampleListItem extends StatelessWidget {
   final MaterialColor accent;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _ExampleListItem({required this.example, required this.accent, required this.onSpeak, required this.onTranslate});
+  const _ExampleListItem(
+      {required this.example,
+        required this.accent,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isDark ? accent.shade900.withValues(alpha: 0.25) : accent.shade50,
+      color: isDark ? accent.shade900.withOpacity(0.25) : accent.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
-        onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -396,9 +587,20 @@ class _ExampleListItem extends StatelessWidget {
             Icon(example.icon, size: 22, color: accent.shade600),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(example.category, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
-                Text(example.sentence, style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+              child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Text, MarkdownBody olarak değiştirildi
+                MarkdownBody(
+                  data: example.category,
+                  selectable: false,
+                  styleSheet: _getCategoryStyle(context),
+                ),
+                // Text, MarkdownBody olarak değiştirildi
+                MarkdownBody(
+                  data: example.sentence,
+                  selectable: false,
+                  styleSheet: _getSentenceStyle(context),
+                ),
               ]),
             ),
           ]),
@@ -415,17 +617,59 @@ class _SimplifiedClickableCard extends StatelessWidget {
   final List<List<String>> rows;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _SimplifiedClickableCard({required this.title, required this.accent, required this.headers, required this.rows, required this.onSpeak, required this.onTranslate});
+  const _SimplifiedClickableCard(
+      {required this.title,
+        required this.accent,
+        required this.headers,
+        required this.rows,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? accent.shade200 : accent.shade800,
+        fontSize: 15,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? accent.shade200 : accent.shade800,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+        fontSize: 16,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
@@ -436,7 +680,11 @@ class _SimplifiedClickableCard extends StatelessWidget {
             onLongPress: () => onTranslate(title),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: onSurface)),
+              child: Text(title,
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: onSurface(context))),
             ),
           ),
         ),
@@ -444,14 +692,36 @@ class _SimplifiedClickableCard extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           child: DataTable(
             showCheckboxColumn: false,
-            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: isDark ? accent.shade200 : accent.shade800, fontSize: 15),
-            dataTextStyle: TextStyle(color: isDark ? Colors.grey.shade200 : Colors.grey.shade800, fontSize: 16),
-            columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+            // Orijinal stiller kaldırıldı
+            columns: headers
+                .map((h) => DataColumn(
+              // Text, MarkdownBody olarak değiştirildi
+              label: MarkdownBody(
+                data: h,
+                selectable: false,
+                styleSheet: _getHeaderStyle(context),
+              ),
+            ))
+                .toList(),
             rows: rows.map((row) {
               final textJoined = row.join('. ');
               return DataRow(
-                onSelectChanged: (isSelected) { if (isSelected != null) onSpeak(textJoined); },
-                cells: row.map((cell) => DataCell(GestureDetector(onLongPress: () => onTranslate(textJoined), child: Text(cell)))).toList(),
+                onSelectChanged: (isSelected) {
+                  if (isSelected != null) onSpeak(textJoined);
+                },
+                cells: row
+                    .map((cell) => DataCell(
+                  GestureDetector(
+                    onLongPress: () => onTranslate(textJoined),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: cell,
+                      selectable: false,
+                      styleSheet: _getCellStyle(context),
+                    ),
+                  ),
+                ))
+                    .toList(),
               );
             }).toList(),
           ),
@@ -467,15 +737,41 @@ class _TipCard extends StatelessWidget {
   final List<String> tips;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  final MaterialColor accent;
-  const _TipCard({required this.title, required this.tips, required this.onSpeak, required this.onTranslate, required this.accent});
+  final MaterialColor accent; // accent kaldırıldı, standart amber kullanılacak
+  const _TipCard(
+      {required this.title,
+        required this.tips,
+        required this.onSpeak,
+        required this.onTranslate,
+        required this.accent}); // accent kaldırıldı
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseText = TextStyle(fontSize: 16, height: 1.5, color: isDark ? Colors.grey.shade200 : Colors.grey.shade800);
+    // Standart _TipCard görünümüne dönüştürüldü (Amber temalı)
     return Card(
       elevation: 2,
-      shadowColor: accent.withValues(alpha: 0.1),
+      shadowColor: Colors.amber.withOpacity(0.1), // Standart amber
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -483,7 +779,8 @@ class _TipCard extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Icon(Icons.tips_and_updates_outlined, color: accent, size: 28),
+            Icon(Icons.tips_and_updates_outlined,
+                color: Colors.amber.shade700, size: 28), // Standart amber
             const SizedBox(width: 12),
             Expanded(
               child: InkWell(
@@ -492,27 +789,40 @@ class _TipCard extends StatelessWidget {
                 onLongPress: () => onTranslate(title),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? accent.shade200 : accent.shade900)),
+                  child: Text(title,
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? Colors.amber.shade200
+                              : Colors.amber.shade900)), // Standart amber
                 ),
               ),
             ),
           ]),
           const SizedBox(height: 12),
           ...tips.map((tip) => Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => onSpeak(tip),
-                  onLongPress: () => onTranslate(tip),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('💡 ', style: TextStyle(fontSize: 16)),
-                      Expanded(child: Text(tip, style: baseText)),
-                    ]),
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onSpeak(tip),
+              onLongPress: () => onTranslate(tip),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('💡 ', style: TextStyle(fontSize: 16)),
+                  // Text, MarkdownBody olarak değiştirildi
+                  Expanded(
+                    child: MarkdownBody(
+                      data: tip,
+                      selectable: false,
+                      styleSheet: _getMdStyle(context),
+                    ),
                   ),
-                ),
-              )),
+                ]),
+              ),
+            ),
+          )),
         ]),
       ),
     );

@@ -1,10 +1,12 @@
 // lib/lessons/grammar/c2/pro_forms_lesson.dart
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:vocachat/services/translation_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // Eklendi
 
 class ProFormsLessonScreen extends StatefulWidget {
   const ProFormsLessonScreen({super.key});
@@ -39,20 +41,31 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
     }
   }
 
+  String _stripMarkdown(String text) {
+    // TTS ve Çeviri için Markdown'ı temizler
+    return text.replaceAll(RegExp(r'(\*\*|__|(\*)|_)'), '');
+  }
+
   Future<String> _translateToNative(String text) async {
     final target = await _getTargetLangCode();
-    final cacheKey = '$target::$text';
-    if (_translationCache.containsKey(cacheKey)) return _translationCache[cacheKey]!;
+    // Markdown'ı temizleyerek çeviri yap ve cache'le
+    final cleanText = _stripMarkdown(text);
+    final cacheKey = '$target::$cleanText';
+
+    // Return from cache if available
+    if (_translationCache.containsKey(cacheKey)) {
+      return _translationCache[cacheKey]!;
+    }
     try {
       await TranslationService.instance.ensureReady(target);
     } catch (_) {}
     try {
       final translated =
-          await TranslationService.instance.translateFromEnglish(text, target);
+      await TranslationService.instance.translateFromEnglish(cleanText, target);
       _translationCache[cacheKey] = translated;
       return translated;
     } catch (_) {
-      return text;
+      return cleanText;
     }
   }
 
@@ -63,53 +76,53 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.translate, color: Colors.teal),
-                      SizedBox(width: 8),
-                      Text('Translation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Original', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(source, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 12),
-                  const Text('Translation', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  FutureBuilder<String>(
-                    future: translationFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Row(
-                            children: const [
-                              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                              SizedBox(width: 8),
-                              Text('Translating...'),
-                            ],
-                          ),
-                        );
-                      }
-                      final translated = snapshot.data ?? source;
-                      return Text(translated, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500));
-                    },
-                  ),
-                ],
-              ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: const [
+                  Icon(Icons.translate, color: Colors.deepPurple),
+                  SizedBox(width: 8),
+                  Text('Translation',
+                      style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
+                ]),
+                const SizedBox(height: 12),
+                const Text('Original',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                // Orijinal metni Markdown'dan temizlenmiş göster
+                Text(_stripMarkdown(source), style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 12),
+                const Text('Translation',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                FutureBuilder<String>(
+                  future: translationFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Row(children: const [
+                        SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                        SizedBox(width: 8),
+                        Text('Translating...'),
+                      ]);
+                    }
+                    return Text(snapshot.data ?? _stripMarkdown(source),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500, fontSize: 16));
+                  },
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -117,17 +130,20 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
   void initState() {
     super.initState();
     _initializeTts();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..forward();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..forward();
   }
 
   void _initializeTts() {
     flutterTts = FlutterTts();
-    flutterTts.setLanguage("en-US");
+    flutterTts.setLanguage('en-US');
     flutterTts.setSpeechRate(0.5);
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.speak(text.replaceAll('**', ''));
+    // Konuşma için Markdown'ı temizle
+    await flutterTts.speak(_stripMarkdown(text));
   }
 
   @override
@@ -151,23 +167,28 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Pro-forms & Substitution',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 22)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 16)),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Colors.teal.shade500, Colors.green.shade600],
+                    colors: [Colors.deepPurple.shade500, Colors.purple.shade600],
                   ),
                 ),
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.swap_horiz, size: 70, color: Colors.white24),
+                      const Icon(Icons.swap_horiz,
+                          size: 70, color: Colors.white24),
                       const SizedBox(height: 8),
                       Text('Cohesion without repetition',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 18)),
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.8), fontSize: 18)),
                     ],
                   ),
                 ),
@@ -178,15 +199,17 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                const _SpeechHintBox(),
+                const _SpeechHintBox(), // Düzeltilmiş _SpeechHintBox
                 _AnimatedLessonBlock(
                   controller: _controller,
                   interval: const Interval(0.1, 0.7),
                   child: _LessonBlock(
                     icon: Icons.lightbulb_outline,
+                    accent: Colors.deepPurple,
                     title: 'What are Pro-forms?',
+                    // Veri Markdown formatına güncellendi
                     content:
-                        "Pro-forms are words like **one/ones**, **do (so/it)**, **so/neither**, **it/there** that replace longer parts of a clause to avoid repetition and keep discourse smooth.",
+                    "**Pro-forms** are words like **one/ones**, **do (so/it)**, **so/neither**, **it/there** that replace longer parts of a clause to **avoid repetition** and keep discourse smooth.",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -196,11 +219,26 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
                   interval: const Interval(0.2, 0.8),
                   child: _ExampleCard(
                     title: 'Core Types with Examples',
+                    accent: Colors.deepPurple,
+                    // Veri Markdown formatına güncellendi
                     examples: const [
-                      Example(icon: Icons.shopping_bag_outlined, category: 'one/ones:', sentence: 'I’ll take the red one.'),
-                      Example(icon: Icons.check_circle_outline, category: 'do so / do it:', sentence: 'If you must apologize, then do so now.'),
-                      Example(icon: Icons.compare_arrows_outlined, category: 'so/neither + auxiliary:', sentence: 'I love jazz. — So do I. / I don’t. — Neither do I.'),
-                      Example(icon: Icons.place_outlined, category: 'there/it:', sentence: 'There seems to be a mistake. It looks serious.'),
+                      Example(
+                          icon: Icons.shopping_bag_outlined,
+                          category: '**one/ones:**',
+                          sentence: '*I’ll take the red **one**.*'),
+                      Example(
+                          icon: Icons.check_circle_outline,
+                          category: '**do so / do it:**',
+                          sentence: '*If you must apologize, then **do so** now.*'),
+                      Example(
+                          icon: Icons.compare_arrows_outlined,
+                          category: '**so/neither + auxiliary:**',
+                          sentence:
+                          '*I love jazz. — **So do I**. / I don’t. — **Neither do I**.*'),
+                      Example(
+                          icon: Icons.place_outlined,
+                          category: '**it/there:**',
+                          sentence: '***There** seems to be a mistake. **It** looks serious.*'),
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -211,12 +249,30 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
                   interval: const Interval(0.3, 0.9),
                   child: _SimplifiedClickableCard(
                     title: 'Patterns & Constraints',
-                    headers: const ['Pattern', 'Rule/Note', 'Example'],
+                    accent: Colors.deepPurple,
+                    // Veri Markdown formatına güncellendi
+                    headers: const ['**Pattern**', '**Rule/Note**', '**Example**'],
                     rows: const [
-                      ['one/ones', 'Agree in number; used with modifiers', 'I prefer the smaller ones.'],
-                      ['do so / do it', 'Formal vs. neutral; avoid vague “do”', 'She promised to help and did so.'],
-                      ['so/neither + aux + subject', 'Auxiliary must match tense/aspect', 'He can swim. — So can I.'],
-                      ['it/there', 'Dummy subjects; formal subjects', 'It seems likely. There was a storm.'],
+                      [
+                        '**one/ones**',
+                        'Agree in number; used with modifiers',
+                        '*I prefer the smaller **ones**.*'
+                      ],
+                      [
+                        '**do so / do it**',
+                        'Formal vs. neutral; avoid vague “do”',
+                        '*She promised to help and **did so**.*'
+                      ],
+                      [
+                        '**so/neither + aux + subject**',
+                        'Auxiliary must match tense/aspect',
+                        '*He can swim. — **So can I**.*'
+                      ],
+                      [
+                        '**it/there**',
+                        'Dummy subjects; formal subjects',
+                        '***It** seems likely. **There** was a storm.*'
+                      ],
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -227,9 +283,11 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
                   interval: const Interval(0.4, 1.0),
                   child: _LessonBlock(
                     icon: Icons.rule_folder_outlined,
+                    accent: Colors.deepPurple,
                     title: 'Substitution vs. Ellipsis',
+                    // Veri Markdown formatına güncellendi
                     content:
-                        "Substitution replaces constituents with pro-forms; **ellipsis** omits them when recoverable: ‘Want coffee?’ — ‘I do.’ (ellipsis of ‘want coffee’). Choose pro-forms to avoid ambiguity in complex sentences.",
+                    "**Substitution** replaces constituents with pro-forms (e.g., *one*). **Ellipsis** omits them when recoverable.\n\n* *'Want coffee?' — 'I **do**.'* (Ellipsis of *'want coffee'*) \n* *'Which car?' — 'The red **one**.'* (Substitution for *'car'*)",
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
                   ),
@@ -239,11 +297,12 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
                   interval: const Interval(0.5, 1.0),
                   child: _TipCard(
                     title: 'Pro Tips & Common Pitfalls',
+                    // Veri Markdown formatına güncellendi
                     tips: const [
-                      '**Keep reference clear:** If several nouns compete, “one/ones” can confuse. Add modifiers (the red ones).',
-                      '**Match auxiliaries:** In “So do I/Neither do I”, the auxiliary matches the first clause: “I have finished.” — “So have I.”',
+                      '**Keep reference clear:** If several nouns compete, “one/ones” can confuse. Add modifiers (e.g., *the red ones*).',
+                      '**Match auxiliaries:** In “So do I/Neither do I”, the auxiliary must match the first clause: *“I **have** finished.” — “So **have** I.”*',
                       '**Register matters:** “do so” is formal; “do it” is neutral; simple “do” can be vague.',
-                      '**Avoid double subjects:** Don’t use “there” and a real subject redundantly (There it is a problem ✗).',
+                      '**Avoid double subjects:** Don’t use “there” and a real subject redundantly (*There it is a problem* ✗).',
                     ],
                     onSpeak: _speak,
                     onTranslate: _showTranslateSheet,
@@ -264,14 +323,29 @@ class _SpeechHintBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    const color = Colors.deepPurple; // Tema Rengi
     return Card(
       elevation: 0,
-      color: isDark ? Colors.teal.shade900.withValues(alpha: 0.3) : Colors.teal.shade50,
+      color: isDark ? color.shade900.withOpacity(0.3) : color.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 24),
-      child: const Padding(
-        padding: EdgeInsets.all(12.0),
-        child: Text('Tap text to listen; long-press to see translation.'),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Icon(Icons.volume_up,
+                color: isDark ? color.shade300 : color.shade700),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Tap text to listen; long-press to see translation.',
+                style: TextStyle(
+                    color: isDark ? color.shade200 : color.shade900,
+                    fontSize: 14),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -281,7 +355,8 @@ class _AnimatedLessonBlock extends StatelessWidget {
   final AnimationController controller;
   final Interval interval;
   final Widget child;
-  const _AnimatedLessonBlock({required this.controller, required this.interval, required this.child});
+  const _AnimatedLessonBlock(
+      {required this.controller, required this.interval, required this.child});
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
@@ -297,56 +372,93 @@ class _AnimatedLessonBlock extends StatelessWidget {
 
 class _LessonBlock extends StatelessWidget {
   final IconData icon;
+  final MaterialColor accent;
   final String title;
   final String content;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _LessonBlock({required this.icon, required this.title, required this.content, required this.onSpeak, required this.onTranslate});
+  const _LessonBlock(
+      {required this.icon,
+        required this.accent,
+        required this.title,
+        required this.content,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+    final italicText = TextStyle(
+      fontStyle: FontStyle.italic,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+      em: italicText,
+      listBullet: baseText, // Liste elemanları için
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(icon, color: Colors.teal.shade700, size: 28),
-              const SizedBox(width: 14),
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () => onSpeak(title),
-                  onLongPress: () => onTranslate(title),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2.0),
-                    child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: onSurface)),
-                  ),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => onSpeak(content),
-              onLongPress: () => onTranslate(content),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  content,
-                  style: TextStyle(fontSize: 16, height: 1.5, color: isDark ? Colors.grey.shade200 : Colors.grey.shade800),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, color: accent.shade700, size: 28),
+            const SizedBox(width: 14),
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => onSpeak(title),
+                onLongPress: () => onTranslate(title),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: Text(title,
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: onSurface)),
                 ),
               ),
             ),
-          ],
-        ),
+          ]),
+          const SizedBox(height: 12),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => onSpeak(content),
+            onLongPress: () => onTranslate(content),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              // Text widget'ı MarkdownBody ile değiştirildi
+              child: MarkdownBody(
+                data: content,
+                selectable: false,
+                styleSheet: _getMdStyle(context),
+              ),
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -356,22 +468,29 @@ class Example {
   final IconData icon;
   final String category;
   final String sentence;
-  const Example({required this.icon, required this.category, required this.sentence});
+  const Example(
+      {required this.icon, required this.category, required this.sentence});
 }
 
 class _ExampleCard extends StatelessWidget {
   final String title;
+  final MaterialColor accent;
   final List<Example> examples;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _ExampleCard({required this.title, required this.examples, required this.onSpeak, required this.onTranslate});
+  const _ExampleCard(
+      {required this.title,
+        required this.accent,
+        required this.examples,
+        required this.onSpeak,
+        required this.onTranslate});
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -384,14 +503,22 @@ class _ExampleCard extends StatelessWidget {
             onLongPress: () => onTranslate(title),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: onSurface)),
+              child: Text(title,
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: onSurface)),
             ),
           ),
           const SizedBox(height: 16),
           ...examples.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: _ExampleListItem(example: e, onSpeak: onSpeak, onTranslate: onTranslate),
-              )),
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: _ExampleListItem(
+                example: e,
+                accent: accent,
+                onSpeak: onSpeak,
+                onTranslate: onTranslate),
+          )),
         ]),
       ),
     );
@@ -400,28 +527,80 @@ class _ExampleCard extends StatelessWidget {
 
 class _ExampleListItem extends StatelessWidget {
   final Example example;
+  final MaterialColor accent;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _ExampleListItem({required this.example, required this.onSpeak, required this.onTranslate});
+  const _ExampleListItem(
+      {required this.example,
+        required this.accent,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getCategoryStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getSentenceStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontSize: 16,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isDark ? Colors.teal.shade900.withValues(alpha: 0.25) : Colors.teal.shade50,
+      color: isDark ? accent.shade900.withOpacity(0.25) : accent.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
-        onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Icon(example.icon, size: 22, color: Colors.teal.shade600),
+            Icon(example.icon, size: 22, color: accent.shade600),
             const SizedBox(width: 12),
-            Text(example.category, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(example.sentence, style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: isDark ? Colors.grey.shade200 : Colors.grey.shade800)),
+            Expanded(
+              child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Text, MarkdownBody olarak değiştirildi
+                MarkdownBody(
+                  data: example.category,
+                  selectable: false,
+                  styleSheet: _getCategoryStyle(context),
+                ),
+                // Text, MarkdownBody olarak değiştirildi
+                MarkdownBody(
+                  data: example.sentence,
+                  selectable: false,
+                  styleSheet: _getSentenceStyle(context),
+                ),
+              ]),
             ),
           ]),
         ),
@@ -432,21 +611,64 @@ class _ExampleListItem extends StatelessWidget {
 
 class _SimplifiedClickableCard extends StatelessWidget {
   final String title;
+  final MaterialColor accent;
   final List<String> headers;
   final List<List<String>> rows;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _SimplifiedClickableCard({required this.title, required this.headers, required this.rows, required this.onSpeak, required this.onTranslate});
+  const _SimplifiedClickableCard(
+      {required this.title,
+        required this.accent,
+        required this.headers,
+        required this.rows,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metotları eklendi
+  MarkdownStyleSheet _getHeaderStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? accent.shade200 : accent.shade800,
+        fontSize: 15,
+      ),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: isDark ? accent.shade200 : accent.shade800,
+      ),
+    );
+  }
+
+  MarkdownStyleSheet _getCellStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return MarkdownStyleSheet(
+      p: TextStyle(
+        color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+        fontSize: 16,
+      ),
+      em: const TextStyle(fontStyle: FontStyle.italic),
+      strong: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontStyle: FontStyle.italic,
+        color: isDark ? Colors.white : Colors.black,
+      ),
+    );
+  }
+
+  Color onSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withOpacity(0.08),
       margin: const EdgeInsets.only(bottom: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
@@ -457,7 +679,11 @@ class _SimplifiedClickableCard extends StatelessWidget {
             onLongPress: () => onTranslate(title),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: onSurface)),
+              child: Text(title,
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: onSurface(context))),
             ),
           ),
         ),
@@ -465,14 +691,36 @@ class _SimplifiedClickableCard extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           child: DataTable(
             showCheckboxColumn: false,
-            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.tealAccent.shade200 : Colors.teal.shade800, fontSize: 15),
-            dataTextStyle: TextStyle(color: isDark ? Colors.grey.shade200 : Colors.grey.shade800, fontSize: 16),
-            columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+            // Orijinal stiller kaldırıldı
+            columns: headers
+                .map((h) => DataColumn(
+              // Text, MarkdownBody olarak değiştirildi
+              label: MarkdownBody(
+                data: h,
+                selectable: false,
+                styleSheet: _getHeaderStyle(context),
+              ),
+            ))
+                .toList(),
             rows: rows.map((row) {
               final textJoined = row.join('. ');
               return DataRow(
-                onSelectChanged: (isSelected) { if (isSelected != null) onSpeak(textJoined); },
-                cells: row.map((cell) => DataCell(GestureDetector(onLongPress: () => onTranslate(textJoined), child: Text(cell)))).toList(),
+                onSelectChanged: (isSelected) {
+                  if (isSelected != null) onSpeak(textJoined);
+                },
+                cells: row
+                    .map((cell) => DataCell(
+                  GestureDetector(
+                    onLongPress: () => onTranslate(textJoined),
+                    // Text, MarkdownBody olarak değiştirildi
+                    child: MarkdownBody(
+                      data: cell,
+                      selectable: false,
+                      styleSheet: _getCellStyle(context),
+                    ),
+                  ),
+                ))
+                    .toList(),
               );
             }).toList(),
           ),
@@ -488,14 +736,39 @@ class _TipCard extends StatelessWidget {
   final List<String> tips;
   final Function(String) onSpeak;
   final Function(String) onTranslate;
-  const _TipCard({required this.title, required this.tips, required this.onSpeak, required this.onTranslate});
+  const _TipCard(
+      {required this.title,
+        required this.tips,
+        required this.onSpeak,
+        required this.onTranslate});
+
+  // Stil metodu eklendi
+  MarkdownStyleSheet _getMdStyle(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseText = TextStyle(
+      fontSize: 16,
+      height: 1.5,
+      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+    );
+    final strongText = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isDark ? Colors.white : Colors.black,
+      fontSize: 16,
+    );
+
+    return MarkdownStyleSheet(
+      p: baseText,
+      strong: strongText,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseText = TextStyle(fontSize: 16, height: 1.5, color: isDark ? Colors.grey.shade200 : Colors.grey.shade800);
+    // Standart _TipCard görünümüne dönüştürüldü (Amber temalı)
     return Card(
       elevation: 2,
-      shadowColor: Colors.amber.withValues(alpha: 0.1),
+      shadowColor: Colors.amber.withOpacity(0.1), // Standart amber
       margin: const EdgeInsets.only(bottom: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isDark ? const Color(0xFF1E1E1E) : null,
@@ -503,7 +776,8 @@ class _TipCard extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 28),
+            Icon(Icons.lightbulb_outline,
+                color: Colors.amber.shade700, size: 28), // Standart amber
             const SizedBox(width: 12),
             Expanded(
               child: InkWell(
@@ -512,27 +786,40 @@ class _TipCard extends StatelessWidget {
                 onLongPress: () => onTranslate(title),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.amber.shade200 : Colors.amber.shade900)),
+                  child: Text(title,
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? Colors.amber.shade200
+                              : Colors.amber.shade900)), // Standart amber
                 ),
               ),
             ),
           ]),
           const SizedBox(height: 12),
           ...tips.map((tip) => Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => onSpeak(tip),
-                  onLongPress: () => onTranslate(tip),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('💡 ', style: TextStyle(fontSize: 16)),
-                      Expanded(child: Text(tip, style: baseText)),
-                    ]),
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onSpeak(tip),
+              onLongPress: () => onTranslate(tip),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('💡 ', style: TextStyle(fontSize: 16)),
+                  // Text, MarkdownBody olarak değiştirildi
+                  Expanded(
+                    child: MarkdownBody(
+                      data: tip,
+                      selectable: false,
+                      styleSheet: _getMdStyle(context),
+                    ),
                   ),
-                ),
-              )),
+                ]),
+              ),
+            ),
+          )),
         ]),
       ),
     );
