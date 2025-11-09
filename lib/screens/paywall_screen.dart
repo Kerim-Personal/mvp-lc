@@ -2,6 +2,7 @@
 // Kaliteli Paywall Ekranı - Her uygulama açılışında gösterilir
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
 import 'package:lottie/lottie.dart';
@@ -287,6 +288,9 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
+    final heroSize = math.max(96.0, math.min(size.height * 0.14, 160.0));
+    final featuresHeight = math.max(150.0, math.min(size.height * 0.24, 220.0));
 
     return PopScope(
       canPop: widget.canDismiss,
@@ -352,265 +356,257 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
               ),
             ),
 
+            // Close Button (overlay so it doesn't push content down)
+            if (widget.canDismiss)
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                      onPressed: widget.onClose,
+                    ),
+                  ),
+                ),
+              ),
+
             // Main Content
             SafeArea(
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: SlideTransition(
                   position: _slideAnimation,
-                  child: Column(
-                    children: [
-                      // Close Button
-                      if (widget.canDismiss)
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: IconButton(
-                              icon: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                              ),
-                              onPressed: widget.onClose,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox(height: 8),
-
-                      // Scrollable Content
-                      Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final height = constraints.maxHeight;
+                      // Ekran yüksekliğine göre dinamik üst-alt padding (simetri için)
+                      final double verticalPad = height < 640
+                          ? 12
+                          : height < 760
+                              ? 24
+                              : 36; // büyük ekranlarda biraz daha nefes alanı
+                      return Align(
+                        alignment: Alignment.topCenter,
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 8),
-
-                              // Gradient Diamond Animation
-                              SizedBox(
-                                width: 120,
-                                height: 120,
-                                child: Lottie.asset(
-                                  'assets/animations/diamond_icon.json',
-                                  width: 120,
-                                  height: 120,
-                                  fit: BoxFit.contain,
+                          padding: EdgeInsets.fromLTRB(12, verticalPad, 12, verticalPad + 8),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 560),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Gradient Diamond Animation
+                                SizedBox(
+                                  width: heroSize,
+                                  height: heroSize,
+                                  child: Lottie.asset(
+                                    'assets/animations/diamond_icon.json',
+                                    width: heroSize,
+                                    height: heroSize,
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // Title
-                              const Text(
-                                'VocaChat Premium',
-                                style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
+                                SizedBox(height: height < 640 ? 10 : 14),
+                                const Text(
+                                  'VocaChat Premium',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
-                              ),
-
-                              const SizedBox(height: 6),
-
-                              // Subtitle
-                              const Text(
-                                'Push your limits in language learning',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white70,
+                                const SizedBox(height: 6),
+                                const Text(
+                                  'Push your limits in language learning',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white70,
+                                  ),
                                 ),
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Features List - DÜZELTME: Timer ile kontrol edilir
-                              SizedBox(
-                                height: 170,
-                                child: Listener(
-                                  onPointerDown: (_) {
-                                    setState(() => _userInteracting = true);
-                                    _stopAutoScroll();
-                                  },
-                                  onPointerUp: (_) {
-                                    setState(() => _userInteracting = false);
-                                    _restartAutoScroll();
-                                  },
-                                  child: PageView(
-                                    controller: _pageController,
-                                    physics: const BouncingScrollPhysics(),
-                                    onPageChanged: (index) {
-                                      setState(() => _currentFeaturePage = index);
+                                SizedBox(height: height < 640 ? 14 : 18),
+                                // Özellikler
+                                SizedBox(
+                                  height: featuresHeight,
+                                  child: Listener(
+                                    onPointerDown: (_) {
+                                      setState(() => _userInteracting = true);
+                                      _stopAutoScroll();
                                     },
+                                    onPointerUp: (_) {
+                                      setState(() => _userInteracting = false);
+                                      _restartAutoScroll();
+                                    },
+                                    child: PageView(
+                                      controller: _pageController,
+                                      physics: const BouncingScrollPhysics(),
+                                      onPageChanged: (index) {
+                                        setState(() => _currentFeaturePage = index);
+                                      },
+                                      children: [
+                                        _buildFeatureCard(
+                                          animation: 'assets/animations/no ads icon.json',
+                                          title: 'Ad-Free Experience',
+                                          description: 'Learn without interruptions. Focus better with a completely ad-free interface.',
+                                        ),
+                                        _buildFeatureCard(
+                                          animation: 'assets/animations/Translate.json',
+                                          title: 'Instant Translation',
+                                          description: 'Translate messages instantly without switching apps. Keep learning seamlessly.',
+                                        ),
+                                        _buildFeatureCard(
+                                          animation: 'assets/animations/Flags.json',
+                                          title: 'Language Diversity',
+                                          description: 'VocaBot supports 100+ languages for speech, translation, and grammar analysis.',
+                                        ),
+                                        _buildFeatureCard(
+                                          animation: 'assets/animations/Support.json',
+                                          title: 'Priority Support',
+                                          description: 'Fast solutions to your problems with direct communication and premium support.',
+                                        ),
+                                        _buildFeatureCard(
+                                          animation: 'assets/animations/Data Analysis.json',
+                                          title: 'Grammar Analysis',
+                                          description: 'Real-time grammar and clarity suggestions to improve every message you write.',
+                                        ),
+                                        _buildFeatureCard(
+                                          animation: 'assets/animations/Robot says hello.json',
+                                          title: 'VocaBot AI Assistant',
+                                          description: 'AI practice companion offering contextual responses and gentle guidance.',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(6, (index) {
+                                    return AnimatedContainer(
+                                      duration: const Duration(milliseconds: 300),
+                                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                                      height: 6,
+                                      width: _currentFeaturePage == index ? 20 : 6,
+                                      decoration: BoxDecoration(
+                                        color: _currentFeaturePage == index
+                                            ? Colors.white
+                                            : Colors.white.withValues(alpha: 0.4),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                                SizedBox(height: height < 640 ? 16 : 22),
+                                // Fiyatlandırma Bölümü
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Column(
                                     children: [
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/no ads icon.json',
-                                        title: 'Ad-Free Experience',
-                                        description: 'Learn without interruptions. Focus better with a completely ad-free interface.',
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildPlanCard(
+                                              index: 0,
+                                              title: 'Monthly',
+                                              price: RevenueCatService.instance.monthlyPriceString ?? r'$9.99',
+                                              period: '/mo',
+                                              badge: '7 DAYS FREE',
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _buildPlanCard(
+                                              index: 1,
+                                              title: 'Yearly',
+                                              price: RevenueCatService.instance.annualPriceString ?? r'$79.99',
+                                              period: '/yr',
+                                              badge: '30% OFF',
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/Translate.json',
-                                        title: 'Instant Translation',
-                                        description: 'Translate messages instantly without switching apps. Keep learning seamlessly.',
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 50,
+                                        child: ElevatedButton(
+                                          onPressed: _isLoading ? null : _handlePurchase,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            foregroundColor: const Color(0xFF6C63FF),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14),
+                                            ),
+                                            elevation: 6,
+                                            shadowColor: Colors.black.withValues(alpha: 0.3),
+                                          ),
+                                          child: _isLoading
+                                              ? const SizedBox(
+                                                  width: 22,
+                                                  height: 22,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
+                                                  ),
+                                                )
+                                              : const Text(
+                                                  'Get Premium',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                        ),
                                       ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/Flags.json',
-                                        title: 'Language Diversity',
-                                        description: 'VocaBot supports 100+ languages for speech, translation, and grammar analysis.',
+                                      const SizedBox(height: 6),
+                                      TextButton(
+                                        onPressed: _isLoading ? null : _handleRestore,
+                                        child: const Text(
+                                          'Restore Purchases',
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/Support.json',
-                                        title: 'Priority Support',
-                                        description: 'Fast solutions to your problems with direct communication and premium support.',
-                                      ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/Data Analysis.json',
-                                        title: 'Grammar Analysis',
-                                        description: 'Real-time grammar and clarity suggestions to improve every message you write.',
-                                      ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/Robot says hello.json',
-                                        title: 'VocaBot AI Assistant',
-                                        description: 'AI practice companion offering contextual responses and gentle guidance.',
+                                      const SizedBox(height: 2),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Text(
+                                          'By continuing, you agree to our Terms of Service and Privacy Policy.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.5),
+                                            fontSize: 9,
+                                            height: 1.3,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              // Page Indicator Dots
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(6, (index) {
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                                    height: 6,
-                                    width: _currentFeaturePage == index ? 20 : 6,
-                                    decoration: BoxDecoration(
-                                      color: _currentFeaturePage == index
-                                          ? Colors.white
-                                          : Colors.white.withValues(alpha: 0.4),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  );
-                                }),
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Pricing Plans
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _buildPlanCard(
-                                            index: 0,
-                                            title: 'Monthly',
-                                            price: RevenueCatService.instance.monthlyPriceString ?? r'$9.99',
-                                            period: '/mo',
-                                            badge: '7 DAYS FREE',
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _buildPlanCard(
-                                            index: 1,
-                                            title: 'Yearly',
-                                            price: RevenueCatService.instance.annualPriceString ?? r'$79.99',
-                                            period: '/yr',
-                                            badge: '30% OFF',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    const SizedBox(height: 14),
-
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 50,
-                                      child: ElevatedButton(
-                                        onPressed: _isLoading ? null : _handlePurchase,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: const Color(0xFF6C63FF),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
-                                          ),
-                                          elevation: 6,
-                                          shadowColor: Colors.black.withValues(alpha: 0.3),
-                                        ),
-                                        child: _isLoading
-                                            ? const SizedBox(
-                                                width: 22,
-                                                height: 22,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
-                                                ),
-                                              )
-                                            : const Text(
-                                                'Get Premium',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 0.5,
-                                                ),
-                                              ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 8),
-
-                                    TextButton(
-                                      onPressed: _isLoading ? null : _handleRestore,
-                                      child: const Text(
-                                        'Restore Purchases',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 4),
-
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                                      child: Text(
-                                        'By continuing, you agree to our Terms of Service and Privacy Policy.',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.5),
-                                          fontSize: 9,
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 16),
-                                  ],
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -714,7 +710,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
     return GestureDetector(
       onTap: () => setState(() => _selectedPlanIndex = index),
       child: Container(
-        height: 100,
+        height: 110,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected

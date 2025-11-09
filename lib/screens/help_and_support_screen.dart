@@ -84,9 +84,11 @@ class HelpAndSupportScreen extends StatelessWidget {
   // Tema duyarlı kategori kartları
   Widget _buildCategoryCard(BuildContext context, String category, int index) {
     const categoryIcons = {
-      'Explore the App': Icons.explore_outlined,
-      'Account & Profile': Icons.account_circle_outlined,
-      'Premium & Billing': Icons.star_border_purple500_sharp,
+      'Uygulamayı Keşfet': Icons.explore_outlined,
+      'Hesap ve Profil': Icons.account_circle_outlined,
+      'Premium ve Faturalandırma': Icons.star_border_purple500_sharp,
+      'Özellikler ve Kullanım': Icons.settings_outlined,
+      'Destek ve Yardım': Icons.help_outline,
     };
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -118,19 +120,19 @@ class HelpAndSupportScreen extends StatelessWidget {
         );
       },
       child: Card(
-        elevation: isDark ? 1.5 : 4.0,
+        elevation: isDark ? 1.5 : 3.0,
         shadowColor: isDark ? Colors.black.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.2),
-        margin: const EdgeInsets.only(bottom: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        margin: const EdgeInsets.only(bottom: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => FaqCategoryScreen(category: category)));
           },
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               gradient: LinearGradient(
                 colors: gradientColors,
                 begin: Alignment.topLeft,
@@ -139,19 +141,19 @@ class HelpAndSupportScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, color: textColor, size: 32),
-                const SizedBox(width: 16),
+                Icon(icon, color: textColor, size: 28),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     category,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 17,
+                      fontSize: 15,
                       color: textColor,
                     ),
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios, size: 18, color: arrowColor),
+                Icon(Icons.arrow_forward_ios, size: 16, color: arrowColor),
               ],
             ),
           ),
@@ -168,17 +170,17 @@ class HelpAndSupportScreen extends StatelessWidget {
     return Card(
       elevation: theme.brightness == Brightness.dark ? 1.5 : 2.0,
       shadowColor: theme.brightness == Brightness.dark ? Colors.black.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Icon(Icons.support_agent, color: cs.primary, size: 40),
-            const SizedBox(height: 12),
-            Text("Can't find what you need?", textAlign: TextAlign.center, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Icon(Icons.support_agent, color: cs.primary, size: 32),
             const SizedBox(height: 8),
-            Text('Our support team is happy to help you.', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: subtle)),
-            const SizedBox(height: 20),
+            Text("Can't find what you need?", textAlign: TextAlign.center, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 6),
+            Text('Our support team is happy to help you.', textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(color: subtle)),
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -213,11 +215,11 @@ class HelpAndSupportScreen extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: cs.primary,
                       foregroundColor: cs.onPrimary,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      elevation: 4,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      elevation: 3,
                     ),
-                    child: const Text('Contact Us', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Contact Us', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
               ],
