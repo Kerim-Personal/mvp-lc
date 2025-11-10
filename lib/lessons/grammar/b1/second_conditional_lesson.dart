@@ -186,7 +186,7 @@ class _SecondConditionalLessonScreenState
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.indigo.shade700,
+            backgroundColor: Colors.amber.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Second Conditional',
@@ -200,8 +200,8 @@ class _SecondConditionalLessonScreenState
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.indigo.shade500,
-                      Colors.blue.shade600,
+                      Colors.amber.shade500,
+                      Colors.orange.shade600,
                     ],
                   ),
                 ),
@@ -396,30 +396,23 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Renkler bu dersin temasına (indigo/mavi) uyacak şekilde düzeltildi
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Renkler bu dersin temasına (amber/turuncu) uyacak şekilde düzeltildi
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.indigo.shade900.withOpacity(0.3) : Colors.indigo.shade50,
+        color: Colors.amber.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: isDark ? Colors.indigo.shade800 : Colors.indigo.shade200),
+        border: Border.all(color: Colors.amber.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up,
-              color: isDark ? Colors.indigo.shade300 : Colors.indigo.shade700),
+          Icon(Icons.volume_up, color: Colors.amber.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(
-                  color: isDark
-                      ? Colors.indigo.shade200
-                      : Colors.indigo.shade900,
-                  fontSize: 14),
+              style: TextStyle(color: Colors.amber.shade900, fontSize: 14),
             ),
           ),
         ],
@@ -509,7 +502,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.indigo.shade700, size: 28),
+                Icon(icon, color: Colors.amber.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -657,8 +650,8 @@ class _ExampleListItem extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: isDark
-          ? Colors.indigo.shade900.withOpacity(0.25)
-          : Colors.indigo.shade50,
+          ? Colors.amber.shade900.withOpacity(0.25)
+          : Colors.amber.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
@@ -670,7 +663,7 @@ class _ExampleListItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(example.icon, size: 22, color: Colors.indigo.shade600),
+              Icon(example.icon, size: 22, color: Colors.amber.shade600),
               const SizedBox(width: 12),
               // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
               Expanded(
