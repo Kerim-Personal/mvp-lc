@@ -352,19 +352,19 @@ class _SpeechHintBox extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.indigo.shade50,
+        color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.indigo.shade200),
+        border: Border.all(color: Colors.blue.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.indigo.shade700),
+          Icon(Icons.volume_up, color: Colors.blue.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap any text to hear it spoken. Long press for translation.',
               style: TextStyle(
-                color: Colors.indigo.shade900,
+                color: Colors.blue.shade900,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -477,7 +477,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.indigo.shade700, size: 28),
+                Icon(icon, color: Colors.blue.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -541,11 +541,11 @@ class _ExampleCard extends StatelessWidget {
       p: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: isDark ? Colors.indigo.shade300 : Colors.indigo.shade700,
+        color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
       ),
       strong: TextStyle(
         fontWeight: FontWeight.w600,
-        color: isDark ? Colors.indigo.shade300 : Colors.indigo.shade700,
+        color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
       ),
     );
   }
@@ -580,7 +580,7 @@ class _ExampleCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.lightbulb_outline,
-                    color: Colors.indigo.shade700, size: 28),
+                    color: Colors.blue.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -613,7 +613,7 @@ class _ExampleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(example.icon,
-                        color: Colors.indigo.shade600, size: 24),
+                        color: Colors.blue.shade600, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -714,7 +714,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.table_chart_outlined,
-                    color: Colors.indigo.shade700, size: 28),
+                    color: Colors.blue.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -847,7 +847,7 @@ class _TipCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.tips_and_updates_outlined,
-                    color: Colors.indigo.shade700, size: 28),
+                    color: Colors.blue.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -876,7 +876,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.check_circle_outline,
-                      color: Colors.indigo.shade600, size: 20),
+                      color: Colors.blue.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(

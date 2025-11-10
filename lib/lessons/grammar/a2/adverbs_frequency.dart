@@ -186,7 +186,7 @@ class _AdverbsFrequencyLessonScreenState
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.teal.shade700,
+            backgroundColor: Colors.blue.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Adverbs of Frequency',
@@ -200,8 +200,8 @@ class _AdverbsFrequencyLessonScreenState
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.teal.shade500,
-                      Colors.cyan.shade600,
+                      Colors.blue.shade500,
+                      Colors.indigo.shade600,
                     ],
                   ),
                 ),
@@ -375,19 +375,19 @@ class _SpeechHintBox extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.teal.shade50,
+        color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.teal.shade200),
+        border: Border.all(color: Colors.blue.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up, color: Colors.teal.shade700),
+          Icon(Icons.volume_up, color: Colors.blue.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'You can listen by tapping on the titles and lines, and see the translation by pressing and holding.',
+              'Tap any text to hear it spoken. Long press for translation.',
               style: TextStyle(
-                color: Colors.teal.shade900,
+                color: Colors.blue.shade900,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -558,11 +558,11 @@ class _ExampleCard extends StatelessWidget {
       p: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: Colors.teal.shade700,
+        color: Colors.blue.shade700,
       ),
       strong: TextStyle(
         fontWeight: FontWeight.w600,
-        color: Colors.teal.shade700,
+        color: Colors.blue.shade700,
       ),
     );
   }
@@ -603,7 +603,7 @@ class _ExampleCard extends StatelessWidget {
               children: [
                 // Bu kartta özel bir ikon var, onu koruyoruz.
                 Icon(Icons.lightbulb_outline,
-                    color: Colors.teal.shade700, size: 28),
+                    color: Colors.blue.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -637,7 +637,7 @@ class _ExampleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(example.icon,
-                        color: Colors.teal.shade600, size: 24),
+                        color: Colors.blue.shade600, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -738,7 +738,7 @@ class _SimplifiedClickableCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.table_chart_outlined,
-                    color: Colors.teal.shade700, size: 28),
+                    color: Colors.blue.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -866,7 +866,7 @@ class _TipCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.tips_and_updates_outlined,
-                    color: Colors.teal.shade700, size: 28),
+                    color: Colors.blue.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -895,7 +895,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.check_circle_outline,
-                      color: Colors.teal.shade600, size: 20),
+                      color: Colors.blue.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
