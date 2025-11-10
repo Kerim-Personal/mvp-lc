@@ -416,7 +416,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.lightGreen.shade700, size: 28),
+                Icon(icon, color: Colors.green.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -564,8 +564,8 @@ class _ExampleListItem extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: isDark
-          ? Colors.lightGreen.shade900.withOpacity(0.25)
-          : Colors.lightGreen.shade50,
+          ? Colors.green.shade900.withOpacity(0.25)
+          : Colors.green.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
@@ -577,7 +577,7 @@ class _ExampleListItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(example.icon, size: 22, color: Colors.lightGreen.shade600),
+              Icon(example.icon, size: 22, color: Colors.green.shade600),
               const SizedBox(width: 12),
               // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
               Expanded(
@@ -627,12 +627,12 @@ class _SimplifiedClickableCard extends StatelessWidget {
       p: TextStyle(
         fontSize: 15,
         color:
-        isDark ? Colors.lightGreenAccent.shade200 : Colors.lightGreen.shade800,
+        isDark ? Colors.greenAccent.shade200 : Colors.green.shade800,
       ),
       strong: TextStyle(
         fontWeight: FontWeight.bold,
         color:
-        isDark ? Colors.lightGreenAccent.shade200 : Colors.lightGreen.shade800,
+        isDark ? Colors.greenAccent.shade200 : Colors.green.shade800,
       ),
     );
   }
@@ -876,8 +876,8 @@ class _SpeechHintBox extends StatelessWidget {
     return Card(
       elevation: 0,
       color: isDark
-          ? Colors.lightGreen.shade900.withOpacity(0.3)
-          : Colors.lightGreen.shade50,
+          ? Colors.green.shade900.withOpacity(0.3)
+          : Colors.green.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 24),
       child: Padding(
@@ -885,7 +885,7 @@ class _SpeechHintBox extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.volume_up_outlined,
-                color: Colors.lightGreen.shade400, size: 20),
+                color: Colors.green.shade400, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

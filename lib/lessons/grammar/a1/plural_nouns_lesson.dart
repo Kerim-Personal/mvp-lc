@@ -97,7 +97,7 @@ class _PluralNounsLessonScreenState extends State<PluralNounsLessonScreen>
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.translate, color: Colors.teal),
+                      Icon(Icons.translate, color: Colors.green),
                       SizedBox(width: 8),
                       Text('Translation',
                           style: TextStyle(
@@ -186,7 +186,7 @@ class _PluralNounsLessonScreenState extends State<PluralNounsLessonScreen>
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.orange.shade700,
+            backgroundColor: Colors.green.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Plural Nouns',
@@ -200,8 +200,8 @@ class _PluralNounsLessonScreenState extends State<PluralNounsLessonScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.orange.shade500,
-                      Colors.deepOrange.shade600,
+                      Colors.green.shade500,
+                      Colors.green.shade700,
                     ],
                   ),
                 ),
@@ -384,7 +384,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.orange.shade700, size: 28),
+                Icon(icon, color: Colors.green.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -527,8 +527,8 @@ class _ExampleListItem extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: isDark
-          ? Colors.orange.shade900.withOpacity(0.25)
-          : Colors.orange.shade50,
+          ? Colors.green.shade900.withOpacity(0.25)
+          : Colors.green.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
@@ -540,7 +540,7 @@ class _ExampleListItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(example.icon, size: 22, color: Colors.orange.shade600),
+              Icon(example.icon, size: 22, color: Colors.green.shade600),
               const SizedBox(width: 12),
               // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
               Expanded(
@@ -589,11 +589,11 @@ class _SimplifiedClickableCard extends StatelessWidget {
     return MarkdownStyleSheet(
       p: TextStyle(
         fontSize: 15,
-        color: isDark ? Colors.orangeAccent.shade200 : Colors.orange.shade800,
+        color: isDark ? Colors.greenAccent.shade200 : Colors.green.shade800,
       ),
       strong: TextStyle(
         fontWeight: FontWeight.bold,
-        color: isDark ? Colors.orangeAccent.shade200 : Colors.orange.shade800,
+        color: isDark ? Colors.greenAccent.shade200 : Colors.green.shade800,
       ),
     );
   }
@@ -837,8 +837,8 @@ class _SpeechHintBox extends StatelessWidget {
     return Card(
       elevation: 0,
       color: isDark
-          ? Colors.orange.shade900.withOpacity(0.3)
-          : Colors.orange.shade50,
+          ? Colors.green.shade900.withOpacity(0.3)
+          : Colors.green.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 24),
       child: Padding(
@@ -846,7 +846,7 @@ class _SpeechHintBox extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.volume_up_outlined,
-                color: Colors.orange.shade400, size: 20),
+                color: Colors.green.shade400, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

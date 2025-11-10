@@ -184,7 +184,7 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.purple.shade700,
+            backgroundColor: Colors.green.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Articles: a, an, the',
@@ -198,8 +198,8 @@ class _ArticlesLessonScreenState extends State<ArticlesLessonScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.purple.shade500,
-                      Colors.deepPurple.shade600,
+                      Colors.green.shade500,
+                      Colors.green.shade700,
                     ],
                   ),
                 ),
@@ -376,7 +376,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.purple.shade700, size: 28),
+                Icon(icon, color: Colors.green.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -516,8 +516,8 @@ class _ExampleListItem extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: isDark
-          ? Colors.purple.shade900.withOpacity(0.25)
-          : Colors.purple.shade50,
+          ? Colors.green.shade900.withOpacity(0.25)
+          : Colors.green.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onSpeak('${example.category} ${example.sentence}'),
@@ -529,7 +529,7 @@ class _ExampleListItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(example.icon, size: 22, color: Colors.purple.shade600),
+              Icon(example.icon, size: 22, color: Colors.green.shade600),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -579,11 +579,11 @@ class _SimplifiedClickableCard extends StatelessWidget {
     return MarkdownStyleSheet(
       p: TextStyle(
         fontSize: 15,
-        color: isDark ? Colors.purpleAccent.shade200 : Colors.purple.shade800,
+        color: isDark ? Colors.greenAccent.shade200 : Colors.green.shade800,
       ),
       strong: TextStyle(
         fontWeight: FontWeight.bold,
-        color: isDark ? Colors.purpleAccent.shade200 : Colors.purple.shade800,
+        color: isDark ? Colors.greenAccent.shade200 : Colors.green.shade800,
       ),
     );
   }
@@ -824,8 +824,8 @@ class _SpeechHintBox extends StatelessWidget {
     return Card(
       elevation: 0,
       color: isDark
-          ? Colors.purple.shade900.withOpacity(0.3)
-          : Colors.purple.shade50,
+          ? Colors.green.shade900.withOpacity(0.3)
+          : Colors.green.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 24),
       child: Padding(
@@ -833,7 +833,7 @@ class _SpeechHintBox extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.volume_up_outlined,
-                color: Colors.purple.shade400, size: 20),
+                color: Colors.green.shade400, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
