@@ -34,6 +34,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
   bool _isLoading = false;
   bool _isPremium = false;
   bool _userInteracting = false;
+  bool _hasUsedFreeTrial = false;
   Timer? _autoScrollTimer;
 
   @override
@@ -66,9 +67,13 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
 
   void _onRevenueCatUpdate() {
     final premium = RevenueCatService.instance.isPremiumActive;
-    if (premium && mounted) {
-      setState(() => _isPremium = true);
-      if (widget.onClose != null) {
+    final hasUsedTrial = RevenueCatService.instance.hasUsedFreeTrial;
+    if (mounted) {
+      setState(() {
+        _isPremium = premium;
+        _hasUsedFreeTrial = hasUsedTrial;
+      });
+      if (premium && widget.onClose != null) {
         widget.onClose!();
       }
     }
@@ -98,8 +103,11 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
     if (mounted) {
       final rcPremium = RevenueCatService.instance.isPremiumActive;
       final premium = rcPremium || firestorePremium;
+      final hasUsedTrial = RevenueCatService.instance.hasUsedFreeTrial;
+
       setState(() {
         _isPremium = premium;
+        _hasUsedFreeTrial = hasUsedTrial;
       });
 
       if (premium && widget.onClose != null) {
@@ -522,7 +530,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                                             title: 'Monthly',
                                             price: RevenueCatService.instance.monthlyPriceString ?? r'$9.99',
                                             period: '/mo',
-                                            badge: '7 DAYS FREE',
+                                            badge: _hasUsedFreeTrial ? null : '7 DAYS FREE',
                                           ),
                                         ),
                                         const SizedBox(width: 12),

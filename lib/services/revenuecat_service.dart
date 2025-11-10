@@ -269,6 +269,28 @@ class RevenueCatService with ChangeNotifier {
     return pkg?.storeProduct.priceString;
   }
 
+  /// Kullanıcının daha önce ücretsiz deneme kullanıp kullanmadığını kontrol eder
+  bool get hasUsedFreeTrial {
+    if (_customerInfo == null) return false;
+
+    // Kullanıcının geçmiş işlemlerini kontrol et
+    final allPurchasedProductIds = _customerInfo!.allPurchasedProductIdentifiers;
+
+    // Eğer herhangi bir satın alma işlemi varsa, ücretsiz deneme kullanılmış demektir
+    if (allPurchasedProductIds.isNotEmpty) {
+      return true;
+    }
+
+    // Aktif olmayan abonelikleri kontrol et (süresi dolmuş veya iptal edilmiş)
+    final allEntitlements = _customerInfo!.entitlements.all;
+    // Herhangi bir entitlement varsa (aktif olsun veya olmasın), deneme kullanılmış demektir
+    if (allEntitlements.isNotEmpty) {
+      return true;
+    }
+
+    return false;
+  }
+
   Future<void> _syncEntitlementsToFirestore() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return; // yalnızca oturum açıkken senkronize

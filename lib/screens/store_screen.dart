@@ -28,6 +28,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
 
   bool _isPremium = false;
   bool _isLoading = false;
+  bool _hasUsedFreeTrial = false;
   int _selectedPlanIndex = 1; // 0: Monthly, 1: Yearly
   int _currentFeaturePage = 0;
   bool _userInteracting = false;
@@ -106,6 +107,14 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
       await RevenueCatService.instance.init();
       await RevenueCatService.instance.onLogin(user.uid);
       await RevenueCatService.instance.refreshOfferings();
+
+      // Ücretsiz deneme durumunu kontrol et
+      final hasUsedTrial = RevenueCatService.instance.hasUsedFreeTrial;
+      if (mounted) {
+        setState(() {
+          _hasUsedFreeTrial = hasUsedTrial;
+        });
+      }
 
       _userSub = _firestore.collection('users').doc(user.uid).snapshots().listen((doc) {
         if (mounted && doc.exists) {
@@ -459,7 +468,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
                                 title: 'Monthly',
                                 price: RevenueCatService.instance.monthlyPriceString ?? r'$9.99',
                                 period: '/mo',
-                                badge: '7 DAYS FREE',
+                                badge: _hasUsedFreeTrial ? null : '7 DAYS FREE',
                               ),
                             ),
                             const SizedBox(width: 12),
