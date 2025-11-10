@@ -186,7 +186,7 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.teal.shade700,
+            backgroundColor: Colors.deepOrange.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Causative Form',
@@ -200,8 +200,8 @@ class _CausativeLessonScreenState extends State<CausativeLessonScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.teal.shade500,
-                      Colors.cyan.shade600,
+                      Colors.orange.shade500,
+                      Colors.deepOrange.shade600,
                     ],
                   ),
                 ),
@@ -350,28 +350,23 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Renkler bu dersin temasına (teal) uyacak şekilde düzeltildi
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Renkler bu dersin temasına (deepOrange) uyacak şekilde düzeltildi
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.teal.shade900.withOpacity(0.3) : Colors.teal.shade50,
+        color: Colors.deepOrange.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: isDark ? Colors.teal.shade800 : Colors.teal.shade200),
+        border: Border.all(color: Colors.deepOrange.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up,
-              color: isDark ? Colors.teal.shade300 : Colors.teal.shade700),
+          Icon(Icons.volume_up, color: Colors.deepOrange.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(
-                  color: isDark ? Colors.teal.shade200 : Colors.teal.shade900,
-                  fontSize: 14),
+              style: TextStyle(color: Colors.deepOrange.shade900, fontSize: 14),
             ),
           ),
         ],
@@ -466,7 +461,8 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.teal.shade700, size: 28),
+                // Tema rengi güncellendi
+                Icon(icon, color: Colors.deepOrange.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -584,12 +580,11 @@ class _ExampleListItem extends StatelessWidget {
     return MarkdownStyleSheet(
       p: TextStyle(
         fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+        color: isDark ? Colors.white : Colors.black,
       ),
       strong: TextStyle(
-        fontWeight: FontWeight.w600,
-        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
       ),
     );
   }
@@ -613,35 +608,46 @@ class _ExampleListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Bu widget'taki Row yapısı korundu, sadece Text'ler MarkdownBody'ye dönüştürüldü
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => onSpeak('${example.category} ${example.sentence}'),
-      onLongPress: () => onTranslate('${example.category} ${example.sentence}'),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(example.icon, color: Colors.teal.shade600, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MarkdownBody(
-                  data: example.category,
-                  selectable: false,
-                  styleSheet: _getCategoryStyle(context),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Tema rengi güncellendi
+    return Material(
+      color:
+      isDark ? Colors.deepOrange.shade900.withOpacity(0.25) : Colors.deepOrange.shade50,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => onSpeak('${example.category} ${example.sentence}'),
+        onLongPress: () =>
+            onTranslate('${example.category} ${example.sentence}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(example.icon, size: 22, color: Colors.deepOrange.shade600),
+              const SizedBox(width: 12),
+              // Layout, Column olarak güncellendi (diğer dosyalarla uyum için)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MarkdownBody(
+                      data: example.category,
+                      selectable: false,
+                      styleSheet: _getCategoryStyle(context),
+                    ),
+                    const SizedBox(height: 4),
+                    MarkdownBody(
+                      data: example.sentence,
+                      selectable: false,
+                      styleSheet: _getSentenceStyle(context),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                MarkdownBody(
-                  data: example.sentence,
-                  selectable: false,
-                  styleSheet: _getSentenceStyle(context),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -861,7 +867,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.lightbulb,
-                      color: Colors.teal.shade600, size: 20),
+                      color: Colors.deepOrange.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(

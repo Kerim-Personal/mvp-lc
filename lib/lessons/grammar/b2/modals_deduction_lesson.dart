@@ -186,7 +186,7 @@ class _ModalsDeductionLessonScreenState
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.blue.shade700,
+            backgroundColor: Colors.deepOrange.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Modals of Deduction',
@@ -200,8 +200,8 @@ class _ModalsDeductionLessonScreenState
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.blue.shade500,
-                      Colors.indigo.shade600,
+                      Colors.orange.shade500,
+                      Colors.deepOrange.shade600,
                     ],
                   ),
                 ),
@@ -367,28 +367,23 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Renkler bu dersin temasına (mavi) uyacak şekilde düzeltildi
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Renkler bu dersin temasına (deepOrange) uyacak şekilde düzeltildi
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50,
+        color: Colors.deepOrange.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: isDark ? Colors.blue.shade800 : Colors.blue.shade200),
+        border: Border.all(color: Colors.deepOrange.shade200),
       ),
       child: Row(
         children: [
-          Icon(Icons.volume_up,
-              color: isDark ? Colors.blue.shade300 : Colors.blue.shade700),
+          Icon(Icons.volume_up, color: Colors.deepOrange.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
-              style: TextStyle(
-                  color: isDark ? Colors.blue.shade200 : Colors.blue.shade900,
-                  fontSize: 14),
+              style: TextStyle(color: Colors.deepOrange.shade900, fontSize: 14),
             ),
           ),
         ],
@@ -483,7 +478,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.blue.shade700, size: 28),
+                Icon(icon, color: Colors.deepOrange.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -638,7 +633,7 @@ class _ExampleListItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(example.icon, color: Colors.blue.shade600, size: 24),
+          Icon(example.icon, color: Colors.deepOrange.shade600, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -877,7 +872,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.lightbulb,
-                      color: Colors.blue.shade600, size: 20),
+                      color: Colors.deepOrange.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
