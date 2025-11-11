@@ -98,7 +98,7 @@ class _AdvancedConditionalsLessonScreenState
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.translate, color: Colors.teal),
+                      Icon(Icons.translate, color: Colors.red),
                       SizedBox(width: 8),
                       Text('Translation',
                           style: TextStyle(
@@ -187,7 +187,7 @@ class _AdvancedConditionalsLessonScreenState
             expandedHeight: 250.0,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.deepPurple.shade700,
+            backgroundColor: Colors.red.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Advanced Conditionals',
@@ -201,8 +201,8 @@ class _AdvancedConditionalsLessonScreenState
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.deepPurple.shade500,
-                      Colors.purple.shade600,
+                      Colors.red.shade500,
+                      Colors.red.shade700,
                     ],
                   ),
                 ),
@@ -210,11 +210,12 @@ class _AdvancedConditionalsLessonScreenState
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.timeline,
+                      const Icon(Icons.timeline_outlined,
                           size: 70, color: Colors.white24),
                       const SizedBox(height: 8),
                       Text(
                         'Complex Hypothetical Situations',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.8),
                           fontSize: 18,
@@ -362,29 +363,29 @@ class _SpeechHintBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Renkler bu dersin temasına (mor) uyacak şekilde düzeltildi
+    // Renkler bu dersin temasına (kırmızı) uyacak şekilde düzeltildi
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.deepPurple.shade900.withOpacity(0.3) : Colors.deepPurple.shade50,
+        color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: isDark ? Colors.deepPurple.shade800 : Colors.deepPurple.shade200),
+            color: isDark ? Colors.red.shade800 : Colors.red.shade200),
       ),
       child: Row(
         children: [
           Icon(Icons.volume_up,
-              color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade700),
+              color: isDark ? Colors.red.shade300 : Colors.red.shade700),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tap to hear pronunciation, long press for translation.',
               style: TextStyle(
                   color: isDark
-                      ? Colors.deepPurple.shade200
-                      : Colors.deepPurple.shade900,
+                      ? Colors.red.shade200
+                      : Colors.red.shade900,
                   fontSize: 14),
             ),
           ),
@@ -480,7 +481,7 @@ class _LessonBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.deepPurple.shade700, size: 28),
+                Icon(icon, color: Colors.red.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -635,7 +636,7 @@ class _ExampleListItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(example.icon, color: Colors.deepPurple.shade600, size: 24),
+          Icon(example.icon, color: Colors.red.shade600, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -874,7 +875,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.lightbulb,
-                      color: Colors.deepPurple.shade600, size: 20),
+                      color: Colors.red.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
