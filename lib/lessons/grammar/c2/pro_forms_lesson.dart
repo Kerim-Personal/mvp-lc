@@ -86,7 +86,7 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: const [
-                  Icon(Icons.translate, color: Colors.deepPurple),
+                  Icon(Icons.translate, color: Colors.purple),
                   SizedBox(width: 8),
                   Text('Translation',
                       style:
@@ -163,7 +163,7 @@ class _ProFormsLessonScreenState extends State<ProFormsLessonScreen>
             expandedHeight: 250,
             stretch: true,
             pinned: true,
-            backgroundColor: Colors.teal.shade700,
+            backgroundColor: Colors.deepPurple.shade700,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               title: const Text('Pro-forms & Substitution',
@@ -777,7 +777,7 @@ class _TipCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Icon(Icons.lightbulb_outline,
-                color: Colors.amber.shade700, size: 28), // Standart amber
+                color: Colors.purple.shade700, size: 28), // Standart amber
             const SizedBox(width: 12),
             Expanded(
               child: InkWell(
@@ -791,8 +791,8 @@ class _TipCard extends StatelessWidget {
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: isDark
-                              ? Colors.amber.shade200
-                              : Colors.amber.shade900)), // Standart amber
+                              ? Colors.purple.shade200
+                              : Colors.purple.shade900)), // Standart amber
                 ),
               ),
             ),

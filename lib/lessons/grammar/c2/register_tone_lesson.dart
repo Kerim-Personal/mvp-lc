@@ -97,7 +97,7 @@ class _RegisterToneLessonScreenState extends State<RegisterToneLessonScreen>
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.translate, color: Colors.teal),
+                      Icon(Icons.translate, color: Colors.purple),
                       SizedBox(width: 8),
                       Text('Translation',
                           style: TextStyle(
@@ -849,7 +849,7 @@ class _TipCard extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.tips_and_updates_outlined,
-                    color: Colors.amber.shade700, size: 28),
+                    color: Colors.purple.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -864,8 +864,8 @@ class _TipCard extends StatelessWidget {
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: isDark
-                              ? Colors.amber.shade200
-                              : Colors.amber.shade900,
+                              ? Colors.purple.shade200
+                              : Colors.purple.shade900,
                         ),
                       ),
                     ),
@@ -880,7 +880,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.check_circle_outline,
-                      size: 20, color: Colors.amber.shade600),
+                      size: 20, color: Colors.purple.shade600),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(

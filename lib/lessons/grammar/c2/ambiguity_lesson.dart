@@ -96,7 +96,7 @@ class _AmbiguityLessonScreenState extends State<AmbiguityLessonScreen>
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.translate, color: Colors.teal),
+                      Icon(Icons.translate, color: Colors.purple),
                       SizedBox(width: 8),
                       Text('Translation',
                           style: TextStyle(
@@ -850,8 +850,8 @@ class _TipCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.tips_and_updates_outlined,
-                    color: Colors.green.shade700, size: 28),
+            Icon(Icons.tips_and_updates_outlined,
+                color: Colors.purple.shade700, size: 28),
                 const SizedBox(width: 14),
                 Expanded(
                   child: InkWell(
@@ -880,7 +880,7 @@ class _TipCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.check_circle_outline,
-                      size: 20, color: Colors.green.shade600),
+                      size: 20, color: Colors.purple.shade600),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(

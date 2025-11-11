@@ -90,7 +90,7 @@ class _LexicalDensityLessonScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: const [
-                  Icon(Icons.translate, color: Colors.deepPurple),
+                  Icon(Icons.translate, color: Colors.purple),
                   SizedBox(width: 8),
                   Text('Translation',
                       style:
@@ -780,7 +780,7 @@ class _TipCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Icon(Icons.tips_and_updates_outlined,
-                color: Colors.amber.shade700, size: 28), // Standart amber
+                color: Colors.purple.shade700, size: 28), // Standart amber
             const SizedBox(width: 12),
             Expanded(
               child: InkWell(
@@ -794,8 +794,8 @@ class _TipCard extends StatelessWidget {
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: isDark
-                              ? Colors.amber.shade200
-                              : Colors.amber.shade900)), // Standart amber
+                              ? Colors.purple.shade200
+                              : Colors.purple.shade900)), // Standart amber
                 ),
               ),
             ),

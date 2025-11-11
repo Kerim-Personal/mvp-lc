@@ -97,7 +97,7 @@ class _ReferenceLessonScreenState extends State<ReferenceLessonScreen>
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.translate, color: Colors.teal),
+                      Icon(Icons.translate, color: Colors.purple),
                       SizedBox(width: 8),
                       Text('Translation',
                           style: TextStyle(
