@@ -411,50 +411,46 @@ class _ManageSubscriptionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _openSubscriptionManagement(context),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: 240,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.25),
-                Colors.white.withValues(alpha: 0.15),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.settings,
-                color: Colors.white.withValues(alpha: 0.95),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Manage Subscription',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.95),
-                  letterSpacing: 0.3,
-                ),
-              ),
+    return GestureDetector(
+      onTap: () => _openSubscriptionManagement(context),
+      child: Container(
+        width: 240,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.25),
+              Colors.white.withValues(alpha: 0.15),
             ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.settings,
+              color: Colors.white.withValues(alpha: 0.95),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Manage Subscription',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.95),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
         ),
       ),
     );

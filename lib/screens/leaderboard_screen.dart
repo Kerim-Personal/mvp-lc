@@ -210,7 +210,7 @@ class _CommunityScreenState extends State<CommunityScreen>
     Query baseQuery = FirebaseFirestore.instance
         .collection('publicUsers')
         .orderBy(metricField, descending: true)
-        .limit(100);
+        .limit(10);
 
     QuerySnapshot snapshot = await baseQuery.get();
     if (snapshot.docs.isEmpty) {
@@ -520,7 +520,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Compete weekly, earn shiny rewards',
+                        'Step into the adventure and claim your spot!',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
@@ -529,7 +529,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Climb the leaderboard and unlock weekly perks. Stay active, stay consistent, and claim your spot!',
+                        'Leaderboard and rewards unlock once we reach 10,000 adventurers! Join now, show off your skills, and step into the most exciting journey of our community!',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.75),

@@ -225,7 +225,16 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
           children: [
             Lottie.asset('assets/animations/success.json', width: 50, height: 50, repeat: false),
             const SizedBox(width: 12),
-            const Text('Congratulations! 🎉'),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'Congratulations! 🎉',
+                  style: TextStyle(fontSize: 20),
+                ),
+              ),
+            ),
           ],
         ),
         content: const Text(
@@ -235,7 +244,6 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
           ElevatedButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              if (widget.onClose != null) widget.onClose!();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6C63FF),
