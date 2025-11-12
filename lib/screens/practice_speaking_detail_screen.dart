@@ -195,15 +195,355 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
 
   String _normalizeForCompare(String s){
     s = s.toLowerCase();
-    const contractions = {
-      "i'm":"i am","you're":"you are","it's":"it is","don't":"do not","can't":"can not","won't":"will not","let's":"let us","that's":"that is","what's":"what is","there's":"there is","i've":"i have","we're":"we are","they're":"they are","didn't":"did not","isn't":"is not","aren't":"are not","wasn't":"was not","weren't":"were not","hasn't":"has not","haven't":"have not","shouldn't":"should not","couldn't":"could not","wouldn't":"would not"
-    };
-    contractions.forEach((k,v){ s = s.replaceAll(k, v); });
-    s = s.replaceAll('cannot', 'can not');
-    s = s.replaceAll(RegExp(r'\bok\b'), 'okay');
+
+    // 1. Yaygın yazım varyasyonlarını normalize et
+    s = _normalizeSpellingVariations(s);
+
+    // 2. Sayıları, zamanı, yüzdeleri normalize et
+    s = _normalizeNumbers(s);
+    s = _normalizeTime(s);
+    s = _normalizePercentages(s);
+    s = _normalizeOrdinals(s);
+    s = _normalizeCurrency(s);
+
+    // 3. Tüm kısaltmaları genişlet
+    s = _expandContractions(s);
+
+    // 4. Yaygın alternatif ifadeleri normalize et
+    s = _normalizeCommonPhrases(s);
+
+    // 5. Noktalama ve özel karakterleri temizle
     s = s.replaceAll(RegExp(r"[^a-z\s]"), " ");
     s = s.replaceAll(RegExp(r"\s+"), " ").trim();
+
     return s;
+  }
+
+  String _normalizeSpellingVariations(String s) {
+    // İngilizce-Amerikan yazım farklılıkları
+    const spellingMap = {
+      'colour': 'color', 'favourite': 'favorite', 'centre': 'center',
+      'theatre': 'theater', 'metres': 'meters', 'kilometres': 'kilometers',
+      'realise': 'realize', 'organise': 'organize', 'analyse': 'analyze',
+      'programme': 'program', 'catalogue': 'catalog', 'dialogue': 'dialog',
+    };
+
+    spellingMap.forEach((uk, us) {
+      s = s.replaceAll(RegExp('\\b$uk\\b'), us);
+    });
+
+    return s;
+  }
+
+  String _expandContractions(String s) {
+    // Kapsamlı kısaltma listesi
+    const contractions = {
+      // Temel kısaltmalar
+      "i'm": "i am", "you're": "you are", "he's": "he is", "she's": "she is",
+      "it's": "it is", "we're": "we are", "they're": "they are",
+      "that's": "that is", "what's": "what is", "who's": "who is",
+      "where's": "where is", "when's": "when is", "why's": "why is",
+      "how's": "how is", "there's": "there is", "here's": "here is",
+
+      // Would/Had kısaltmaları
+      "i'd": "i would", "you'd": "you would", "he'd": "he would",
+      "she'd": "she would", "we'd": "we would", "they'd": "they would",
+      "that'd": "that would", "what'd": "what would", "who'd": "who would",
+
+      // Will kısaltmaları
+      "i'll": "i will", "you'll": "you will", "he'll": "he will",
+      "she'll": "she will", "we'll": "we will", "they'll": "they will",
+      "that'll": "that will", "it'll": "it will", "there'll": "there will",
+
+      // Have kısaltmaları
+      "i've": "i have", "you've": "you have", "we've": "we have",
+      "they've": "they have", "could've": "could have", "should've": "should have",
+      "would've": "would have", "might've": "might have", "must've": "must have",
+
+      // Not kısaltmaları
+      "don't": "do not", "doesn't": "does not", "didn't": "did not",
+      "won't": "will not", "wouldn't": "would not", "can't": "can not",
+      "cannot": "can not", "couldn't": "could not", "shouldn't": "should not",
+      "mightn't": "might not", "mustn't": "must not",
+      "isn't": "is not", "aren't": "are not", "wasn't": "was not",
+      "weren't": "were not", "hasn't": "has not", "haven't": "have not",
+      "hadn't": "had not", "ain't": "am not",
+
+      // Let's özel durumu
+      "let's": "let us",
+
+      // Informal konuşma
+      "gonna": "going to", "wanna": "want to", "gotta": "got to",
+      "hafta": "have to", "needa": "need to", "oughta": "ought to",
+      "kinda": "kind of", "sorta": "sort of", "lotta": "lot of",
+      "outta": "out of", "dunno": "do not know", "lemme": "let me",
+      "gimme": "give me", "betcha": "bet you", "gotcha": "got you",
+      "y'all": "you all", "c'mon": "come on", "'cause": "because",
+      "cos": "because", "cuz": "because",
+    };
+
+    contractions.forEach((short, full) {
+      s = s.replaceAll(RegExp('\\b$short\\b'), full);
+    });
+
+    return s;
+  }
+
+  String _normalizeNumbers(String s) {
+    const numberMap = {
+      '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+      '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
+      '10': 'ten', '11': 'eleven', '12': 'twelve', '13': 'thirteen',
+      '14': 'fourteen', '15': 'fifteen', '16': 'sixteen', '17': 'seventeen',
+      '18': 'eighteen', '19': 'nineteen', '20': 'twenty', '21': 'twenty one',
+      '22': 'twenty two', '23': 'twenty three', '24': 'twenty four',
+      '25': 'twenty five', '30': 'thirty', '40': 'forty', '50': 'fifty',
+      '60': 'sixty', '70': 'seventy', '80': 'eighty', '90': 'ninety',
+      '100': 'one hundred', '1000': 'one thousand',
+    };
+
+    // Telefon numarası pattern'lerini yakala ve her rakamı ayrı ayrı çevir
+    // 555-1234 veya 555 1234 veya 5551234 -> five five five one two three four
+    s = s.replaceAllMapped(RegExp(r'\b(\d[\d\s\-\.]*\d|\d)\b'), (match) {
+      final numStr = match.group(0)!;
+
+      // Eğer sadece tire/nokta/boşluk içeriyorsa, her rakamı ayrı ayrı çevir (telefon numarası)
+      if (numStr.contains(RegExp(r'[\-\.\s]')) || numStr.length >= 7) {
+        // Tüm rakamları çıkar
+        final digits = numStr.replaceAll(RegExp(r'[^\d]'), '');
+
+        // Telefon numarası gibi uzun sayılar (7+ rakam) -> her rakamı ayrı oku
+        if (digits.length >= 7) {
+          return digits.split('').map((d) => numberMap[d]!).join(' ');
+        }
+
+        // Kısa formatlar için de her rakamı ayrı oku
+        return digits.split('').map((d) => numberMap[d]!).join(' ');
+      }
+
+      // Normal sayılar için standart dönüşüm
+      final num = int.tryParse(numStr);
+      if (num == null) return numStr;
+
+      // Özel sayıları kontrol et
+      if (numberMap.containsKey(numStr)) {
+        return numberMap[numStr]!;
+      }
+
+      // 100+ sayılar için (örn: 150 -> one hundred fifty)
+      if (num >= 100 && num < 1000) {
+        final hundreds = num ~/ 100;
+        final rest = num % 100;
+        String result = '${numberMap[hundreds.toString()]} hundred';
+        if (rest > 0) {
+          if (numberMap.containsKey(rest.toString())) {
+            result += ' ${numberMap[rest.toString()]}';
+          } else if (rest < 100 && rest > 20) {
+            final tens = (rest ~/ 10) * 10;
+            final ones = rest % 10;
+            result += ' ${numberMap[tens.toString()]}';
+            if (ones > 0) result += ' ${numberMap[ones.toString()]}';
+          }
+        }
+        return result;
+      }
+
+      // 21-99 arası sayıları çevir (örn: 25 -> twenty five)
+      if (num >= 21 && num < 100) {
+        final tens = (num ~/ 10) * 10;
+        final ones = num % 10;
+        String result = numberMap[tens.toString()]!;
+        if (ones > 0) result += ' ${numberMap[ones.toString()]}';
+        return result;
+      }
+
+      // 0-20 arası ve özel sayılar
+      if (numberMap.containsKey(num.toString())) {
+        return numberMap[num.toString()]!;
+      }
+
+      return numStr;
+    });
+
+    // Yazılı sayıları normalize et (twenty-one -> twenty one)
+    s = s.replaceAll(RegExp(r'(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-'), r'\1 ');
+
+    // "number" kelimesinden sonra gelen "is" yi normalize et
+    s = s.replaceAll(RegExp(r'\bnumber\s+is\s+'), 'number ');
+
+    return s;
+  }
+
+  String _normalizeTime(String s) {
+    // 10:30 -> ten thirty
+    // 3:45 PM -> three forty five
+    s = s.replaceAllMapped(RegExp(r'\b(\d{1,2}):(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?\b'), (match) {
+      final hour = match.group(1)!;
+      final minute = match.group(2)!;
+      final period = match.group(3);
+
+      String result = _numberToWord(int.parse(hour));
+
+      if (minute == '00') {
+        result += ' o clock';
+      } else if (minute == '15') {
+        result += ' fifteen';
+      } else if (minute == '30') {
+        result += ' thirty';
+      } else if (minute == '45') {
+        result += ' forty five';
+      } else {
+        result += ' ${_numberToWord(int.parse(minute))}';
+      }
+
+      if (period != null) {
+        final p = period.toLowerCase().replaceAll('.', '');
+        result += ' $p';
+      }
+
+      return result;
+    });
+
+    // "o'clock" varyasyonları
+    s = s.replaceAll(RegExp(r"\bo'clock\b"), 'o clock');
+    s = s.replaceAll(RegExp(r'\boclock\b'), 'o clock');
+
+    // AM/PM normalleştirme
+    s = s.replaceAll(RegExp(r'\ba\.m\.\b'), 'am');
+    s = s.replaceAll(RegExp(r'\bp\.m\.\b'), 'pm');
+    s = s.replaceAll(RegExp(r'\bin the morning\b'), '');
+    s = s.replaceAll(RegExp(r'\bin the afternoon\b'), '');
+    s = s.replaceAll(RegExp(r'\bin the evening\b'), '');
+
+    return s;
+  }
+
+  String _normalizePercentages(String s) {
+    // 50% -> fifty percent
+    // 3.5% -> three point five percent
+    s = s.replaceAllMapped(RegExp(r'\b(\d+(?:\.\d+)?)\s*%'), (match) {
+      final num = match.group(1)!;
+      if (num.contains('.')) {
+        final parts = num.split('.');
+        return '${_numberToWord(int.parse(parts[0]))} point ${parts[1].split('').map((d) => _numberToWord(int.parse(d))).join(' ')} percent';
+      }
+      return '${_numberToWord(int.parse(num))} percent';
+    });
+
+    return s;
+  }
+
+  String _normalizeOrdinals(String s) {
+    // 1st -> first, 2nd -> second, 3rd -> third, 4th -> fourth
+    const ordinalMap = {
+      '1st': 'first', '2nd': 'second', '3rd': 'third', '4th': 'fourth',
+      '5th': 'fifth', '6th': 'sixth', '7th': 'seventh', '8th': 'eighth',
+      '9th': 'ninth', '10th': 'tenth', '11th': 'eleventh', '12th': 'twelfth',
+      '13th': 'thirteenth', '20th': 'twentieth', '21st': 'twenty first',
+      '22nd': 'twenty second', '23rd': 'twenty third', '30th': 'thirtieth',
+    };
+
+    ordinalMap.forEach((num, word) {
+      s = s.replaceAll(RegExp('\\b$num\\b'), word);
+    });
+
+    return s;
+  }
+
+  String _normalizeCurrency(String s) {
+    // $50 -> fifty dollars
+    // £20 -> twenty pounds
+    // €10 -> ten euros
+
+    // Dolar
+    s = s.replaceAllMapped(RegExp(r'\$(\d+(?:\.\d+)?)'), (match) {
+      final amount = match.group(1)!;
+      if (amount.contains('.')) {
+        final parts = amount.split('.');
+        return '${_numberToWord(int.parse(parts[0]))} dollars and ${_numberToWord(int.parse(parts[1]))} cents';
+      }
+      return '${_numberToWord(int.parse(amount))} dollars';
+    });
+
+    // Euro
+    s = s.replaceAllMapped(RegExp(r'€(\d+(?:\.\d+)?)'), (match) {
+      final amount = match.group(1)!;
+      return '${_numberToWord(int.parse(amount.split('.')[0]))} euros';
+    });
+
+    // Pound
+    s = s.replaceAllMapped(RegExp(r'£(\d+(?:\.\d+)?)'), (match) {
+      final amount = match.group(1)!;
+      return '${_numberToWord(int.parse(amount.split('.')[0]))} pounds';
+    });
+
+    // "dollars" varyasyonları
+    s = s.replaceAll(RegExp(r'\bdollar\b'), 'dollars');
+    s = s.replaceAll(RegExp(r'\beuro\b'), 'euros');
+    s = s.replaceAll(RegExp(r'\bpound\b'), 'pounds');
+
+    return s;
+  }
+
+  String _normalizeCommonPhrases(String s) {
+    // Yaygın alternatif ifadeler
+    const phraseMap = {
+      'ok': 'okay', 'alright': 'all right', 'yeah': 'yes',
+      'yep': 'yes', 'nope': 'no', 'nah': 'no',
+      'u': 'you', 'ur': 'your', 'r': 'are',
+      'thru': 'through', 'tho': 'though', 'til': 'until',
+      'cause': 'because', 'bout': 'about',
+      'em': 'them', 'im': 'i am',
+      'ive': 'i have', 'youve': 'you have',
+      'thats': 'that is', 'whats': 'what is',
+      'isnt': 'is not', 'arent': 'are not',
+      'wasnt': 'was not', 'werent': 'were not',
+      'hasnt': 'has not', 'havent': 'have not',
+      'hadnt': 'had not', 'wont': 'will not',
+      'wouldnt': 'would not', 'couldnt': 'could not',
+      'shouldnt': 'should not', 'cant': 'can not',
+      'didnt': 'did not', 'doesnt': 'does not',
+      'dont': 'do not', 'mightnt': 'might not',
+    };
+
+    phraseMap.forEach((alt, standard) {
+      s = s.replaceAll(RegExp('\\b$alt\\b'), standard);
+    });
+
+    // Çoklu boşlukları normalize et
+    s = s.replaceAll(RegExp(r'\s+'), ' ');
+
+    return s;
+  }
+
+  String _numberToWord(int n) {
+    const words = {
+      0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four',
+      5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine',
+      10: 'ten', 11: 'eleven', 12: 'twelve', 13: 'thirteen',
+      14: 'fourteen', 15: 'fifteen', 16: 'sixteen', 17: 'seventeen',
+      18: 'eighteen', 19: 'nineteen', 20: 'twenty', 30: 'thirty',
+      40: 'forty', 50: 'fifty', 60: 'sixty', 70: 'seventy',
+      80: 'eighty', 90: 'ninety',
+    };
+
+    if (words.containsKey(n)) return words[n]!;
+
+    if (n < 100) {
+      final tens = (n ~/ 10) * 10;
+      final ones = n % 10;
+      return '${words[tens]} ${words[ones]}';
+    }
+
+    if (n < 1000) {
+      final hundreds = n ~/ 100;
+      final rest = n % 100;
+      String result = '${words[hundreds]} hundred';
+      if (rest > 0) result += ' ${_numberToWord(rest)}';
+      return result;
+    }
+
+    return n.toString();
   }
 
   String _postProcessRecognized(String target, String spoken){
