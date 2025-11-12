@@ -606,68 +606,83 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
 
     showDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Practice Complete!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: avgSim >= 85 ? Colors.green.shade50 : avgSim >= 60 ? Colors.orange.shade50 : Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    avgSim >= 85 ? Icons.star : avgSim >= 60 ? Icons.thumb_up : Icons.info_outline,
-                    color: avgSim >= 85 ? Colors.green : avgSim >= 60 ? Colors.orange : Colors.red,
-                    size: 32,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Average Score', style: TextStyle(fontSize: 12)),
-                      Text(
-                        '${avgSim.toStringAsFixed(0)}%',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: avgSim >= 85 ? Colors.green : avgSim >= 60 ? Colors.orange : Colors.red,
+      builder: (c) {
+        final theme = Theme.of(c);
+        final isDark = theme.brightness == Brightness.dark;
+
+        return AlertDialog(
+          title: const Text('Practice Complete!'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark
+                    ? (avgSim >= 85 ? Colors.green : avgSim >= 60 ? Colors.orange : Colors.red).withValues(alpha: 0.2)
+                    : (avgSim >= 85 ? Colors.green.shade50 : avgSim >= 60 ? Colors.orange.shade50 : Colors.red.shade50),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      avgSim >= 85 ? Icons.star : avgSim >= 60 ? Icons.thumb_up : Icons.info_outline,
+                      color: avgSim >= 85 ? Colors.green : avgSim >= 60 ? Colors.orange : Colors.red,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Average Score',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          '${avgSim.toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: avgSim >= 85 ? Colors.green : avgSim >= 60 ? Colors.orange : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height:16),
+              Text('${prompt.targets.length} sentences completed'),
+              if(_results.isNotEmpty) ...[
+                const SizedBox(height:8),
+                Text(
+                  avgSim >= 85
+                    ? 'Excellent work! Your pronunciation is great.'
+                    : avgSim >= 60
+                      ? 'Good job! Keep practicing to improve.'
+                      : 'Keep trying! Practice makes perfect.',
+                  style: TextStyle(
+                    color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height:16),
-            Text('${prompt.targets.length} sentences completed'),
-            if(_results.isNotEmpty) ...[
-              const SizedBox(height:8),
-              Text(
-                avgSim >= 85
-                  ? 'Excellent work! Your pronunciation is great.'
-                  : avgSim >= 60
-                    ? 'Good job! Keep practicing to improve.'
-                    : 'Keep trying! Practice makes perfect.',
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
+                ),
+              ],
             ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(c);
-              Navigator.pop(context);
-            },
-            child: const Text('Done'),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(c);
+                Navigator.pop(context);
+              },
+              child: const Text('Done'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -683,9 +698,10 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
   Widget build(BuildContext context) {
     final target = prompt.targets[_currentIndex];
     final eval = _results.length>_currentIndex? _results[_currentIndex] : null;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: Text(prompt.title),
         actions: [
@@ -705,13 +721,17 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: isDark
+                  ? Colors.blue.withValues(alpha: 0.15)
+                  : Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 prompt.context,
                 style: TextStyle(
-                  color: Colors.blue.shade900,
+                  color: isDark
+                    ? Colors.blue.shade300
+                    : Colors.blue.shade900,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -731,7 +751,7 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
                       Text(
                         'Sentence ${_currentIndex+1}/${prompt.targets.length}',
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                           fontSize: 12,
                         ),
                       ),
@@ -756,9 +776,10 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
                   const SizedBox(height:12),
                   Text(
                     target,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
+                      color: theme.textTheme.bodyLarge?.color,
                     ),
                   ),
                 ],
@@ -780,13 +801,17 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
                     children: [
                       Icon(
                         _recording ? Icons.mic : Icons.mic_none,
-                        color: _recording ? Colors.red : Colors.grey,
+                        color: _recording
+                          ? Colors.red
+                          : theme.iconTheme.color?.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         _recording ? 'Recording...' : 'Your speech',
                         style: TextStyle(
-                          color: _recording ? Colors.red : Colors.grey.shade600,
+                          color: _recording
+                            ? Colors.red
+                            : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -797,9 +822,15 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(
+                        color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.grey.shade300,
+                      ),
                     ),
                     constraints: const BoxConstraints(minHeight:80),
                     child: _recognized.isEmpty
@@ -807,18 +838,25 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
                           _recording
                             ? 'Speak now...'
                             : 'Press record and say the sentence',
-                          style: TextStyle(color: Colors.grey.shade400),
+                          style: TextStyle(
+                            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.4),
+                          ),
                         )
                       : Text(
                           _recognized,
-                          style: const TextStyle(fontSize:16),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: theme.textTheme.bodyLarge?.color,
+                          ),
                         ),
                   ),
                   if(_liveSimilarity > 0) ...[
                     const SizedBox(height:12),
                     LinearProgressIndicator(
                       value: (_liveSimilarity/100).clamp(0,1),
-                      backgroundColor: Colors.grey.shade200,
+                      backgroundColor: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.grey.shade200,
                       color: _liveSimilarity>=85? Colors.green : _liveSimilarity>=60? Colors.orange : Colors.red,
                     ),
                     const SizedBox(height:4),
@@ -826,7 +864,7 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
                       'Similarity: ${_liveSimilarity.toStringAsFixed(0)}%',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
