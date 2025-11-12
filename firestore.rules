@@ -114,10 +114,10 @@ service cloud.firestore {
 
       allow update: if
         (
-          // Profil alanları + username_lowercase birlikte güncellenebilir
+          // Profil alanları + username_lowercase + grammarHighestLevel birlikte güncellenebilir
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'displayName', 'username_lowercase', 'avatarUrl', 'birthDate', 'nativeLanguage', 'learningLanguage', 'learningLanguageLevel', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime'
+            'displayName', 'username_lowercase', 'avatarUrl', 'birthDate', 'nativeLanguage', 'learningLanguage', 'learningLanguageLevel', 'lastActivityDate', 'profileCompleted','streak', 'highestStreak', 'totalRoomTime', 'grammarHighestLevel'
           ]) &&
           // Validasyon kontrolleri
           (!request.resource.data.diff(resource.data).changedKeys().hasAny(['avatarUrl']) ||
@@ -132,6 +132,8 @@ service cloud.firestore {
            (request.resource.data.learningLanguageLevel == null || isValidLanguageLevel(request.resource.data.learningLanguageLevel))) &&
           (!request.resource.data.diff(resource.data).changedKeys().hasAny(['displayName']) ||
            (request.resource.data.displayName == null || isValidDisplayName(request.resource.data.displayName))) &&
+          (!request.resource.data.diff(resource.data).changedKeys().hasAny(['grammarHighestLevel']) ||
+           (request.resource.data.grammarHighestLevel == null || request.resource.data.grammarHighestLevel in ['Beginner','A1','A2','B1','B2','C1','C2'])) &&
           (
             // username_lowercase değişiyorsa geçerli ve rezerve edilmiş olmalı
             (
@@ -146,7 +148,7 @@ service cloud.firestore {
             )
           )
         ) || (
-          // FCM token listesi (sadece liste merge/update). Ayrı tutuldu ki diğer alanlarla aynı anda yazılamasın.
+          // FCM token listesi
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['fcmTokens']) &&
           request.resource.data.fcmTokens is list &&
@@ -169,7 +171,7 @@ service cloud.firestore {
           resource.data.status == 'banned' && request.resource.data.status == 'active' &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','bannedReason','bannedDetails','bannedAt','bannedBy','unbannedAt','unbannedBy'])
         ) || (
-          // Seviye güncelleme (A1..C2)
+          // Seviye güncelleme (A1..C2) (eski alan)
           isOwner(userId) && callerNotBanned() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['level']) &&
           request.resource.data.level in ['A1','A2','B1','B2','C1','C2']
