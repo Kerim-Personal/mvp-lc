@@ -124,7 +124,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
       if (!mounted || _userInteracting) return;
       if (!_pageController.hasClients) return;
 
-      final nextPage = (_currentFeaturePage + 1) % 6;
+      final nextPage = (_currentFeaturePage + 1) % 7;
       _pageController.animateToPage(
         nextPage,
         duration: const Duration(milliseconds: 500),
@@ -497,6 +497,11 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                                         title: 'VocaBot AI Assistant',
                                         description: 'AI practice companion offering contextual responses and gentle guidance.',
                                       ),
+                                      _buildFeatureCard(
+                                        animation: 'assets/animations/olympicsports.json',
+                                        title: 'Practice Modes',
+                                        description: 'Writing, Reading, Listening, Speaking practices to master all language skills.',
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -507,7 +512,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                               // Page Indicator Dots
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(6, (index) {
+                                children: List.generate(7, (index) {
                                   return AnimatedContainer(
                                     duration: const Duration(milliseconds: 300),
                                     margin: const EdgeInsets.symmetric(horizontal: 4),

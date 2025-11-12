@@ -71,6 +71,11 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
       'VocaBot AI Assistant',
       'AI practice companion offering contextual responses and gentle guidance.',
     ),
+    _FeatureData(
+      'assets/animations/olympicsports.json',
+      'Practice Modes',
+      'Writing, Reading, Listening, Speaking practices to master all language skills.',
+    ),
   ];
 
   @override
