@@ -45,7 +45,8 @@ class _PremiumStatusPanelState extends State<PremiumStatusPanel>
                 child: _AnimatedGoldBackground(controller: _bgController)),
             Positioned.fill(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: _PanelContent(
                   shimmerController: _shimmerController,
                 ),
@@ -134,12 +135,19 @@ class _PanelContent extends StatelessWidget {
 
   List<_Benefit> get _benefits => const [
     _Benefit('assets/animations/no ads icon.json', 'Ad-free'),
+
     _Benefit('assets/animations/Translate.json', 'Instant Translation'),
+
     _Benefit('assets/animations/Flags.json', 'Language Diversity'),
+
     _Benefit('assets/animations/Support.json', 'Priority Support'),
+
     _Benefit('assets/animations/Data Analysis.json', 'Grammar Analysis'),
+
     _Benefit('assets/animations/Robot says hello.json', 'VocaBot'),
+
     _Benefit('assets/animations/olympicsports.json', 'Practice'),
+
     _Benefit('assets/animations/Happy SUN.json', 'Shimmer'),
   ];
 
@@ -175,7 +183,7 @@ class _PanelContent extends StatelessWidget {
             const SizedBox(height: 12),
             _BenefitGrid(benefits: _benefits, chipFontSize: chipFont),
             const SizedBox(height: 10),
-            const _ThanksRow(),
+            const _ThanksRow(), // Düzeltilmiş Widget
             const SizedBox(height: 12),
             const _ManageSubscriptionButton(),
           ],
@@ -254,9 +262,7 @@ class _BenefitChip extends StatelessWidget {
   final double fontSize;
   final int index;
   const _BenefitChip(
-      {required this.benefit,
-        required this.fontSize,
-        required this.index});
+      {required this.benefit, required this.fontSize, required this.index});
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
@@ -320,6 +326,7 @@ class _BenefitChip extends StatelessWidget {
   }
 }
 
+// !!! BU KISIM DÜZELTİLDİ !!!
 class _ThanksRow extends StatelessWidget {
   const _ThanksRow();
   @override
@@ -344,29 +351,32 @@ class _ThanksRow extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(4)),
             ),
           ),
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 6,
-            runSpacing: 3,
-            children: [
-              const Icon(Icons.workspace_premium,
-                  color: Color(0xFFFFE8A3), size: 15),
-              Flexible(
-                child: Text(
-                  'Your support strengthens the learning community. Thank you, Pro member!',
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    height: 1.2,
+          // Wrap yerine Row kullanıldı, böylece Flexible hata vermez.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.workspace_premium,
+                    color: Color(0xFFFFE8A3), size: 15),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Your support strengthens the learning community. Thank you, Pro member!',
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -462,4 +472,3 @@ class _Benefit {
   final String label;
   const _Benefit(this.animationPath, this.label);
 }
-
