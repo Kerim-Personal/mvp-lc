@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vocachat/models/speaking_models.dart';
 import 'package:vocachat/repositories/speaking_repository.dart';
 
@@ -29,6 +30,14 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
   double _liveSimilarity = 0.0;
   Timer? _liveTimer;
 
+  // Voice/Accent & Speed selection
+  List<dynamic> _voices = [];
+  Map<String, dynamic>? _selectedVoice;
+  String? _selectedLanguage;
+  bool _loadingVoices = false;
+  double _ttsSpeed = 1.0;
+  final List<double> _speedOptions = const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
   @override
   void initState() {
     super.initState();
@@ -46,7 +55,9 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
       _enLocaleId = 'en_US';
     }
     await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(.9);
+    await _loadPersistedSettings();
+    await _loadVoices();
+    _applyTtsSettings();
     if (mounted) setState(() {});
   }
 
@@ -54,6 +65,212 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
     final text = prompt.targets[_currentIndex];
     await _tts.stop();
     await _tts.speak(text);
+  }
+
+  // Voice & Speed settings persistence
+  Future<void> _loadPersistedSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final voiceJson = prefs.getString('speaking_tts_voice');
+    final lang = prefs.getString('speaking_tts_lang');
+    final speed = prefs.getDouble('speaking_tts_speed') ?? 1.0;
+
+    if (voiceJson != null) {
+      try {
+        _selectedVoice = Map<String, dynamic>.from(Uri.splitQueryString(voiceJson));
+      } catch (_) {}
+    }
+    _selectedLanguage = lang;
+    _ttsSpeed = speed;
+  }
+
+  Future<void> _persistSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_selectedVoice != null) {
+      final map = _selectedVoice!;
+      final serialized = map.entries.map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent('${e.value}')}').join('&');
+      await prefs.setString('speaking_tts_voice', serialized);
+      await prefs.setString('speaking_tts_lang', _selectedLanguage ?? '');
+    }
+    await prefs.setDouble('speaking_tts_speed', _ttsSpeed);
+  }
+
+  Future<void> _loadVoices() async {
+    if (_loadingVoices) return;
+    setState(() => _loadingVoices = true);
+    try {
+      final voices = await _tts.getVoices;
+      if (!mounted) return;
+      voices.sort((a, b) {
+        final la = (a['locale'] ?? a['language'] ?? '').toString();
+        final lb = (b['locale'] ?? b['language'] ?? '').toString();
+        final na = (a['name'] ?? '').toString();
+        final nb = (b['name'] ?? '').toString();
+        final c = la.compareTo(lb);
+        return c != 0 ? c : na.compareTo(nb);
+      });
+
+      // Sadece İngilizce aksanları (en-US, en-GB)
+      final filtered = voices.where((v) {
+        final raw = (v['locale'] ?? v['language'] ?? '').toString();
+        final loc = raw.replaceAll('_', '-').toLowerCase();
+        return loc.startsWith('en-us') || loc.startsWith('en-gb');
+      }).toList();
+
+      setState(() { _voices = filtered; });
+      if (_voices.isNotEmpty) {
+        if (_selectedVoice == null) {
+          _selectedVoice = Map<String,dynamic>.from(_voices.first.map((k,v)=>MapEntry(k.toString(), v)));
+          _applyTtsSettings();
+          await _persistSettings();
+        } else {
+          final selName = (_selectedVoice!['name'] ?? '').toString();
+          final selLocale = (_selectedVoice!['locale'] ?? _selectedVoice!['language'] ?? '').toString();
+          final stillExists = _voices.any((v) => (v['name'] ?? '').toString() == selName && ((v['locale'] ?? v['language'] ?? '').toString() == selLocale));
+          if (!stillExists) {
+            _selectedVoice = Map<String,dynamic>.from(_voices.first.map((k,v)=>MapEntry(k.toString(), v)));
+            _applyTtsSettings();
+            await _persistSettings();
+          }
+        }
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      if (mounted) setState(() => _loadingVoices = false);
+    }
+  }
+
+  void _applyTtsSettings() {
+    if (_selectedVoice != null) {
+      final locale = _selectedVoice!['locale'] ?? _selectedVoice!['language'] ?? _selectedLanguage;
+      if (locale is String) {
+        _tts.setLanguage(locale);
+        _selectedLanguage = locale;
+      }
+      try {
+        final name = _selectedVoice!['name'];
+        if (name is String && _selectedLanguage != null) {
+          _tts.setVoice({'name': name, 'locale': _selectedLanguage ?? 'en-US'});
+        }
+      } catch (_) {}
+      _tts.setPitch(1.0);
+    } else if (_selectedLanguage != null) {
+      _tts.setLanguage(_selectedLanguage!);
+      _tts.setPitch(1.0);
+    }
+    // Hız değerini TTS ölçeğine dönüştür
+    _tts.setSpeechRate(_mapSpeedToTts(_ttsSpeed));
+  }
+
+  // Listening detay ekranındaki hız ölçeği ile aynı (görsel 0.5–2.0 -> gerçek 0.30–0.90)
+  double _mapSpeedToTts(double s) {
+    if (s <= 0.50) return 0.30;
+    if (s <= 0.75) return 0.40;
+    if (s <= 1.00) return 0.50;
+    if (s <= 1.25) return 0.60;
+    if (s <= 1.50) return 0.70;
+    if (s <= 1.75) return 0.80;
+    return 0.90;
+  }
+
+  void _openVoicePicker() async {
+    if (_voices.isEmpty && !_loadingVoices) {
+      await _loadVoices();
+    }
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        final currentName = _selectedVoice?['name'];
+        return SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.record_voice_over),
+                    const SizedBox(width: 8),
+                    const Text('Select Accent / Voice', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    if (_loadingVoices) const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _voices.isEmpty
+                    ? const Center(child: Text('Could not retrieve voice list.'))
+                    : ListView.builder(
+                  itemCount: _voices.length,
+                  itemBuilder: (c, i) {
+                    final v = _voices[i] as Map;
+                    final name = (v['name'] ?? 'Unknown').toString();
+                    final locale = (v['locale'] ?? v['language'] ?? '').toString();
+                    final selected = name == currentName;
+                    return ListTile(
+                      title: Text(name),
+                      subtitle: Text(locale),
+                      trailing: selected ? const Icon(Icons.check, color: Colors.green) : null,
+                      onTap: () async {
+                        setState(() {
+                          _selectedVoice = Map<String, dynamic>.from(v.map((k, val) => MapEntry(k.toString(), val)));
+                        });
+                        _applyTtsSettings();
+                        await _persistSettings();
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openSpeedSheet() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 4),
+              const Text('Playback Speed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _speedOptions.length,
+                  itemBuilder: (c, i) {
+                    final s = _speedOptions[i];
+                    final selected = (s - _ttsSpeed).abs() < 0.01;
+                    return ListTile(
+                      leading: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: selected ? Theme.of(context).colorScheme.primary : null),
+                      title: Text('${s}x'),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        setState(() => _ttsSpeed = s);
+                        _applyTtsSettings();
+                        await _persistSettings();
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _toggleRecord() async {
@@ -706,6 +923,16 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
         title: Text(prompt.title),
         actions: [
           IconButton(
+            onPressed: _openVoicePicker,
+            icon: const Icon(Icons.record_voice_over),
+            tooltip: 'Accent',
+          ),
+          IconButton(
+            onPressed: _openSpeedSheet,
+            icon: const Icon(Icons.speed),
+            tooltip: 'Speed',
+          ),
+          IconButton(
             onPressed: _playTarget,
             icon: const Icon(Icons.volume_up_rounded),
             tooltip: 'Listen',
@@ -913,4 +1140,3 @@ class _PracticeSpeakingDetailScreenState extends State<PracticeSpeakingDetailScr
     );
   }
 }
-

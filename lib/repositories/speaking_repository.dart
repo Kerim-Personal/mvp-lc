@@ -54,7 +54,7 @@ class SpeakingRepository {
         partnerLine: 'Hi there! What can I get you today?',
         targets: [
           "Hi! I'd like a medium latte, please.",
-          "Can you make it with oat milk?",
+          "Can you make it without milk?",
           "That's all, thank you.",
         ],
         tips: [
