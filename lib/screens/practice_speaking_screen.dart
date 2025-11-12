@@ -9,6 +9,7 @@ import 'package:vocachat/widgets/practice/practice_headers.dart';
 class PracticeSpeakingScreen extends StatefulWidget {
   const PracticeSpeakingScreen({super.key});
   static const routeName = '/practice-speaking';
+
   @override
   State<PracticeSpeakingScreen> createState() => _PracticeSpeakingScreenState();
 }
@@ -66,13 +67,23 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final list = _visiblePrompts;
-    final topMargin = EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + kToolbarHeight + 12, 16, 12);
+    final topMargin = EdgeInsets.fromLTRB(
+      16,
+      MediaQuery.of(context).padding.top + kToolbarHeight + 12,
+      16,
+      12,
+    );
 
-    // AppBar transparan olacak.
     Widget circleWrapper(Widget child) => Container(
-      margin: const EdgeInsets.symmetric(horizontal:4, vertical:6),
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       width: 44,
       height: 44,
       decoration: BoxDecoration(
@@ -97,7 +108,7 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
         systemOverlayStyle: SystemUiOverlayStyle.light,
         title: const Text('Speaking'),
         leading: canPop ? GestureDetector(
-          onTap: ()=> Navigator.of(context).maybePop(),
+          onTap: () => Navigator.of(context).maybePop(),
           child: circleWrapper(const Icon(Icons.arrow_back, color: Colors.white)),
         ) : null,
         leadingWidth: canPop ? 60 : null,
@@ -107,7 +118,7 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
               icon: const Icon(Icons.filter_list, color: Colors.white),
               initialValue: _menuSelection,
               onSelected: _onMenuSelected,
-              itemBuilder: (c)=> const [
+              itemBuilder: (c) => const [
                 PopupMenuItem(value: _FilterOption.all, child: Text('All')),
                 PopupMenuItem(value: _FilterOption.beginner, child: Text('Beginner')),
                 PopupMenuItem(value: _FilterOption.intermediate, child: Text('Intermediate')),
@@ -141,41 +152,32 @@ class _PracticeSpeakingScreenState extends State<PracticeSpeakingScreen> {
                 margin: topMargin,
                 hero: false,
               ),
-              const SizedBox(height:8),
+              const SizedBox(height: 8),
               Expanded(
-                child: list.isEmpty ? const EmptyState(message: 'No speaking prompts found.') : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(16,8,16,24),
-                  itemCount: list.length,
-                  itemBuilder: (c,i){
-                    final p = list[i];
-                    return AnimatedSlide(
-                      duration: const Duration(milliseconds: 300),
-                      offset: Offset(0, 0.02 * (1 - (i / (list.length.clamp(1, 99))))),
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 400),
-                        opacity: 1,
-                        child: _SpeakingPromptCard(prompt: p, onTap: (){
-                          Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_)=> PracticeSpeakingDetailScreen(promptId: p.id))
-                          );
-                        }),
-                      ),
-                    );
-                  },
-                ),
-              )
+                child: list.isEmpty
+                  ? const Center(child: Text('No speaking prompts found.', style: TextStyle(color: Colors.white)))
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: list.length,
+                      itemBuilder: (c, i) {
+                        final p = list[i];
+                        return _SpeakingPromptCard(
+                          prompt: p,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => PracticeSpeakingDetailScreen(promptId: p.id))
+                            );
+                          },
+                        );
+                      },
+                    ),
+              ),
             ],
           ),
-        ]
+        ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 }
 
@@ -184,11 +186,10 @@ class _SpeakingPromptCard extends StatelessWidget {
   final VoidCallback onTap;
   const _SpeakingPromptCard({required this.prompt, required this.onTap});
 
-  Color _modeColor(SpeakingMode m) => switch (m) {
-    SpeakingMode.shadowing => Colors.deepPurple,
-    SpeakingMode.repeat => Colors.teal,
-    SpeakingMode.roleplay => Colors.indigo,
-    SpeakingMode.qna => Colors.orange,
+  Color _levelColor(SpeakingLevel level) => switch (level) {
+    SpeakingLevel.beginner => Colors.green,
+    SpeakingLevel.intermediate => Colors.orange,
+    SpeakingLevel.advanced => Colors.red,
   };
 
   @override
@@ -196,36 +197,64 @@ class _SpeakingPromptCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Card(
-        margin: const EdgeInsets.only(bottom:14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children:[
-              Row(children:[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal:10, vertical:4),
-                  decoration: BoxDecoration(
-                    color: _modeColor(prompt.mode).withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _levelColor(prompt.level).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.signal_cellular_alt, size: 14, color: _levelColor(prompt.level)),
+                        const SizedBox(width: 4),
+                        Text(
+                          prompt.level.name.toUpperCase(),
+                          style: TextStyle(
+                            color: _levelColor(prompt.level),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Text(prompt.mode.label, style: TextStyle(color:_modeColor(prompt.mode), fontWeight: FontWeight.w600)),
-                ),
-                const Spacer(),
-                Icon(Icons.mic, size:18, color: Colors.grey.shade600),
-              ]),
-              const SizedBox(height:10),
-              Text(prompt.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height:6),
-              Text(prompt.context, maxLines: 2, overflow: TextOverflow.ellipsis),
-              if(prompt.tips.isNotEmpty)...[
-                const SizedBox(height:8),
-                Wrap(
-                  spacing:6, runSpacing:4,
-                  children: prompt.tips.take(3).map((t)=> Chip(label: Text(t, style: const TextStyle(fontSize:11)), visualDensity: VisualDensity.compact)).toList(),
-                )
-              ]
+                  const Spacer(),
+                  Icon(Icons.mic, size: 18, color: Colors.grey.shade600),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                prompt.title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                prompt.context,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.format_quote, size: 14, color: Colors.grey.shade500),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${prompt.targets.length} sentences',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -233,3 +262,4 @@ class _SpeakingPromptCard extends StatelessWidget {
     );
   }
 }
+
