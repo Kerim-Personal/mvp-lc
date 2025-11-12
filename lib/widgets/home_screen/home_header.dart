@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:vocachat/screens/paywall_screen.dart';
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({
@@ -290,75 +289,42 @@ class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
     final statusText = isPremiumUser ? 'Premium' : 'Starter';
     final statusIcon = isPremiumUser ? Icons.workspace_premium : Icons.stars;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      constraints: const BoxConstraints(minHeight: 32),
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        onTap: _onStatusTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          constraints: const BoxConstraints(minHeight: 32),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              colors: isPremiumUser
-                  ? const [Color(0xFF7F5DFF), Color(0xFFE5B53A)]
-                  : const [Color(0xFF545B62), Color(0xFF6B7280)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.5),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(statusIcon, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(
-                statusText,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
+        gradient: LinearGradient(
+          colors: isPremiumUser
+              ? const [Color(0xFF7F5DFF), Color(0xFFE5B53A)]
+              : const [Color(0xFF545B62), Color(0xFF6B7280)],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusIcon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            statusText,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
-  }
-
-  void _onStatusTap() {
-    if (!mounted) return;
-    if (!widget.isPremium) {
-      final nav = Navigator.of(context, rootNavigator: true);
-      nav.push(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => PaywallScreen(
-            canDismiss: true,
-            onClose: () {
-              nav.pop();
-            },
-          ),
-        ),
-      );
-    } else {
-      // Premium kullanıcılar için mevcut mağaza akışını koru
-      _openStore();
-    }
-  }
-
-  void _openStore() {
-    if (!mounted) return;
-    Navigator.of(context).pushNamed('/store');
   }
 
   List<Color> _selectAdaptivePalette(DateTime now, bool isPremium, String? role) {
