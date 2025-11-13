@@ -1,6 +1,7 @@
 // lib/main.dart
 // Rabbi yessir velâ tuassir Rabbi temmim bi'l-hayr.
 
+import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,8 @@ import 'package:vocachat/screens/onboarding_screen.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
 import 'package:vocachat/screens/paywall_screen.dart';
 import 'package:vocachat/screens/banned_screen.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 // Uygulama yaşam döngüsünü dinleyip müziği yönetir
 class _AppLifecycleAudioObserver with WidgetsBindingObserver {
@@ -81,6 +84,19 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Crashlytics'i başlat
+  FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+  };
+  // PlatformDispatcher hataları için
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+
+  // Analytics'i başlat
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
 
   // AppCheck *Firestore isteklerinden önce* aktive edilir
   await _initAppCheckSafely();
