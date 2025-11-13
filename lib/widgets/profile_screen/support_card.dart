@@ -452,7 +452,7 @@ class SupportCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              'Version 1.1.2',
+                              'Version 1.1.3',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: isDark ? Colors.grey.shade300 : Colors.black54,
@@ -503,7 +503,7 @@ class SupportCard extends StatelessWidget {
                                         showLicensePage(
                                           context: context,
                                           applicationName: 'VocaChat',
-                                          applicationVersion: '1.1.2',
+                                          applicationVersion: '1.1.3',
                                           applicationLegalese: '© 2025 Codenzi. All rights reserved.',
                                         );
                                       },
