@@ -5,7 +5,6 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:vocachat/services/revenuecat_service.dart';
@@ -39,6 +38,19 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   Timer? _autoScrollTimer;
+
+  // İndirim yüzdesini hesapla
+  String get _discountPercentage {
+    final monthlyPrice = RevenueCatService.instance.monthlyPrice;
+    final annualPrice = RevenueCatService.instance.annualPrice;
+
+    if (monthlyPrice != null && annualPrice != null && monthlyPrice > 0) {
+      final yearlyEquivalent = monthlyPrice * 12;
+      final discount = ((yearlyEquivalent - annualPrice) / yearlyEquivalent * 100).round();
+      return '$discount% OFF';
+    }
+    return '30% OFF'; // Fallback
+  }
 
   // Premium özellikler - Dosya isimleri güvenli hale getirildi (snake_case)
   static const List<_FeatureData> _features = [
@@ -483,7 +495,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
                                 title: 'Yearly',
                                 price: RevenueCatService.instance.annualPriceString ?? r'$79.99',
                                 period: '/yr',
-                                badge: '30% OFF',
+                                badge: _discountPercentage,
                               ),
                             ),
                           ],

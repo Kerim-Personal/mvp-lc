@@ -269,6 +269,23 @@ class RevenueCatService with ChangeNotifier {
     return pkg?.storeProduct.priceString;
   }
 
+  double? get monthlyPrice {
+    final androidFullId = 'premium_monthly:monthly-normal';
+    final pkg = _findPackageByFullOrProductId(androidFullId, 'premium_monthly')
+        ?? _findPackageByType(PackageType.monthly)
+        ?? _findPackageByIdentifier('monthly');
+    return pkg?.storeProduct.price;
+  }
+
+  double? get annualPrice {
+    final androidFullId = 'premium_yearly:yearly-normal';
+    final pkg = _findPackageByFullOrProductId(androidFullId, 'premium_yearly')
+        ?? _findPackageByType(PackageType.annual)
+        ?? _findPackageByIdentifier('yearly')
+        ?? _findPackageByIdentifier('annual');
+    return pkg?.storeProduct.price;
+  }
+
   /// Kullanıcının daha önce ücretsiz deneme kullanıp kullanmadığını kontrol eder
   bool get hasUsedFreeTrial {
     if (_customerInfo == null) return false;
