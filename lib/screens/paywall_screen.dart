@@ -137,7 +137,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
       if (!mounted || _userInteracting) return;
       if (!_pageController.hasClients) return;
 
-      final nextPage = (_currentFeaturePage + 1) % 7;
+      final nextPage = (_currentFeaturePage + 1) % 8;
       _pageController.animateToPage(
         nextPage,
         duration: const Duration(milliseconds: 500),
@@ -515,6 +515,11 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                                         title: 'Practice Modes',
                                         description: 'Writing, Reading, Listening, Speaking practices to master all language skills.',
                                       ),
+                                      _buildFeatureCard(
+                                        animation: 'assets/animations/Happy SUN.json',
+                                        title: 'Shimmer Effect',
+                                        description: 'Exclusive visual polish and subtle premium animations that reinforce progress and motivation.',
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -525,7 +530,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                               // Page Indicator Dots
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(7, (index) {
+                                children: List.generate(8, (index) {
                                   return AnimatedContainer(
                                     duration: const Duration(milliseconds: 300),
                                     margin: const EdgeInsets.symmetric(horizontal: 4),

@@ -22,7 +22,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
 
   static const List<_FeatureData> _features = [
     _FeatureData(
-      'Ad-free',
+      'Ad-Free Experience',
       'Zero distractions. Completely ad‑free interface for uninterrupted focus.',
       'assets/animations/no ads icon.json',
     ),
@@ -47,12 +47,17 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
       'assets/animations/Data Analysis.json',
     ),
     _FeatureData(
-      'VocaBot',
+      'VocaBot AI Assistant',
       'AI practice companion offering contextual replies and gentle guidance while you learn.',
       'assets/animations/Robot says hello.json',
     ),
     _FeatureData(
-      'Shimmer',
+      'Practice Modes',
+      'Writing, Reading, Listening, Speaking practices to master all language skills.',
+      'assets/animations/olympicsports.json',
+    ),
+    _FeatureData(
+      'Shimmer Effect',
       'Exclusive visual polish and subtle premium animations that reinforce progress and motivation.',
       'assets/animations/Happy SUN.json',
     ),

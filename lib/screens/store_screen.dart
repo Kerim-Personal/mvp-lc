@@ -60,7 +60,7 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
       'Learn without interruptions. Focus better with a completely ad-free interface.',
     ),
     _FeatureData(
-      'assets/animations/Translate.json', // Eğer dosya adı buysa kalabilir, değilse translate.json yapın
+      'assets/animations/Translate.json',
       'Instant Translation',
       'Translate messages instantly without switching apps. Keep learning seamlessly.',
     ),
@@ -88,6 +88,11 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
       'assets/animations/olympicsports.json',
       'Practice Modes',
       'Writing, Reading, Listening, Speaking practices to master all language skills.',
+    ),
+    _FeatureData(
+      'assets/animations/Happy SUN.json',
+      'Shimmer Effect',
+      'Exclusive visual polish and subtle premium animations that reinforce progress and motivation.',
     ),
   ];
 
