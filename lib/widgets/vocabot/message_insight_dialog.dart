@@ -5,12 +5,73 @@ import 'package:vocachat/models/grammar_analysis.dart';
 import 'package:vocachat/models/message_unit.dart';
 import 'package:vocachat/widgets/vocabot/metric_gauge.dart';
 import 'package:vocachat/widgets/vocabot/stats_section.dart';
+import 'package:vocachat/services/vocabot_service.dart';
 
-class MessageInsightDialog extends StatelessWidget {
+class MessageInsightDialog extends StatefulWidget {
   final MessageUnit message;
   final Function(String) onCorrect;
+  final String targetLanguage;
+  final String nativeLanguage;
+  final String learningLevel;
 
-  const MessageInsightDialog({super.key, required this.message, required this.onCorrect});
+  const MessageInsightDialog({
+    super.key,
+    required this.message,
+    required this.onCorrect,
+    this.targetLanguage = 'en',
+    this.nativeLanguage = 'en',
+    this.learningLevel = 'medium',
+  });
+
+  @override
+  State<MessageInsightDialog> createState() => _MessageInsightDialogState();
+}
+
+class _MessageInsightDialogState extends State<MessageInsightDialog> {
+  GrammarAnalysis? _analysis;
+  bool _isLoading = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _analysis = widget.message.grammarAnalysis;
+    // Eğer analiz yoksa, şimdi yap
+    if (_analysis == null && widget.message.sender == MessageSender.user) {
+      _performAnalysis();
+    }
+  }
+
+  Future<void> _performAnalysis() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final service = LinguaBotService(
+        targetLanguage: widget.targetLanguage,
+        nativeLanguage: widget.nativeLanguage,
+        learningLevel: widget.learningLevel,
+      );
+      final result = await service.analyzeGrammar(widget.message.text);
+      if (mounted) {
+        setState(() {
+          _analysis = result;
+          _isLoading = false;
+          // Mesajı da güncelle
+          widget.message.grammarAnalysis = result;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    }
+  }
 
   // Kullanılmayan ayrıntılı etiket fonksiyonları kaldırıldı (score/cefr/tense). Sade yapı.
   String _formalityToString(Formality f){
@@ -62,7 +123,7 @@ class MessageInsightDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final analysis = message.grammarAnalysis;
+    final analysis = _analysis;
     final maxHeight = MediaQuery.of(context).size.height * 0.7;
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -89,10 +150,41 @@ class MessageInsightDialog extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text('"${message.text}"', style: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic)),
+                  Text('"${widget.message.text}"', style: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic)),
                   const Divider(color: Colors.cyan, height: 20),
 
-                  if (analysis != null) ...[
+                  if (_isLoading) ...[
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(color: Colors.cyanAccent),
+                            SizedBox(height: 16),
+                            Text("Analyzing your message...", style: TextStyle(color: Colors.white70)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ] else if (_hasError) ...[
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                            const SizedBox(height: 16),
+                            const Text("Analysis failed", style: TextStyle(color: Colors.redAccent, fontSize: 16)),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _performAnalysis,
+                              child: const Text("Try Again"),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ] else if (analysis != null) ...[
                     StatsSection(
                       analysis: analysis,
                       statLineBuilder: ({required icon, required color, required title, required value, subtitle}) => _statLine(icon: icon, color: color, title: title, value: value, subtitle: subtitle),
@@ -102,7 +194,7 @@ class MessageInsightDialog extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: MetricGauge(label: "Vocabulary Variety", value: message.vocabularyRichness, color: Colors.amber)),
+                        Expanded(child: MetricGauge(label: "Vocabulary Variety", value: widget.message.vocabularyRichness, color: Colors.amber)),
                         const SizedBox(width:12),
                         Expanded(child: MetricGauge(label: "Sentiment Tone", value: (analysis.sentiment + 1) / 2, color: Colors.green)),
                         const SizedBox(width:12),
@@ -195,8 +287,8 @@ class MessageInsightDialog extends StatelessWidget {
                 final wrong = correction.key.trim();
                 if (wrong.isEmpty) return;
                 final pattern = RegExp(r'\b' + RegExp.escape(wrong) + r'\b');
-                final newText = message.text.replaceAll(pattern, correction.value);
-                onCorrect(newText);
+                final newText = widget.message.text.replaceAll(pattern, correction.value);
+                widget.onCorrect(newText);
                 Navigator.pop(context);
               },
               tooltip: "Apply",

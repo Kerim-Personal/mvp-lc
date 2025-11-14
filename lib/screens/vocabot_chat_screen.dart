@@ -531,13 +531,11 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
       _commitAndResetSessionTime();
     }
 
-    // Gramer analizi: her durumda paralel başlat
-    final Future<GrammarAnalysis?> analysisFuture = _botService.analyzeGrammar(text);
-
+    // Gramer analizi otomatik olarak yapılmayacak - sadece kullanıcı "Analyze" butonuna bastığında
     final userMessage = MessageUnit(
       text: text,
       sender: MessageSender.user,
-      grammarAnalysis: null, // analiz hazır olduğunda doldurulacak
+      grammarAnalysis: null,
       vocabularyRichness: TextMetrics.vocabularyRichness(text),
     );
 
@@ -551,21 +549,6 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
       LocalChatStorage.instance.save(u1.uid, _targetLanguage, _messages);
     }
 
-    // Analiz tamamlanınca mesajı güncelle
-    analysisFuture.then((analysis) {
-      if (!mounted) return;
-      if (analysis != null) {
-        setState(() {
-          final idx = _messages.indexWhere((m) => m.id == userMessage.id);
-          if (idx != -1) {
-            _messages[idx].grammarAnalysis = analysis;
-          }
-        });
-        // Analiz güncellemesi sonrası da kaydetmek gerekmiyor; sadece metinler saklanıyor.
-      }
-    }).catchError((_) {
-      // sessizce yoksay
-    });
 
     final botStartTime = DateTime.now();
 

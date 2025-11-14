@@ -150,6 +150,8 @@ class MessageBubble extends StatelessWidget {
                     builder: (_) => MessageInsightDialog(
                       message: message,
                       onCorrect: onCorrect,
+                      nativeLanguage: nativeLanguage,
+                      // targetLanguage ve learningLevel için varsayılan değerler kullanılacak
                     ),
                   );
                 },
@@ -339,34 +341,7 @@ class MessageBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               textWidget,
-              if (isUser && ga != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.cyanAccent.withAlpha((255*0.4).round())),
-                        ),
-                        child: Text('Score ${(ga.grammarScore*100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.w600)),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.amber.withAlpha((255*0.4).round())),
-                        ),
-                        child: Text(ga.cefr, style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w600)),
-                      ),
-                    ],
-                  ),
-                ),
+              // Skor ve seviye gösterimi kaldırıldı
               // Quick actions (small icons)
               if (message.quiz == null) // quiz mesajında gizle
                 Padding(
@@ -414,6 +389,7 @@ class MessageBubble extends StatelessWidget {
                             builder: (_) => MessageInsightDialog(
                               message: message,
                               onCorrect: onCorrect,
+                              nativeLanguage: nativeLanguage,
                             ),
                           );
                         },
