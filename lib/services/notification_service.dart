@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Match Found Event Stream
 // A simple stream to broadcast match events from FCM handlers to the UI.
@@ -123,25 +124,54 @@ class NotificationService {
   }
 
   Future<void> _storeToken(String? token) async {
-    if (token == null) return;
+    if (token == null || token.isEmpty) return;
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final ref = FirebaseFirestore.instance.collection('users').doc(uid);
 
-    // Doküman yokken create denemesi yapmayın; sadece update deneyin.
-    // Update doküman yoksa client tarafında not-found ile düşer ve kuralları ihlal etmez.
-    for (int attempt = 0; attempt < 3; attempt++) {
-      try {
-        await ref.update({
-          'fcmTokens': [token], // tek tokenı sakla
-        });
-        return; // başarı
-      } catch (e) {
-        // Doküman henüz oluşmadıysa kısa bir gecikmeden sonra tekrar dene
-        await Future.delayed(Duration(milliseconds: 200 * (attempt + 1)));
+    try {
+      // Token'ı local cache'e kaydet ve önceki token ile karşılaştır
+      final prefs = await SharedPreferences.getInstance();
+      final cachedToken = prefs.getString('fcm_token_$uid');
+
+      // Token değişmediyse Firestore'a yazmaya gerek yok
+      if (cachedToken == token) {
+        if (kDebugMode) debugPrint('FCM token değişmedi, Firestore güncellemesi atlanıyor');
+        return;
       }
+
+      // Token değiştiyse local cache'i güncelle
+      await prefs.setString('fcm_token_$uid', token);
+
+      final ref = FirebaseFirestore.instance.collection('users').doc(uid);
+
+      // Firestore'a tek token string olarak kaydet (array yerine)
+      // Bu şekilde TOO_MANY_REGISTRATIONS hatası önlenir
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          await ref.update({
+            'fcmToken': token, // Tek token
+            'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+          });
+          if (kDebugMode) debugPrint('FCM token başarıyla güncellendi');
+          return; // başarı
+        } catch (e) {
+          if (kDebugMode) debugPrint('FCM token güncelleme hatası (deneme ${attempt + 1}): $e');
+
+          // Eğer doküman yoksa veya son denemede hata varsa
+          if (attempt == 2) {
+            // Son deneme, sessizce logla
+            if (kDebugMode) debugPrint('FCM token güncellenemedi, daha sonra tekrar denenecek');
+            return;
+          }
+
+          // Doküman henüz oluşmadıysa kısa bir gecikmeden sonra tekrar dene
+          await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('_storeToken genel hata: $e');
     }
-    // Son denemede de başarısızsa sessizce bırak (doküman daha sonra oluştuğunda auth değişiminde tekrar denenecek)
   }
 
   Future<void> dispose() async {
