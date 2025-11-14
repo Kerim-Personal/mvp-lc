@@ -55,14 +55,29 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
   // Premium özellikler - Dosya isimleri güvenli hale getirildi (snake_case)
   static const List<_FeatureData> _features = [
     _FeatureData(
-      'assets/animations/no ads icon.json',
-      'Ad-Free Experience',
-      'Learn without interruptions. Focus better with a completely ad-free interface.',
+      'assets/animations/Robot says hello.json',
+      'VocaBot AI Assistant',
+      'AI practice companion offering contextual responses and gentle guidance.',
     ),
     _FeatureData(
       'assets/animations/Translate.json',
       'Instant Translation',
       'Translate messages instantly without switching apps. Keep learning seamlessly.',
+    ),
+    _FeatureData(
+      'assets/animations/Data Analysis.json',
+      'Grammar Analysis',
+      'Real-time grammar and clarity suggestions to improve every message you write.',
+    ),
+    _FeatureData(
+      'assets/animations/olympicsports.json',
+      'Practice Modes',
+      'Writing, Reading, Listening, Speaking practices to master all language skills.',
+    ),
+    _FeatureData(
+      'assets/animations/no ads icon.json',
+      'Ad-Free Experience',
+      'Learn without interruptions. Focus better with a completely ad-free interface.',
     ),
     _FeatureData(
       'assets/animations/Flags.json',
@@ -73,21 +88,6 @@ class _StoreScreenState extends State<StoreScreen> with SingleTickerProviderStat
       'assets/animations/Support.json',
       'Priority Support',
       'Fast solutions to your problems with direct communication and premium support.',
-    ),
-    _FeatureData(
-      'assets/animations/Data Analysis.json',
-      'Grammar Analysis',
-      'Real-time grammar and clarity suggestions to improve every message you write.',
-    ),
-    _FeatureData(
-      'assets/animations/Robot says hello.json',
-      'VocaBot AI Assistant',
-      'AI practice companion offering contextual responses and gentle guidance.',
-    ),
-    _FeatureData(
-      'assets/animations/olympicsports.json',
-      'Practice Modes',
-      'Writing, Reading, Listening, Speaking practices to master all language skills.',
     ),
     _FeatureData(
       'assets/animations/Happy SUN.json',

@@ -22,14 +22,29 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
 
   static const List<_FeatureData> _features = [
     _FeatureData(
-      'Ad-Free Experience',
-      'Zero distractions. Completely ad‑free interface for uninterrupted focus.',
-      'assets/animations/no ads icon.json',
+      'VocaBot AI Assistant',
+      'AI practice companion offering contextual replies and gentle guidance while you learn.',
+      'assets/animations/Robot says hello.json',
     ),
     _FeatureData(
       'Instant Translation',
       'Inline, instant message translation—stay immersed without switching apps.',
       'assets/animations/Translate.json',
+    ),
+    _FeatureData(
+      'Grammar Analysis',
+      'Real‑time grammar and clarity suggestions to tighten every message as you type.',
+      'assets/animations/Data Analysis.json',
+    ),
+    _FeatureData(
+      'Practice Modes',
+      'Writing, Reading, Listening, Speaking practices to master all language skills.',
+      'assets/animations/olympicsports.json',
+    ),
+    _FeatureData(
+      'Ad-Free Experience',
+      'Zero distractions. Completely ad‑free interface for uninterrupted focus.',
+      'assets/animations/no ads icon.json',
     ),
     _FeatureData(
       'Language Diversity',
@@ -40,21 +55,6 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
       'Priority Support',
       'Priority issue resolution: faster responses and direct escalation when something breaks.',
       'assets/animations/Support.json',
-    ),
-    _FeatureData(
-      'Grammar Analysis',
-      'Real‑time grammar and clarity suggestions to tighten every message as you type.',
-      'assets/animations/Data Analysis.json',
-    ),
-    _FeatureData(
-      'VocaBot AI Assistant',
-      'AI practice companion offering contextual replies and gentle guidance while you learn.',
-      'assets/animations/Robot says hello.json',
-    ),
-    _FeatureData(
-      'Practice Modes',
-      'Writing, Reading, Listening, Speaking practices to master all language skills.',
-      'assets/animations/olympicsports.json',
     ),
     _FeatureData(
       'Shimmer Effect',

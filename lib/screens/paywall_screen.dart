@@ -481,14 +481,29 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                                     },
                                     children: [
                                       _buildFeatureCard(
-                                        animation: 'assets/animations/no ads icon.json',
-                                        title: 'Ad-Free Experience',
-                                        description: 'Learn without interruptions. Focus better with a completely ad-free interface.',
+                                        animation: 'assets/animations/Robot says hello.json',
+                                        title: 'VocaBot AI Assistant',
+                                        description: 'AI practice companion offering contextual responses and gentle guidance.',
                                       ),
                                       _buildFeatureCard(
                                         animation: 'assets/animations/Translate.json',
                                         title: 'Instant Translation',
                                         description: 'Translate messages instantly without switching apps. Keep learning seamlessly.',
+                                      ),
+                                      _buildFeatureCard(
+                                        animation: 'assets/animations/Data Analysis.json',
+                                        title: 'Grammar Analysis',
+                                        description: 'Real-time grammar and clarity suggestions to improve every message you write.',
+                                      ),
+                                      _buildFeatureCard(
+                                        animation: 'assets/animations/olympicsports.json',
+                                        title: 'Practice Modes',
+                                        description: 'Writing, Reading, Listening, Speaking practices to master all language skills.',
+                                      ),
+                                      _buildFeatureCard(
+                                        animation: 'assets/animations/no ads icon.json',
+                                        title: 'Ad-Free Experience',
+                                        description: 'Learn without interruptions. Focus better with a completely ad-free interface.',
                                       ),
                                       _buildFeatureCard(
                                         animation: 'assets/animations/Flags.json',
@@ -499,21 +514,6 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                                         animation: 'assets/animations/Support.json',
                                         title: 'Priority Support',
                                         description: 'Fast solutions to your problems with direct communication and premium support.',
-                                      ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/Data Analysis.json',
-                                        title: 'Grammar Analysis',
-                                        description: 'Real-time grammar and clarity suggestions to improve every message you write.',
-                                      ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/Robot says hello.json',
-                                        title: 'VocaBot AI Assistant',
-                                        description: 'AI practice companion offering contextual responses and gentle guidance.',
-                                      ),
-                                      _buildFeatureCard(
-                                        animation: 'assets/animations/olympicsports.json',
-                                        title: 'Practice Modes',
-                                        description: 'Writing, Reading, Listening, Speaking practices to master all language skills.',
                                       ),
                                       _buildFeatureCard(
                                         animation: 'assets/animations/Happy SUN.json',
