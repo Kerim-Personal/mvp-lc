@@ -26,16 +26,22 @@ class _CelestialBackgroundState extends State<CelestialBackground> {
   void _createStars(Size size) {
     final random = Random();
     if (mounted) {
-      setState(() {
-        stars = List.generate(300, (index) {
-          return Star(
-            position: Offset(random.nextDouble() * size.width, random.nextDouble() * size.height),
-            radius: random.nextDouble() * 1.2 + 0.4,
-            baseOpacity: random.nextDouble() * 0.4 + 0.1,
-            twinkleSpeed: random.nextDouble() * 0.4 + 0.1,
-            twinkleOffset: random.nextDouble() * 2 * pi,
-          );
-        });
+      // Build sırasında setState çağrısını önlemek için
+      // postFrameCallback kullan
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            stars = List.generate(300, (index) {
+              return Star(
+                position: Offset(random.nextDouble() * size.width, random.nextDouble() * size.height),
+                radius: random.nextDouble() * 1.2 + 0.4,
+                baseOpacity: random.nextDouble() * 0.4 + 0.1,
+                twinkleSpeed: random.nextDouble() * 0.4 + 0.1,
+                twinkleOffset: random.nextDouble() * 2 * pi,
+              );
+            });
+          });
+        }
       });
     }
   }
