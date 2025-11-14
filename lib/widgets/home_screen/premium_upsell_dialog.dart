@@ -1,5 +1,6 @@
 // lib/widgets/home_screen/premium_upsell_dialog.dart
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
@@ -19,6 +20,7 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
   late final Animation<double> _fadeAnimation;
   late final PageController _pageController;
   int _currentPage = 0;
+  Timer? _autoScrollTimer;
 
   static const List<_FeatureData> _features = [
     _FeatureData(
@@ -71,10 +73,27 @@ class _PremiumUpsellDialogState extends State<PremiumUpsellDialog> with TickerPr
     _fadeAnimation = CurvedAnimation(parent: _entryController, curve: Curves.easeIn);
     _entryController.forward();
     _pageController = PageController();
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final nextPage = (_currentPage + 1) % _features.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   @override
   void dispose() {
+    _autoScrollTimer?.cancel();
     _entryController.dispose();
     _pageController.dispose();
     super.dispose();
