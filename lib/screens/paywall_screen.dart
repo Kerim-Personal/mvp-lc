@@ -37,6 +37,19 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
   bool _hasUsedFreeTrial = false;
   Timer? _autoScrollTimer;
 
+  // İndirim yüzdesini hesapla
+  String get _discountPercentage {
+    final monthlyPrice = RevenueCatService.instance.monthlyPrice;
+    final annualPrice = RevenueCatService.instance.annualPrice;
+
+    if (monthlyPrice != null && annualPrice != null && monthlyPrice > 0) {
+      final yearlyEquivalent = monthlyPrice * 12;
+      final discount = ((yearlyEquivalent - annualPrice) / yearlyEquivalent * 100).round();
+      return '$discount% OFF';
+    }
+    return '30% OFF'; // Fallback
+  }
+
   @override
   void initState() {
     super.initState();
@@ -553,7 +566,7 @@ class _PaywallScreenState extends State<PaywallScreen> with SingleTickerProvider
                                             title: 'Yearly',
                                             price: RevenueCatService.instance.annualPriceString ?? r'$79.99',
                                             period: '/yr',
-                                            badge: '30% OFF',
+                                            badge: _discountPercentage,
                                           ),
                                         ),
                                       ],
