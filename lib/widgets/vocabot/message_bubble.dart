@@ -13,6 +13,7 @@ class MessageBubble extends StatelessWidget {
   final Function(String) onCorrect;
   final bool isUserPremium;
   final String nativeLanguage;
+  final String targetLanguage;
   final bool isPremium;
   // Yeni: Quiz cevabı callback (sadece index)
   final ValueChanged<int>? onQuizAnswer;
@@ -26,6 +27,7 @@ class MessageBubble extends StatelessWidget {
     required this.onCorrect,
     this.isUserPremium = false,
     required this.nativeLanguage,
+    this.targetLanguage = 'en',
     required this.isPremium,
     this.onQuizAnswer,
     this.onRequestMoreQuiz,
@@ -128,7 +130,9 @@ class MessageBubble extends StatelessWidget {
                 title: const Text('Speak', style: TextStyle(color: Colors.white)),
                 onTap: () async {
                   Navigator.pop(context);
-                  await tts.speakSmart(message.text, hintLanguageCode: message.sender == MessageSender.bot ? _guessLangFromMessage(message.text) : nativeLanguage);
+                  // Kullanıcı mesajları için targetLanguage, bot mesajları için dil tahmini kullan
+                  final langCode = message.sender == MessageSender.user ? targetLanguage : _guessLangFromMessage(message.text);
+                  await tts.speakSmart(message.text, hintLanguageCode: langCode);
                 },
               ),
               ListTile(
@@ -365,7 +369,9 @@ class MessageBubble extends StatelessWidget {
                         tooltip: 'Speak',
                         icon: Icon(Icons.volume_up, color: iconColor),
                         onPressed: () async {
-                          await TtsService().speakSmart(message.text, hintLanguageCode: message.sender == MessageSender.bot ? _guessLangFromMessage(message.text) : nativeLanguage);
+                          // Kullanıcı mesajları için targetLanguage, bot mesajları için dil tahmini kullan
+                          final langCode = message.sender == MessageSender.user ? targetLanguage : _guessLangFromMessage(message.text);
+                          await TtsService().speakSmart(message.text, hintLanguageCode: langCode);
                         },
                       ),
                       IconButton(

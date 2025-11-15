@@ -896,6 +896,7 @@ class _LinguaBotChatScreenState extends State<LinguaBotChatScreen> with TickerPr
                                 onCorrect: (newText) => _updateMessageText(message.id, newText),
                                 isUserPremium: _isPremium,
                                 nativeLanguage: _nativeLanguage,
+                                targetLanguage: _targetLanguage,
                                 isPremium: _isPremium,
                                 onQuizAnswer: (idx) => _handleQuizAnswer(message, idx),
                                 onRequestMoreQuiz: (topicPath, topicTitle) => _requestNextQuizForTopic(topicPath, topicTitle),
